@@ -1,0 +1,55 @@
+{
+  "expo": {
+    "name": "냥도감",
+    "slug": "catdex",
+    "version": "1.0.0",
+    "scheme": "catdex",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "backgroundColor": "#FFF7EA"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "splash": {
+        "backgroundColor": "#FFF7EA"
+      }
+    },
+    "android": {
+      "package": "com.persimmontree.catdex",
+      "splash": {
+        "backgroundColor": "#FFF7EA"
+      },
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
+      ]
+    },
+    "plugins": [
+      "expo-web-browser",
+      "expo-secure-store",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "냥도감에서 길고양이 사진을 기록하기 위해 카메라 접근이 필요합니다."
+        }
+      ],
+      [
+        "@react-native-kakao/core",
+        {
+          "nativeAppKey": "fd0a990fa57ac38b31d0c4cb30ba2242",
+          "android": {
+            "authCodeHandlerActivity": true
+          }
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "a78580d6-5a25-4c9a-bbb2-7786f6aa6d1a"
+      }
+    }
+  }
+}
