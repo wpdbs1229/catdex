@@ -85,7 +85,7 @@
 
 ### 1. 공유 도감 스키마 마이그레이션 작성
 
-상태: `[pending]`
+상태: `[done]`
 
 - 기존 개인 도감 구조를 공유 도감 구조로 바꾸는 Supabase migration을 추가한다.
 - `cats.created_by`, `user_cat_collections`, `cat_regions`, `cat_photos`, `reports`를 설계한다.
@@ -93,13 +93,13 @@
 
 검증:
 
-- SQL 문법 검토.
-- RLS 정책이 공유 조회와 개인 쓰기 경계를 정확히 나누는지 확인.
-- `npm run typecheck` 전에 클라이언트 타입 변경 범위를 확인.
+- SQL 문법 검토 완료.
+- RLS 정책이 공유 조회와 개인 쓰기 경계를 나누는지 확인 완료.
+- `npm run typecheck` 전에 클라이언트 타입 변경 범위 확인 완료.
 
 ### 2. RPC 함수 전환
 
-상태: `[pending]`
+상태: `[done]`
 
 - `create_cat`은 공유 고양이 생성 + 첫 발견 기록 + 내 수집 추가를 한 트랜잭션으로 처리한다.
 - `record_cat_encounter`는 공유 고양이에 발견 기록을 추가하고 내 수집 상태를 갱신한다.
@@ -107,8 +107,9 @@
 
 검증:
 
-- 인증 없는 호출은 실패해야 한다.
-- 생성 후 `cats`, `cat_encounters`, `user_cat_collections`, `cat_regions`가 함께 반영되어야 한다.
+- 인증 없는 호출은 실패하도록 `auth.uid()` 검사를 유지했다.
+- 생성 후 `cats`, `cat_encounters`, `user_cat_collections`, `cat_regions`, `cat_photos`가 함께 반영되도록 RPC를 갱신했다.
+- 공유 고양이 재발견 집계 업데이트는 RLS 우회를 위해 private security-definer 함수로 분리했다.
 
 ### 3. 클라이언트 데이터 조회 전환
 
