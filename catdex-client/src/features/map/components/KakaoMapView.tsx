@@ -226,7 +226,7 @@ export function KakaoMapView({ regions, selectedRegionId, onSelectRegion }: Kaka
         onMessage={handleMessage}
         originWhitelist={['*']}
         scrollEnabled={false}
-        source={{ html }}
+        source={{ html, baseUrl: 'http://localhost:8085' }}
         style={styles.webView}
       />
     </View>
