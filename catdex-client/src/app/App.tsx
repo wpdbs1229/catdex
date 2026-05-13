@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
+import { Alert } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AppShell } from '@/shared/components/AppShell';
 import { BottomTabBar } from '@/shared/components/BottomTabBar';
 import { fetchAchievedBadges, fetchProfile, fetchRegions } from '@/shared/api/app.api';
-import { fetchCatOptions } from '@/shared/api/cats.api';
+import { fetchCatOptions, reportCat } from '@/shared/api/cats.api';
 import { coatOptions, personalityOptions } from '@/shared/data/cats.mock';
 import { LoginScreen } from '@/features/auth/LoginScreen';
 import { useAuth } from '@/features/auth/hooks/useAuth';
@@ -61,8 +62,8 @@ export default function App() {
     createCat,
     dexProgress,
     homeSummary,
+    myCats,
     recentCats,
-    rediscoveryCount,
     selectedCat,
     selectedCatEncounters,
     undiscoveredDexSlots,
@@ -139,6 +140,34 @@ export default function App() {
     await reloadAppResources();
   };
 
+  const handleRecordExistingCat = async (catId: string) => {
+    setIsSaving(true);
+
+    try {
+      await addEncounter(catId);
+      await reloadAppResources();
+      setNavigation({
+        screen: 'detail',
+        selectedCatId: catId,
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleReportSelectedCat = async () => {
+    if (!selectedCat) {
+      return;
+    }
+
+    await reportCat({
+      catId: selectedCat.id,
+      reason: 'incorrect_info',
+      memo: '앱에서 사용자 신고로 접수되었습니다.',
+    });
+    Alert.alert('신고 접수', '검토가 필요한 고양이 정보로 신고했어요.');
+  };
+
   const renderScreen = () => {
     switch (navigation.screen) {
       case 'home':
@@ -166,6 +195,7 @@ export default function App() {
             encounters={selectedCatEncounters}
             onBack={() => handleTabChange('dex')}
             onRecordEncounter={handleRecordEncounter}
+            onReportCat={handleReportSelectedCat}
           />
         ) : (
           <CatDexScreen
@@ -179,7 +209,9 @@ export default function App() {
         return (
           <CaptureScreen
             coatOptions={apiCoatOptions}
+            existingCats={recentCats}
             isSubmitting={isSaving}
+            onRecordExisting={handleRecordExistingCat}
             onSave={handleSaveCapture}
             personalityOptions={apiPersonalityOptions}
           />
@@ -191,6 +223,8 @@ export default function App() {
           <MyPageScreen
             badges={badges}
             isSigningOut={isSigningOut}
+            myCats={myCats}
+            onOpenCat={handleOpenCat}
             onLogout={logout}
             profile={profile}
             user={currentUser}

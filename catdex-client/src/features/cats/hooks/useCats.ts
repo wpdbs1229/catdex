@@ -7,6 +7,7 @@ import {
   fetchDexPlaceholders,
   fetchDexProgress,
   fetchHomeSummary,
+  fetchMyCats,
   fetchRecentCats,
   recordCatEncounter,
 } from '@/shared/api/cats.api';
@@ -25,6 +26,7 @@ const emptyDexProgress: DexProgress = {
 
 export function useCats(selectedCatId: string | null, enabled = true) {
   const [cats, setCats] = useState<Cat[]>([]);
+  const [myCats, setMyCats] = useState<Cat[]>([]);
   const [recentCats, setRecentCats] = useState<Cat[]>([]);
   const [selectedCatEncounters, setSelectedCatEncounters] = useState<CatEncounter[]>([]);
   const [undiscoveredDexSlots, setUndiscoveredDexSlots] = useState<DexPlaceholder[]>([]);
@@ -33,8 +35,9 @@ export function useCats(selectedCatId: string | null, enabled = true) {
   const [isLoading, setIsLoading] = useState(true);
 
   const reloadCats = useCallback(async () => {
-    const [nextCats, nextRecentCats, nextSummary, nextProgress, nextPlaceholders] = await Promise.all([
+    const [nextCats, nextMyCats, nextRecentCats, nextSummary, nextProgress, nextPlaceholders] = await Promise.all([
       fetchCats(),
+      fetchMyCats(),
       fetchRecentCats(3),
       fetchHomeSummary(),
       fetchDexProgress(),
@@ -42,6 +45,7 @@ export function useCats(selectedCatId: string | null, enabled = true) {
     ]);
 
     setCats(nextCats);
+    setMyCats(nextMyCats);
     setRecentCats(nextRecentCats);
     setHomeSummary(nextSummary);
     setDexProgress(nextProgress);
@@ -135,6 +139,7 @@ export function useCats(selectedCatId: string | null, enabled = true) {
     dexProgress,
     homeSummary,
     isLoading,
+    myCats,
     recentCats,
     rediscoveryCount: 0,
     selectedCat,

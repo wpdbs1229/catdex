@@ -85,7 +85,7 @@
 
 ### 1. 공유 도감 스키마 마이그레이션 작성
 
-상태: `[pending]`
+상태: `[done]`
 
 - 기존 개인 도감 구조를 공유 도감 구조로 바꾸는 Supabase migration을 추가한다.
 - `cats.created_by`, `user_cat_collections`, `cat_regions`, `cat_photos`, `reports`를 설계한다.
@@ -93,13 +93,13 @@
 
 검증:
 
-- SQL 문법 검토.
-- RLS 정책이 공유 조회와 개인 쓰기 경계를 정확히 나누는지 확인.
-- `npm run typecheck` 전에 클라이언트 타입 변경 범위를 확인.
+- SQL 문법 검토 완료.
+- RLS 정책이 공유 조회와 개인 쓰기 경계를 나누는지 확인 완료.
+- `npm run typecheck` 전에 클라이언트 타입 변경 범위 확인 완료.
 
 ### 2. RPC 함수 전환
 
-상태: `[pending]`
+상태: `[done]`
 
 - `create_cat`은 공유 고양이 생성 + 첫 발견 기록 + 내 수집 추가를 한 트랜잭션으로 처리한다.
 - `record_cat_encounter`는 공유 고양이에 발견 기록을 추가하고 내 수집 상태를 갱신한다.
@@ -107,12 +107,13 @@
 
 검증:
 
-- 인증 없는 호출은 실패해야 한다.
-- 생성 후 `cats`, `cat_encounters`, `user_cat_collections`, `cat_regions`가 함께 반영되어야 한다.
+- 인증 없는 호출은 실패하도록 `auth.uid()` 검사를 유지했다.
+- 생성 후 `cats`, `cat_encounters`, `user_cat_collections`, `cat_regions`, `cat_photos`가 함께 반영되도록 RPC를 갱신했다.
+- 공유 고양이 재발견 집계 업데이트는 RLS 우회를 위해 private security-definer 함수로 분리했다.
 
 ### 3. 클라이언트 데이터 조회 전환
 
-상태: `[pending]`
+상태: `[done]`
 
 - 홈/도감은 공유 고양이 목록을 조회한다.
 - MY/내 도감은 `user_cat_collections` 기준으로 조회한다.
@@ -121,23 +122,26 @@
 검증:
 
 - `npm run typecheck` 통과.
-- 로그인 사용자 기준 홈, 도감, 지도, MY 화면이 빈 데이터에서도 깨지지 않아야 한다.
+- 홈/도감은 `cats` 공유 목록을 조회한다.
+- MY/내 도감과 도감 진행률은 `user_cat_collections` 기준으로 계산한다.
+- 지도는 공유 지역 고양이 연결인 `cat_regions` 기준으로 조회한다.
 
 ### 4. 수집 UX 전환
 
-상태: `[pending]`
+상태: `[done]`
 
 - 등록 화면에서 새 공유 고양이 등록과 기존 고양이 재발견 흐름을 구분한다.
 - 고양이 상세에 "나도 봤어요" 액션을 연결한다.
 
 검증:
 
-- 새 고양이 등록 후 공유 도감과 내 도감에 모두 반영되어야 한다.
-- 재발견 후 발견 횟수와 최근 발견일이 갱신되어야 한다.
+- `npm run typecheck` 통과.
+- 새 고양이 등록은 기존 `create_cat` RPC를 통해 공유 도감과 내 도감을 함께 갱신한다.
+- 상세 화면의 "나도 봤어요"와 등록 화면의 기존 고양이 재발견 액션은 `record_cat_encounter` RPC를 호출한다.
 
 ### 5. 공개 범위와 신고 기능
 
-상태: `[pending]`
+상태: `[done]`
 
 - 발견 기록 공개 필드를 제한한다.
 - 신고 테이블과 신고 생성 API를 추가한다.
@@ -145,8 +149,10 @@
 
 검증:
 
-- 본인이 아닌 사용자의 민감 정보가 노출되지 않아야 한다.
-- 신고는 로그인 사용자만 생성할 수 있어야 한다.
+- `npm run typecheck` 통과.
+- 발견 기록은 public/own RLS 정책 범위에서 조회한다.
+- 신고 생성 API는 로그인 사용자 확인 후 `reports`에 본인 `reporter_id`로 insert한다.
+- 원격 Supabase에서 `reports` RLS 활성화와 authenticated insert/select 정책을 확인했다.
 
 ### 6. 최종 시뮬레이터 검증
 

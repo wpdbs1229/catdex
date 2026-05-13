@@ -1,7 +1,7 @@
 import { throwIfSupabaseError } from '@/shared/api/client';
 import { assertSupabaseConfigured, supabase } from '@/shared/supabase/client';
 import { catFilters, coatOptions, personalityOptions, totalDexCount, undiscoveredDexSlotsMock } from '@/shared/data/cats.mock';
-import type { Cat, CatEncounter, CatFilter, CatRarity, CatType, CaptureCatDraft, DexPlaceholder, DexProgress, HomeSummary, PersonalityTag } from '@/shared/types/cat';
+import type { Cat, CatEncounter, CatFilter, CatReportDraft, CatRarity, CatType, CaptureCatDraft, DexPlaceholder, DexProgress, HomeSummary, PersonalityTag } from '@/shared/types/cat';
 
 export interface CatOptionsResponse {
   filters: CatFilter[];
@@ -31,6 +31,13 @@ interface CatEncounterRow {
   region_name: string;
   memo: string;
   image_url: string | null;
+}
+
+interface UserCatCollectionRow {
+  encounter_count: number;
+  first_collected_at: string;
+  last_seen_at: string;
+  cats: CatRow | CatRow[] | null;
 }
 
 function formatDate(value: string) {
@@ -112,6 +119,37 @@ export async function fetchRecentCats(limit = 3) {
   return Promise.all(((data ?? []) as CatRow[]).map(mapCat));
 }
 
+export async function fetchMyCats() {
+  assertSupabaseConfigured();
+
+  const { data, error } = await supabase
+    .from('user_cat_collections')
+    .select('encounter_count, first_collected_at, last_seen_at, cats(*)')
+    .order('last_seen_at', { ascending: false });
+
+  throwIfSupabaseError(error);
+
+  return Promise.all(
+    ((data ?? []) as UserCatCollectionRow[])
+      .map((row) => {
+        const cat = Array.isArray(row.cats) ? row.cats[0] : row.cats;
+
+        if (!cat) {
+          return null;
+        }
+
+        return {
+          ...cat,
+          encounter_count: row.encounter_count,
+          first_seen_at: row.first_collected_at,
+          last_seen_at: row.last_seen_at,
+        };
+      })
+      .filter((row): row is CatRow => row !== null)
+      .map(mapCat),
+  );
+}
+
 export async function fetchHomeSummary(): Promise<HomeSummary> {
   const cats = await fetchCats();
   const today = new Date().toISOString().slice(0, 10).replaceAll('-', '.');
@@ -125,7 +163,7 @@ export async function fetchHomeSummary(): Promise<HomeSummary> {
 }
 
 export async function fetchDexProgress(): Promise<DexProgress> {
-  const cats = await fetchCats();
+  const cats = await fetchMyCats();
 
   return {
     collected: cats.length,
@@ -189,4 +227,28 @@ export async function recordCatEncounter(catId: string, payload: Pick<CatEncount
   throwIfSupabaseError(error);
 
   return mapEncounter(data as CatEncounterRow);
+}
+
+export async function reportCat(draft: CatReportDraft) {
+  assertSupabaseConfigured();
+
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  throwIfSupabaseError(userError);
+
+  if (!user) {
+    throw new Error('신고에는 로그인이 필요합니다.');
+  }
+
+  const { error } = await supabase.from('reports').insert({
+    reporter_id: user.id,
+    cat_id: draft.catId,
+    reason: draft.reason,
+    memo: draft.memo,
+  });
+
+  throwIfSupabaseError(error);
 }

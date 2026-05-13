@@ -1,6 +1,6 @@
 import { File } from 'expo-file-system';
 import { throwIfSupabaseError } from '@/shared/api/client';
-import { fetchCats } from '@/shared/api/cats.api';
+import { fetchCats, fetchMyCats } from '@/shared/api/cats.api';
 import { assertSupabaseConfigured, supabase } from '@/shared/supabase/client';
 import type { Badge, ExplorerProfile } from '@/shared/types/badge';
 import type { Region } from '@/shared/types/region';
@@ -13,7 +13,7 @@ interface RegionRow {
   radius: number;
 }
 
-interface RegionCatRow {
+interface CatRegionRow {
   region_id: string;
   cat_id: string;
 }
@@ -38,7 +38,7 @@ export async function fetchRegions() {
 
   const [regionsResponse, regionCatsResponse, cats] = await Promise.all([
     supabase.from('regions').select('*').order('name', { ascending: true }),
-    supabase.from('region_cats').select('region_id, cat_id'),
+    supabase.from('cat_regions').select('region_id, cat_id'),
     fetchCats(),
   ]);
 
@@ -46,7 +46,7 @@ export async function fetchRegions() {
   throwIfSupabaseError(regionCatsResponse.error);
 
   const catNameById = new Map(cats.map((cat) => [cat.id, cat.name]));
-  const regionCats = ((regionCatsResponse.data ?? []) as RegionCatRow[]).reduce<Record<string, string[]>>((acc, row) => {
+  const regionCats = ((regionCatsResponse.data ?? []) as CatRegionRow[]).reduce<Record<string, string[]>>((acc, row) => {
     const catName = catNameById.get(row.cat_id);
 
     if (catName) {
@@ -69,15 +69,10 @@ export async function fetchRegions() {
 export async function fetchProfile(): Promise<ExplorerProfile> {
   assertSupabaseConfigured();
 
-  const cats = await fetchCats();
-  const { count, error } = await supabase
-    .from('cat_encounters')
-    .select('id', { count: 'exact', head: true });
-
-  throwIfSupabaseError(error);
-
+  const cats = await fetchMyCats();
   const totalDiscoveries = cats.length;
-  const rediscoveries = Math.max((count ?? 0) - totalDiscoveries, 0);
+  const totalEncounters = cats.reduce((sum, cat) => sum + cat.encounterCount, 0);
+  const rediscoveries = Math.max(totalEncounters - totalDiscoveries, 0);
   const rareCount = cats.filter((cat) => cat.rarity >= 4).length;
 
   return {
