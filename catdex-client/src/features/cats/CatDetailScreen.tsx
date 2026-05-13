@@ -14,9 +14,10 @@ interface CatDetailScreenProps {
   encounters: CatEncounter[];
   onBack: () => void;
   onRecordEncounter: () => void;
+  onReportCat: () => void;
 }
 
-export function CatDetailScreen({ cat, encounters, onBack, onRecordEncounter }: CatDetailScreenProps) {
+export function CatDetailScreen({ cat, encounters, onBack, onRecordEncounter, onReportCat }: CatDetailScreenProps) {
   const visual = getCatVisual(cat.type);
 
   return (
@@ -82,7 +83,10 @@ export function CatDetailScreen({ cat, encounters, onBack, onRecordEncounter }: 
       <EncounterTimeline encounters={encounters} />
 
       <View style={styles.buttonWrap}>
-        <Button onPress={onRecordEncounter}>다시 만남 기록하기</Button>
+        <Button onPress={onRecordEncounter}>나도 봤어요</Button>
+        <Button onPress={onReportCat} variant="secondary">
+          신고하기
+        </Button>
       </View>
     </ScrollView>
   );
@@ -218,5 +222,6 @@ const styles = StyleSheet.create({
   },
   buttonWrap: {
     marginTop: theme.spacing.xl,
+    gap: theme.spacing.md,
   },
 });

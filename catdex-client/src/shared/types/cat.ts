@@ -39,6 +39,14 @@ export interface CaptureCatDraft {
   imageUrl?: string;
 }
 
+export type CatReportReason = 'duplicate_cat' | 'inappropriate_photo' | 'location_risk' | 'incorrect_info' | 'other';
+
+export interface CatReportDraft {
+  catId: string;
+  reason: CatReportReason;
+  memo: string;
+}
+
 export interface DexPlaceholder {
   id: string;
   number: number;
