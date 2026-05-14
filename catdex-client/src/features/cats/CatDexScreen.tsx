@@ -106,7 +106,7 @@ export function CatDexScreen({ cats, placeholders, progress, onOpenCat }: CatDex
           items={items}
           onOpenCat={onOpenCat}
           onOpenSightingLocation={(item) => {
-            Alert.alert('목격 위치', item.regionName);
+            Alert.alert('목격 정보', `출몰 위치: ${item.regionName}\n털 색상: ${item.type} 계열`);
           }}
         />
       </View>
