@@ -34,10 +34,14 @@ export function CatDexScreen({ cats, placeholders, progress, onOpenCat }: CatDex
     const lockedItems = placeholders.map((placeholder) => ({
       id: placeholder.id,
       number: placeholder.number,
-      name: '???',
+      name: placeholder.clueTitle,
       type: placeholder.type,
       rarity: placeholder.rarity,
       encounterCount: 0,
+      clue: placeholder.clue,
+      regionHint: placeholder.regionHint,
+      timeHint: placeholder.timeHint,
+      unlockHint: placeholder.unlockHint,
       discovered: false,
     }));
 

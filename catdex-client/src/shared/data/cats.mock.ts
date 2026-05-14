@@ -106,9 +106,39 @@ export const catEncountersMock: CatEncounter[] = [
 ];
 
 export const undiscoveredDexSlotsMock: DexPlaceholder[] = [
-  { id: 'shadow-006', number: 6, type: '치즈냥', rarity: 4 },
-  { id: 'shadow-007', number: 7, type: '삼색이', rarity: 5 },
-  { id: 'shadow-008', number: 8, type: '턱시도', rarity: 3 }
+  {
+    id: 'shadow-006',
+    number: 6,
+    type: '치즈냥',
+    rarity: 4,
+    clueTitle: '벤치 아래 작은 발자국',
+    clue: '따뜻한 자리 근처에서 둥글게 앉은 실루엣이 목격됐어요.',
+    regionHint: '중동 산책로',
+    timeHint: '오후 햇살 시간',
+    unlockHint: '비슷한 고양이를 촬영하면 정체가 열려요.',
+  },
+  {
+    id: 'shadow-007',
+    number: 7,
+    type: '삼색이',
+    rarity: 5,
+    clueTitle: '담장 위 세 가지 색',
+    clue: '사람 발소리가 멀어질 때만 잠깐 모습을 보인대요.',
+    regionHint: '상동 골목',
+    timeHint: '해질녘',
+    unlockHint: '희귀 단서 후보예요. 사진으로 확인해 보세요.',
+  },
+  {
+    id: 'shadow-008',
+    number: 8,
+    type: '턱시도',
+    rarity: 3,
+    clueTitle: '밤 순찰의 검은 꼬리',
+    clue: '가게 불빛 아래를 천천히 지나가는 하얀 앞발이 보여요.',
+    regionHint: '송내동 상가 근처',
+    timeHint: '저녁 이후',
+    unlockHint: '같은 특징을 기록하면 도감 카드로 바뀌어요.',
+  },
 ];
 
 export const initialVisibleCatCount = catsMock.length;
