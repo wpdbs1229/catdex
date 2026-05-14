@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Filter } from 'lucide-react-native';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { CatGrid } from '@/features/cats/components/CatGrid';
 import { Chip } from '@/shared/components/Chip';
 import { ProgressBar } from '@/shared/components/ProgressBar';
@@ -34,10 +34,15 @@ export function CatDexScreen({ cats, placeholders, progress, onOpenCat }: CatDex
     const lockedItems = placeholders.map((placeholder) => ({
       id: placeholder.id,
       number: placeholder.number,
-      name: '???',
+      name: '미확인 제보',
       type: placeholder.type,
       rarity: placeholder.rarity,
       encounterCount: 0,
+      regionName: placeholder.regionName,
+      sightedAt: placeholder.sightedAt,
+      reportCount: placeholder.reportCount,
+      behaviorHint: placeholder.behaviorHint,
+      imageUrl: placeholder.imageUrl,
       discovered: false,
     }));
 
@@ -97,7 +102,13 @@ export function CatDexScreen({ cats, placeholders, progress, onOpenCat }: CatDex
 
       <View style={styles.section}>
         <SectionHeader subtitle={`${items.length}장의 카드`} title={selectedFilter === '전체' ? '전체 도감' : `${selectedFilter} 필터`} />
-        <CatGrid items={items} onOpenCat={onOpenCat} />
+        <CatGrid
+          items={items}
+          onOpenCat={onOpenCat}
+          onOpenSightingLocation={(item) => {
+            Alert.alert('목격 위치', item.regionName);
+          }}
+        />
       </View>
     </ScrollView>
   );

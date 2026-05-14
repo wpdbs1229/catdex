@@ -14,6 +14,7 @@ interface CaptureScreenProps {
   isSubmitting?: boolean;
   onRecordExisting: (catId: string) => Promise<void> | void;
   onSave: (draft: CaptureCatDraft) => Promise<void> | void;
+  onSaveSighting: (draft: CaptureCatDraft) => Promise<void> | void;
 }
 
 export function CaptureScreen({
@@ -23,6 +24,7 @@ export function CaptureScreen({
   isSubmitting = false,
   onRecordExisting,
   onSave,
+  onSaveSighting,
 }: CaptureScreenProps) {
   const [capturedImageUri, setCapturedImageUri] = useState<string | null>(null);
 
@@ -70,6 +72,7 @@ export function CaptureScreen({
           capturedImageUri={capturedImageUri}
           isSubmitting={isSubmitting}
           onSubmit={onSave}
+          onSubmitSighting={onSaveSighting}
           personalityOptions={personalityOptions}
         />
       </View>

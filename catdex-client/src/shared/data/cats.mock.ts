@@ -105,11 +105,7 @@ export const catEncountersMock: CatEncounter[] = [
   { id: 'enc-gureum-3', catId: 'gureum', seenAt: '2026.05.01', regionName: '부천시 상동 근처', memo: '식빵 자세로 졸고 있는 모습 발견' }
 ];
 
-export const undiscoveredDexSlotsMock: DexPlaceholder[] = [
-  { id: 'shadow-006', number: 6, type: '치즈냥', rarity: 4 },
-  { id: 'shadow-007', number: 7, type: '삼색이', rarity: 5 },
-  { id: 'shadow-008', number: 8, type: '턱시도', rarity: 3 }
-];
+export const undiscoveredDexSlotsMock: DexPlaceholder[] = [];
 
 export const initialVisibleCatCount = catsMock.length;
 export const initialEncounterCount = catEncountersMock.length;
