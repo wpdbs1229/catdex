@@ -15,7 +15,14 @@ export function MapScreen({ regions }: MapScreenProps) {
   const [selectedRegion, setSelectedRegion] = useState<Region | null>(regions[0] ?? null);
 
   return (
-    <ScrollView contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
+    <View style={styles.screen}>
+      <KakaoMapView
+        onSelectRegion={setSelectedRegion}
+        regions={regions}
+        selectedRegionId={selectedRegion?.id ?? null}
+        style={styles.fullMap}
+      />
+
       <View style={styles.header}>
         <View style={styles.badge}>
           <Text style={styles.badgeText}>발견 지역</Text>
@@ -24,41 +31,53 @@ export function MapScreen({ regions }: MapScreenProps) {
         <Text style={styles.subtitle}>길고양이 보호를 위해 정확한 위치는 공개하지 않아요.</Text>
       </View>
 
-      <KakaoMapView onSelectRegion={setSelectedRegion} regions={regions} selectedRegionId={selectedRegion?.id ?? null} />
-
-      {selectedRegion ? (
-        <Card style={styles.selectedRegionCard}>
-          <Text style={styles.regionKicker}>선택된 지역</Text>
-          <View style={styles.regionHeader}>
-            <Text style={styles.regionTitle}>{selectedRegion.name}</Text>
-            <Text style={styles.regionCount}>{selectedRegion.cats.length}마리</Text>
-          </View>
-          <View style={styles.regionList}>
-            {selectedRegion.cats.map((cat) => (
-              <View key={`${selectedRegion.id}-${cat}`} style={styles.regionTag}>
-                <Text style={styles.regionTagText}>{cat}</Text>
+      <View style={styles.bottomSheet}>
+        <ScrollView showsVerticalScrollIndicator={false}>
+          {selectedRegion ? (
+            <Card style={styles.selectedRegionCard}>
+              <Text style={styles.regionKicker}>선택된 지역</Text>
+              <View style={styles.regionHeader}>
+                <Text style={styles.regionTitle}>{selectedRegion.name}</Text>
+                <Text style={styles.regionCount}>{selectedRegion.cats.length}마리</Text>
               </View>
-            ))}
-          </View>
-        </Card>
-      ) : null}
+              <View style={styles.regionList}>
+                {selectedRegion.cats.map((cat) => (
+                  <View key={`${selectedRegion.id}-${cat}`} style={styles.regionTag}>
+                    <Text style={styles.regionTagText}>{cat}</Text>
+                  </View>
+                ))}
+              </View>
+            </Card>
+          ) : null}
 
-      <View style={styles.section}>
-        <SectionHeader title="지역별 고양이 리스트" />
-        <RegionCatList onSelectRegion={setSelectedRegion} regions={regions} selectedRegionId={selectedRegion?.id ?? null} />
+          <View style={styles.section}>
+            <SectionHeader title="지역별 고양이 리스트" />
+            <RegionCatList onSelectRegion={setSelectedRegion} regions={regions} selectedRegionId={selectedRegion?.id ?? null} />
+          </View>
+        </ScrollView>
       </View>
-    </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  contentContainer: {
-    paddingHorizontal: theme.spacing.lg,
-    paddingTop: theme.spacing.lg,
-    paddingBottom: 140,
+  screen: {
+    flex: 1,
+    backgroundColor: theme.colors.mapBase,
+  },
+  fullMap: {
+    ...StyleSheet.absoluteFillObject,
   },
   header: {
-    marginBottom: theme.spacing.xl,
+    position: 'absolute',
+    top: theme.spacing.lg,
+    right: theme.spacing.lg,
+    left: theme.spacing.lg,
+    borderRadius: theme.radius.xl,
+    padding: theme.spacing.lg,
+    backgroundColor: 'rgba(255,255,255,0.84)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.92)',
   },
   badge: {
     alignSelf: 'flex-start',
@@ -84,8 +103,20 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     color: theme.colors.mutedText,
   },
+  bottomSheet: {
+    position: 'absolute',
+    right: theme.spacing.lg,
+    bottom: 112,
+    left: theme.spacing.lg,
+    maxHeight: '44%',
+    borderRadius: theme.radius.xl,
+    padding: theme.spacing.md,
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.96)',
+  },
   selectedRegionCard: {
-    marginTop: theme.spacing.lg,
+    backgroundColor: 'rgba(255,255,255,0.95)',
   },
   regionKicker: {
     fontSize: 14,

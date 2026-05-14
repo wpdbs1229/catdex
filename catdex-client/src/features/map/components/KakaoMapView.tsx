@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 import type { Region } from '@/shared/types/region';
-import { createShadow, theme } from '@/shared/styles/theme';
+import { theme } from '@/shared/styles/theme';
 
 const fallbackMessage = '지도를 불러오지 못했어요. Kakao Map API Key 설정을 확인해주세요.';
 
@@ -20,6 +20,7 @@ interface KakaoMapViewProps {
   regions: Region[];
   selectedRegionId: string | null;
   onSelectRegion: (region: Region) => void;
+  style?: StyleProp<ViewStyle>;
 }
 
 function parseBridgeMessage(data: string): KakaoMapBridgeMessage | null {
@@ -175,7 +176,7 @@ function createMapHtml(appKey: string, regions: Region[], selectedRegionId: stri
 </html>`;
 }
 
-export function KakaoMapView({ regions, selectedRegionId, onSelectRegion }: KakaoMapViewProps) {
+export function KakaoMapView({ regions, selectedRegionId, onSelectRegion, style }: KakaoMapViewProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [hasLoadFailed, setHasLoadFailed] = useState(false);
   const appKey = process.env.EXPO_PUBLIC_KAKAO_MAP_APP_KEY?.trim();
@@ -202,14 +203,14 @@ export function KakaoMapView({ regions, selectedRegionId, onSelectRegion }: Kaka
 
   if (!appKey || hasLoadFailed) {
     return (
-      <View style={styles.fallbackContainer}>
+      <View style={[styles.fallbackContainer, style]}>
         <Text style={styles.fallbackText}>{fallbackMessage}</Text>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, style]}>
       {isLoading ? (
         <View style={styles.loadingOverlay}>
           <ActivityIndicator color={theme.colors.primaryDark} />
@@ -235,11 +236,9 @@ export function KakaoMapView({ regions, selectedRegionId, onSelectRegion }: Kaka
 
 const styles = StyleSheet.create({
   container: {
-    height: 300,
+    flex: 1,
     overflow: 'hidden',
-    borderRadius: theme.radius.xl,
     backgroundColor: theme.colors.mapBase,
-    ...createShadow(8),
   },
   webView: {
     flex: 1,
@@ -253,10 +252,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(239, 228, 214, 0.72)',
   },
   fallbackContainer: {
-    height: 300,
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: theme.radius.xl,
     paddingHorizontal: theme.spacing.xl,
     backgroundColor: theme.colors.mapBase,
     borderWidth: 1,
