@@ -26,7 +26,7 @@ export function HomeScreen({ summary, recentCats, onOpenCat, onGoCapture }: Home
         </View>
         <View style={styles.weekCard}>
           <Text style={styles.weekLabel}>이번 주 수집</Text>
-          <Text style={styles.weekValue}>+5</Text>
+          <Text style={styles.weekValue}>+{summary.weeklyCollected}</Text>
         </View>
       </View>
 

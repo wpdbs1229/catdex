@@ -44,6 +44,26 @@ function formatDate(value: string) {
   return value.replaceAll('-', '.');
 }
 
+function formatLocalDate(value: Date) {
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, '0');
+  const day = String(value.getDate()).padStart(2, '0');
+
+  return `${year}-${month}-${day}`;
+}
+
+function getWeekStartDate() {
+  const today = new Date();
+  const day = today.getDay();
+  const daysSinceMonday = day === 0 ? 6 : day - 1;
+  const weekStart = new Date(today);
+
+  weekStart.setHours(0, 0, 0, 0);
+  weekStart.setDate(today.getDate() - daysSinceMonday);
+
+  return formatLocalDate(weekStart);
+}
+
 async function getDisplayImageUrl(imageUrl: string | null) {
   if (!imageUrl || imageUrl.startsWith('http') || imageUrl.startsWith('file:')) {
     return imageUrl ?? undefined;
@@ -154,9 +174,16 @@ export async function fetchHomeSummary(): Promise<HomeSummary> {
   const cats = await fetchCats();
   const today = new Date().toISOString().slice(0, 10).replaceAll('-', '.');
   const rediscovered = cats.find((cat) => cat.encounterCount > 1);
+  const { count: weeklyCollected, error } = await supabase
+    .from('user_cat_collections')
+    .select('cat_id', { count: 'exact', head: true })
+    .gte('first_collected_at', getWeekStartDate());
+
+  throwIfSupabaseError(error);
 
   return {
     todayDiscovered: cats.filter((cat) => cat.firstSeenAt === today).length,
+    weeklyCollected: weeklyCollected ?? 0,
     totalCollected: cats.length,
     recentRediscovered: rediscovered?.name ?? '아직 없어요',
   };

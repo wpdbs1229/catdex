@@ -15,6 +15,7 @@ import type { Cat, CatEncounter, CaptureCatDraft, DexPlaceholder, DexProgress, H
 
 const emptyHomeSummary: HomeSummary = {
   todayDiscovered: 0,
+  weeklyCollected: 0,
   totalCollected: 0,
   recentRediscovered: '아직 없어요',
 };
