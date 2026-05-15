@@ -21,11 +21,15 @@ export function MapScreen({ regions }: MapScreenProps) {
       />
 
       <View style={styles.header}>
-        <View style={styles.badge}>
-          <Text style={styles.badgeText}>발견 지역</Text>
+        <View style={styles.headerRow}>
+          <View>
+            <Text style={styles.title}>지도 기록</Text>
+            <Text style={styles.subtitle}>정확한 위치는 공개하지 않아요.</Text>
+          </View>
+          <View style={styles.badge}>
+            <Text style={styles.badgeText}>발견 지역</Text>
+          </View>
         </View>
-        <Text style={styles.title}>지도 기록</Text>
-        <Text style={styles.subtitle}>길고양이 보호를 위해 정확한 위치는 공개하지 않아요.</Text>
       </View>
 
       <View style={styles.bottomSheet}>
@@ -91,17 +95,23 @@ const styles = StyleSheet.create({
     top: theme.spacing.lg,
     right: theme.spacing.lg,
     left: theme.spacing.lg,
-    borderRadius: theme.radius.xl,
-    padding: theme.spacing.lg,
-    backgroundColor: 'rgba(255,255,255,0.84)',
+    borderRadius: theme.radius.lg,
+    paddingHorizontal: theme.spacing.lg,
+    paddingVertical: theme.spacing.md,
+    backgroundColor: 'rgba(255,255,255,0.78)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.92)',
+    borderColor: 'rgba(255,255,255,0.88)',
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: theme.spacing.md,
   },
   badge: {
-    alignSelf: 'flex-start',
     borderRadius: 999,
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: 6,
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: 5,
     backgroundColor: 'rgba(255,255,255,0.75)',
   },
   badgeText: {
@@ -110,15 +120,14 @@ const styles = StyleSheet.create({
     color: '#916B53',
   },
   title: {
-    marginTop: theme.spacing.md,
-    fontSize: 32,
+    fontSize: 22,
     fontWeight: '800',
     color: theme.colors.text,
   },
   subtitle: {
-    marginTop: theme.spacing.sm,
-    fontSize: 14,
-    lineHeight: 22,
+    marginTop: 3,
+    fontSize: 12,
+    lineHeight: 16,
     color: theme.colors.mutedText,
   },
   bottomSheet: {
