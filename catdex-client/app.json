@@ -28,6 +28,7 @@
       ]
     },
     "plugins": [
+      "./plugins/withKakaoMavenRepo",
       "expo-web-browser",
       "expo-secure-store",
       [

@@ -12,7 +12,6 @@ import { theme } from '@/shared/styles/theme';
 const providerLabels: Record<AuthProvider, string> = {
   kakao: 'Kakao',
   google: 'Google',
-  guest: 'Guest',
 };
 
 interface MyPageScreenProps {
