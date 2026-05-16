@@ -11,7 +11,6 @@ interface LoginScreenProps {
   errorMessage: string | null;
   onLoginWithKakao: () => void;
   onLoginWithGoogle: () => void;
-  onLoginAsGuest: () => void;
 }
 
 function getButtonLabel(provider: AuthProvider, pendingProvider: AuthProvider | null, label: string) {
@@ -24,7 +23,6 @@ export function LoginScreen({
   errorMessage,
   onLoginWithKakao,
   onLoginWithGoogle,
-  onLoginAsGuest,
 }: LoginScreenProps) {
   const isBusy = isRestoring || pendingProvider !== null;
 
@@ -66,10 +64,6 @@ export function LoginScreen({
                 <Text style={styles.googleIcon}>G</Text>
                 <Text style={styles.providerText}>{getButtonLabel('google', pendingProvider, '구글로 시작하기')}</Text>
               </View>
-            </Button>
-
-            <Button disabled={isBusy} onPress={onLoginAsGuest} variant="ghost">
-              <Text style={styles.guestText}>{getButtonLabel('guest', pendingProvider, '비회원 둘러보기')}</Text>
             </Button>
           </View>
         </Card>
@@ -216,10 +210,5 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
     fontSize: 16,
     fontWeight: '800',
-  },
-  guestText: {
-    color: theme.colors.mutedText,
-    fontSize: 15,
-    fontWeight: '700',
   },
 });

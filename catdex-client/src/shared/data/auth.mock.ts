@@ -13,10 +13,4 @@ export const authUsersMock: Record<AuthProvider, AuthUser> = {
     email: 'catdex.google@example.com',
     provider: 'google',
   },
-  guest: {
-    id: 'mock-guest-user',
-    nickname: '비회원 탐험가',
-    provider: 'guest',
-  },
 };
-

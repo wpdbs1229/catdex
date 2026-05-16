@@ -138,26 +138,6 @@ export async function signInWithGoogle(): Promise<CatdexAuthSession> {
   return signInWithOAuthProvider('google');
 }
 
-export async function signInAsGuest(): Promise<CatdexAuthSession> {
-  assertSupabaseConfigured();
-
-  const { data, error } = await supabase.auth.signInAnonymously({
-    options: {
-      data: {
-        nickname: '냥도감 탐험가',
-      },
-    },
-  });
-
-  throwIfSupabaseError(error);
-
-  if (!data.session) {
-    throw new Error('Supabase guest session was not returned.');
-  }
-
-  return toCatdexSession(data.session, 'guest');
-}
-
 export async function signOut(): Promise<void> {
   if (!isSupabaseConfigured) {
     return;
