@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import * as SecureStore from 'expo-secure-store';
-import { signInAsGuest, signInWithGoogle, signInWithKakao, signOut } from '@/shared/api/auth.api';
+import { signInWithGoogle, signInWithKakao, signOut } from '@/shared/api/auth.api';
 import { setApiAccessToken } from '@/shared/api/client';
 import type { AuthProvider, AuthSession, AuthUser } from '@/shared/types/auth';
 
 const authStorageKey = 'catdex.auth.session';
 
 function isAuthProvider(value: unknown): value is AuthProvider {
-  return value === 'kakao' || value === 'google' || value === 'guest';
+  return value === 'kakao' || value === 'google';
 }
 
 function isAuthUser(value: unknown): value is AuthUser {
@@ -112,7 +112,6 @@ export function useAuth() {
 
   const loginWithKakao = () => login('kakao', signInWithKakao);
   const loginWithGoogle = () => login('google', signInWithGoogle);
-  const loginAsGuest = () => login('guest', signInAsGuest);
 
   const logout = async () => {
     setIsSigningOut(true);
@@ -138,7 +137,6 @@ export function useAuth() {
     pendingProvider,
     loginWithKakao,
     loginWithGoogle,
-    loginAsGuest,
     logout,
   };
 }
