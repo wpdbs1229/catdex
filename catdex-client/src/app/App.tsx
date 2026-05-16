@@ -40,7 +40,6 @@ export default function App() {
     isSigningOut,
     authErrorMessage,
     pendingProvider,
-    loginAsGuest,
     loginWithGoogle,
     loginWithKakao,
     logout,
@@ -248,7 +247,6 @@ export default function App() {
         <LoginScreen
           isRestoring={isRestoring}
           errorMessage={authErrorMessage}
-          onLoginAsGuest={loginAsGuest}
           onLoginWithGoogle={loginWithGoogle}
           onLoginWithKakao={loginWithKakao}
           pendingProvider={pendingProvider}
