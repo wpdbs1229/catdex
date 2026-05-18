@@ -1,6 +1,6 @@
 import { throwIfSupabaseError } from '@/shared/api/client';
 import { assertSupabaseConfigured, supabase } from '@/shared/supabase/client';
-import { catFilters, coatOptions, personalityOptions, totalDexCount, undiscoveredDexSlotsMock } from '@/shared/data/cats.mock';
+import { catFilters, coatOptions, personalityOptions, totalDexCount } from '@/shared/data/cats.mock';
 import type { Cat, CatEncounter, CatFilter, CatReportDraft, CatRarity, CatType, CaptureCatDraft, DexPlaceholder, DexProgress, HomeSummary, PersonalityTag } from '@/shared/types/cat';
 
 export interface CatOptionsResponse {
@@ -38,6 +38,15 @@ interface UserCatCollectionRow {
   first_collected_at: string;
   last_seen_at: string;
   cats: CatRow | CatRow[] | null;
+}
+
+interface CatSightingRow {
+  id: string;
+  region_name: string;
+  coat_type: CatType;
+  behavior_hint: string;
+  image_url: string | null;
+  sighted_at: string;
 }
 
 function formatDate(value: string) {
@@ -171,8 +180,33 @@ export async function fetchDexProgress(): Promise<DexProgress> {
   };
 }
 
-export function fetchDexPlaceholders(): Promise<DexPlaceholder[]> {
-  return Promise.resolve(undiscoveredDexSlotsMock);
+async function mapSightingPlaceholder(row: CatSightingRow, index: number): Promise<DexPlaceholder> {
+  return {
+    id: row.id,
+    number: totalDexCount - index,
+    type: row.coat_type,
+    rarity: 2,
+    regionName: row.region_name,
+    sightedAt: formatDate(row.sighted_at),
+    reportCount: 1,
+    behaviorHint: row.behavior_hint || undefined,
+    imageUrl: await getDisplayImageUrl(row.image_url),
+  };
+}
+
+export async function fetchDexPlaceholders(): Promise<DexPlaceholder[]> {
+  assertSupabaseConfigured();
+
+  const { data, error } = await supabase
+    .from('cat_sightings')
+    .select('id, region_name, coat_type, behavior_hint, image_url, sighted_at')
+    .eq('status', 'open')
+    .order('created_at', { ascending: false })
+    .limit(6);
+
+  throwIfSupabaseError(error);
+
+  return Promise.all(((data ?? []) as CatSightingRow[]).map(mapSightingPlaceholder));
 }
 
 export async function fetchCatEncounters(catId: string) {
@@ -212,6 +246,21 @@ export async function createCat(draft: CaptureCatDraft) {
   throwIfSupabaseError(error);
 
   return mapCat(data as CatRow);
+}
+
+export async function createCatSighting(draft: Pick<CaptureCatDraft, 'type' | 'regionName' | 'memo'> & { imageUrl?: string }) {
+  assertSupabaseConfigured();
+
+  const { data, error } = await supabase.rpc('create_cat_sighting', {
+    p_region_name: draft.regionName,
+    p_coat_type: draft.type,
+    p_behavior_hint: draft.memo,
+    p_image_url: draft.imageUrl ?? null,
+  });
+
+  throwIfSupabaseError(error);
+
+  return mapSightingPlaceholder(data as CatSightingRow, 0);
 }
 
 export async function recordCatEncounter(catId: string, payload: Pick<CatEncounter, 'regionName' | 'memo'> & { imageUrl?: string }) {

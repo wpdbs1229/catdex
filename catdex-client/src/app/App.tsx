@@ -40,7 +40,6 @@ export default function App() {
     isSigningOut,
     authErrorMessage,
     pendingProvider,
-    loginAsGuest,
     loginWithGoogle,
     loginWithKakao,
     logout,
@@ -60,6 +59,7 @@ export default function App() {
     addEncounter,
     cats,
     createCat,
+    createCatSighting,
     dexProgress,
     homeSummary,
     myCats,
@@ -121,6 +121,21 @@ export default function App() {
 
     try {
       await createCat(draft);
+      await reloadAppResources();
+      setNavigation({
+        screen: 'dex',
+        selectedCatId: null,
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleSaveSighting = async (draft: CaptureCatDraft) => {
+    setIsSaving(true);
+
+    try {
+      await createCatSighting(draft);
       await reloadAppResources();
       setNavigation({
         screen: 'dex',
@@ -213,6 +228,7 @@ export default function App() {
             isSubmitting={isSaving}
             onRecordExisting={handleRecordExistingCat}
             onSave={handleSaveCapture}
+            onSaveSighting={handleSaveSighting}
             personalityOptions={apiPersonalityOptions}
           />
         );
@@ -248,7 +264,6 @@ export default function App() {
         <LoginScreen
           isRestoring={isRestoring}
           errorMessage={authErrorMessage}
-          onLoginAsGuest={loginAsGuest}
           onLoginWithGoogle={loginWithGoogle}
           onLoginWithKakao={loginWithKakao}
           pendingProvider={pendingProvider}
