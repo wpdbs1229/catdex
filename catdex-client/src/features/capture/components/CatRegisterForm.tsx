@@ -20,6 +20,7 @@ interface CatRegisterFormProps {
   capturedImageUri: string | null;
   isSubmitting?: boolean;
   onSubmit: (draft: CaptureCatDraft) => Promise<void> | void;
+  onSubmitSighting: (draft: CaptureCatDraft) => Promise<void> | void;
 }
 
 export function CatRegisterForm({
@@ -28,6 +29,7 @@ export function CatRegisterForm({
   capturedImageUri,
   isSubmitting = false,
   onSubmit,
+  onSubmitSighting,
 }: CatRegisterFormProps) {
   const [draft, setDraft] = useState<CaptureCatDraft>(defaultDraft);
   const submitDraft: CaptureCatDraft = capturedImageUri ? { ...draft, imageUrl: capturedImageUri } : draft;
@@ -93,9 +95,14 @@ export function CatRegisterForm({
         />
       </View>
 
-      <Button disabled={isSubmitting} onPress={() => onSubmit(submitDraft)}>
-        {isSubmitting ? '등록 중...' : '도감에 등록하기'}
-      </Button>
+      <View style={styles.actions}>
+        <Button disabled={isSubmitting} onPress={() => onSubmitSighting(submitDraft)} variant="secondary">
+          {isSubmitting ? '저장 중...' : '미확인 제보로 남기기'}
+        </Button>
+        <Button disabled={isSubmitting} onPress={() => onSubmit(submitDraft)}>
+          {isSubmitting ? '등록 중...' : '도감에 등록하기'}
+        </Button>
+      </View>
     </Card>
   );
 }
@@ -139,5 +146,8 @@ const styles = StyleSheet.create({
     paddingVertical: theme.spacing.md,
     backgroundColor: '#F7EFE3',
     color: theme.colors.text,
+  },
+  actions: {
+    gap: theme.spacing.md,
   },
 });

@@ -52,6 +52,11 @@ export interface DexPlaceholder {
   number: number;
   type: CatType;
   rarity: CatRarity;
+  regionName: string;
+  sightedAt: string;
+  reportCount: number;
+  behaviorHint?: string;
+  imageUrl?: string;
 }
 
 export interface HomeSummary {

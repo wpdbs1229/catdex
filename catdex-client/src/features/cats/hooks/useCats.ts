@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { uploadCatImage } from '@/shared/api/app.api';
 import {
   createCat as createCatRequest,
+  createCatSighting as createCatSightingRequest,
   fetchCatEncounters,
   fetchCats,
   fetchDexPlaceholders,
@@ -117,6 +118,20 @@ export function useCats(selectedCatId: string | null, enabled = true) {
     return nextCat;
   };
 
+  const createCatSighting = async (draft: CaptureCatDraft) => {
+    const uploadedImage = draft.imageUrl?.startsWith('file:')
+      ? await uploadCatImage(draft.imageUrl)
+      : null;
+
+    await createCatSightingRequest({
+      type: draft.type,
+      regionName: draft.regionName,
+      memo: draft.memo,
+      imageUrl: uploadedImage?.imageUrl ?? draft.imageUrl,
+    });
+    await reloadCats();
+  };
+
   const addEncounter = async (catId: string, regionName?: string) => {
     const lastRegionName =
       regionName ??
@@ -136,6 +151,7 @@ export function useCats(selectedCatId: string | null, enabled = true) {
     addEncounter,
     cats,
     createCat,
+    createCatSighting,
     dexProgress,
     homeSummary,
     isLoading,

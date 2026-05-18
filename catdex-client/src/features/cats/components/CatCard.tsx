@@ -15,6 +15,10 @@ export interface CatCardItem {
   encounterCount: number;
   discovered: boolean;
   imageUrl?: string;
+  regionName?: string;
+  sightedAt?: string;
+  reportCount?: number;
+  behaviorHint?: string;
 }
 
 interface CatCardProps {
@@ -26,24 +30,33 @@ export function CatCard({ item, onPress }: CatCardProps) {
   const visual = getCatVisual(item.type);
 
   return (
-    <Pressable disabled={!item.discovered} onPress={onPress} style={({ pressed }) => [styles.pressable, pressed && styles.pressed]}>
+    <Pressable onPress={onPress} style={({ pressed }) => [styles.pressable, pressed && styles.pressed]}>
       <Card style={[styles.card, !item.discovered && styles.lockedCard]}>
         <View style={styles.row}>
           <Text style={styles.number}>No.{String(item.number).padStart(3, '0')}</Text>
           <Text style={styles.stars}>{getRarityStars(item.rarity).map((isOn) => (isOn ? '★' : '☆')).join('')}</Text>
         </View>
         <View style={[styles.art, { backgroundColor: item.discovered ? visual.colors[0] : '#D8CEC1' }]}>
-          {item.imageUrl && item.discovered ? (
+          {item.imageUrl ? (
             <Image source={{ uri: item.imageUrl }} style={styles.artImage} />
           ) : (
             <Text style={styles.artEmoji}>{item.discovered ? visual.emoji : '🐾'}</Text>
           )}
         </View>
         <Text style={styles.name}>{item.name}</Text>
-        <View style={styles.footer}>
-          <Chip>{item.discovered ? item.type : '미확인'}</Chip>
-          <Text style={styles.encounter}>{item.discovered ? `발견 ${item.encounterCount}회` : '아직 미발견'}</Text>
-        </View>
+        {item.discovered ? (
+          <View style={styles.footer}>
+            <Chip>{item.type}</Chip>
+            <Text style={styles.encounter}>발견 {item.encounterCount}회</Text>
+          </View>
+        ) : (
+          <View style={styles.footer}>
+            <Chip>{item.type} 계열</Chip>
+            <Text style={styles.encounter}>{item.sightedAt} 목격</Text>
+            <Text style={styles.sightingMeta}>{item.behaviorHint ? item.behaviorHint : '위치를 확인해 주변에서 찾아보세요.'}</Text>
+            <Text style={styles.locationCta}>위치 보기</Text>
+          </View>
+        )}
       </Card>
     </Pressable>
   );
@@ -105,5 +118,15 @@ const styles = StyleSheet.create({
   encounter: {
     fontSize: 13,
     color: theme.colors.mutedText,
+  },
+  sightingMeta: {
+    fontSize: 12,
+    lineHeight: 17,
+    color: '#8A6C58',
+  },
+  locationCta: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#6F5444',
   },
 });
