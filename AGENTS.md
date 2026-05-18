@@ -29,6 +29,20 @@
 - 커밋/PR을 만들 수 없는 환경이면 즉시 사용자에게 알리고, 코드 변경 범위를 더 키우기 전에 저장소 상태를 먼저 정리합니다.
 - 공유 도감 전환은 `docs/shared-catdex-migration.md`를 기준 문서로 삼습니다.
 
+## 개발/검증 워크플로
+
+- 클라이언트 작업은 기본적으로 `catdex-client` 디렉터리에서 진행합니다.
+- 패키지 매니저는 현재 `npm` 기준입니다. 새 스크립트나 의존성 문서화도 `npm` 기준으로 맞춥니다.
+- Node.js 버전은 `>=20.19.4 <21 || >=22` 제약을 따릅니다.
+- 구현 중 기본 검증은 `cd catdex-client && npm run typecheck`로 수행합니다.
+- 화면/수동 QA가 필요한 단계는 `docs/shared-catdex-migration.md` 기준으로 `홈`, `도감`, `촬영`, `지도`, `MY` 화면을 확인합니다.
+- 로컬 실행이 필요하면 `cd catdex-client && npm run start`를 기본으로 사용합니다.
+- 디바이스 연결 방식에 따라 `cd catdex-client && npm run start:lan`, `cd catdex-client && npm run start:tunnel`을 사용합니다.
+- 에뮬레이터 실행은 `cd catdex-client && npm run android`, `cd catdex-client && npm run ios`를 사용합니다.
+- OAuth/딥링크 검증 시 `catdex-client/.env.example`에 맞춰 `EXPO_PUBLIC_OAUTH_REDIRECT_URI`를 설정합니다. 현재 예시는 Expo Go Android 에뮬레이터 `exp://127.0.0.1:8081`, 개발 빌드 `catdex://`입니다.
+- Supabase 환경변수는 `catdex-client/.env.example` 기준으로 `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`를 설정합니다.
+- TODO: 저장소에서 합의된 Supabase 로컬 CLI 실행/마이그레이션 적용 명령은 아직 확인하지 못했습니다. 확인되면 이 문서에 추가합니다.
+
 ## Supabase 전환 단계
 
 각 단계는 구현 후 검증하고, 오류가 있으면 수정 후 재검증합니다. 단계 상태는 작업하면서 갱신합니다.
