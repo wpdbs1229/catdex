@@ -36,13 +36,8 @@ export function CatCard({ item, onPress }: CatCardProps) {
           <Text style={styles.number}>No.{String(item.number).padStart(3, '0')}</Text>
           <Text style={styles.stars}>{getRarityStars(item.rarity).map((isOn) => (isOn ? '★' : '☆')).join('')}</Text>
         </View>
-<<<<<<< codex/dex-discovery-hints
         <View style={[styles.art, { backgroundColor: item.discovered ? visual.colors[0] : '#D8CEC1' }, !item.discovered && styles.lockedArt]}>
           {item.imageUrl && item.discovered ? (
-=======
-        <View style={[styles.art, { backgroundColor: item.discovered ? visual.colors[0] : '#D8CEC1' }]}>
-          {item.imageUrl ? (
->>>>>>> shared-catdex-db
             <Image source={{ uri: item.imageUrl }} style={styles.artImage} />
           ) : (
             <>

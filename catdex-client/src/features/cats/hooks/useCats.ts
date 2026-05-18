@@ -15,10 +15,11 @@ import {
 import type { Cat, CatEncounter, CaptureCatDraft, DexPlaceholder, DexProgress, HomeSummary } from '@/shared/types/cat';
 
 const emptyHomeSummary: HomeSummary = {
-  todayDiscovered: 0,
-  weeklyCollected: 0,
-  totalCollected: 0,
-  recentRediscovered: '아직 없어요',
+  myWeeklyCollected: 0,
+  myTotalCollected: 0,
+  sharedTodayDiscovered: 0,
+  sharedTotalCats: 0,
+  recentMyRediscovered: '아직 없어요',
 };
 
 const emptyDexProgress: DexProgress = {

@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Filter } from 'lucide-react-native';
 import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { CatGrid } from '@/features/cats/components/CatGrid';
+import type { CatCardItem } from '@/features/cats/components/CatCard';
 import { Chip } from '@/shared/components/Chip';
 import { ProgressBar } from '@/shared/components/ProgressBar';
 import { SectionHeader } from '@/shared/components/SectionHeader';
@@ -20,7 +21,7 @@ export function CatDexScreen({ cats, placeholders, progress, onOpenCat }: CatDex
   const [selectedFilter, setSelectedFilter] = useState<CatFilter>('전체');
 
   const items = useMemo(() => {
-    const discoveredItems = cats.map((cat) => ({
+    const discoveredItems: CatCardItem[] = cats.map((cat) => ({
       id: cat.id,
       catId: cat.id,
       number: cat.number,
@@ -31,17 +32,17 @@ export function CatDexScreen({ cats, placeholders, progress, onOpenCat }: CatDex
       imageUrl: cat.imageUrl,
       discovered: true,
     }));
-    const lockedItems = placeholders.map((placeholder) => ({
+    const lockedItems: CatCardItem[] = placeholders.map((placeholder) => ({
       id: placeholder.id,
       number: placeholder.number,
-      name: placeholder.clueTitle,
+      name: placeholder.clueTitle ?? '미확인 고양이',
       type: placeholder.type,
       rarity: placeholder.rarity,
       encounterCount: 0,
-      clue: placeholder.clue,
+      clue: placeholder.clue ?? placeholder.behaviorHint ?? '아직 공유 도감에 등록되지 않은 목격 제보예요.',
       regionHint: placeholder.regionHint,
-      timeHint: placeholder.timeHint,
-      unlockHint: placeholder.unlockHint,
+      timeHint: placeholder.timeHint ?? placeholder.sightedAt,
+      unlockHint: placeholder.unlockHint ?? '촬영해서 공유 도감 고양이로 등록할 수 있어요.',
       discovered: false,
     }));
 
@@ -105,7 +106,7 @@ export function CatDexScreen({ cats, placeholders, progress, onOpenCat }: CatDex
           items={items}
           onOpenCat={onOpenCat}
           onOpenSightingLocation={(item) => {
-            Alert.alert('목격 정보', `출몰 위치: ${item.regionName}\n털 색상: ${item.type} 계열`);
+            Alert.alert('목격 정보', `출몰 위치: ${item.regionHint ?? '지역 단서 없음'}\n털 색상: ${item.type} 계열`);
           }}
         />
       </View>
