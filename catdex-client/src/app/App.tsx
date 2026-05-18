@@ -59,6 +59,7 @@ export default function App() {
     addEncounter,
     cats,
     createCat,
+    createCatSighting,
     dexProgress,
     homeSummary,
     myCats,
@@ -120,6 +121,21 @@ export default function App() {
 
     try {
       await createCat(draft);
+      await reloadAppResources();
+      setNavigation({
+        screen: 'dex',
+        selectedCatId: null,
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleSaveSighting = async (draft: CaptureCatDraft) => {
+    setIsSaving(true);
+
+    try {
+      await createCatSighting(draft);
       await reloadAppResources();
       setNavigation({
         screen: 'dex',
@@ -212,6 +228,7 @@ export default function App() {
             isSubmitting={isSaving}
             onRecordExisting={handleRecordExistingCat}
             onSave={handleSaveCapture}
+            onSaveSighting={handleSaveSighting}
             personalityOptions={apiPersonalityOptions}
           />
         );

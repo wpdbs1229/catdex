@@ -1,6 +1,6 @@
 import { throwIfSupabaseError } from '@/shared/api/client';
 import { assertSupabaseConfigured, supabase } from '@/shared/supabase/client';
-import { catFilters, coatOptions, personalityOptions, totalDexCount, undiscoveredDexSlotsMock } from '@/shared/data/cats.mock';
+import { catFilters, coatOptions, personalityOptions, totalDexCount } from '@/shared/data/cats.mock';
 import type { Cat, CatEncounter, CatFilter, CatReportDraft, CatRarity, CatType, CaptureCatDraft, DexPlaceholder, DexProgress, HomeSummary, PersonalityTag } from '@/shared/types/cat';
 
 export interface CatOptionsResponse {
@@ -40,8 +40,37 @@ interface UserCatCollectionRow {
   cats: CatRow | CatRow[] | null;
 }
 
+interface CatSightingRow {
+  id: string;
+  region_name: string;
+  coat_type: CatType;
+  behavior_hint: string;
+  image_url: string | null;
+  sighted_at: string;
+}
+
 function formatDate(value: string) {
   return value.replaceAll('-', '.');
+}
+
+function formatLocalDate(value: Date) {
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, '0');
+  const day = String(value.getDate()).padStart(2, '0');
+
+  return `${year}-${month}-${day}`;
+}
+
+function getWeekStartDate() {
+  const today = new Date();
+  const day = today.getDay();
+  const daysSinceMonday = day === 0 ? 6 : day - 1;
+  const weekStart = new Date(today);
+
+  weekStart.setHours(0, 0, 0, 0);
+  weekStart.setDate(today.getDate() - daysSinceMonday);
+
+  return formatLocalDate(weekStart);
 }
 
 async function getDisplayImageUrl(imageUrl: string | null) {
@@ -154,9 +183,16 @@ export async function fetchHomeSummary(): Promise<HomeSummary> {
   const cats = await fetchCats();
   const today = new Date().toISOString().slice(0, 10).replaceAll('-', '.');
   const rediscovered = cats.find((cat) => cat.encounterCount > 1);
+  const { count: weeklyCollected, error } = await supabase
+    .from('user_cat_collections')
+    .select('cat_id', { count: 'exact', head: true })
+    .gte('first_collected_at', getWeekStartDate());
+
+  throwIfSupabaseError(error);
 
   return {
     todayDiscovered: cats.filter((cat) => cat.firstSeenAt === today).length,
+    weeklyCollected: weeklyCollected ?? 0,
     totalCollected: cats.length,
     recentRediscovered: rediscovered?.name ?? '아직 없어요',
   };
@@ -171,8 +207,33 @@ export async function fetchDexProgress(): Promise<DexProgress> {
   };
 }
 
-export function fetchDexPlaceholders(): Promise<DexPlaceholder[]> {
-  return Promise.resolve(undiscoveredDexSlotsMock);
+async function mapSightingPlaceholder(row: CatSightingRow, index: number): Promise<DexPlaceholder> {
+  return {
+    id: row.id,
+    number: totalDexCount - index,
+    type: row.coat_type,
+    rarity: 2,
+    regionName: row.region_name,
+    sightedAt: formatDate(row.sighted_at),
+    reportCount: 1,
+    behaviorHint: row.behavior_hint || undefined,
+    imageUrl: await getDisplayImageUrl(row.image_url),
+  };
+}
+
+export async function fetchDexPlaceholders(): Promise<DexPlaceholder[]> {
+  assertSupabaseConfigured();
+
+  const { data, error } = await supabase
+    .from('cat_sightings')
+    .select('id, region_name, coat_type, behavior_hint, image_url, sighted_at')
+    .eq('status', 'open')
+    .order('created_at', { ascending: false })
+    .limit(6);
+
+  throwIfSupabaseError(error);
+
+  return Promise.all(((data ?? []) as CatSightingRow[]).map(mapSightingPlaceholder));
 }
 
 export async function fetchCatEncounters(catId: string) {
@@ -212,6 +273,21 @@ export async function createCat(draft: CaptureCatDraft) {
   throwIfSupabaseError(error);
 
   return mapCat(data as CatRow);
+}
+
+export async function createCatSighting(draft: Pick<CaptureCatDraft, 'type' | 'regionName' | 'memo'> & { imageUrl?: string }) {
+  assertSupabaseConfigured();
+
+  const { data, error } = await supabase.rpc('create_cat_sighting', {
+    p_region_name: draft.regionName,
+    p_coat_type: draft.type,
+    p_behavior_hint: draft.memo,
+    p_image_url: draft.imageUrl ?? null,
+  });
+
+  throwIfSupabaseError(error);
+
+  return mapSightingPlaceholder(data as CatSightingRow, 0);
 }
 
 export async function recordCatEncounter(catId: string, payload: Pick<CatEncounter, 'regionName' | 'memo'> & { imageUrl?: string }) {

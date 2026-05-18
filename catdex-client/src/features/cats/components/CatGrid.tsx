@@ -5,9 +5,10 @@ import { theme } from '@/shared/styles/theme';
 interface CatGridProps {
   items: CatCardItem[];
   onOpenCat: (catId: string) => void;
+  onOpenSightingLocation: (item: CatCardItem) => void;
 }
 
-export function CatGrid({ items, onOpenCat }: CatGridProps) {
+export function CatGrid({ items, onOpenCat, onOpenSightingLocation }: CatGridProps) {
   return (
     <View style={styles.grid}>
       {items.map((item) => (
@@ -17,7 +18,10 @@ export function CatGrid({ items, onOpenCat }: CatGridProps) {
           onPress={() => {
             if (item.catId) {
               onOpenCat(item.catId);
+              return;
             }
+
+            onOpenSightingLocation(item);
           }}
         />
       ))}
