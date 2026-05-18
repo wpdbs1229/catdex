@@ -61,6 +61,7 @@ export interface DexPlaceholder {
 
 export interface HomeSummary {
   todayDiscovered: number;
+  weeklyCollected: number;
   totalCollected: number;
   recentRediscovered: string;
 }
