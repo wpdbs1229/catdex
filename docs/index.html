@@ -352,13 +352,51 @@
       .footer {
         display: flex;
         justify-content: space-between;
-        gap: 16px;
-        padding: 28px clamp(20px, 5vw, 72px);
+        gap: 28px;
+        padding: 32px clamp(20px, 5vw, 72px);
         border-top: 1px solid rgba(255, 255, 255, 0.08);
         background: #2a221f;
         color: rgba(255, 255, 255, 0.62);
+      }
+
+      .footer-brand {
+        display: grid;
+        gap: 6px;
         font-size: 14px;
         font-weight: 750;
+      }
+
+      .business-info {
+        display: grid;
+        gap: 6px;
+        max-width: 720px;
+        color: rgba(255, 255, 255, 0.48);
+        font-size: 12px;
+        font-weight: 600;
+        line-height: 1.65;
+        text-align: right;
+      }
+
+      .business-info dl {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        gap: 4px 14px;
+        margin: 0;
+      }
+
+      .business-info div {
+        display: inline-flex;
+        gap: 5px;
+      }
+
+      .business-info dt,
+      .business-info dd {
+        margin: 0;
+      }
+
+      .business-info dt {
+        color: rgba(255, 255, 255, 0.62);
       }
 
       @media (max-width: 860px) {
@@ -407,6 +445,15 @@
 
         .footer {
           flex-direction: column;
+        }
+
+        .business-info {
+          max-width: none;
+          text-align: left;
+        }
+
+        .business-info dl {
+          justify-content: flex-start;
         }
       }
     </style>
@@ -537,8 +584,42 @@
     </main>
 
     <footer class="footer">
-      <span>냥도감 Catdex</span>
-      <span>GitHub Pages static landing page</span>
+      <div class="footer-brand">
+        <span>냥도감 Catdex</span>
+        <span>GitHub Pages static landing page</span>
+      </div>
+      <section class="business-info" aria-label="사업자 정보">
+        <dl>
+          <div>
+            <dt>상호명</dt>
+            <dd>오도</dd>
+          </div>
+          <div>
+            <dt>대표자</dt>
+            <dd>이재윤</dd>
+          </div>
+          <div>
+            <dt>사업자등록번호</dt>
+            <dd>757-76-00585</dd>
+          </div>
+          <div>
+            <dt>주소</dt>
+            <dd>경기도 부천시 오정구 여월로 27, 510동 8층 803호</dd>
+          </div>
+          <div>
+            <dt>업태</dt>
+            <dd>정보통신업, 도매 및 소매업, 전문, 과학 및 기술서비스업</dd>
+          </div>
+          <div>
+            <dt>종목</dt>
+            <dd>응용 소프트웨어 개발 및 공급업, 전자상거래 소매업, 광고물 문안, 도안, 설계 등 작성업</dd>
+          </div>
+          <div>
+            <dt>이메일</dt>
+            <dd>treka0723@kakao.com</dd>
+          </div>
+        </dl>
+      </section>
     </footer>
   </body>
 </html>
