@@ -6,6 +6,7 @@
     "scheme": "catdex",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
+    "icon": "./assets/catdex-icon.png",
     "splash": {
       "backgroundColor": "#FFF7EA"
     },
@@ -19,6 +20,10 @@
     },
     "android": {
       "package": "com.persimmontree.catdex",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/catdex-icon.png",
+        "backgroundColor": "#FFF2DE"
+      },
       "splash": {
         "backgroundColor": "#FFF7EA"
       },
