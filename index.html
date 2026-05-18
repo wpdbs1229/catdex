@@ -76,15 +76,10 @@
       }
 
       .mark {
-        display: grid;
         width: 34px;
         height: 34px;
-        place-items: center;
         border-radius: 8px;
-        background: var(--ink);
-        color: #fff;
-        font-size: 18px;
-        line-height: 1;
+        display: block;
       }
 
       .nav-links {
@@ -461,7 +456,7 @@
   <body>
     <header class="nav" aria-label="냥도감 페이지 내비게이션">
       <a class="brand" href="#top" aria-label="냥도감 홈">
-        <span class="mark">냥</span>
+        <img class="mark" src="./assets/catdex-icon.svg" alt="" aria-hidden="true" />
         <span>냥도감</span>
       </a>
       <nav class="nav-links" aria-label="주요 섹션">
