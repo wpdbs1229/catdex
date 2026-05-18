@@ -52,11 +52,11 @@ export interface DexPlaceholder {
   number: number;
   type: CatType;
   rarity: CatRarity;
-  regionName: string;
-  sightedAt: string;
-  reportCount: number;
-  behaviorHint?: string;
-  imageUrl?: string;
+  clueTitle: string;
+  clue: string;
+  regionHint: string;
+  timeHint: string;
+  unlockHint: string;
 }
 
 export interface HomeSummary {

@@ -34,15 +34,14 @@ export function CatDexScreen({ cats, placeholders, progress, onOpenCat }: CatDex
     const lockedItems = placeholders.map((placeholder) => ({
       id: placeholder.id,
       number: placeholder.number,
-      name: '미확인 제보',
+      name: placeholder.clueTitle,
       type: placeholder.type,
       rarity: placeholder.rarity,
       encounterCount: 0,
-      regionName: placeholder.regionName,
-      sightedAt: placeholder.sightedAt,
-      reportCount: placeholder.reportCount,
-      behaviorHint: placeholder.behaviorHint,
-      imageUrl: placeholder.imageUrl,
+      clue: placeholder.clue,
+      regionHint: placeholder.regionHint,
+      timeHint: placeholder.timeHint,
+      unlockHint: placeholder.unlockHint,
       discovered: false,
     }));
 
