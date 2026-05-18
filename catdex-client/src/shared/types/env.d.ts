@@ -4,5 +4,7 @@ declare const process: {
     EXPO_PUBLIC_OAUTH_REDIRECT_URI?: string;
     EXPO_PUBLIC_SUPABASE_URL?: string;
     EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY?: string;
+    EXPO_PUBLIC_REVENUECAT_IOS_API_KEY?: string;
+    EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY?: string;
   };
 };

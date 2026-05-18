@@ -109,7 +109,15 @@ function mapProfile(row: CollectionProfileRow | null, fallbackThemeId: string): 
 }
 
 export function hasActiveNyangkkureomi(entitlement: UserEntitlement) {
-  return entitlement.tier === 'nyangkkureomi' && (entitlement.status === 'active' || entitlement.status === 'trialing');
+  const isCanceledButStillInPeriod =
+    entitlement.status === 'canceled' &&
+    Boolean(entitlement.currentPeriodEndsAt) &&
+    new Date(entitlement.currentPeriodEndsAt as string).getTime() > Date.now();
+
+  return (
+    entitlement.tier === 'nyangkkureomi' &&
+    (entitlement.status === 'active' || entitlement.status === 'trialing' || isCanceledButStillInPeriod)
+  );
 }
 
 export async function fetchCollectionCustomization(): Promise<CollectionCustomizationState> {

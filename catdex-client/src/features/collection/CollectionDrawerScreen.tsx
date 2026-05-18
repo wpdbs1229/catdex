@@ -7,14 +7,21 @@ import { hasActiveNyangkkureomi } from '@/shared/api/collection.api';
 import { createShadow, theme } from '@/shared/styles/theme';
 import type { Cat } from '@/shared/types/cat';
 import type { CollectionCustomizationState, CollectionProfile } from '@/shared/types/collection';
+import type { NyangkkureomiPackage } from '@/shared/types/payments';
 
 interface CollectionDrawerScreenProps {
   customization: CollectionCustomizationState;
   myCats: Cat[];
   isSaving: boolean;
+  paymentPackages: NyangkkureomiPackage[];
+  isPaymentAvailable: boolean;
+  isPurchasing: boolean;
+  paymentErrorMessage: string | null;
   onBack: () => void;
   onSaveProfile: (profile: CollectionProfile) => void;
   onSaveFeaturedCat: (slot: number, catId: string | null) => void;
+  onPurchasePackage: (nextPackage: NyangkkureomiPackage) => void;
+  onRestorePurchases: () => void;
   onShowUpsell: () => void;
 }
 
@@ -22,9 +29,15 @@ export function CollectionDrawerScreen({
   customization,
   myCats,
   isSaving,
+  paymentPackages,
+  isPaymentAvailable,
+  isPurchasing,
+  paymentErrorMessage,
   onBack,
   onSaveProfile,
   onSaveFeaturedCat,
+  onPurchasePackage,
+  onRestorePurchases,
   onShowUpsell,
 }: CollectionDrawerScreenProps) {
   const hasNyangkkureomi = hasActiveNyangkkureomi(customization.entitlement);
@@ -192,8 +205,35 @@ export function CollectionDrawerScreen({
       {!hasNyangkkureomi ? (
         <Card style={styles.upsellCard}>
           <Text style={styles.upsellTitle}>냥꾸러미로 서랍을 더 넓혀요</Text>
-          <Text style={styles.upsellText}>프리미엄 표지, 주인공 3마리, 시즌 냥발 도장을 사용할 수 있어요.</Text>
-          <Button onPress={onShowUpsell}>냥꾸러미 보기</Button>
+          <Text style={styles.upsellText}>
+            프리미엄 표지, 주인공 3마리, 시즌 냥발 도장을 사용할 수 있어요. 결제는 App Store와 Google Play 구독으로 처리됩니다.
+          </Text>
+          {paymentPackages.length > 0 ? (
+            <View style={styles.packageList}>
+              {paymentPackages.map((nextPackage) => (
+                <Pressable
+                  key={nextPackage.id}
+                  disabled={isPurchasing}
+                  onPress={() => onPurchasePackage(nextPackage)}
+                  style={({ pressed }) => [styles.packageButton, pressed ? styles.pressed : null, isPurchasing ? styles.disabled : null]}
+                >
+                  <View style={styles.packageMeta}>
+                    <Text style={styles.packagePeriod}>{nextPackage.periodLabel}</Text>
+                    <Text style={styles.packageTitle}>{nextPackage.title}</Text>
+                  </View>
+                  <Text style={styles.packagePrice}>{nextPackage.price}</Text>
+                </Pressable>
+              ))}
+            </View>
+          ) : (
+            <Button disabled={isPurchasing} onPress={isPaymentAvailable ? onShowUpsell : onShowUpsell}>
+              냥꾸러미 준비 상태 보기
+            </Button>
+          )}
+          <Button disabled={isPurchasing} onPress={onRestorePurchases} variant="secondary">
+            구매 복원
+          </Button>
+          {paymentErrorMessage ? <Text style={styles.paymentError}>{paymentErrorMessage}</Text> : null}
         </Card>
       ) : null}
     </ScrollView>
@@ -302,6 +342,9 @@ const styles = StyleSheet.create({
   },
   pressed: {
     opacity: 0.86,
+  },
+  disabled: {
+    opacity: 0.55,
   },
   themeHeader: {
     flexDirection: 'row',
@@ -467,5 +510,46 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     lineHeight: 21,
+  },
+  packageList: {
+    gap: theme.spacing.sm,
+  },
+  packageButton: {
+    minHeight: 66,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.md,
+    backgroundColor: theme.colors.surface,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: theme.spacing.md,
+  },
+  packageMeta: {
+    flex: 1,
+  },
+  packagePeriod: {
+    color: theme.colors.primary,
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  packageTitle: {
+    marginTop: 3,
+    color: theme.colors.text,
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  packagePrice: {
+    color: theme.colors.primaryDark,
+    fontSize: 16,
+    fontWeight: '900',
+  },
+  paymentError: {
+    color: theme.colors.primary,
+    fontSize: 13,
+    fontWeight: '700',
+    lineHeight: 19,
   },
 });

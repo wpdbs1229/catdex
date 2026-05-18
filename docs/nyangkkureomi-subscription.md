@@ -102,3 +102,28 @@
 - 시즌 이벤트 자동 지급 RPC
 - 공유용 도감 카드 이미지 생성
 - 월간 수집 리포트와 시즌 스탬프북
+
+## 결제 연동 기준
+
+세금, 환불, 영수증 검증을 앱에서 직접 처리하지 않기 위해 `냥꾸러미`는 App Store / Google Play 인앱 구독 위에 RevenueCat을 붙인다.
+
+클라이언트:
+
+- `react-native-purchases`로 RevenueCat SDK를 사용한다.
+- `appUserID`는 Supabase Auth 사용자 UUID를 그대로 사용한다.
+- 클라이언트에는 RevenueCat public SDK key만 둔다.
+- RevenueCat secret key, Supabase `service_role` key, webhook secret은 클라이언트에 두지 않는다.
+
+RevenueCat 설정:
+
+- Entitlement ID: `nyangkkureomi`
+- Offering ID: `nyangkkureomi` 또는 RevenueCat current offering
+- 권장 패키지: 월간, 연간
+- 주간 구독은 기본 상품으로 만들지 않는다.
+
+Supabase 동기화:
+
+- RevenueCat webhook URL은 `supabase/functions/revenuecat-webhook` 배포 URL을 사용한다.
+- webhook Authorization 헤더는 `Bearer ${REVENUECAT_WEBHOOK_SECRET}` 형식으로 설정한다.
+- Edge Function은 webhook의 `app_user_id`를 `user_entitlements.user_id`로 사용한다.
+- 구독 취소 후에도 만료일이 남아 있으면 `status = canceled`, `current_period_ends_at > now()` 상태로 `냥꾸러미` 접근을 유지한다.

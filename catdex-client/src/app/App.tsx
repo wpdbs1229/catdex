@@ -24,6 +24,7 @@ import { HomeScreen } from '@/features/home/HomeScreen';
 import { MapScreen } from '@/features/map/MapScreen';
 import { MyPageScreen } from '@/features/my/MyPageScreen';
 import { SplashScreen } from '@/features/splash/SplashScreen';
+import { useNyangkkureomiPayments } from '@/features/subscription/hooks/useNyangkkureomiPayments';
 import type { Badge, ExplorerProfile } from '@/shared/types/badge';
 import type { CaptureCatDraft } from '@/shared/types/cat';
 import type { CatType, PersonalityTag } from '@/shared/types/cat';
@@ -82,6 +83,7 @@ export default function App() {
   const [badges, setBadges] = useState<Badge[]>([]);
   const [profile, setProfile] = useState<ExplorerProfile>(emptyProfile);
   const [customization, setCustomization] = useState<CollectionCustomizationState>(emptyCustomization);
+  const payments = useNyangkkureomiPayments(currentUser?.id ?? null);
   const {
     addEncounter,
     cats,
@@ -235,15 +237,23 @@ export default function App() {
   };
 
   const handleShowNyangkkureomiUpsell = () => {
+    if (!payments.isAvailable) {
+      Alert.alert(
+        '냥꾸러미 결제 준비',
+        payments.errorMessage ?? 'RevenueCat 공개 SDK 키와 스토어 상품을 설정하면 이 화면에서 바로 구독 결제를 시작할 수 있어요.',
+      );
+      return;
+    }
+
     Alert.alert(
       '냥꾸러미',
-      '월 3,900원 또는 연 39,000원으로 프리미엄 표지, 우리 도감 주인공 3마리, 시즌 냥발 도장을 사용할 수 있어요. 실제 결제는 스토어 상품 설정 후 연결합니다.',
+      '프리미엄 표지, 우리 도감 주인공 3마리, 시즌 냥발 도장을 사용할 수 있어요. 결제와 영수증은 App Store 또는 Google Play 구독으로 처리됩니다.',
     );
   };
 
   const collectionSummary: CollectionSummary = {
-    planName: hasActiveNyangkkureomi(customization.entitlement) ? '냥꾸러미 사용 중' : '무료 서랍',
-    hasNyangkkureomi: hasActiveNyangkkureomi(customization.entitlement),
+    planName: hasActiveNyangkkureomi(customization.entitlement) || payments.hasNyangkkureomi ? '냥꾸러미 사용 중' : '무료 서랍',
+    hasNyangkkureomi: hasActiveNyangkkureomi(customization.entitlement) || payments.hasNyangkkureomi,
     coverThemeName:
       customization.themes.find((theme) => theme.id === customization.profile.coverThemeId)?.name ?? '골목 관찰 노트',
     featuredCats: customization.featuredCatSlots
@@ -327,12 +337,18 @@ export default function App() {
         return (
           <CollectionDrawerScreen
             customization={customization}
+            isPaymentAvailable={payments.isAvailable}
+            isPurchasing={payments.isPurchasing}
             isSaving={isSaving}
             myCats={myCats}
             onBack={() => handleTabChange('my')}
+            onPurchasePackage={payments.purchase}
+            onRestorePurchases={payments.restore}
             onSaveFeaturedCat={handleSaveFeaturedCat}
             onSaveProfile={handleSaveCollectionProfile}
             onShowUpsell={handleShowNyangkkureomiUpsell}
+            paymentErrorMessage={payments.errorMessage}
+            paymentPackages={payments.packages}
           />
         );
       default:
