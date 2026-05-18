@@ -23,11 +23,11 @@ export function MapScreen({ regions }: MapScreenProps) {
       <View style={styles.header}>
         <View style={styles.headerRow}>
           <View>
-            <Text style={styles.title}>지도 기록</Text>
-            <Text style={styles.subtitle}>정확한 위치는 공개하지 않아요.</Text>
+            <Text style={styles.title}>공유 도감 지도</Text>
+            <Text style={styles.subtitle}>동네 단위의 공개 발견만 보여줘요. 정확한 위치는 저장하지 않아요.</Text>
           </View>
           <View style={styles.badge}>
-            <Text style={styles.badgeText}>발견 지역</Text>
+            <Text style={styles.badgeText}>공유 지역</Text>
           </View>
         </View>
       </View>
@@ -36,12 +36,12 @@ export function MapScreen({ regions }: MapScreenProps) {
         {selectedRegion ? (
           <View style={styles.selectedRegionSummary}>
             <View style={styles.selectedRegionText}>
-              <Text style={styles.regionKicker}>선택된 지역</Text>
+              <Text style={styles.regionKicker}>공유 발견 지역</Text>
               <Text numberOfLines={1} style={styles.regionTitle}>
                 {selectedRegion.name}
               </Text>
             </View>
-            <Text style={styles.regionCount}>{selectedRegion.cats.length}마리</Text>
+            <Text style={styles.regionCount}>공유 {selectedRegion.cats.length}마리</Text>
           </View>
         ) : null}
 
@@ -71,7 +71,7 @@ export function MapScreen({ regions }: MapScreenProps) {
                   <Text numberOfLines={1} style={[styles.regionPillText, isSelected && styles.regionPillTextSelected]}>
                     {region.name}
                   </Text>
-                  <Text style={[styles.regionPillCount, isSelected && styles.regionPillTextSelected]}>{region.cats.length}마리</Text>
+                  <Text style={[styles.regionPillCount, isSelected && styles.regionPillTextSelected]}>공유 {region.cats.length}마리</Text>
                 </Pressable>
               );
             })}

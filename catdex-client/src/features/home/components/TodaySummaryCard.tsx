@@ -10,17 +10,18 @@ interface TodaySummaryCardProps {
 
 export function TodaySummaryCard({ summary }: TodaySummaryCardProps) {
   const items = [
-    { label: '오늘 발견', value: `${summary.todayDiscovered}마리`, icon: Target },
-    { label: '전체 수집', value: `${summary.totalCollected}마리`, icon: Sparkles },
-    { label: '최근 다시 만남', value: summary.recentRediscovered, icon: Footprints },
+    { label: '오늘 공유 등록', value: `${summary.sharedTodayDiscovered}마리`, icon: Target },
+    { label: '내 도감 수집', value: `${summary.myTotalCollected}마리`, icon: Footprints },
+    { label: '공유 도감 전체', value: `${summary.sharedTotalCats}마리`, icon: Sparkles },
+    { label: '내 최근 재발견', value: summary.recentMyRediscovered, icon: Footprints },
   ];
 
   return (
     <Card style={styles.card}>
       <View style={styles.header}>
         <View style={styles.headerText}>
-          <Text style={styles.kicker}>오늘의 탐험 요약</Text>
-          <Text style={styles.title}>산책 기록이 차곡차곡 쌓이고 있어요</Text>
+          <Text style={styles.kicker}>오늘의 도감 요약</Text>
+          <Text style={styles.title}>내 수집과 공유 도감을 따로 보여줘요</Text>
         </View>
         <View style={styles.pawBadge}>
           <Text style={styles.pawEmoji}>🐾</Text>
@@ -78,10 +79,12 @@ const styles = StyleSheet.create({
   },
   grid: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: theme.spacing.sm,
   },
   statCard: {
-    flex: 1,
+    width: '48%',
+    minWidth: 120,
     borderRadius: theme.radius.lg,
     padding: theme.spacing.md,
     backgroundColor: 'rgba(255,255,255,0.82)',

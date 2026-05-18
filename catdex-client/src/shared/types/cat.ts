@@ -52,18 +52,23 @@ export interface DexPlaceholder {
   number: number;
   type: CatType;
   rarity: CatRarity;
-  clueTitle: string;
-  clue: string;
+  clueTitle?: string;
+  clue?: string;
   regionHint: string;
-  timeHint: string;
-  unlockHint: string;
+  timeHint?: string;
+  unlockHint?: string;
+  sightedAt?: string;
+  reportCount?: number;
+  behaviorHint?: string;
+  imageUrl?: string;
 }
 
 export interface HomeSummary {
-  todayDiscovered: number;
-  weeklyCollected: number;
-  totalCollected: number;
-  recentRediscovered: string;
+  myWeeklyCollected: number;
+  myTotalCollected: number;
+  sharedTodayDiscovered: number;
+  sharedTotalCats: number;
+  recentMyRediscovered: string;
 }
 
 export interface DexProgress {

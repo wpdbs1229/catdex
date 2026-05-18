@@ -180,9 +180,9 @@ export async function fetchMyCats() {
 }
 
 export async function fetchHomeSummary(): Promise<HomeSummary> {
-  const cats = await fetchCats();
+  const [sharedCats, myCats] = await Promise.all([fetchCats(), fetchMyCats()]);
   const today = new Date().toISOString().slice(0, 10).replaceAll('-', '.');
-  const rediscovered = cats.find((cat) => cat.encounterCount > 1);
+  const rediscovered = myCats.find((cat) => cat.encounterCount > 1);
   const { count: weeklyCollected, error } = await supabase
     .from('user_cat_collections')
     .select('cat_id', { count: 'exact', head: true })
@@ -191,10 +191,11 @@ export async function fetchHomeSummary(): Promise<HomeSummary> {
   throwIfSupabaseError(error);
 
   return {
-    todayDiscovered: cats.filter((cat) => cat.firstSeenAt === today).length,
-    weeklyCollected: weeklyCollected ?? 0,
-    totalCollected: cats.length,
-    recentRediscovered: rediscovered?.name ?? '아직 없어요',
+    myWeeklyCollected: weeklyCollected ?? 0,
+    myTotalCollected: myCats.length,
+    sharedTodayDiscovered: sharedCats.filter((cat) => cat.firstSeenAt === today).length,
+    sharedTotalCats: sharedCats.length,
+    recentMyRediscovered: rediscovered?.name ?? '아직 없어요',
   };
 }
 
@@ -213,7 +214,7 @@ async function mapSightingPlaceholder(row: CatSightingRow, index: number): Promi
     number: totalDexCount - index,
     type: row.coat_type,
     rarity: 2,
-    regionName: row.region_name,
+    regionHint: row.region_name,
     sightedAt: formatDate(row.sighted_at),
     reportCount: 1,
     behaviorHint: row.behavior_hint || undefined,

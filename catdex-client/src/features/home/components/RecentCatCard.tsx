@@ -32,7 +32,7 @@ export function RecentCatCard({ cat, onPress }: RecentCatCardProps) {
             <Chip>{cat.type}</Chip>
             <View style={styles.encounterRow}>
               <Eye color={theme.colors.mutedText} size={14} />
-              <Text style={styles.encounterText}>발견 {cat.encounterCount}회</Text>
+              <Text style={styles.encounterText}>공유 발견 {cat.encounterCount}회</Text>
             </View>
           </View>
         </View>

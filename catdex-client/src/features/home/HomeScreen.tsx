@@ -19,14 +19,14 @@ export function HomeScreen({ summary, recentCats, onOpenCat, onGoCapture }: Home
       <View style={styles.header}>
         <View>
           <View style={styles.badge}>
-            <Text style={styles.badgeText}>오늘도 수집 중</Text>
+            <Text style={styles.badgeText}>내 도감 + 공유 도감</Text>
           </View>
           <Text style={styles.title}>냥도감</Text>
-          <Text style={styles.subtitle}>산책길에서 만난 고양이를 기록하고 나만의 도감을 완성해 보세요.</Text>
+          <Text style={styles.subtitle}>내가 수집한 고양이와 동네가 함께 채우는 공유 도감을 나눠서 확인해요.</Text>
         </View>
         <View style={styles.weekCard}>
-          <Text style={styles.weekLabel}>이번 주 수집</Text>
-          <Text style={styles.weekValue}>+{summary.weeklyCollected}</Text>
+          <Text style={styles.weekLabel}>이번 주 내 수집</Text>
+          <Text style={styles.weekValue}>+{summary.myWeeklyCollected}</Text>
         </View>
       </View>
 
@@ -35,7 +35,7 @@ export function HomeScreen({ summary, recentCats, onOpenCat, onGoCapture }: Home
       <Button onPress={onGoCapture}>고양이 촬영하기</Button>
 
       <View style={styles.section}>
-        <SectionHeader subtitle="오늘 산책에서 기록한 고양이들" title="최근 발견한 고양이" />
+        <SectionHeader subtitle="모든 사용자의 공개 발견이 반영돼요" title="공유 도감 최신 고양이" />
         {recentCats.map((cat) => (
           <RecentCatCard cat={cat} key={cat.id} onPress={() => onOpenCat(cat.id)} />
         ))}
