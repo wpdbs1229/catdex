@@ -1,13 +1,20 @@
 import { useMemo, useState } from 'react';
 import { Filter, PawPrint, Search } from 'lucide-react-native';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View, type ImageSourcePropType } from 'react-native';
+import { CollectionCoverHeader } from '@/features/cats/components/CollectionCoverHeader';
 import { createShadow, theme } from '@/shared/styles/theme';
 import type { Cat, CatFilter, CatType, DexPlaceholder, DexProgress } from '@/shared/types/cat';
+import type { CollectionProfile, CollectionSummary, CollectionTheme } from '@/shared/types/collection';
 
 interface CatDexScreenProps {
   cats: Cat[];
+  collectionProfile: CollectionProfile;
+  collectionSummary: CollectionSummary;
+  collectionTheme?: CollectionTheme;
   placeholders: DexPlaceholder[];
   progress: DexProgress;
+  onOpenCollectionRankings: () => void;
+  onOpenCollectionDrawer: () => void;
   onOpenCat: (catId: string) => void;
 }
 
@@ -40,7 +47,17 @@ function imageForType(type: CatType, imageUrl?: string): ImageSourcePropType {
   return illustrations.orange;
 }
 
-export function CatDexScreen({ cats, placeholders, progress, onOpenCat }: CatDexScreenProps) {
+export function CatDexScreen({
+  cats,
+  collectionProfile,
+  collectionSummary,
+  collectionTheme,
+  placeholders,
+  progress,
+  onOpenCollectionRankings,
+  onOpenCollectionDrawer,
+  onOpenCat,
+}: CatDexScreenProps) {
   const [selectedFilter, setSelectedFilter] = useState<CatFilter>('전체');
   const visibleCats = useMemo(
     () => (selectedFilter === '전체' ? cats : cats.filter((cat) => cat.type === selectedFilter)),
@@ -50,22 +67,14 @@ export function CatDexScreen({ cats, placeholders, progress, onOpenCat }: CatDex
 
   return (
     <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-      <View style={styles.header}>
-        <View style={styles.headerCopy}>
-          <Text style={styles.title}>고양이 도감</Text>
-          <Text style={styles.subtitle}>발견한 고양이를 카드처럼 모아보세요.</Text>
-        </View>
-        <View style={styles.progressBubble}>
-          <Text style={styles.progressLabel}>수집 현황</Text>
-          <Text style={styles.progressValue}>
-            {progress.collected} / {progress.total}
-          </Text>
-        </View>
-      </View>
-
-      <View style={styles.progressTrack}>
-        <View style={[styles.progressFill, { width: `${Math.min(100, Math.max(0, (progress.collected / Math.max(progress.total, 1)) * 100))}%` }]} />
-      </View>
+      <CollectionCoverHeader
+        collectionTheme={collectionTheme}
+        onCustomize={onOpenCollectionDrawer}
+        onExplore={onOpenCollectionRankings}
+        profile={collectionProfile}
+        progress={progress}
+        summary={collectionSummary}
+      />
 
       <View style={styles.searchBar}>
         <Search color={theme.colors.mutedText} size={18} />
@@ -130,59 +139,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.lg,
     paddingTop: theme.spacing.md,
     paddingBottom: 132,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: theme.spacing.md,
-  },
-  headerCopy: {
-    flex: 1,
-    minWidth: 0,
-  },
-  title: {
-    fontSize: 26,
-    fontWeight: theme.typography.titleWeight,
-    letterSpacing: theme.typography.letterSpacing,
-    color: theme.colors.text,
-  },
-  subtitle: {
-    marginTop: 6,
-    fontSize: 13,
-    color: theme.colors.mutedText,
-  },
-  progressBubble: {
-    width: 74,
-    height: 74,
-    borderRadius: 37,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#5F743D',
-    ...createShadow(8),
-  },
-  progressLabel: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#F7EBD8',
-  },
-  progressValue: {
-    marginTop: 3,
-    fontSize: 17,
-    fontWeight: '800',
-    color: '#FFFDF6',
-  },
-  progressTrack: {
-    height: 8,
-    marginTop: theme.spacing.md,
-    borderRadius: 999,
-    overflow: 'hidden',
-    backgroundColor: 'rgba(232, 211, 183, 0.62)',
-  },
-  progressFill: {
-    height: '100%',
-    borderRadius: 999,
-    backgroundColor: theme.colors.accent,
   },
   searchBar: {
     height: 46,

@@ -31,6 +31,8 @@ interface CollectionProfileRow {
   display_title: string;
   intro: string;
   selected_badge_ids: string[];
+  selected_stamp_ids: string[];
+  is_public: boolean;
 }
 
 interface FeaturedCatRow {
@@ -105,6 +107,8 @@ function mapProfile(row: CollectionProfileRow | null, fallbackThemeId: string): 
     displayTitle: row?.display_title ?? '나의 냥도감',
     intro: row?.intro ?? '오늘도 골목에서 만난 친구들을 기록해요.',
     selectedBadgeIds: row?.selected_badge_ids ?? [],
+    selectedStampIds: row?.selected_stamp_ids ?? [],
+    isPublic: row?.is_public ?? true,
   };
 }
 
@@ -148,7 +152,7 @@ export async function fetchCollectionCustomization(): Promise<CollectionCustomiz
     supabase.from('collection_themes').select('id, name, description, palette, is_premium').order('sort_order', { ascending: true }),
     supabase
       .from('collection_profiles')
-      .select('cover_theme_id, display_title, intro, selected_badge_ids')
+      .select('cover_theme_id, display_title, intro, selected_badge_ids, selected_stamp_ids, is_public')
       .eq('user_id', user.id)
       .maybeSingle(),
     supabase.from('featured_cats').select('slot, cat_id, caption').eq('user_id', user.id).order('slot', { ascending: true }),
@@ -226,6 +230,8 @@ export async function saveCollectionProfile(profile: CollectionProfile) {
       display_title: profile.displayTitle,
       intro: profile.intro,
       selected_badge_ids: profile.selectedBadgeIds,
+      selected_stamp_ids: profile.selectedStampIds,
+      is_public: profile.isPublic,
     },
     { onConflict: 'user_id' },
   );

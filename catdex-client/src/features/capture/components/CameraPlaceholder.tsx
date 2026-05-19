@@ -8,11 +8,12 @@ import { theme } from '@/shared/styles/theme';
 
 interface CameraPlaceholderProps {
   capturedImageUri: string | null;
+  height?: number;
   onPhotoCaptured: (uri: string) => void;
   onRetake: () => void;
 }
 
-export function CameraPlaceholder({ capturedImageUri, onPhotoCaptured, onRetake }: CameraPlaceholderProps) {
+export function CameraPlaceholder({ capturedImageUri, height, onPhotoCaptured, onRetake }: CameraPlaceholderProps) {
   const cameraRef = useRef<CameraView>(null);
   const [permission, requestPermission] = useCameraPermissions();
   const [facing, setFacing] = useState<CameraType>('back');
@@ -50,7 +51,7 @@ export function CameraPlaceholder({ capturedImageUri, onPhotoCaptured, onRetake 
 
   if (capturedImageUri) {
     return (
-      <View style={styles.container}>
+      <View style={[styles.container, height ? { height } : null]}>
         <Image source={{ uri: capturedImageUri }} style={styles.capturedImage} />
         <View style={styles.capturedOverlay}>
           <Text style={styles.status}>촬영 완료</Text>
@@ -64,7 +65,7 @@ export function CameraPlaceholder({ capturedImageUri, onPhotoCaptured, onRetake 
 
   if (!permission) {
     return (
-      <View style={styles.fallback}>
+      <View style={[styles.fallback, height ? { minHeight: height } : null]}>
         <Text style={styles.fallbackTitle}>카메라 준비 중</Text>
         <Text style={styles.fallbackText}>권한 상태를 확인하고 있어요.</Text>
       </View>
@@ -73,7 +74,7 @@ export function CameraPlaceholder({ capturedImageUri, onPhotoCaptured, onRetake 
 
   if (!permission.granted) {
     return (
-      <View style={styles.fallback}>
+      <View style={[styles.fallback, height ? { minHeight: height } : null]}>
         <Text style={styles.fallbackTitle}>카메라 권한이 필요해요</Text>
         <Text style={styles.fallbackText}>산책 중 만난 고양이를 사진으로 기록하려면 카메라 접근을 허용해주세요.</Text>
         <View style={styles.permissionButtonWrap}>
@@ -84,7 +85,7 @@ export function CameraPlaceholder({ capturedImageUri, onPhotoCaptured, onRetake 
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, height ? { height } : null]}>
       <CameraView
         ref={cameraRef}
         facing={facing}

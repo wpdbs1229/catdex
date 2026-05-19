@@ -23,14 +23,23 @@ import { useCats } from '@/features/cats/hooks/useCats';
 import { HomeScreen } from '@/features/home/HomeScreen';
 import { MapScreen } from '@/features/map/MapScreen';
 import { MyPageScreen } from '@/features/my/MyPageScreen';
+import { NeighborhoodRankingScreen } from '@/features/social/NeighborhoodRankingScreen';
+import { PublicCollectionScreen } from '@/features/social/PublicCollectionScreen';
 import { SplashScreen } from '@/features/splash/SplashScreen';
 import { useNyangkkureomiPayments } from '@/features/subscription/hooks/useNyangkkureomiPayments';
+import {
+  fetchPublicCollection,
+  fetchPublicCollectionRankings,
+  toggleCollectionFollow,
+  toggleCollectionLike,
+} from '@/shared/api/social.api';
 import type { Badge, ExplorerProfile } from '@/shared/types/badge';
 import type { CaptureCatDraft } from '@/shared/types/cat';
 import type { CatType, PersonalityTag } from '@/shared/types/cat';
 import type { CollectionCustomizationState, CollectionProfile, CollectionSummary } from '@/shared/types/collection';
 import type { NavigationState, TabScreen } from '@/shared/types/navigation';
 import type { Region } from '@/shared/types/region';
+import type { PublicCollection } from '@/shared/types/social';
 
 const emptyProfile: ExplorerProfile = {
   title: '동네 냥이 탐험가',
@@ -52,6 +61,8 @@ const emptyCustomization: CollectionCustomizationState = {
     displayTitle: '나의 냥도감',
     intro: '오늘도 골목에서 만난 친구들을 기록해요.',
     selectedBadgeIds: [],
+    selectedStampIds: [],
+    isPublic: true,
   },
   themes: [],
   featuredCatSlots: [],
@@ -74,6 +85,7 @@ export default function App() {
   const [navigation, setNavigation] = useState<NavigationState>({
     screen: 'home',
     selectedCatId: null,
+    selectedOwnerId: null,
   });
   const [hasCompletedSplash, setHasCompletedSplash] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -83,6 +95,9 @@ export default function App() {
   const [badges, setBadges] = useState<Badge[]>([]);
   const [profile, setProfile] = useState<ExplorerProfile>(emptyProfile);
   const [customization, setCustomization] = useState<CollectionCustomizationState>(emptyCustomization);
+  const [publicCollections, setPublicCollections] = useState<PublicCollection[]>([]);
+  const [selectedPublicCollection, setSelectedPublicCollection] = useState<PublicCollection | null>(null);
+  const [isSocialLoading, setIsSocialLoading] = useState(false);
   const payments = useNyangkkureomiPayments(currentUser?.id ?? null);
   const {
     addEncounter,
@@ -98,7 +113,12 @@ export default function App() {
     undiscoveredDexSlots,
   } = useCats(navigation.selectedCatId, isAuthenticated);
 
-  const activeTab: TabScreen = navigation.screen === 'detail' ? 'dex' : navigation.screen === 'drawer' ? 'my' : navigation.screen;
+  const activeTab: TabScreen =
+    navigation.screen === 'detail' || navigation.screen === 'ranking' || navigation.screen === 'publicCollection'
+      ? 'dex'
+      : navigation.screen === 'drawer'
+        ? 'my'
+        : navigation.screen;
 
   useEffect(() => {
     const timerId = setTimeout(() => {
@@ -137,6 +157,7 @@ export default function App() {
     setNavigation({
       screen,
       selectedCatId: null,
+      selectedOwnerId: null,
     });
   };
 
@@ -144,6 +165,7 @@ export default function App() {
     setNavigation({
       screen: 'detail',
       selectedCatId: catId,
+      selectedOwnerId: null,
     });
   };
 
@@ -156,6 +178,7 @@ export default function App() {
       setNavigation({
         screen: 'dex',
         selectedCatId: null,
+        selectedOwnerId: null,
       });
     } finally {
       setIsSaving(false);
@@ -171,6 +194,7 @@ export default function App() {
       setNavigation({
         screen: 'dex',
         selectedCatId: null,
+        selectedOwnerId: null,
       });
     } finally {
       setIsSaving(false);
@@ -195,6 +219,7 @@ export default function App() {
       setNavigation({
         screen: 'detail',
         selectedCatId: catId,
+        selectedOwnerId: null,
       });
     } finally {
       setIsSaving(false);
@@ -251,14 +276,106 @@ export default function App() {
     );
   };
 
+  const handleOpenCollectionDrawer = () => {
+    setNavigation({
+      screen: 'drawer',
+      selectedCatId: null,
+      selectedOwnerId: null,
+    });
+  };
+
+  const loadCollectionRankings = async () => {
+    setIsSocialLoading(true);
+
+    try {
+      const nextCollections = await fetchPublicCollectionRankings();
+      setPublicCollections(nextCollections);
+    } finally {
+      setIsSocialLoading(false);
+    }
+  };
+
+  const handleOpenCollectionRankings = async () => {
+    setNavigation({
+      screen: 'ranking',
+      selectedCatId: null,
+      selectedOwnerId: null,
+    });
+    await loadCollectionRankings();
+  };
+
+  const handleOpenPublicCollection = async (ownerId: string) => {
+    setNavigation({
+      screen: 'publicCollection',
+      selectedCatId: null,
+      selectedOwnerId: ownerId,
+    });
+    setIsSocialLoading(true);
+
+    try {
+      setSelectedPublicCollection(await fetchPublicCollection(ownerId));
+    } finally {
+      setIsSocialLoading(false);
+    }
+  };
+
+  const reloadSelectedPublicCollection = async () => {
+    if (!navigation.selectedOwnerId) {
+      return;
+    }
+
+    setSelectedPublicCollection(await fetchPublicCollection(navigation.selectedOwnerId));
+  };
+
+  const handleToggleCollectionLike = async () => {
+    if (!navigation.selectedOwnerId) {
+      return;
+    }
+
+    setIsSaving(true);
+
+    try {
+      await toggleCollectionLike(navigation.selectedOwnerId);
+      await reloadSelectedPublicCollection();
+      await loadCollectionRankings();
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleToggleCollectionFollow = async () => {
+    if (!navigation.selectedOwnerId) {
+      return;
+    }
+
+    setIsSaving(true);
+
+    try {
+      await toggleCollectionFollow(navigation.selectedOwnerId);
+      await reloadSelectedPublicCollection();
+      await loadCollectionRankings();
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const selectedCollectionTheme = customization.themes.find((theme) => theme.id === customization.profile.coverThemeId);
+  const selectedCollectionBadges = customization.profile.selectedBadgeIds
+    .map((badgeId) => customization.alleyBadges.find((badge) => badge.id === badgeId && badge.achieved))
+    .filter((badge): badge is NonNullable<typeof badge> => Boolean(badge));
+  const selectedCollectionStamps = customization.profile.selectedStampIds
+    .map((stampId) => customization.seasonStamps.find((stamp) => stamp.id === stampId && stamp.achieved))
+    .filter((stamp): stamp is NonNullable<typeof stamp> => Boolean(stamp));
+
   const collectionSummary: CollectionSummary = {
     planName: hasActiveNyangkkureomi(customization.entitlement) || payments.hasNyangkkureomi ? '냥꾸러미 사용 중' : '무료 서랍',
     hasNyangkkureomi: hasActiveNyangkkureomi(customization.entitlement) || payments.hasNyangkkureomi,
-    coverThemeName:
-      customization.themes.find((theme) => theme.id === customization.profile.coverThemeId)?.name ?? '골목 관찰 노트',
+    coverThemeName: selectedCollectionTheme?.name ?? '골목 관찰 노트',
     featuredCats: customization.featuredCatSlots
       .map((slot) => myCats.find((cat) => cat.id === slot.catId))
       .filter((cat): cat is NonNullable<typeof cat> => Boolean(cat)),
+    selectedBadges: selectedCollectionBadges,
+    selectedStamps: selectedCollectionStamps,
     achievedBadgeCount: customization.alleyBadges.filter((badge) => badge.achieved).length,
     achievedStampCount: customization.seasonStamps.filter((stamp) => stamp.achieved).length,
   };
@@ -278,6 +395,11 @@ export default function App() {
         return (
           <CatDexScreen
             cats={cats}
+            collectionProfile={customization.profile}
+            collectionSummary={collectionSummary}
+            collectionTheme={selectedCollectionTheme}
+            onOpenCollectionRankings={handleOpenCollectionRankings}
+            onOpenCollectionDrawer={handleOpenCollectionDrawer}
             onOpenCat={handleOpenCat}
             placeholders={undiscoveredDexSlots}
             progress={dexProgress}
@@ -295,6 +417,11 @@ export default function App() {
         ) : (
           <CatDexScreen
             cats={cats}
+            collectionProfile={customization.profile}
+            collectionSummary={collectionSummary}
+            collectionTheme={selectedCollectionTheme}
+            onOpenCollectionRankings={handleOpenCollectionRankings}
+            onOpenCollectionDrawer={handleOpenCollectionDrawer}
             onOpenCat={handleOpenCat}
             placeholders={undiscoveredDexSlots}
             progress={dexProgress}
@@ -321,12 +448,8 @@ export default function App() {
             collectionSummary={collectionSummary}
             isSigningOut={isSigningOut}
             myCats={myCats}
-            onOpenCollectionDrawer={() =>
-              setNavigation({
-                screen: 'drawer',
-                selectedCatId: null,
-              })
-            }
+            onOpenCollectionDrawer={handleOpenCollectionDrawer}
+            onOpenCollectionRankings={handleOpenCollectionRankings}
             onOpenCat={handleOpenCat}
             onLogout={logout}
             profile={profile}
@@ -349,6 +472,26 @@ export default function App() {
             onShowUpsell={handleShowNyangkkureomiUpsell}
             paymentErrorMessage={payments.errorMessage}
             paymentPackages={payments.packages}
+          />
+        );
+      case 'ranking':
+        return (
+          <NeighborhoodRankingScreen
+            collections={publicCollections}
+            isLoading={isSocialLoading}
+            onBack={() => handleTabChange('dex')}
+            onOpenCollection={handleOpenPublicCollection}
+          />
+        );
+      case 'publicCollection':
+        return (
+          <PublicCollectionScreen
+            collection={selectedPublicCollection}
+            isLoading={isSocialLoading}
+            isSaving={isSaving}
+            onBack={handleOpenCollectionRankings}
+            onToggleFollow={handleToggleCollectionFollow}
+            onToggleLike={handleToggleCollectionLike}
           />
         );
       default:

@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { Camera, PawPrint, RotateCcw, Sparkles } from 'lucide-react-native';
-import { Image, Pressable, ScrollView, StyleSheet, Text, View, type ImageSourcePropType } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions, type ImageSourcePropType } from 'react-native';
 import { CameraPlaceholder } from '@/features/capture/components/CameraPlaceholder';
 import { CatRegisterForm } from '@/features/capture/components/CatRegisterForm';
+import { Button } from '@/shared/components/Button';
 import { Card } from '@/shared/components/Card';
 import { createShadow, theme } from '@/shared/styles/theme';
 import type { CaptureCatDraft, Cat, CatType, PersonalityTag } from '@/shared/types/cat';
@@ -54,7 +55,84 @@ export function CaptureScreen({
   onSaveSighting,
 }: CaptureScreenProps) {
   const [capturedImageUri, setCapturedImageUri] = useState<string | null>(null);
+  const [step, setStep] = useState<'capture' | 'details'>('capture');
+  const { height: windowHeight } = useWindowDimensions();
   const candidateCats = existingCats.slice(0, 3);
+  const cameraHeight = Math.min(620, Math.max(430, windowHeight - 250));
+
+  const handlePhotoCaptured = (uri: string) => {
+    setCapturedImageUri(uri);
+  };
+
+  const handleRetake = () => {
+    setCapturedImageUri(null);
+    setStep('capture');
+  };
+
+  if (step === 'details') {
+    return (
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <View style={styles.detailHeader}>
+          <Pressable onPress={() => setStep('capture')} style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}>
+            <Text style={styles.backButtonText}>촬영</Text>
+          </Pressable>
+          <View style={styles.detailTitleWrap}>
+            <Text style={styles.title}>기록 설정</Text>
+            <Text style={styles.subtitle}>촬영한 사진을 도감에 등록하거나 기존 고양이 재발견으로 남겨요.</Text>
+          </View>
+        </View>
+
+        <Card style={styles.rediscoveryCard}>
+          <View style={styles.rediscoveryHeader}>
+            <View style={styles.rediscoveryIcon}>
+              <RotateCcw color={theme.colors.primaryDark} size={18} />
+            </View>
+            <View style={styles.rediscoveryText}>
+              <Text style={styles.rediscoveryTitle}>기존 고양이 재발견</Text>
+              <Text style={styles.rediscoverySubtitle}>이미 도감에 있는 고양이라면 재발견으로 기록해요.</Text>
+            </View>
+          </View>
+
+          {candidateCats.length > 0 ? (
+            <View style={styles.candidateRow}>
+              {candidateCats.map((cat) => (
+                <Pressable
+                  disabled={isSubmitting}
+                  key={cat.id}
+                  onPress={() => onRecordExisting(cat.id)}
+                  style={({ pressed }) => [styles.candidate, pressed && styles.pressed]}
+                >
+                  <Image resizeMode="cover" source={imageForCat(cat)} style={styles.candidateImage} />
+                  <Text numberOfLines={1} style={styles.candidateName}>
+                    {cat.name}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          ) : (
+            <View style={styles.emptyCandidate}>
+              <Sparkles color={theme.colors.accent} size={18} />
+              <Text style={styles.emptyCandidateText}>아직 재발견할 내 도감 고양이가 없어요.</Text>
+            </View>
+          )}
+        </Card>
+
+        <View style={styles.formHeader}>
+          <Camera color={theme.colors.primaryDark} size={18} />
+          <Text style={styles.formTitle}>촬영 기록 작성</Text>
+        </View>
+
+        <CatRegisterForm
+          capturedImageUri={capturedImageUri}
+          coatOptions={coatOptions}
+          isSubmitting={isSubmitting}
+          onSubmit={onSave}
+          onSubmitSighting={onSaveSighting}
+          personalityOptions={personalityOptions}
+        />
+      </ScrollView>
+    );
+  }
 
   return (
     <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -69,59 +147,19 @@ export function CaptureScreen({
       <View style={styles.cameraFrame}>
         <CameraPlaceholder
           capturedImageUri={capturedImageUri}
-          onPhotoCaptured={setCapturedImageUri}
-          onRetake={() => setCapturedImageUri(null)}
+          height={cameraHeight}
+          onPhotoCaptured={handlePhotoCaptured}
+          onRetake={handleRetake}
         />
       </View>
 
-      <Card style={styles.rediscoveryCard}>
-        <View style={styles.rediscoveryHeader}>
-          <View style={styles.rediscoveryIcon}>
-            <RotateCcw color={theme.colors.primaryDark} size={18} />
-          </View>
-          <View style={styles.rediscoveryText}>
-            <Text style={styles.rediscoveryTitle}>기존 고양이 재발견</Text>
-            <Text style={styles.rediscoverySubtitle}>이미 도감에 있는 고양이라면 재발견으로 기록해요.</Text>
-          </View>
-        </View>
-
-        {candidateCats.length > 0 ? (
-          <View style={styles.candidateRow}>
-            {candidateCats.map((cat) => (
-              <Pressable
-                disabled={isSubmitting}
-                key={cat.id}
-                onPress={() => onRecordExisting(cat.id)}
-                style={({ pressed }) => [styles.candidate, pressed && styles.pressed]}
-              >
-                <Image resizeMode="cover" source={imageForCat(cat)} style={styles.candidateImage} />
-                <Text numberOfLines={1} style={styles.candidateName}>
-                  {cat.name}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
+      <View style={styles.captureActions}>
+        {capturedImageUri ? (
+          <Button onPress={() => setStep('details')}>다음</Button>
         ) : (
-          <View style={styles.emptyCandidate}>
-            <Sparkles color={theme.colors.accent} size={18} />
-            <Text style={styles.emptyCandidateText}>아직 재발견할 내 도감 고양이가 없어요.</Text>
-          </View>
+          <Text style={styles.captureHint}>고양이가 프레임에 들어오면 셔터를 눌러주세요.</Text>
         )}
-      </Card>
-
-      <View style={styles.formHeader}>
-        <Camera color={theme.colors.primaryDark} size={18} />
-        <Text style={styles.formTitle}>촬영 기록 작성</Text>
       </View>
-
-      <CatRegisterForm
-        capturedImageUri={capturedImageUri}
-        coatOptions={coatOptions}
-        isSubmitting={isSubmitting}
-        onSubmit={onSave}
-        onSubmitSighting={onSaveSighting}
-        personalityOptions={personalityOptions}
-      />
     </ScrollView>
   );
 }
@@ -151,10 +189,48 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: theme.colors.mutedText,
   },
+  detailHeader: {
+    marginBottom: theme.spacing.lg,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: theme.spacing.md,
+  },
+  detailTitleWrap: {
+    flex: 1,
+  },
+  backButton: {
+    minHeight: 38,
+    borderRadius: 19,
+    paddingHorizontal: theme.spacing.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,253,246,0.82)',
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  backButtonText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: theme.colors.primaryDark,
+  },
   cameraFrame: {
     borderRadius: theme.radius.xl,
     overflow: 'hidden',
     ...createShadow(10),
+  },
+  captureActions: {
+    marginTop: theme.spacing.lg,
+  },
+  captureHint: {
+    borderRadius: theme.radius.lg,
+    paddingHorizontal: theme.spacing.lg,
+    paddingVertical: theme.spacing.md,
+    overflow: 'hidden',
+    textAlign: 'center',
+    fontSize: 13,
+    fontWeight: '700',
+    color: theme.colors.mutedText,
+    backgroundColor: 'rgba(255,253,246,0.82)',
   },
   rediscoveryCard: {
     marginTop: theme.spacing.md,

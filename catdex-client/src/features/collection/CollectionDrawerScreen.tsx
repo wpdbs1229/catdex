@@ -1,10 +1,12 @@
+import { useEffect, useState } from 'react';
 import { Check, ChevronLeft, Lock, Sparkles, Star } from 'lucide-react-native';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Button } from '@/shared/components/Button';
 import { Card } from '@/shared/components/Card';
 import { SectionHeader } from '@/shared/components/SectionHeader';
 import { hasActiveNyangkkureomi } from '@/shared/api/collection.api';
 import { createShadow, theme } from '@/shared/styles/theme';
+import { collectionPaletteStyle } from '@/shared/utils/collectionTheme';
 import type { Cat } from '@/shared/types/cat';
 import type { CollectionCustomizationState, CollectionProfile } from '@/shared/types/collection';
 import type { NyangkkureomiPackage } from '@/shared/types/payments';
@@ -43,6 +45,30 @@ export function CollectionDrawerScreen({
   const hasNyangkkureomi = hasActiveNyangkkureomi(customization.entitlement);
   const selectedTheme = customization.themes.find((theme) => theme.id === customization.profile.coverThemeId);
   const selectedCatIds = new Set(customization.featuredCatSlots.map((slot) => slot.catId));
+  const selectedBadgeIds = new Set(customization.profile.selectedBadgeIds);
+  const selectedBadges = customization.profile.selectedBadgeIds
+    .map((badgeId) => customization.alleyBadges.find((badge) => badge.id === badgeId && badge.achieved))
+    .filter((badge): badge is NonNullable<typeof badge> => Boolean(badge));
+  const badgeDisplayLimit = hasNyangkkureomi ? 4 : 2;
+  const selectedStampIds = new Set(customization.profile.selectedStampIds);
+  const selectedStamps = customization.profile.selectedStampIds
+    .map((stampId) => customization.seasonStamps.find((stamp) => stamp.id === stampId && stamp.achieved))
+    .filter((stamp): stamp is NonNullable<typeof stamp> => Boolean(stamp));
+  const stampDisplayLimit = hasNyangkkureomi ? 3 : 1;
+  const [draftTitle, setDraftTitle] = useState(customization.profile.displayTitle);
+  const [draftIntro, setDraftIntro] = useState(customization.profile.intro);
+
+  useEffect(() => {
+    setDraftTitle(customization.profile.displayTitle);
+    setDraftIntro(customization.profile.intro);
+  }, [customization.profile.displayTitle, customization.profile.intro]);
+
+  const trimmedTitle = draftTitle.trim();
+  const trimmedIntro = draftIntro.trim();
+  const canSaveCopy =
+    trimmedTitle.length > 0 &&
+    trimmedIntro.length > 0 &&
+    (trimmedTitle !== customization.profile.displayTitle || trimmedIntro !== customization.profile.intro);
 
   const handleThemePress = (themeId: string, isPremium: boolean) => {
     if (isPremium && !hasNyangkkureomi) {
@@ -65,6 +91,74 @@ export function CollectionDrawerScreen({
     onSaveFeaturedCat(slot, catId);
   };
 
+  const handleSaveCopy = () => {
+    if (!canSaveCopy) {
+      return;
+    }
+
+    onSaveProfile({
+      ...customization.profile,
+      displayTitle: trimmedTitle,
+      intro: trimmedIntro,
+    });
+  };
+
+  const handleTogglePublic = () => {
+    onSaveProfile({
+      ...customization.profile,
+      isPublic: !customization.profile.isPublic,
+    });
+  };
+
+  const handleBadgePress = (badgeId: string, achieved: boolean) => {
+    if (!achieved) {
+      return;
+    }
+
+    const nextBadgeIds = customization.profile.selectedBadgeIds.includes(badgeId)
+      ? customization.profile.selectedBadgeIds.filter((selectedBadgeId) => selectedBadgeId !== badgeId)
+      : [...customization.profile.selectedBadgeIds, badgeId];
+
+    if (nextBadgeIds.length > badgeDisplayLimit) {
+      if (!hasNyangkkureomi) {
+        onShowUpsell();
+      }
+      return;
+    }
+
+    onSaveProfile({
+      ...customization.profile,
+      selectedBadgeIds: nextBadgeIds,
+    });
+  };
+
+  const handleStampPress = (stampId: string, achieved: boolean, isPremium: boolean) => {
+    if (!achieved) {
+      return;
+    }
+
+    if (isPremium && !hasNyangkkureomi) {
+      onShowUpsell();
+      return;
+    }
+
+    const nextStampIds = customization.profile.selectedStampIds.includes(stampId)
+      ? customization.profile.selectedStampIds.filter((selectedStampId) => selectedStampId !== stampId)
+      : [...customization.profile.selectedStampIds, stampId];
+
+    if (nextStampIds.length > stampDisplayLimit) {
+      if (!hasNyangkkureomi) {
+        onShowUpsell();
+      }
+      return;
+    }
+
+    onSaveProfile({
+      ...customization.profile,
+      selectedStampIds: nextStampIds,
+    });
+  };
+
   const featuredCatBySlot = new Map(customization.featuredCatSlots.map((slot) => [slot.slot, slot.catId]));
 
   return (
@@ -82,14 +176,98 @@ export function CollectionDrawerScreen({
         <Text style={styles.subtitle}>도감 표지, 골목 배지, 냥발 도장으로 내 냥도감을 꾸며요.</Text>
       </View>
 
-      <Card style={[styles.coverCard, paletteStyle(selectedTheme?.palette)]}>
+      <Card style={[styles.coverCard, collectionPaletteStyle(selectedTheme?.palette)]}>
         <Text style={styles.coverEyebrow}>도감 표지</Text>
         <Text numberOfLines={1} style={styles.coverTitle}>
           {customization.profile.displayTitle}
         </Text>
         <Text style={styles.coverIntro}>{customization.profile.intro}</Text>
         <Text style={styles.coverTheme}>{selectedTheme?.name ?? '골목 관찰 노트'}</Text>
+        {selectedBadges.length > 0 ? (
+          <View style={styles.coverBadgeRow}>
+            {selectedBadges.slice(0, badgeDisplayLimit).map((badge) => (
+              <View key={badge.id} style={styles.coverBadgePill}>
+                <Star color={theme.colors.warning} fill={theme.colors.warning} size={12} />
+                <Text numberOfLines={1} style={styles.coverBadgeText}>
+                  {badge.name}
+                </Text>
+              </View>
+            ))}
+          </View>
+        ) : null}
+        {selectedStamps.length > 0 ? (
+          <View style={styles.coverStampRow}>
+            {selectedStamps.slice(0, stampDisplayLimit).map((stamp) => (
+              <View key={stamp.id} style={styles.coverStampPill}>
+                <Text style={styles.coverStampIcon}>◦</Text>
+                <Text numberOfLines={1} style={styles.coverStampText}>
+                  {stamp.name}
+                </Text>
+              </View>
+            ))}
+          </View>
+        ) : null}
       </Card>
+
+      <View style={styles.section}>
+        <SectionHeader subtitle="도감 화면에 그대로 보이는 제목과 소개예요" title="표지 문구" />
+        <Card style={styles.copyCard}>
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>도감 제목</Text>
+            <TextInput
+              editable={!isSaving}
+              maxLength={24}
+              onChangeText={setDraftTitle}
+              placeholder="나의 냥도감"
+              placeholderTextColor={theme.colors.tabMuted}
+              style={styles.textInput}
+              value={draftTitle}
+            />
+            <Text style={styles.inputCount}>{draftTitle.length} / 24</Text>
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>소개 문구</Text>
+            <TextInput
+              editable={!isSaving}
+              maxLength={70}
+              multiline
+              onChangeText={setDraftIntro}
+              placeholder="오늘도 골목에서 만난 친구들을 기록해요."
+              placeholderTextColor={theme.colors.tabMuted}
+              style={[styles.textInput, styles.introInput]}
+              textAlignVertical="top"
+              value={draftIntro}
+            />
+            <Text style={styles.inputCount}>{draftIntro.length} / 70</Text>
+          </View>
+
+          <Button disabled={isSaving || !canSaveCopy} onPress={handleSaveCopy}>
+            표지 문구 저장
+          </Button>
+        </Card>
+      </View>
+
+      <View style={styles.section}>
+        <SectionHeader subtitle="공개하면 다른 사용자가 앱 안에서 내 도감 표지를 방문할 수 있어요" title="공개 설정" />
+        <Pressable
+          disabled={isSaving}
+          onPress={handleTogglePublic}
+          style={({ pressed }) => [styles.publicToggle, customization.profile.isPublic ? styles.publicToggleActive : null, pressed ? styles.pressed : null]}
+        >
+          <View style={[styles.toggleSwitch, customization.profile.isPublic ? styles.toggleSwitchActive : null]}>
+            <View style={[styles.toggleKnob, customization.profile.isPublic ? styles.toggleKnobActive : null]} />
+          </View>
+          <View style={styles.publicCopy}>
+            <Text style={styles.publicTitle}>{customization.profile.isPublic ? '공개 도감' : '나만 보기'}</Text>
+            <Text style={styles.publicText}>
+              {customization.profile.isPublic
+                ? '동네 도감 랭킹과 공개 도감 방문 화면에 표지가 보여요.'
+                : '내 도감 표지는 나에게만 보여요.'}
+            </Text>
+          </View>
+        </Pressable>
+      </View>
 
       <View style={styles.section}>
         <SectionHeader subtitle="무료 표지와 냥꾸러미 표지를 골라보세요" title="도감 표지" />
@@ -105,7 +283,7 @@ export function CollectionDrawerScreen({
                 onPress={() => handleThemePress(collectionTheme.id, collectionTheme.isPremium)}
                 style={({ pressed }) => [
                   styles.themeCard,
-                  paletteStyle(collectionTheme.palette),
+                  collectionPaletteStyle(collectionTheme.palette),
                   isSelected ? styles.selectedCard : null,
                   pressed ? styles.pressed : null,
                 ]}
@@ -171,35 +349,64 @@ export function CollectionDrawerScreen({
       </View>
 
       <View style={styles.section}>
-        <SectionHeader subtitle="획득한 배지를 도감에 진열해요" title="골목 배지" />
+        <SectionHeader subtitle={`획득한 배지를 도감 표지에 ${badgeDisplayLimit}개까지 진열해요`} title="골목 배지" />
         <View style={styles.badgeGrid}>
-          {customization.alleyBadges.map((badge) => (
-            <Card key={badge.id} style={[styles.badgeCard, badge.achieved ? styles.badgeAchieved : null]}>
-              <Star color={badge.achieved ? theme.colors.warning : theme.colors.tabMuted} fill={badge.achieved ? theme.colors.warning : 'none'} size={18} />
-              <Text style={styles.badgeName}>{badge.name}</Text>
-              <Text style={styles.badgeDescription}>{badge.achieved ? badge.achievedAt : badge.description}</Text>
-            </Card>
-          ))}
+          {customization.alleyBadges.map((badge) => {
+            const isSelected = selectedBadgeIds.has(badge.id);
+
+            return (
+              <Pressable
+                key={badge.id}
+                disabled={isSaving || !badge.achieved}
+                onPress={() => handleBadgePress(badge.id, badge.achieved)}
+                style={({ pressed }) => [
+                  styles.badgeCard,
+                  badge.achieved ? styles.badgeAchieved : null,
+                  isSelected ? styles.badgeSelected : null,
+                  pressed ? styles.pressed : null,
+                ]}
+              >
+                <View style={styles.badgeHeader}>
+                  <Star color={badge.achieved ? theme.colors.warning : theme.colors.tabMuted} fill={badge.achieved ? theme.colors.warning : 'none'} size={18} />
+                  {isSelected ? <Check color={theme.colors.success} size={17} /> : null}
+                </View>
+                <Text style={styles.badgeName}>{badge.name}</Text>
+                <Text style={styles.badgeDescription}>{badge.achieved ? `${badge.achievedAt} 진열 가능` : badge.description}</Text>
+              </Pressable>
+            );
+          })}
         </View>
       </View>
 
       <View style={styles.section}>
-        <SectionHeader subtitle="계절마다 모으는 작은 도장" title="냥발 도장" />
+        <SectionHeader subtitle={`획득한 도장을 도감 표지에 ${stampDisplayLimit}개까지 진열해요`} title="냥발 도장" />
         <View style={styles.stampList}>
           {customization.seasonStamps.map((stamp) => {
             const isLocked = stamp.isPremium && !hasNyangkkureomi;
+            const isSelected = selectedStampIds.has(stamp.id);
 
             return (
-              <Card key={stamp.id} style={styles.stampCard}>
+              <Pressable
+                key={stamp.id}
+                disabled={isSaving || !stamp.achieved}
+                onPress={() => handleStampPress(stamp.id, stamp.achieved, stamp.isPremium)}
+                style={({ pressed }) => [
+                  styles.stampCard,
+                  stamp.achieved ? styles.stampAchieved : null,
+                  isSelected ? styles.stampSelected : null,
+                  pressed ? styles.pressed : null,
+                ]}
+              >
                 <View style={styles.stampIcon}>
                   {isLocked ? <Lock color={theme.colors.primaryDark} size={18} /> : <Text style={styles.stampPaw}>◦</Text>}
                 </View>
                 <View style={styles.stampMeta}>
                   <Text style={styles.stampName}>{stamp.name}</Text>
-                  <Text style={styles.stampDescription}>{stamp.achieved ? `${stamp.achievedAt} 획득` : stamp.description}</Text>
+                  <Text style={styles.stampDescription}>{stamp.achieved ? `${stamp.achievedAt} 진열 가능` : stamp.description}</Text>
                 </View>
+                {isSelected ? <Check color={theme.colors.success} size={17} /> : null}
                 {stamp.isPremium ? <Text style={styles.stampPremiumPill}>냥꾸러미</Text> : null}
-              </Card>
+              </Pressable>
             );
           })}
         </View>
@@ -241,21 +448,6 @@ export function CollectionDrawerScreen({
       ) : null}
     </ScrollView>
   );
-}
-
-function paletteStyle(palette?: string) {
-  switch (palette) {
-    case 'green':
-      return { backgroundColor: '#EEF3DE', borderColor: '#B9C59A' };
-    case 'night':
-      return { backgroundColor: '#E7E1D7', borderColor: '#7C6A5B' };
-    case 'playful':
-      return { backgroundColor: '#FFE9D2', borderColor: '#E2A76E' };
-    case 'winter':
-      return { backgroundColor: '#EAF1F2', borderColor: '#AFC6CA' };
-    default:
-      return { backgroundColor: theme.colors.surface, borderColor: theme.colors.border };
-  }
 }
 
 const styles = StyleSheet.create({
@@ -345,8 +537,147 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '900',
   },
+  coverBadgeRow: {
+    marginTop: theme.spacing.sm,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  coverBadgePill: {
+    maxWidth: '48%',
+    minHeight: 28,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderRadius: 999,
+    paddingHorizontal: theme.spacing.sm,
+    backgroundColor: 'rgba(255, 247, 222, 0.88)',
+    borderWidth: 1,
+    borderColor: 'rgba(199, 142, 63, 0.28)',
+  },
+  coverBadgeText: {
+    flexShrink: 1,
+    color: theme.colors.primaryDark,
+    fontSize: 11,
+    fontWeight: '900',
+  },
+  coverStampRow: {
+    marginTop: 6,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  coverStampPill: {
+    maxWidth: '48%',
+    minHeight: 28,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderRadius: 999,
+    paddingHorizontal: theme.spacing.sm,
+    backgroundColor: 'rgba(234, 241, 242, 0.9)',
+    borderWidth: 1,
+    borderColor: 'rgba(126, 147, 152, 0.32)',
+  },
+  coverStampIcon: {
+    color: theme.colors.primaryDark,
+    fontSize: 17,
+    fontWeight: '900',
+    lineHeight: 18,
+  },
+  coverStampText: {
+    flexShrink: 1,
+    color: theme.colors.primaryDark,
+    fontSize: 11,
+    fontWeight: '900',
+  },
   section: {
     marginTop: theme.spacing.lg,
+  },
+  copyCard: {
+    gap: theme.spacing.md,
+  },
+  inputGroup: {
+    gap: 7,
+  },
+  inputLabel: {
+    color: theme.colors.primaryDark,
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  textInput: {
+    minHeight: 46,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: 10,
+    backgroundColor: theme.colors.surface,
+    color: theme.colors.text,
+    fontSize: 14,
+    fontWeight: '800',
+    lineHeight: 20,
+  },
+  introInput: {
+    minHeight: 88,
+  },
+  inputCount: {
+    alignSelf: 'flex-end',
+    color: theme.colors.mutedText,
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  publicToggle: {
+    minHeight: 82,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.md,
+    borderRadius: theme.radius.lg,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    padding: theme.spacing.md,
+    backgroundColor: 'rgba(255,253,246,0.88)',
+    ...createShadow(4),
+  },
+  publicToggleActive: {
+    backgroundColor: '#FFF0DC',
+    borderColor: 'rgba(201,121,73,0.24)',
+  },
+  toggleSwitch: {
+    width: 48,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: 'center',
+    paddingHorizontal: 3,
+    backgroundColor: 'rgba(168,140,120,0.28)',
+  },
+  toggleSwitchActive: {
+    backgroundColor: theme.colors.primaryDark,
+  },
+  toggleKnob: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: '#FFFFFF',
+  },
+  toggleKnobActive: {
+    alignSelf: 'flex-end',
+  },
+  publicCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  publicTitle: {
+    color: theme.colors.text,
+    fontSize: 16,
+    fontWeight: '900',
+  },
+  publicText: {
+    marginTop: 4,
+    color: theme.colors.mutedText,
+    fontSize: 12,
+    fontWeight: '700',
+    lineHeight: 18,
   },
   themeGrid: {
     gap: theme.spacing.md,
@@ -464,11 +795,29 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     maxWidth: '48.8%',
     minHeight: 124,
+    borderRadius: theme.radius.xl,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    padding: theme.spacing.md,
+    backgroundColor: theme.colors.surface,
     opacity: 0.64,
+    ...createShadow(4),
   },
   badgeAchieved: {
     opacity: 1,
     backgroundColor: '#FFF7DE',
+  },
+  badgeSelected: {
+    borderWidth: 2,
+    borderColor: theme.colors.primaryDark,
+    backgroundColor: '#FFF0DC',
+  },
+  badgeHeader: {
+    minHeight: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: theme.spacing.sm,
   },
   badgeName: {
     marginTop: theme.spacing.sm,
@@ -491,6 +840,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: theme.spacing.md,
     minHeight: 70,
+    borderRadius: theme.radius.xl,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    padding: theme.spacing.md,
+    backgroundColor: theme.colors.surface,
+    opacity: 0.7,
+    ...createShadow(4),
+  },
+  stampAchieved: {
+    opacity: 1,
+  },
+  stampSelected: {
+    borderWidth: 2,
+    borderColor: theme.colors.primaryDark,
+    backgroundColor: '#F0F7F8',
   },
   stampIcon: {
     width: 38,
