@@ -15,9 +15,11 @@ export function AppShell({ children, bottomBar }: AppShellProps) {
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}>
       <View style={styles.container}>
         <View pointerEvents="none" style={styles.backgroundLayer}>
-          <View style={styles.blobTop} />
-          <View style={styles.blobRight} />
-          <View style={styles.blobBottom} />
+          <View style={styles.paperWashTop} />
+          <View style={styles.paperTextureOne} />
+          <View style={styles.paperTextureTwo} />
+          <View style={styles.distantHill} />
+          <View style={styles.nearHill} />
         </View>
         <View style={styles.content}>{children}</View>
         <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, theme.spacing.md) }]}>
@@ -39,41 +41,67 @@ const styles = StyleSheet.create({
   },
   backgroundLayer: {
     ...StyleSheet.absoluteFillObject,
+    zIndex: 0,
   },
-  blobTop: {
+  paperWashTop: {
     position: 'absolute',
-    top: 24,
-    left: -36,
-    width: 160,
-    height: 160,
-    borderRadius: 80,
-    backgroundColor: '#FFF5E9',
+    top: -72,
+    right: -60,
+    left: -60,
+    height: 190,
+    borderBottomLeftRadius: 140,
+    borderBottomRightRadius: 140,
+    backgroundColor: 'rgba(255, 244, 220, 0.78)',
   },
-  blobRight: {
+  paperTextureOne: {
     position: 'absolute',
-    top: 220,
-    right: -40,
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    backgroundColor: '#F9E6CE',
+    top: 146,
+    right: -28,
+    width: 88,
+    height: 520,
+    borderRadius: 28,
+    backgroundColor: 'rgba(211, 164, 103, 0.08)',
+    transform: [{ rotate: '-9deg' }],
   },
-  blobBottom: {
+  paperTextureTwo: {
     position: 'absolute',
-    bottom: 120,
-    left: 16,
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: '#F8ECD9',
+    top: 294,
+    left: -32,
+    width: 74,
+    height: 440,
+    borderRadius: 26,
+    backgroundColor: 'rgba(139, 160, 112, 0.08)',
+    transform: [{ rotate: '8deg' }],
+  },
+  distantHill: {
+    position: 'absolute',
+    right: -80,
+    bottom: 104,
+    left: -80,
+    height: 172,
+    borderTopLeftRadius: 160,
+    borderTopRightRadius: 160,
+    backgroundColor: 'rgba(221, 229, 200, 0.48)',
+  },
+  nearHill: {
+    position: 'absolute',
+    right: -72,
+    bottom: 64,
+    left: -72,
+    height: 122,
+    borderTopLeftRadius: 120,
+    borderTopRightRadius: 120,
+    backgroundColor: 'rgba(248, 234, 210, 0.7)',
   },
   content: {
     flex: 1,
+    zIndex: 1,
   },
   bottomBar: {
     position: 'absolute',
-    right: theme.spacing.lg,
+    right: theme.spacing.md,
     bottom: 0,
-    left: theme.spacing.lg,
+    left: theme.spacing.md,
+    zIndex: 2,
   },
 });

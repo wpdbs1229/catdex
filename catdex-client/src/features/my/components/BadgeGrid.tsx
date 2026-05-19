@@ -40,6 +40,7 @@ const styles = StyleSheet.create({
   card: {
     width: '48.5%',
     marginBottom: theme.spacing.md,
+    backgroundColor: 'rgba(255, 253, 246, 0.9)',
   },
   iconWrap: {
     width: 56,
@@ -48,6 +49,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: theme.colors.badge,
+    borderWidth: 1,
+    borderColor: 'rgba(201, 121, 73, 0.14)',
   },
   icon: {
     fontSize: 28,

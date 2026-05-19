@@ -1,4 +1,4 @@
-import { Check, Lock, Sparkles, Star } from 'lucide-react-native';
+import { Check, ChevronLeft, Lock, Sparkles, Star } from 'lucide-react-native';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Button } from '@/shared/components/Button';
 import { Card } from '@/shared/components/Card';
@@ -70,9 +70,10 @@ export function CollectionDrawerScreen({
   return (
     <ScrollView contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
       <View style={styles.header}>
-        <Button onPress={onBack} variant="ghost">
-          MY로 돌아가기
-        </Button>
+        <Pressable onPress={onBack} style={({ pressed }) => [styles.backButton, pressed ? styles.pressed : null]}>
+          <ChevronLeft color={theme.colors.primaryDark} size={17} />
+          <Text style={styles.backButtonText}>MY</Text>
+        </Pressable>
         <View style={styles.headerBadge}>
           <Sparkles color={theme.colors.primaryDark} size={16} />
           <Text style={styles.headerBadgeText}>냥꾸러미</Text>
@@ -83,7 +84,9 @@ export function CollectionDrawerScreen({
 
       <Card style={[styles.coverCard, paletteStyle(selectedTheme?.palette)]}>
         <Text style={styles.coverEyebrow}>도감 표지</Text>
-        <Text style={styles.coverTitle}>{customization.profile.displayTitle}</Text>
+        <Text numberOfLines={1} style={styles.coverTitle}>
+          {customization.profile.displayTitle}
+        </Text>
         <Text style={styles.coverIntro}>{customization.profile.intro}</Text>
         <Text style={styles.coverTheme}>{selectedTheme?.name ?? '골목 관찰 노트'}</Text>
       </Card>
@@ -195,7 +198,7 @@ export function CollectionDrawerScreen({
                   <Text style={styles.stampName}>{stamp.name}</Text>
                   <Text style={styles.stampDescription}>{stamp.achieved ? `${stamp.achievedAt} 획득` : stamp.description}</Text>
                 </View>
-                {stamp.isPremium ? <Text style={styles.premiumText}>냥꾸러미</Text> : null}
+                {stamp.isPremium ? <Text style={styles.stampPremiumPill}>냥꾸러미</Text> : null}
               </Card>
             );
           })}
@@ -257,12 +260,30 @@ function paletteStyle(palette?: string) {
 
 const styles = StyleSheet.create({
   contentContainer: {
-    paddingHorizontal: theme.spacing.lg,
-    paddingTop: theme.spacing.lg,
-    paddingBottom: 140,
+    paddingHorizontal: theme.spacing.md,
+    paddingTop: theme.spacing.md,
+    paddingBottom: 132,
   },
   header: {
-    marginBottom: theme.spacing.lg,
+    marginBottom: theme.spacing.md,
+  },
+  backButton: {
+    alignSelf: 'flex-start',
+    minHeight: 36,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    borderRadius: 999,
+    paddingHorizontal: theme.spacing.sm,
+    paddingRight: theme.spacing.md,
+    backgroundColor: 'rgba(255, 253, 246, 0.78)',
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  backButtonText: {
+    color: theme.colors.primaryDark,
+    fontSize: 13,
+    fontWeight: '900',
   },
   headerBadge: {
     alignSelf: 'flex-start',
@@ -285,8 +306,9 @@ const styles = StyleSheet.create({
   title: {
     marginTop: theme.spacing.md,
     color: theme.colors.text,
-    fontSize: 32,
-    fontWeight: '900',
+    fontSize: 29,
+    fontWeight: theme.typography.titleWeight,
+    letterSpacing: theme.typography.letterSpacing,
   },
   subtitle: {
     marginTop: theme.spacing.sm,
@@ -296,7 +318,7 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   coverCard: {
-    minHeight: 168,
+    minHeight: 152,
     justifyContent: 'flex-end',
   },
   coverEyebrow: {
@@ -307,7 +329,7 @@ const styles = StyleSheet.create({
   coverTitle: {
     marginTop: theme.spacing.sm,
     color: theme.colors.text,
-    fontSize: 28,
+    fontSize: 25,
     fontWeight: '900',
   },
   coverIntro: {
@@ -318,22 +340,22 @@ const styles = StyleSheet.create({
     lineHeight: 21,
   },
   coverTheme: {
-    marginTop: theme.spacing.lg,
+    marginTop: theme.spacing.md,
     color: theme.colors.primaryDark,
     fontSize: 13,
     fontWeight: '900',
   },
   section: {
-    marginTop: theme.spacing.xl,
+    marginTop: theme.spacing.lg,
   },
   themeGrid: {
     gap: theme.spacing.md,
   },
   themeCard: {
-    minHeight: 116,
+    minHeight: 108,
     borderRadius: theme.radius.md,
     borderWidth: 1,
-    padding: theme.spacing.lg,
+    padding: theme.spacing.md,
     ...createShadow(4),
   },
   selectedCard: {
@@ -406,6 +428,7 @@ const styles = StyleSheet.create({
     gap: theme.spacing.sm,
   },
   catChoice: {
+    maxWidth: '100%',
     borderRadius: 999,
     borderWidth: 1,
     borderColor: theme.colors.border,
@@ -424,6 +447,7 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
     fontSize: 13,
     fontWeight: '800',
+    lineHeight: 18,
   },
   emptyText: {
     color: theme.colors.mutedText,
@@ -436,8 +460,10 @@ const styles = StyleSheet.create({
     gap: theme.spacing.md,
   },
   badgeCard: {
-    width: '47.5%',
-    minHeight: 130,
+    flexBasis: '47.5%',
+    flexGrow: 1,
+    maxWidth: '48.8%',
+    minHeight: 124,
     opacity: 0.64,
   },
   badgeAchieved: {
@@ -464,6 +490,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: theme.spacing.md,
+    minHeight: 70,
   },
   stampIcon: {
     width: 38,
@@ -482,6 +509,7 @@ const styles = StyleSheet.create({
   },
   stampMeta: {
     flex: 1,
+    minWidth: 0,
   },
   stampName: {
     color: theme.colors.text,
@@ -494,6 +522,17 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     lineHeight: 18,
+  },
+  stampPremiumPill: {
+    flexShrink: 0,
+    overflow: 'hidden',
+    borderRadius: 999,
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: 5,
+    color: theme.colors.primary,
+    fontSize: 11,
+    fontWeight: '900',
+    backgroundColor: 'rgba(255, 239, 214, 0.9)',
   },
   upsellCard: {
     marginTop: theme.spacing.xl,
@@ -529,6 +568,7 @@ const styles = StyleSheet.create({
   },
   packageMeta: {
     flex: 1,
+    minWidth: 0,
   },
   packagePeriod: {
     color: theme.colors.primary,
@@ -538,12 +578,14 @@ const styles = StyleSheet.create({
   packageTitle: {
     marginTop: 3,
     color: theme.colors.text,
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '900',
+    lineHeight: 19,
   },
   packagePrice: {
+    flexShrink: 0,
     color: theme.colors.primaryDark,
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '900',
   },
   paymentError: {

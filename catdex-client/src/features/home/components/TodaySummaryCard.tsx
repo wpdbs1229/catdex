@@ -42,7 +42,7 @@ export function TodaySummaryCard({ summary }: TodaySummaryCardProps) {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#FFF7EE',
+    backgroundColor: 'rgba(255, 253, 246, 0.92)',
   },
   header: {
     flexDirection: 'row',
@@ -57,7 +57,7 @@ const styles = StyleSheet.create({
   kicker: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#966F56',
+    color: theme.colors.primary,
   },
   title: {
     marginTop: 6,
@@ -72,7 +72,9 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.7)',
+    backgroundColor: theme.colors.accentSoft,
+    borderWidth: 1,
+    borderColor: 'rgba(119, 145, 95, 0.2)',
   },
   pawEmoji: {
     fontSize: 24,
@@ -87,7 +89,9 @@ const styles = StyleSheet.create({
     minWidth: 120,
     borderRadius: theme.radius.lg,
     padding: theme.spacing.md,
-    backgroundColor: 'rgba(255,255,255,0.82)',
+    backgroundColor: 'rgba(248, 234, 210, 0.62)',
+    borderWidth: 1,
+    borderColor: 'rgba(232, 211, 183, 0.8)',
   },
   statLabel: {
     marginTop: theme.spacing.sm,

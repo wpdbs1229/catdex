@@ -1,14 +1,8 @@
 import { useMemo, useState } from 'react';
-import { Filter } from 'lucide-react-native';
-import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { CatGrid } from '@/features/cats/components/CatGrid';
-import type { CatCardItem } from '@/features/cats/components/CatCard';
-import { Chip } from '@/shared/components/Chip';
-import { ProgressBar } from '@/shared/components/ProgressBar';
-import { SectionHeader } from '@/shared/components/SectionHeader';
-import { catFilters } from '@/shared/data/cats.mock';
-import type { Cat, CatFilter, DexPlaceholder, DexProgress } from '@/shared/types/cat';
-import { theme } from '@/shared/styles/theme';
+import { Filter, PawPrint, Search } from 'lucide-react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, View, type ImageSourcePropType } from 'react-native';
+import { createShadow, theme } from '@/shared/styles/theme';
+import type { Cat, CatFilter, CatType, DexPlaceholder, DexProgress } from '@/shared/types/cat';
 
 interface CatDexScreenProps {
   cats: Cat[];
@@ -17,61 +11,51 @@ interface CatDexScreenProps {
   onOpenCat: (catId: string) => void;
 }
 
+const filters: CatFilter[] = ['전체', '치즈냥', '삼색이', '턱시도', '흰냥'];
+
+const illustrations = {
+  orange: require('../../../assets/illustrations/cat-orange-clean.png'),
+  dark: require('../../../assets/illustrations/cat-dark-clean.png'),
+  tuxedo: require('../../../assets/illustrations/cat-tuxedo-clean.png'),
+  gray: require('../../../assets/illustrations/cat-gray-clean.png'),
+} satisfies Record<string, ImageSourcePropType>;
+
+function imageForType(type: CatType, imageUrl?: string): ImageSourcePropType {
+  if (imageUrl) {
+    return { uri: imageUrl };
+  }
+
+  if (type === '턱시도') {
+    return illustrations.tuxedo;
+  }
+
+  if (type === '흰냥') {
+    return illustrations.gray;
+  }
+
+  if (type === '삼색이' || type === '검은냥') {
+    return illustrations.dark;
+  }
+
+  return illustrations.orange;
+}
+
 export function CatDexScreen({ cats, placeholders, progress, onOpenCat }: CatDexScreenProps) {
   const [selectedFilter, setSelectedFilter] = useState<CatFilter>('전체');
-
-  const items = useMemo(() => {
-    const discoveredItems: CatCardItem[] = cats.map((cat) => ({
-      id: cat.id,
-      catId: cat.id,
-      number: cat.number,
-      name: cat.name,
-      type: cat.type,
-      rarity: cat.rarity,
-      encounterCount: cat.encounterCount,
-      imageUrl: cat.imageUrl,
-      discovered: true,
-    }));
-    const lockedItems: CatCardItem[] = placeholders.map((placeholder) => ({
-      id: placeholder.id,
-      number: placeholder.number,
-      name: placeholder.clueTitle ?? '미확인 고양이',
-      type: placeholder.type,
-      rarity: placeholder.rarity,
-      encounterCount: 0,
-      clue: placeholder.clue ?? placeholder.behaviorHint ?? '아직 공유 도감에 등록되지 않은 목격 제보예요.',
-      regionHint: placeholder.regionHint,
-      timeHint: placeholder.timeHint ?? placeholder.sightedAt,
-      unlockHint: placeholder.unlockHint ?? '촬영해서 공유 도감 고양이로 등록할 수 있어요.',
-      discovered: false,
-    }));
-
-    return [...discoveredItems, ...lockedItems]
-      .sort((left, right) => left.number - right.number)
-      .filter((item) => {
-        if (selectedFilter === '전체') {
-          return true;
-        }
-
-        if (selectedFilter === '희귀') {
-          return item.rarity >= 4;
-        }
-
-        return item.type === selectedFilter;
-      });
-  }, [cats, placeholders, selectedFilter]);
+  const visibleCats = useMemo(
+    () => (selectedFilter === '전체' ? cats : cats.filter((cat) => cat.type === selectedFilter)),
+    [cats, selectedFilter],
+  );
+  const lockedCount = Math.max(0, Math.min(placeholders.length, 1));
 
   return (
-    <ScrollView contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
+    <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <View style={styles.header}>
-        <View>
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>수집 진행률</Text>
-          </View>
+        <View style={styles.headerCopy}>
           <Text style={styles.title}>고양이 도감</Text>
           <Text style={styles.subtitle}>발견한 고양이를 카드처럼 모아보세요.</Text>
         </View>
-        <View style={styles.progressCard}>
+        <View style={styles.progressBubble}>
           <Text style={styles.progressLabel}>수집 현황</Text>
           <Text style={styles.progressValue}>
             {progress.collected} / {progress.total}
@@ -79,120 +63,278 @@ export function CatDexScreen({ cats, placeholders, progress, onOpenCat }: CatDex
         </View>
       </View>
 
-      <View style={styles.progressSection}>
-        <View style={styles.progressHeader}>
-          <Text style={styles.progressTitle}>도감 완성도</Text>
-          <Text style={styles.progressMeta}>희귀 냥이 {cats.filter((cat) => cat.rarity >= 4).length}마리 발견</Text>
-        </View>
-        <ProgressBar indicatorColor="#C9804C" value={(progress.collected / progress.total) * 100} />
+      <View style={styles.progressTrack}>
+        <View style={[styles.progressFill, { width: `${Math.min(100, Math.max(0, (progress.collected / Math.max(progress.total, 1)) * 100))}%` }]} />
       </View>
 
-      <View style={styles.section}>
-        <SectionHeader action={<Filter color={theme.colors.mutedText} size={16} />} title="필터" />
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          <View style={styles.filterRow}>
-            {catFilters.map((filter) => (
-              <Chip key={filter} onPress={() => setSelectedFilter(filter)} selected={selectedFilter === filter}>
-                {filter}
-              </Chip>
-            ))}
+      <View style={styles.searchBar}>
+        <Search color={theme.colors.mutedText} size={18} />
+        <Text style={styles.searchText}>고양이 이름, 특징으로 검색</Text>
+        <Filter color={theme.colors.primaryDark} size={17} />
+      </View>
+
+      <ScrollView contentContainerStyle={styles.filterRow} horizontal showsHorizontalScrollIndicator={false}>
+        {filters.map((filter) => {
+          const isSelected = selectedFilter === filter;
+
+          return (
+            <Pressable key={filter} onPress={() => setSelectedFilter(filter)} style={[styles.filterChip, isSelected && styles.filterChipActive]}>
+              <Text style={[styles.filterText, isSelected && styles.filterTextActive]}>{filter}</Text>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+
+      <View style={styles.countRow}>
+        <Text style={styles.countText}>전체 {visibleCats.length}마리</Text>
+      </View>
+
+      <View style={styles.grid}>
+        {visibleCats.map((cat) => (
+          <Pressable key={cat.id} onPress={() => onOpenCat(cat.id)} style={({ pressed }) => [styles.tile, pressed && styles.pressed]}>
+            <View pointerEvents="none" style={styles.tileWash} />
+            <View style={styles.tileImageFrame}>
+              <Image resizeMode="cover" source={imageForType(cat.type, cat.imageUrl)} style={styles.tileImage} />
+            </View>
+            <Text style={styles.tileNumber}>No.{String(cat.number).padStart(3, '0')}</Text>
+            <Text numberOfLines={1} style={styles.tileName}>
+              {cat.name}
+            </Text>
+            <Text numberOfLines={1} style={styles.tileMeta}>
+              {cat.relationshipLevel}
+            </Text>
+          </Pressable>
+        ))}
+
+        {Array.from({ length: lockedCount }).map((_, index) => (
+          <View key={`locked-${index}`} style={[styles.tile, styles.lockedTile]}>
+            <PawPrint color="#D4B989" size={44} />
+            <Text style={styles.lockedText}>새로운 고양이 기다리는 중</Text>
           </View>
-        </ScrollView>
+        ))}
       </View>
 
-      <View style={styles.section}>
-        <SectionHeader subtitle={`${items.length}장의 카드`} title={selectedFilter === '전체' ? '전체 도감' : `${selectedFilter} 필터`} />
-        <CatGrid
-          items={items}
-          onOpenCat={onOpenCat}
-          onOpenSightingLocation={(item) => {
-            Alert.alert('목격 정보', `출몰 위치: ${item.regionHint ?? '지역 단서 없음'}\n털 색상: ${item.type} 계열`);
-          }}
-        />
-      </View>
+      {visibleCats.length === 0 && lockedCount === 0 ? (
+        <View style={styles.emptyState}>
+          <PawPrint color="#D4B989" size={38} />
+          <Text style={styles.emptyTitle}>아직 수집한 고양이가 없어요</Text>
+          <Text style={styles.emptyText}>첫 고양이를 등록하면 도감 카드가 여기에 채워져요.</Text>
+        </View>
+      ) : null}
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  contentContainer: {
+  content: {
     paddingHorizontal: theme.spacing.lg,
-    paddingTop: theme.spacing.lg,
-    paddingBottom: 140,
+    paddingTop: theme.spacing.md,
+    paddingBottom: 132,
   },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'flex-start',
+    justifyContent: 'space-between',
     gap: theme.spacing.md,
   },
-  badge: {
-    alignSelf: 'flex-start',
-    borderRadius: 999,
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: 6,
-    backgroundColor: 'rgba(255,255,255,0.75)',
-  },
-  badgeText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#916B53',
+  headerCopy: {
+    flex: 1,
+    minWidth: 0,
   },
   title: {
-    marginTop: theme.spacing.md,
-    fontSize: 32,
-    fontWeight: '800',
+    fontSize: 26,
+    fontWeight: theme.typography.titleWeight,
+    letterSpacing: theme.typography.letterSpacing,
     color: theme.colors.text,
   },
   subtitle: {
-    marginTop: theme.spacing.sm,
-    fontSize: 14,
+    marginTop: 6,
+    fontSize: 13,
     color: theme.colors.mutedText,
   },
-  progressCard: {
-    minWidth: 96,
-    borderRadius: theme.radius.xl,
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.md,
-    backgroundColor: '#4B3426',
+  progressBubble: {
+    width: 74,
+    height: 74,
+    borderRadius: 37,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#5F743D',
+    ...createShadow(8),
   },
   progressLabel: {
-    fontSize: 12,
-    color: '#F0DCC9',
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#F7EBD8',
   },
   progressValue: {
-    marginTop: 6,
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#FFF6ED',
+    marginTop: 3,
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#FFFDF6',
   },
-  progressSection: {
-    marginTop: theme.spacing.xl,
-    borderRadius: theme.radius.xl,
-    padding: theme.spacing.lg,
-    backgroundColor: 'rgba(255,255,255,0.75)',
+  progressTrack: {
+    height: 8,
+    marginTop: theme.spacing.md,
+    borderRadius: 999,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(232, 211, 183, 0.62)',
   },
-  progressHeader: {
-    marginBottom: theme.spacing.md,
+  progressFill: {
+    height: '100%',
+    borderRadius: 999,
+    backgroundColor: theme.colors.accent,
+  },
+  searchBar: {
+    height: 46,
+    marginTop: theme.spacing.lg,
     flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+    borderRadius: 23,
+    paddingHorizontal: theme.spacing.md,
+    backgroundColor: 'rgba(255,253,246,0.92)',
+    borderWidth: 1,
+    borderColor: 'rgba(232,211,183,0.86)',
+  },
+  searchText: {
+    flex: 1,
+    fontSize: 13,
+    color: theme.colors.mutedText,
+  },
+  filterRow: {
+    gap: theme.spacing.sm,
+    paddingTop: theme.spacing.md,
+    paddingBottom: theme.spacing.md,
+  },
+  filterChip: {
+    borderRadius: 999,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: 9,
+    backgroundColor: 'rgba(255,253,246,0.82)',
+    borderWidth: 1,
+    borderColor: 'rgba(232,211,183,0.86)',
+  },
+  filterChipActive: {
+    backgroundColor: theme.colors.primaryDark,
+    borderColor: theme.colors.primaryDark,
+  },
+  filterText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: theme.colors.mutedText,
+  },
+  filterTextActive: {
+    color: '#FFF8F0',
+  },
+  countRow: {
+    marginBottom: theme.spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
     gap: theme.spacing.md,
   },
-  progressTitle: {
+  countText: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#8C6A58',
+    fontWeight: '800',
+    color: theme.colors.text,
   },
-  progressMeta: {
-    fontSize: 12,
-    color: '#A66C41',
-  },
-  section: {
-    marginTop: theme.spacing.xl,
-  },
-  filterRow: {
+  grid: {
     flexDirection: 'row',
-    gap: theme.spacing.sm,
-    paddingRight: theme.spacing.lg,
+    flexWrap: 'wrap',
+    columnGap: theme.spacing.sm,
+    rowGap: theme.spacing.md,
+  },
+  tile: {
+    flexBasis: '48%',
+    flexGrow: 0,
+    maxWidth: '48%',
+    borderRadius: theme.radius.md,
+    padding: 10,
+    backgroundColor: 'rgba(255,253,246,0.9)',
+    borderWidth: 1,
+    borderColor: 'rgba(232,211,183,0.88)',
+    overflow: 'hidden',
+    ...createShadow(5),
+  },
+  tileWash: {
+    position: 'absolute',
+    right: -34,
+    bottom: 46,
+    width: 78,
+    height: 50,
+    borderRadius: 40,
+    backgroundColor: 'rgba(221, 232, 200, 0.34)',
+    transform: [{ rotate: '-18deg' }],
+  },
+  pressed: {
+    opacity: 0.86,
+  },
+  tileImageFrame: {
+    width: '100%',
+    aspectRatio: 1,
+    borderRadius: theme.radius.sm,
+    backgroundColor: theme.colors.surfaceAlt,
+    overflow: 'hidden',
+  },
+  tileImage: {
+    width: '100%',
+    height: '100%',
+  },
+  tileNumber: {
+    marginTop: 10,
+    color: '#9B734D',
+    fontSize: 11,
+    fontWeight: '900',
+    lineHeight: 15,
+  },
+  tileName: {
+    marginTop: 2,
+    fontSize: 15,
+    fontWeight: '900',
+    lineHeight: 20,
+    color: theme.colors.text,
+  },
+  tileMeta: {
+    marginTop: 2,
+    fontSize: 12,
+    lineHeight: 17,
+    color: theme.colors.mutedText,
+  },
+  lockedTile: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(244,231,209,0.8)',
+  },
+  lockedText: {
+    marginTop: theme.spacing.sm,
+    fontSize: 11,
+    lineHeight: 16,
+    fontWeight: '700',
+    textAlign: 'center',
+    color: '#A88C78',
+  },
+  emptyState: {
+    marginTop: theme.spacing.lg,
+    minHeight: 180,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: theme.radius.lg,
+    padding: theme.spacing.lg,
+    backgroundColor: 'rgba(255,253,246,0.78)',
+    borderWidth: 1,
+    borderColor: 'rgba(232,211,183,0.88)',
+  },
+  emptyTitle: {
+    marginTop: theme.spacing.sm,
+    color: theme.colors.text,
+    fontSize: 16,
+    fontWeight: '900',
+  },
+  emptyText: {
+    marginTop: 5,
+    color: theme.colors.mutedText,
+    fontSize: 13,
+    lineHeight: 19,
+    textAlign: 'center',
   },
 });

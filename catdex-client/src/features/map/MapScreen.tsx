@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { Region } from '@/shared/types/region';
 import { KakaoMapView } from '@/features/map/components/KakaoMapView';
@@ -9,20 +9,32 @@ interface MapScreenProps {
 }
 
 export function MapScreen({ regions }: MapScreenProps) {
-  const [selectedRegion, setSelectedRegion] = useState<Region | null>(regions[0] ?? null);
+  const displayRegions = useMemo(() => regions, [regions]);
+  const [selectedRegion, setSelectedRegion] = useState<Region | null>(displayRegions[0] ?? null);
+
+  useEffect(() => {
+    if (!selectedRegion && displayRegions[0]) {
+      setSelectedRegion(displayRegions[0]);
+      return;
+    }
+
+    if (selectedRegion && !displayRegions.some((region) => region.id === selectedRegion.id)) {
+      setSelectedRegion(displayRegions[0] ?? null);
+    }
+  }, [displayRegions, selectedRegion]);
 
   return (
     <View style={styles.screen}>
       <KakaoMapView
         onSelectRegion={setSelectedRegion}
-        regions={regions}
+        regions={displayRegions}
         selectedRegionId={selectedRegion?.id ?? null}
         style={styles.fullMap}
       />
 
       <View style={styles.header}>
         <View style={styles.headerRow}>
-          <View>
+          <View style={styles.headerCopy}>
             <Text style={styles.title}>공유 도감 지도</Text>
             <Text style={styles.subtitle}>동네 단위의 공개 발견만 보여줘요. 정확한 위치는 저장하지 않아요.</Text>
           </View>
@@ -33,7 +45,12 @@ export function MapScreen({ regions }: MapScreenProps) {
       </View>
 
       <View style={styles.bottomSheet}>
-        {selectedRegion ? (
+        {displayRegions.length === 0 ? (
+          <View style={styles.emptyRegion}>
+            <Text style={styles.emptyRegionTitle}>표시할 공유 지역이 없어요</Text>
+            <Text style={styles.emptyRegionText}>공유 도감에 등록된 지역이 생기면 지도에 표시돼요.</Text>
+          </View>
+        ) : selectedRegion ? (
           <View style={styles.selectedRegionSummary}>
             <View style={styles.selectedRegionText}>
               <Text style={styles.regionKicker}>공유 발견 지역</Text>
@@ -41,7 +58,9 @@ export function MapScreen({ regions }: MapScreenProps) {
                 {selectedRegion.name}
               </Text>
             </View>
-            <Text style={styles.regionCount}>공유 {selectedRegion.cats.length}마리</Text>
+            <View style={styles.regionCountPill}>
+              <Text style={styles.regionCount}>공유 {selectedRegion.cats.length}마리</Text>
+            </View>
           </View>
         ) : null}
 
@@ -59,7 +78,7 @@ export function MapScreen({ regions }: MapScreenProps) {
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           <View style={styles.regionSelector}>
-            {regions.map((region) => {
+            {displayRegions.map((region) => {
               const isSelected = region.id === selectedRegion?.id;
 
               return (
@@ -92,15 +111,15 @@ const styles = StyleSheet.create({
   },
   header: {
     position: 'absolute',
-    top: theme.spacing.lg,
-    right: theme.spacing.lg,
-    left: theme.spacing.lg,
+    top: theme.spacing.md,
+    right: theme.spacing.md,
+    left: theme.spacing.md,
     borderRadius: theme.radius.lg,
-    paddingHorizontal: theme.spacing.lg,
+    paddingHorizontal: theme.spacing.md,
     paddingVertical: theme.spacing.md,
-    backgroundColor: 'rgba(255,255,255,0.78)',
+    backgroundColor: 'rgba(255, 253, 246, 0.86)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.88)',
+    borderColor: 'rgba(139, 112, 83, 0.16)',
   },
   headerRow: {
     flexDirection: 'row',
@@ -108,19 +127,24 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: theme.spacing.md,
   },
+  headerCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
   badge: {
+    flexShrink: 0,
     borderRadius: 999,
     paddingHorizontal: theme.spacing.sm,
     paddingVertical: 5,
-    backgroundColor: 'rgba(255,255,255,0.75)',
+    backgroundColor: theme.colors.accentSoft,
   },
   badgeText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#916B53',
+    color: '#536845',
   },
   title: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '800',
     color: theme.colors.text,
   },
@@ -132,14 +156,32 @@ const styles = StyleSheet.create({
   },
   bottomSheet: {
     position: 'absolute',
-    right: theme.spacing.lg,
-    bottom: 112,
-    left: theme.spacing.lg,
+    right: theme.spacing.md,
+    bottom: 104,
+    left: theme.spacing.md,
     borderRadius: theme.radius.xl,
     padding: theme.spacing.md,
-    backgroundColor: 'rgba(255,255,255,0.9)',
+    backgroundColor: 'rgba(255, 253, 246, 0.92)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.96)',
+    borderColor: 'rgba(139, 112, 83, 0.16)',
+  },
+  emptyRegion: {
+    minHeight: 96,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: theme.spacing.md,
+  },
+  emptyRegionTitle: {
+    color: theme.colors.text,
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  emptyRegionText: {
+    marginTop: 5,
+    color: theme.colors.mutedText,
+    fontSize: 12,
+    lineHeight: 18,
+    textAlign: 'center',
   },
   selectedRegionSummary: {
     flexDirection: 'row',
@@ -162,9 +204,18 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
   },
   regionCount: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
-    color: theme.colors.mutedText,
+    color: theme.colors.primaryDark,
+  },
+  regionCountPill: {
+    flexShrink: 0,
+    borderRadius: 999,
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: 6,
+    backgroundColor: theme.colors.badge,
+    borderWidth: 1,
+    borderColor: 'rgba(191,120,72,0.18)',
   },
   regionList: {
     marginTop: theme.spacing.sm,
@@ -175,7 +226,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: theme.spacing.md,
     paddingVertical: 10,
-    backgroundColor: '#FFF7EF',
+    backgroundColor: '#FFF8EC',
     borderWidth: 1,
     borderColor: '#EAD9C4',
   },
@@ -190,17 +241,17 @@ const styles = StyleSheet.create({
     gap: theme.spacing.sm,
   },
   regionPill: {
-    minWidth: 142,
+    minWidth: 132,
     borderRadius: theme.radius.lg,
     paddingHorizontal: theme.spacing.md,
     paddingVertical: 10,
-    backgroundColor: 'rgba(255,255,255,0.78)',
+    backgroundColor: 'rgba(255, 253, 246, 0.82)',
     borderWidth: 1,
     borderColor: '#EAD9C4',
   },
   regionPillSelected: {
-    backgroundColor: '#F8ECD9',
-    borderColor: '#D8B990',
+    backgroundColor: theme.colors.accentSoft,
+    borderColor: '#B9C59A',
   },
   pressed: {
     opacity: 0.88,

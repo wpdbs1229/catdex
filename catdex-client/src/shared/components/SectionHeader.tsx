@@ -15,7 +15,7 @@ export function SectionHeader({ title, subtitle, action }: SectionHeaderProps) {
         <Text style={styles.title}>{title}</Text>
         {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
       </View>
-      {action}
+      {action ? <View style={styles.actionWrap}>{action}</View> : null}
     </View>
   );
 }
@@ -30,15 +30,21 @@ const styles = StyleSheet.create({
   },
   textWrap: {
     flex: 1,
+    minWidth: 0,
+  },
+  actionWrap: {
+    flexShrink: 0,
   },
   title: {
     fontSize: 18,
     fontWeight: '700',
     color: theme.colors.text,
+    lineHeight: 24,
   },
   subtitle: {
     marginTop: 4,
     fontSize: 13,
     color: theme.colors.mutedText,
+    lineHeight: 18,
   },
 });

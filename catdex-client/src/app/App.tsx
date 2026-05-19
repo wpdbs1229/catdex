@@ -12,7 +12,7 @@ import {
   saveFeaturedCat,
 } from '@/shared/api/collection.api';
 import { fetchCatOptions, reportCat } from '@/shared/api/cats.api';
-import { coatOptions, personalityOptions } from '@/shared/data/cats.mock';
+import { coatOptions, personalityOptions } from '@/shared/constants/cat.constants';
 import { LoginScreen } from '@/features/auth/LoginScreen';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { CaptureScreen } from '@/features/capture/CaptureScreen';

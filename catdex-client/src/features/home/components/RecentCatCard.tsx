@@ -60,6 +60,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(91, 62, 48, 0.12)',
   },
   artImage: {
     width: '100%',
@@ -89,7 +91,7 @@ const styles = StyleSheet.create({
   },
   stars: {
     fontSize: 12,
-    color: theme.colors.primary,
+    color: theme.colors.warning,
   },
   metaRow: {
     marginTop: theme.spacing.md,

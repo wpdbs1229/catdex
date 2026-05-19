@@ -1,19 +1,12 @@
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Card } from '@/shared/components/Card';
-import { Button } from '@/shared/components/Button';
-import { SectionHeader } from '@/shared/components/SectionHeader';
+import type { LucideIcon } from 'lucide-react-native';
+import { Bell, BookOpen, ChevronRight, Cloud, Heart, LogOut, Settings } from 'lucide-react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, View, type ImageSourcePropType } from 'react-native';
+import { ProgressBar } from '@/shared/components/ProgressBar';
+import { createShadow, theme } from '@/shared/styles/theme';
 import type { Badge, ExplorerProfile } from '@/shared/types/badge';
-import type { AuthProvider, AuthUser } from '@/shared/types/auth';
+import type { AuthUser } from '@/shared/types/auth';
 import type { Cat } from '@/shared/types/cat';
 import type { CollectionSummary } from '@/shared/types/collection';
-import { BadgeGrid } from '@/features/my/components/BadgeGrid';
-import { UserLevelCard } from '@/features/my/components/UserLevelCard';
-import { theme } from '@/shared/styles/theme';
-
-const providerLabels: Record<AuthProvider, string> = {
-  kakao: 'Kakao',
-  google: 'Google',
-};
 
 interface MyPageScreenProps {
   profile: ExplorerProfile;
@@ -27,6 +20,32 @@ interface MyPageScreenProps {
   onOpenCollectionDrawer: () => void;
 }
 
+const illustrations = {
+  profile: require('../../../assets/illustrations/profile-cat.png'),
+  bottom: require('../../../assets/illustrations/my-bottom-cat.png'),
+  orange: require('../../../assets/illustrations/cat-orange-clean.png'),
+  dark: require('../../../assets/illustrations/cat-dark-clean.png'),
+  tuxedo: require('../../../assets/illustrations/cat-tuxedo-clean.png'),
+} satisfies Record<string, ImageSourcePropType>;
+
+const badgeIcons = ['🐾', '🌿', '🦉', '💙'];
+
+function catImage(cat: Cat): ImageSourcePropType {
+  if (cat.imageUrl) {
+    return { uri: cat.imageUrl };
+  }
+
+  if (cat.type === '턱시도') {
+    return illustrations.tuxedo;
+  }
+
+  if (cat.type === '삼색이' || cat.type === '검은냥') {
+    return illustrations.dark;
+  }
+
+  return illustrations.orange;
+}
+
 export function MyPageScreen({
   profile,
   badges,
@@ -38,299 +57,328 @@ export function MyPageScreen({
   onOpenCat,
   onOpenCollectionDrawer,
 }: MyPageScreenProps) {
+  const achievedBadges = badges.filter((badge) => badge.achieved);
+  const displayBadges = achievedBadges.length > 0 ? achievedBadges.slice(0, 4) : badges.slice(0, 4);
+  const featuredCats = collectionSummary.featuredCats.length > 0 ? collectionSummary.featuredCats.slice(0, 3) : myCats.slice(0, 3);
+
   return (
-    <ScrollView contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
-      <View style={styles.header}>
-        <View style={styles.badge}>
-          <Text style={styles.badgeText}>MY / 골목 배지</Text>
+    <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <View style={styles.topRow}>
+        <View style={styles.profileRow}>
+          <Image resizeMode="cover" source={user.profileImageUrl ? { uri: user.profileImageUrl } : illustrations.profile} style={styles.avatar} />
+          <View style={styles.profileCopy}>
+            <View style={styles.nameRow}>
+              <Text numberOfLines={1} style={styles.nickname}>
+                {user.nickname}
+              </Text>
+            </View>
+            {collectionSummary.hasNyangkkureomi ? <Text style={styles.planPill}>{collectionSummary.planName}</Text> : null}
+            <Text style={styles.levelText}>레벨 {profile.level}</Text>
+            <ProgressBar value={profile.nextLevelProgress} />
+          </View>
         </View>
-        <Text style={styles.title}>탐험 기록</Text>
-        <Text style={styles.subtitle}>레벨, 발견 수, 뱃지를 한 번에 확인하는 프로필 화면입니다.</Text>
+        <Pressable style={styles.iconButton}>
+          <Settings color={theme.colors.primaryDark} size={20} />
+        </Pressable>
       </View>
 
-      <UserLevelCard profile={profile} />
-
-      <Card style={styles.accountCard}>
-        <View style={styles.accountHeader}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{user.nickname.slice(0, 1)}</Text>
-          </View>
-          <View style={styles.accountMeta}>
-            <Text style={styles.accountLabel}>로그인 사용자</Text>
-            <Text style={styles.accountName}>{user.nickname}</Text>
-            <Text style={styles.providerText}>{providerLabels[user.provider]}</Text>
-          </View>
-        </View>
-        <View style={styles.logoutWrap}>
-          <Button disabled={isSigningOut} onPress={onLogout} variant="secondary">
-            {isSigningOut ? '로그아웃 중...' : '로그아웃'}
-          </Button>
-        </View>
-      </Card>
-
-      <View style={styles.statsRow}>
-        <Card style={styles.statCard}>
-          <Text style={styles.statLabel}>전체 발견 수</Text>
+      <View style={styles.statPanel}>
+        <View style={styles.statItem}>
+          <Text style={styles.statLabel}>도감 수집</Text>
           <Text style={styles.statValue}>{profile.totalDiscoveries}</Text>
-        </Card>
-        <Card style={styles.statCard}>
+        </View>
+        <View style={styles.statItem}>
           <Text style={styles.statLabel}>재발견 횟수</Text>
           <Text style={styles.statValue}>{profile.rediscoveries}</Text>
-        </Card>
+        </View>
+        <View style={styles.statItem}>
+          <Text style={styles.statLabel}>공유 수</Text>
+          <Text style={styles.statValue}>{collectionSummary.featuredCats.length}</Text>
+        </View>
+        <View style={styles.statItem}>
+          <Text style={styles.statLabel}>연속 탐험</Text>
+          <Text style={styles.statValue}>{collectionSummary.achievedStampCount}일</Text>
+        </View>
       </View>
 
-      <Card style={styles.drawerCard}>
-        <View style={styles.drawerHeader}>
-          <View>
-            <Text style={styles.drawerLabel}>{collectionSummary.planName}</Text>
-            <Text style={styles.drawerTitle}>고양이 서랍</Text>
-          </View>
-          <Text style={styles.drawerTheme}>{collectionSummary.coverThemeName}</Text>
+      <View style={styles.badgePanel}>
+        <View style={styles.panelHeader}>
+          <Text style={styles.panelTitle}>획득한 배지</Text>
+          <Text style={styles.panelCount}>{collectionSummary.achievedBadgeCount} / {badges.length || 24}</Text>
         </View>
-        <Text style={styles.drawerDescription}>
-          우리 도감 주인공 {collectionSummary.featuredCats.length}마리 · 골목 배지 {collectionSummary.achievedBadgeCount}개 · 냥발 도장{' '}
-          {collectionSummary.achievedStampCount}개
-        </Text>
-        <View style={styles.featuredPreview}>
-          {collectionSummary.featuredCats.slice(0, 3).map((cat) => (
-            <View key={cat.id} style={styles.featuredPill}>
-              <Text style={styles.featuredPillText}>{cat.name}</Text>
+        <View style={styles.badgeRow}>
+          {displayBadges.map((badge, index) => (
+            <View key={badge.id} style={styles.badgeItem}>
+              <View style={[styles.badgeCircle, !badge.achieved && styles.badgeCircleLocked]}>
+                <Text style={styles.badgeEmoji}>{badgeIcons[index] ?? '🏅'}</Text>
+              </View>
+              <Text numberOfLines={1} style={styles.badgeLabel}>
+                {badge.name}
+              </Text>
             </View>
           ))}
-          {collectionSummary.featuredCats.length === 0 ? <Text style={styles.drawerEmpty}>우리 도감 주인공을 골라보세요.</Text> : null}
         </View>
-        <Button onPress={onOpenCollectionDrawer} variant="secondary">
-          고양이 서랍 열기
-        </Button>
-      </Card>
-
-      <View style={styles.section}>
-        <SectionHeader subtitle="획득한 배지를 모아보세요" title="획득 골목 배지" />
-        <BadgeGrid badges={badges.filter((badge) => badge.achieved)} />
       </View>
 
-      <View style={styles.section}>
-        <SectionHeader subtitle={`${myCats.length}마리 수집`} title="내 도감" />
-        <View style={styles.catList}>
-          {myCats.map((cat) => (
-            <Card key={cat.id} style={styles.catRow}>
-              <View style={styles.catMeta}>
-                <Text style={styles.catNumber}>No.{String(cat.number).padStart(3, '0')}</Text>
-                <Text style={styles.catName}>{cat.name}</Text>
-                <Text style={styles.catSub}>
-                  {cat.type} · 내 발견 {cat.encounterCount}회
-                </Text>
-              </View>
-              <Button onPress={() => onOpenCat(cat.id)} variant="secondary">
-                보기
-              </Button>
-            </Card>
+      {featuredCats.length > 0 ? (
+        <View style={styles.featuredRow}>
+          {featuredCats.map((cat) => (
+            <Pressable key={cat.id} onPress={() => onOpenCat(cat.id)} style={({ pressed }) => [styles.featuredCat, pressed && styles.pressed]}>
+              <Image resizeMode="cover" source={catImage(cat)} style={styles.featuredImage} />
+              <Text numberOfLines={1} style={styles.featuredName}>
+                {cat.name}
+              </Text>
+            </Pressable>
           ))}
-          {myCats.length === 0 ? (
-            <Card style={styles.emptyCard}>
-              <Text style={styles.emptyText}>아직 내 도감에 수집한 고양이가 없어요.</Text>
-            </Card>
-          ) : null}
         </View>
+      ) : null}
+
+      <View style={styles.menuPanel}>
+        <MenuItem icon={BookOpen} label="탐험 기록" onPress={onOpenCollectionDrawer} />
+        <MenuItem icon={Cloud} label="내가 공유한 도감" onPress={onOpenCollectionDrawer} />
+        <MenuItem icon={Heart} label="좋아요한 도감" />
+        <MenuItem icon={Bell} label="알림 설정" />
+        <MenuItem disabled={isSigningOut} icon={LogOut} label={isSigningOut ? '로그아웃 중...' : '로그아웃'} onPress={onLogout} />
+      </View>
+
+      <View pointerEvents="none">
+        <Image resizeMode="contain" source={illustrations.bottom} style={styles.bottomCat} />
       </View>
     </ScrollView>
   );
 }
 
+interface MenuItemProps {
+  disabled?: boolean;
+  icon: LucideIcon;
+  label: string;
+  onPress?: () => void;
+}
+
+function MenuItem({ disabled = false, icon: Icon, label, onPress }: MenuItemProps) {
+  return (
+    <Pressable disabled={disabled} onPress={onPress} style={({ pressed }) => [styles.menuItem, pressed && styles.pressed, disabled && styles.disabled]}>
+      <Icon color={theme.colors.primaryDark} size={18} />
+      <Text style={styles.menuLabel}>{label}</Text>
+      <ChevronRight color={theme.colors.mutedText} size={18} />
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
-  contentContainer: {
+  content: {
     paddingHorizontal: theme.spacing.lg,
-    paddingTop: theme.spacing.lg,
-    paddingBottom: 140,
+    paddingTop: theme.spacing.md,
+    paddingBottom: 132,
   },
-  header: {
-    marginBottom: theme.spacing.xl,
-  },
-  badge: {
-    alignSelf: 'flex-start',
-    borderRadius: 999,
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: 6,
-    backgroundColor: 'rgba(255,255,255,0.75)',
-  },
-  badgeText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#916B53',
-  },
-  title: {
-    marginTop: theme.spacing.md,
-    fontSize: 32,
-    fontWeight: '800',
-    color: theme.colors.text,
-  },
-  subtitle: {
-    marginTop: theme.spacing.sm,
-    fontSize: 14,
-    lineHeight: 22,
-    color: theme.colors.mutedText,
-  },
-  statsRow: {
-    marginTop: theme.spacing.lg,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  accountCard: {
-    marginTop: theme.spacing.lg,
-  },
-  accountHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.md,
-  },
-  avatar: {
-    width: 54,
-    height: 54,
-    borderRadius: 27,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#F7E4CA',
-    borderWidth: 1,
-    borderColor: '#E9D1B6',
-  },
-  avatarText: {
-    color: theme.colors.text,
-    fontSize: 22,
-    fontWeight: '900',
-  },
-  accountMeta: {
-    flex: 1,
-  },
-  accountLabel: {
-    color: '#8B6956',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  accountName: {
-    marginTop: 4,
-    color: theme.colors.text,
-    fontSize: 22,
-    fontWeight: '800',
-  },
-  providerText: {
-    marginTop: 4,
-    color: theme.colors.mutedText,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  logoutWrap: {
-    marginTop: theme.spacing.lg,
-  },
-  statCard: {
-    width: '48.5%',
-  },
-  statLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#8B6956',
-  },
-  statValue: {
-    marginTop: theme.spacing.sm,
-    fontSize: 28,
-    fontWeight: '800',
-    color: theme.colors.text,
-  },
-  drawerCard: {
-    marginTop: theme.spacing.lg,
-    gap: theme.spacing.md,
-    backgroundColor: '#FFF7DE',
-  },
-  drawerHeader: {
+  topRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: theme.spacing.md,
   },
-  drawerLabel: {
-    color: theme.colors.primary,
-    fontSize: 12,
-    fontWeight: '900',
+  profileRow: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.md,
   },
-  drawerTitle: {
-    marginTop: 4,
-    color: theme.colors.text,
-    fontSize: 22,
-    fontWeight: '900',
+  avatar: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    backgroundColor: theme.colors.surfaceAlt,
+    borderWidth: 1,
+    borderColor: 'rgba(201,121,73,0.2)',
   },
-  drawerTheme: {
-    flexShrink: 1,
-    color: theme.colors.primaryDark,
-    fontSize: 13,
+  profileCopy: {
+    flex: 1,
+  },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  nickname: {
+    flex: 1,
+    minWidth: 0,
+    fontSize: 20,
     fontWeight: '800',
-    textAlign: 'right',
+    color: theme.colors.text,
   },
-  drawerDescription: {
-    color: theme.colors.mutedText,
-    fontSize: 14,
-    fontWeight: '600',
-    lineHeight: 21,
+  planPill: {
+    alignSelf: 'flex-start',
+    marginTop: 4,
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    overflow: 'hidden',
+    fontSize: 10,
+    fontWeight: '800',
+    color: theme.colors.primary,
+    backgroundColor: '#FFF0DC',
   },
-  featuredPreview: {
+  levelText: {
+    marginTop: theme.spacing.sm,
+    marginBottom: 6,
+    fontSize: 12,
+    fontWeight: '800',
+    color: theme.colors.primaryDark,
+  },
+  iconButton: {
+    width: 38,
+    height: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  statPanel: {
+    marginTop: theme.spacing.xl,
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: theme.spacing.sm,
-  },
-  featuredPill: {
-    borderRadius: 999,
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: 8,
-    backgroundColor: theme.colors.accentSoft,
+    borderRadius: theme.radius.lg,
+    padding: theme.spacing.md,
+    backgroundColor: 'rgba(255,253,246,0.9)',
     borderWidth: 1,
-    borderColor: '#B9C59A',
+    borderColor: 'rgba(232,211,183,0.88)',
+    ...createShadow(7),
   },
-  featuredPillText: {
-    color: theme.colors.text,
-    fontSize: 13,
-    fontWeight: '800',
+  statItem: {
+    flexBasis: '47.5%',
+    flexGrow: 1,
+    minHeight: 72,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: theme.radius.md,
+    backgroundColor: 'rgba(255,248,236,0.72)',
+    borderWidth: 1,
+    borderColor: 'rgba(232,211,183,0.62)',
+    paddingHorizontal: theme.spacing.sm,
   },
-  drawerEmpty: {
-    color: theme.colors.mutedText,
-    fontSize: 13,
+  statLabel: {
+    fontSize: 10,
     fontWeight: '700',
+    color: theme.colors.mutedText,
   },
-  section: {
-    marginTop: theme.spacing.xl,
+  statValue: {
+    marginTop: theme.spacing.sm,
+    fontSize: 21,
+    fontWeight: '800',
+    color: theme.colors.text,
   },
-  catList: {
-    gap: theme.spacing.md,
+  badgePanel: {
+    marginTop: theme.spacing.md,
+    borderRadius: theme.radius.lg,
+    padding: theme.spacing.lg,
+    backgroundColor: 'rgba(255,253,246,0.9)',
+    borderWidth: 1,
+    borderColor: 'rgba(232,211,183,0.88)',
   },
-  catRow: {
+  panelHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: theme.spacing.md,
   },
-  catMeta: {
-    flex: 1,
-  },
-  catNumber: {
-    color: '#8B6956',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  catName: {
-    marginTop: 4,
-    color: theme.colors.text,
-    fontSize: 18,
+  panelTitle: {
+    fontSize: 16,
     fontWeight: '800',
+    color: theme.colors.text,
   },
-  catSub: {
-    marginTop: 4,
-    color: theme.colors.mutedText,
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  emptyCard: {
-    backgroundColor: 'rgba(255,255,255,0.72)',
-  },
-  emptyText: {
-    color: theme.colors.mutedText,
+  panelCount: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '800',
+    color: theme.colors.accent,
+  },
+  badgeRow: {
+    marginTop: theme.spacing.md,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: theme.spacing.sm,
+  },
+  badgeItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  badgeCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F1C57C',
+    borderWidth: 2,
+    borderColor: '#C9954A',
+  },
+  badgeCircleLocked: {
+    opacity: 0.55,
+  },
+  badgeEmoji: {
+    fontSize: 26,
+  },
+  badgeLabel: {
+    marginTop: theme.spacing.sm,
+    fontSize: 10,
+    fontWeight: '700',
+    color: theme.colors.primaryDark,
+    textAlign: 'center',
+  },
+  featuredRow: {
+    marginTop: theme.spacing.md,
+    flexDirection: 'row',
+    gap: theme.spacing.sm,
+  },
+  featuredCat: {
+    flex: 1,
+    minWidth: 0,
+    borderRadius: theme.radius.md,
+    padding: 6,
+    backgroundColor: 'rgba(255,253,246,0.9)',
+    borderWidth: 1,
+    borderColor: 'rgba(232,211,183,0.88)',
+  },
+  featuredImage: {
+    width: '100%',
+    aspectRatio: 1,
+    borderRadius: theme.radius.sm,
+  },
+  featuredName: {
+    marginTop: 6,
+    fontSize: 11,
+    fontWeight: '800',
+    color: theme.colors.text,
+  },
+  menuPanel: {
+    marginTop: theme.spacing.md,
+    borderRadius: theme.radius.lg,
+    paddingHorizontal: theme.spacing.md,
+    backgroundColor: 'rgba(255,253,246,0.9)',
+    borderWidth: 1,
+    borderColor: 'rgba(232,211,183,0.88)',
+  },
+  menuItem: {
+    minHeight: 52,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(139,112,83,0.14)',
+  },
+  menuLabel: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '700',
+    color: theme.colors.primaryDark,
+  },
+  bottomCat: {
+    width: 150,
+    height: 130,
+    alignSelf: 'flex-end',
+    marginTop: -22,
+    marginRight: -6,
+  },
+  pressed: {
+    opacity: 0.82,
+  },
+  disabled: {
+    opacity: 0.5,
   },
 });

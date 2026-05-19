@@ -17,7 +17,7 @@ const styles = StyleSheet.create({
     padding: theme.spacing.lg,
     backgroundColor: theme.colors.surface,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.92)',
-    ...createShadow(12),
+    borderColor: 'rgba(139, 112, 83, 0.16)',
+    ...createShadow(9),
   },
 });

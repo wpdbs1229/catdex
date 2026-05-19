@@ -29,21 +29,24 @@ export function Chip({ children, selected = false, onPress }: ChipProps) {
 
 const styles = StyleSheet.create({
   base: {
+    maxWidth: '100%',
     borderRadius: 999,
     paddingHorizontal: 14,
     paddingVertical: 10,
-    backgroundColor: 'rgba(255,255,255,0.88)',
+    backgroundColor: 'rgba(255, 253, 246, 0.9)',
     borderWidth: 1,
     borderColor: theme.colors.border,
   },
   selected: {
-    backgroundColor: '#4A3428',
-    borderColor: '#4A3428',
+    backgroundColor: theme.colors.primaryDark,
+    borderColor: '#765640',
   },
   label: {
+    flexShrink: 1,
     fontSize: 13,
     fontWeight: '600',
-    color: '#6A5446',
+    lineHeight: 18,
+    color: theme.colors.mutedText,
   },
   labelSelected: {
     color: '#FFF8F0',
