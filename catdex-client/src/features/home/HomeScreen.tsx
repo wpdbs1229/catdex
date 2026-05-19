@@ -13,7 +13,7 @@ interface HomeScreenProps {
 }
 
 const illustrations = {
-  hero: require('../../../assets/illustrations/cat-gray-cutout.png'),
+  hero: require('../../../assets/illustrations/home-hero-scene-cutout.png'),
   orange: require('../../../assets/illustrations/cat-orange-clean.png'),
   dark: require('../../../assets/illustrations/cat-dark-clean.png'),
   tuxedo: require('../../../assets/illustrations/cat-tuxedo-clean.png'),
@@ -79,7 +79,6 @@ export function HomeScreen({ summary, recentCats, onOpenCat, onGoCapture }: Home
           </View>
           <View pointerEvents="none" style={styles.heroArt}>
             <View style={styles.heroHalo} />
-            <View style={styles.heroGround} />
             <Image resizeMode="contain" source={illustrations.hero} style={styles.heroCat} />
           </View>
         </View>
@@ -260,10 +259,10 @@ const styles = StyleSheet.create({
   },
   heroArt: {
     position: 'absolute',
-    right: -5,
-    top: 8,
-    width: 122,
-    height: 150,
+    right: -14,
+    top: 6,
+    width: 138,
+    height: 148,
     alignItems: 'center',
     justifyContent: 'flex-end',
     overflow: 'visible',
@@ -271,29 +270,19 @@ const styles = StyleSheet.create({
   },
   heroHalo: {
     position: 'absolute',
-    top: 13,
-    right: 7,
-    width: 106,
-    height: 112,
-    borderRadius: 62,
-    backgroundColor: 'rgba(221, 232, 200, 0.52)',
+    top: 14,
+    right: 17,
+    width: 96,
+    height: 102,
+    borderRadius: 54,
+    backgroundColor: 'rgba(221, 232, 200, 0.38)',
     transform: [{ rotate: '-12deg' }],
   },
-  heroGround: {
-    position: 'absolute',
-    right: 7,
-    bottom: 11,
-    width: 110,
-    height: 30,
-    borderRadius: 24,
-    backgroundColor: 'rgba(210, 224, 188, 0.58)',
-    transform: [{ rotate: '-9deg' }],
-  },
   heroCat: {
-    width: 108,
-    height: 136,
-    opacity: 0.9,
-    transform: [{ translateY: 8 }, { rotate: '-1deg' }],
+    width: 132,
+    height: 132,
+    opacity: 0.94,
+    transform: [{ translateY: 7 }, { rotate: '-1deg' }],
   },
   statGrid: {
     flexDirection: 'row',
