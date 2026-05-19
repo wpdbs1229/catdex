@@ -77,7 +77,9 @@ export function HomeScreen({ summary, recentCats, onOpenCat, onGoCapture }: Home
             <Text style={styles.summaryTitle}>내 수집과 공유 도감을 한눈에 확인해요</Text>
             <Text style={styles.summaryCaption}>동네에서 만난 고양이를 도감처럼 차곡차곡 모아보세요.</Text>
           </View>
-          <View style={styles.heroArt}>
+          <View pointerEvents="none" style={styles.heroArt}>
+            <View style={styles.heroHalo} />
+            <View style={styles.heroGround} />
             <Image resizeMode="contain" source={illustrations.hero} style={styles.heroCat} />
           </View>
         </View>
@@ -228,13 +230,12 @@ const styles = StyleSheet.create({
     transform: [{ rotate: '-16deg' }],
   },
   summaryTop: {
-    minHeight: 152,
-    flexDirection: 'row',
-    alignItems: 'center',
+    minHeight: 164,
+    justifyContent: 'center',
   },
   summaryCopy: {
     flex: 1,
-    paddingRight: theme.spacing.sm,
+    paddingRight: 106,
     zIndex: 1,
   },
   kicker: {
@@ -251,22 +252,48 @@ const styles = StyleSheet.create({
   },
   summaryCaption: {
     marginTop: theme.spacing.sm,
-    maxWidth: 190,
+    maxWidth: 210,
     color: theme.colors.mutedText,
     fontSize: 12,
     fontWeight: '600',
     lineHeight: 18,
   },
   heroArt: {
-    width: 118,
-    height: 140,
-    alignSelf: 'flex-end',
+    position: 'absolute',
+    right: -3,
+    top: 12,
+    width: 116,
+    height: 148,
+    alignItems: 'center',
     justifyContent: 'flex-end',
-    zIndex: 1,
+    overflow: 'visible',
+    zIndex: 0,
+  },
+  heroHalo: {
+    position: 'absolute',
+    top: 6,
+    right: 3,
+    width: 104,
+    height: 118,
+    borderRadius: 58,
+    backgroundColor: 'rgba(236, 227, 207, 0.62)',
+    transform: [{ rotate: '-8deg' }],
+  },
+  heroGround: {
+    position: 'absolute',
+    right: 2,
+    bottom: 6,
+    width: 106,
+    height: 34,
+    borderRadius: 24,
+    backgroundColor: 'rgba(212, 224, 190, 0.44)',
+    transform: [{ rotate: '-6deg' }],
   },
   heroCat: {
-    width: '100%',
-    height: '100%',
+    width: 104,
+    height: 132,
+    opacity: 0.82,
+    transform: [{ translateY: 4 }, { scale: 1.16 }],
   },
   statGrid: {
     flexDirection: 'row',
