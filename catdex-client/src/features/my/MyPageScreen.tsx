@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react-native';
-import { Bell, BookOpen, ChevronRight, Cloud, Heart, LogOut, Settings } from 'lucide-react-native';
+import { Bell, BookOpen, ChevronRight, Cloud, Heart, LogOut, Palette, Settings, Sparkles, Trophy } from 'lucide-react-native';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View, type ImageSourcePropType } from 'react-native';
 import { ProgressBar } from '@/shared/components/ProgressBar';
 import { createShadow, theme } from '@/shared/styles/theme';
@@ -18,6 +18,8 @@ interface MyPageScreenProps {
   onLogout: () => void;
   onOpenCat: (catId: string) => void;
   onOpenCollectionDrawer: () => void;
+  onOpenCollectionRankings: () => void;
+  onOpenNotifications: () => void;
 }
 
 const illustrations = {
@@ -56,6 +58,8 @@ export function MyPageScreen({
   onLogout,
   onOpenCat,
   onOpenCollectionDrawer,
+  onOpenCollectionRankings,
+  onOpenNotifications,
 }: MyPageScreenProps) {
   const achievedBadges = badges.filter((badge) => badge.achieved);
   const displayBadges = achievedBadges.length > 0 ? achievedBadges.slice(0, 4) : badges.slice(0, 4);
@@ -133,11 +137,26 @@ export function MyPageScreen({
         </View>
       ) : null}
 
+      <Pressable onPress={onOpenCollectionDrawer} style={({ pressed }) => [styles.drawerButton, pressed && styles.pressed]}>
+        <View style={styles.drawerIcon}>
+          <Sparkles color={theme.colors.primaryDark} size={18} />
+        </View>
+        <View style={styles.drawerCopy}>
+          <Text style={styles.drawerTitle}>고양이 서랍</Text>
+          <Text numberOfLines={2} style={styles.drawerText}>
+            표지, 우리 도감 주인공, 골목 배지와 냥발 도장을 꾸며요.
+          </Text>
+        </View>
+        <ChevronRight color={theme.colors.primaryDark} size={19} />
+      </Pressable>
+
       <View style={styles.menuPanel}>
-        <MenuItem icon={BookOpen} label="탐험 기록" onPress={onOpenCollectionDrawer} />
-        <MenuItem icon={Cloud} label="내가 공유한 도감" onPress={onOpenCollectionDrawer} />
+        <MenuItem icon={Palette} label="고양이 서랍" onPress={onOpenCollectionDrawer} />
+        <MenuItem icon={Trophy} label="동네 도감 랭킹" onPress={onOpenCollectionRankings} />
+        <MenuItem icon={BookOpen} label="탐험 기록" />
+        <MenuItem icon={Cloud} label="내가 공유한 도감" />
         <MenuItem icon={Heart} label="좋아요한 도감" />
-        <MenuItem icon={Bell} label="알림 설정" />
+        <MenuItem icon={Bell} label="알림 설정" onPress={onOpenNotifications} />
         <MenuItem disabled={isSigningOut} icon={LogOut} label={isSigningOut ? '로그아웃 중...' : '로그아웃'} onPress={onLogout} />
       </View>
 
@@ -216,6 +235,45 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: theme.colors.primary,
     backgroundColor: '#FFF0DC',
+  },
+  drawerButton: {
+    minHeight: 92,
+    marginTop: theme.spacing.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.md,
+    borderRadius: theme.radius.lg,
+    padding: theme.spacing.md,
+    backgroundColor: '#FFF0DC',
+    borderWidth: 1,
+    borderColor: 'rgba(201,121,73,0.25)',
+    ...createShadow(6),
+  },
+  drawerIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,253,246,0.74)',
+    borderWidth: 1,
+    borderColor: 'rgba(201,121,73,0.18)',
+  },
+  drawerCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  drawerTitle: {
+    color: theme.colors.text,
+    fontSize: 17,
+    fontWeight: '900',
+  },
+  drawerText: {
+    marginTop: 5,
+    color: theme.colors.mutedText,
+    fontSize: 12,
+    fontWeight: '700',
+    lineHeight: 18,
   },
   levelText: {
     marginTop: theme.spacing.sm,

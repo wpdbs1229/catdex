@@ -22,6 +22,8 @@ export interface CollectionProfile {
   displayTitle: string;
   intro: string;
   selectedBadgeIds: string[];
+  selectedStampIds: string[];
+  isPublic: boolean;
 }
 
 export interface FeaturedCatSlot {
@@ -64,6 +66,8 @@ export interface CollectionSummary {
   hasNyangkkureomi: boolean;
   coverThemeName: string;
   featuredCats: Cat[];
+  selectedBadges: AlleyBadge[];
+  selectedStamps: SeasonStamp[];
   achievedBadgeCount: number;
   achievedStampCount: number;
 }

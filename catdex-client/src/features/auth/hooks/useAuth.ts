@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import * as SecureStore from 'expo-secure-store';
 import { signInWithGoogle, signInWithKakao, signOut } from '@/shared/api/auth.api';
 import { setApiAccessToken } from '@/shared/api/client';
+import { supabase } from '@/shared/supabase/client';
 import type { AuthProvider, AuthSession, AuthUser } from '@/shared/types/auth';
 
 const authStorageKey = 'catdex.auth.session';
@@ -74,6 +75,13 @@ export function useAuth() {
         const restoredSession = await restoreSession();
 
         if (isMounted) {
+          if (restoredSession) {
+            await supabase.auth.setSession({
+              access_token: restoredSession.accessToken,
+              refresh_token: restoredSession.refreshToken,
+            });
+          }
+
           setApiAccessToken(restoredSession?.accessToken ?? null);
           setCurrentUser(restoredSession?.user ?? null);
         }

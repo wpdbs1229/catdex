@@ -13,7 +13,7 @@ interface HomeScreenProps {
 }
 
 const illustrations = {
-  hero: require('../../../assets/illustrations/cat-gray-clean.png'),
+  hero: require('../../../assets/illustrations/cat-gray-cutout.png'),
   orange: require('../../../assets/illustrations/cat-orange-clean.png'),
   dark: require('../../../assets/illustrations/cat-dark-clean.png'),
   tuxedo: require('../../../assets/illustrations/cat-tuxedo-clean.png'),
@@ -77,7 +77,9 @@ export function HomeScreen({ summary, recentCats, onOpenCat, onGoCapture }: Home
             <Text style={styles.summaryTitle}>내 수집과 공유 도감을 한눈에 확인해요</Text>
             <Text style={styles.summaryCaption}>동네에서 만난 고양이를 도감처럼 차곡차곡 모아보세요.</Text>
           </View>
-          <View style={styles.heroArt}>
+          <View pointerEvents="none" style={styles.heroArt}>
+            <View style={styles.heroHalo} />
+            <View style={styles.heroGround} />
             <Image resizeMode="contain" source={illustrations.hero} style={styles.heroCat} />
           </View>
         </View>
@@ -228,13 +230,12 @@ const styles = StyleSheet.create({
     transform: [{ rotate: '-16deg' }],
   },
   summaryTop: {
-    minHeight: 152,
-    flexDirection: 'row',
-    alignItems: 'center',
+    minHeight: 164,
+    justifyContent: 'center',
   },
   summaryCopy: {
     flex: 1,
-    paddingRight: theme.spacing.sm,
+    paddingRight: 106,
     zIndex: 1,
   },
   kicker: {
@@ -251,22 +252,48 @@ const styles = StyleSheet.create({
   },
   summaryCaption: {
     marginTop: theme.spacing.sm,
-    maxWidth: 190,
+    maxWidth: 210,
     color: theme.colors.mutedText,
     fontSize: 12,
     fontWeight: '600',
     lineHeight: 18,
   },
   heroArt: {
-    width: 118,
-    height: 140,
-    alignSelf: 'flex-end',
+    position: 'absolute',
+    right: -5,
+    top: 8,
+    width: 122,
+    height: 150,
+    alignItems: 'center',
     justifyContent: 'flex-end',
-    zIndex: 1,
+    overflow: 'visible',
+    zIndex: 0,
+  },
+  heroHalo: {
+    position: 'absolute',
+    top: 13,
+    right: 7,
+    width: 106,
+    height: 112,
+    borderRadius: 62,
+    backgroundColor: 'rgba(221, 232, 200, 0.52)',
+    transform: [{ rotate: '-12deg' }],
+  },
+  heroGround: {
+    position: 'absolute',
+    right: 7,
+    bottom: 11,
+    width: 110,
+    height: 30,
+    borderRadius: 24,
+    backgroundColor: 'rgba(210, 224, 188, 0.58)',
+    transform: [{ rotate: '-9deg' }],
   },
   heroCat: {
-    width: '100%',
-    height: '100%',
+    width: 108,
+    height: 136,
+    opacity: 0.9,
+    transform: [{ translateY: 8 }, { rotate: '-1deg' }],
   },
   statGrid: {
     flexDirection: 'row',
