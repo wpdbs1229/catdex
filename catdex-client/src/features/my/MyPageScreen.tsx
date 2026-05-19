@@ -19,6 +19,7 @@ interface MyPageScreenProps {
   onOpenCat: (catId: string) => void;
   onOpenCollectionDrawer: () => void;
   onOpenCollectionRankings: () => void;
+  onOpenNotifications: () => void;
 }
 
 const illustrations = {
@@ -58,6 +59,7 @@ export function MyPageScreen({
   onOpenCat,
   onOpenCollectionDrawer,
   onOpenCollectionRankings,
+  onOpenNotifications,
 }: MyPageScreenProps) {
   const achievedBadges = badges.filter((badge) => badge.achieved);
   const displayBadges = achievedBadges.length > 0 ? achievedBadges.slice(0, 4) : badges.slice(0, 4);
@@ -154,7 +156,7 @@ export function MyPageScreen({
         <MenuItem icon={BookOpen} label="탐험 기록" />
         <MenuItem icon={Cloud} label="내가 공유한 도감" />
         <MenuItem icon={Heart} label="좋아요한 도감" />
-        <MenuItem icon={Bell} label="알림 설정" />
+        <MenuItem icon={Bell} label="알림 설정" onPress={onOpenNotifications} />
         <MenuItem disabled={isSigningOut} icon={LogOut} label={isSigningOut ? '로그아웃 중...' : '로그아웃'} onPress={onLogout} />
       </View>
 

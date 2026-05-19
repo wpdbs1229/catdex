@@ -23,6 +23,7 @@ import { useCats } from '@/features/cats/hooks/useCats';
 import { HomeScreen } from '@/features/home/HomeScreen';
 import { MapScreen } from '@/features/map/MapScreen';
 import { MyPageScreen } from '@/features/my/MyPageScreen';
+import { NotificationSettingsScreen } from '@/features/notifications/NotificationSettingsScreen';
 import { NeighborhoodRankingScreen } from '@/features/social/NeighborhoodRankingScreen';
 import { PublicCollectionScreen } from '@/features/social/PublicCollectionScreen';
 import { SplashScreen } from '@/features/splash/SplashScreen';
@@ -33,11 +34,20 @@ import {
   toggleCollectionFollow,
   toggleCollectionLike,
 } from '@/shared/api/social.api';
+import {
+  applyNotificationSettings,
+  defaultNotificationSettings,
+  getNotificationPermissionState,
+  loadNotificationSettings,
+  requestNotificationPermissions,
+  sendAchievementPreviewNotification,
+} from '@/shared/notifications/notification.service';
 import type { Badge, ExplorerProfile } from '@/shared/types/badge';
 import type { CaptureCatDraft } from '@/shared/types/cat';
 import type { CatType, PersonalityTag } from '@/shared/types/cat';
 import type { CollectionCustomizationState, CollectionProfile, CollectionSummary } from '@/shared/types/collection';
 import type { NavigationState, TabScreen } from '@/shared/types/navigation';
+import type { NotificationPermissionState, NotificationSettings } from '@/shared/types/notification';
 import type { Region } from '@/shared/types/region';
 import type { PublicCollection } from '@/shared/types/social';
 
@@ -98,6 +108,9 @@ export default function App() {
   const [publicCollections, setPublicCollections] = useState<PublicCollection[]>([]);
   const [selectedPublicCollection, setSelectedPublicCollection] = useState<PublicCollection | null>(null);
   const [isSocialLoading, setIsSocialLoading] = useState(false);
+  const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>(defaultNotificationSettings);
+  const [notificationPermissionState, setNotificationPermissionState] = useState<NotificationPermissionState>('undetermined');
+  const [isNotificationSaving, setIsNotificationSaving] = useState(false);
   const payments = useNyangkkureomiPayments(currentUser?.id ?? null);
   const {
     addEncounter,
@@ -116,7 +129,7 @@ export default function App() {
   const activeTab: TabScreen =
     navigation.screen === 'detail' || navigation.screen === 'ranking' || navigation.screen === 'publicCollection'
       ? 'dex'
-      : navigation.screen === 'drawer'
+      : navigation.screen === 'drawer' || navigation.screen === 'notifications'
         ? 'my'
         : navigation.screen;
 
@@ -151,6 +164,32 @@ export default function App() {
     if (isAuthenticated) {
       reloadAppResources();
     }
+  }, [isAuthenticated]);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      return;
+    }
+
+    let isMounted = true;
+
+    async function loadNotifications() {
+      const [nextSettings, nextPermissionState] = await Promise.all([
+        loadNotificationSettings(),
+        getNotificationPermissionState(),
+      ]);
+
+      if (isMounted) {
+        setNotificationSettings(nextSettings);
+        setNotificationPermissionState(nextPermissionState);
+      }
+    }
+
+    loadNotifications();
+
+    return () => {
+      isMounted = false;
+    };
   }, [isAuthenticated]);
 
   const handleTabChange = (screen: TabScreen) => {
@@ -282,6 +321,48 @@ export default function App() {
       selectedCatId: null,
       selectedOwnerId: null,
     });
+  };
+
+  const handleOpenNotifications = () => {
+    setNavigation({
+      screen: 'notifications',
+      selectedCatId: null,
+      selectedOwnerId: null,
+    });
+  };
+
+  const handleChangeNotificationSettings = async (nextSettings: NotificationSettings) => {
+    setIsNotificationSaving(true);
+
+    try {
+      const appliedSettings = await applyNotificationSettings(nextSettings);
+      setNotificationSettings(appliedSettings);
+    } catch (error) {
+      Alert.alert('알림 설정 실패', error instanceof Error ? error.message : '알림 설정을 저장하지 못했어요.');
+    } finally {
+      setIsNotificationSaving(false);
+    }
+  };
+
+  const handleRequestNotificationPermission = async () => {
+    setIsNotificationSaving(true);
+
+    try {
+      const nextPermissionState = await requestNotificationPermissions();
+      setNotificationPermissionState(nextPermissionState);
+    } finally {
+      setIsNotificationSaving(false);
+    }
+  };
+
+  const handleSendNotificationPreview = async () => {
+    setIsNotificationSaving(true);
+
+    try {
+      await sendAchievementPreviewNotification();
+    } finally {
+      setIsNotificationSaving(false);
+    }
   };
 
   const loadCollectionRankings = async () => {
@@ -450,12 +531,25 @@ export default function App() {
             myCats={myCats}
             onOpenCollectionDrawer={handleOpenCollectionDrawer}
             onOpenCollectionRankings={handleOpenCollectionRankings}
+            onOpenNotifications={handleOpenNotifications}
             onOpenCat={handleOpenCat}
             onLogout={logout}
             profile={profile}
             user={currentUser}
           />
         ) : null;
+      case 'notifications':
+        return (
+          <NotificationSettingsScreen
+            isSaving={isNotificationSaving}
+            onBack={() => handleTabChange('my')}
+            onChangeSettings={handleChangeNotificationSettings}
+            onRequestPermission={handleRequestNotificationPermission}
+            onSendPreview={handleSendNotificationPreview}
+            permissionState={notificationPermissionState}
+            settings={notificationSettings}
+          />
+        );
       case 'drawer':
         return (
           <CollectionDrawerScreen
