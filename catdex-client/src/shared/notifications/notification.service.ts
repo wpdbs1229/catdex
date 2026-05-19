@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Constants from 'expo-constants';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import type { NotificationPermissionState, NotificationSettings } from '@/shared/types/notification';
@@ -69,6 +70,17 @@ export async function saveNotificationSettings(settings: NotificationSettings) {
   await AsyncStorage.setItem(notificationSettingsKey, JSON.stringify(settings));
 }
 
+export function mergeNotificationSettings(
+  settings: NotificationSettings,
+  remoteSettings: Partial<NotificationSettings> | null,
+): NotificationSettings {
+  return {
+    ...settings,
+    ...(remoteSettings ?? {}),
+    scheduledDailyReminderId: settings.scheduledDailyReminderId,
+  };
+}
+
 export async function getNotificationPermissionState(): Promise<NotificationPermissionState> {
   const permissions = await Notifications.getPermissionsAsync();
 
@@ -88,6 +100,22 @@ export async function requestNotificationPermissions(): Promise<NotificationPerm
   }
 
   return permissions.canAskAgain ? 'undetermined' : 'denied';
+}
+
+export async function getExpoPushTokenForDevice() {
+  const easConfig = Constants.easConfig as { projectId?: string } | null | undefined;
+  const projectId = easConfig?.projectId ?? Constants.expoConfig?.extra?.eas?.projectId;
+  const token = await Notifications.getExpoPushTokenAsync(projectId ? { projectId } : undefined);
+
+  return token.data;
+}
+
+export function getNotificationDevicePlatform() {
+  if (Platform.OS === 'ios' || Platform.OS === 'android' || Platform.OS === 'web') {
+    return Platform.OS;
+  }
+
+  return 'unknown';
 }
 
 export async function cancelDailyReminder(settings: NotificationSettings): Promise<NotificationSettings> {

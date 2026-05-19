@@ -35,10 +35,18 @@ import {
   toggleCollectionLike,
 } from '@/shared/api/social.api';
 import {
+  fetchRemoteNotificationSettings,
+  registerNotificationDevice,
+  saveRemoteNotificationSettings,
+} from '@/shared/api/notifications.api';
+import {
   applyNotificationSettings,
   defaultNotificationSettings,
+  getExpoPushTokenForDevice,
+  getNotificationDevicePlatform,
   getNotificationPermissionState,
   loadNotificationSettings,
+  mergeNotificationSettings,
   requestNotificationPermissions,
   sendAchievementPreviewNotification,
 } from '@/shared/notifications/notification.service';
@@ -174,13 +182,16 @@ export default function App() {
     let isMounted = true;
 
     async function loadNotifications() {
-      const [nextSettings, nextPermissionState] = await Promise.all([
+      const [localSettings, remoteSettings, nextPermissionState] = await Promise.all([
         loadNotificationSettings(),
+        fetchRemoteNotificationSettings().catch(() => null),
         getNotificationPermissionState(),
       ]);
+      const nextSettings = mergeNotificationSettings(localSettings, remoteSettings);
+      const appliedSettings = await applyNotificationSettings(nextSettings);
 
       if (isMounted) {
-        setNotificationSettings(nextSettings);
+        setNotificationSettings(appliedSettings);
         setNotificationPermissionState(nextPermissionState);
       }
     }
@@ -336,6 +347,7 @@ export default function App() {
 
     try {
       const appliedSettings = await applyNotificationSettings(nextSettings);
+      await saveRemoteNotificationSettings(appliedSettings);
       setNotificationSettings(appliedSettings);
     } catch (error) {
       Alert.alert('알림 설정 실패', error instanceof Error ? error.message : '알림 설정을 저장하지 못했어요.');
@@ -350,6 +362,11 @@ export default function App() {
     try {
       const nextPermissionState = await requestNotificationPermissions();
       setNotificationPermissionState(nextPermissionState);
+
+      if (nextPermissionState === 'granted') {
+        const expoPushToken = await getExpoPushTokenForDevice();
+        await registerNotificationDevice(expoPushToken, getNotificationDevicePlatform());
+      }
     } finally {
       setIsNotificationSaving(false);
     }
