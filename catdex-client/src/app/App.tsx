@@ -23,6 +23,7 @@ import { useCats } from '@/features/cats/hooks/useCats';
 import { HomeScreen } from '@/features/home/HomeScreen';
 import { MapScreen } from '@/features/map/MapScreen';
 import { MyPageScreen } from '@/features/my/MyPageScreen';
+import { ProfileEditScreen } from '@/features/my/ProfileEditScreen';
 import { NotificationSettingsScreen } from '@/features/notifications/NotificationSettingsScreen';
 import { NeighborhoodRankingScreen } from '@/features/social/NeighborhoodRankingScreen';
 import { PublicCollectionScreen } from '@/features/social/PublicCollectionScreen';
@@ -51,6 +52,7 @@ import {
   sendAchievementPreviewNotification,
 } from '@/shared/notifications/notification.service';
 import type { Badge, ExplorerProfile } from '@/shared/types/badge';
+import type { ProfileUpdateDraft } from '@/shared/types/auth';
 import type { CaptureCatDraft } from '@/shared/types/cat';
 import type { CatType, PersonalityTag } from '@/shared/types/cat';
 import type { CollectionCustomizationState, CollectionProfile, CollectionSummary } from '@/shared/types/collection';
@@ -98,6 +100,7 @@ export default function App() {
     pendingProvider,
     loginWithGoogle,
     loginWithKakao,
+    updateProfile,
     logout,
   } = useAuth();
   const [navigation, setNavigation] = useState<NavigationState>({
@@ -119,6 +122,7 @@ export default function App() {
   const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>(defaultNotificationSettings);
   const [notificationPermissionState, setNotificationPermissionState] = useState<NotificationPermissionState>('undetermined');
   const [isNotificationSaving, setIsNotificationSaving] = useState(false);
+  const [isProfileSaving, setIsProfileSaving] = useState(false);
   const payments = useNyangkkureomiPayments(currentUser?.id ?? null);
   const {
     addEncounter,
@@ -137,7 +141,7 @@ export default function App() {
   const activeTab: TabScreen =
     navigation.screen === 'detail' || navigation.screen === 'ranking' || navigation.screen === 'publicCollection'
       ? 'dex'
-      : navigation.screen === 'drawer' || navigation.screen === 'notifications'
+      : navigation.screen === 'drawer' || navigation.screen === 'profileEdit' || navigation.screen === 'notifications'
         ? 'my'
         : navigation.screen;
 
@@ -340,6 +344,31 @@ export default function App() {
       selectedCatId: null,
       selectedOwnerId: null,
     });
+  };
+
+  const handleOpenProfileEdit = () => {
+    setNavigation({
+      screen: 'profileEdit',
+      selectedCatId: null,
+      selectedOwnerId: null,
+    });
+  };
+
+  const handleSaveProfile = async (draft: ProfileUpdateDraft) => {
+    setIsProfileSaving(true);
+
+    try {
+      await updateProfile(draft);
+      setNavigation({
+        screen: 'my',
+        selectedCatId: null,
+        selectedOwnerId: null,
+      });
+    } catch (error) {
+      Alert.alert('프로필 저장 실패', error instanceof Error ? error.message : '프로필을 저장하지 못했어요.');
+    } finally {
+      setIsProfileSaving(false);
+    }
   };
 
   const handleChangeNotificationSettings = async (nextSettings: NotificationSettings) => {
@@ -549,9 +578,19 @@ export default function App() {
             onOpenCollectionDrawer={handleOpenCollectionDrawer}
             onOpenCollectionRankings={handleOpenCollectionRankings}
             onOpenNotifications={handleOpenNotifications}
+            onOpenProfileEdit={handleOpenProfileEdit}
             onOpenCat={handleOpenCat}
             onLogout={logout}
             profile={profile}
+            user={currentUser}
+          />
+        ) : null;
+      case 'profileEdit':
+        return currentUser ? (
+          <ProfileEditScreen
+            isSaving={isProfileSaving}
+            onBack={() => handleTabChange('my')}
+            onSave={handleSaveProfile}
             user={currentUser}
           />
         ) : null;

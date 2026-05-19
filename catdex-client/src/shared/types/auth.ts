@@ -13,3 +13,9 @@ export interface AuthSession {
   refreshToken: string;
   user: AuthUser;
 }
+
+export interface ProfileUpdateDraft {
+  nickname: string;
+  profileImageUri?: string;
+  profileImageMimeType?: string;
+}

@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import * as SecureStore from 'expo-secure-store';
-import { signInWithGoogle, signInWithKakao, signOut } from '@/shared/api/auth.api';
+import { signInWithGoogle, signInWithKakao, signOut, updateMyProfile } from '@/shared/api/auth.api';
 import { setApiAccessToken } from '@/shared/api/client';
 import { supabase } from '@/shared/supabase/client';
-import type { AuthProvider, AuthSession, AuthUser } from '@/shared/types/auth';
+import type { AuthProvider, AuthSession, AuthUser, ProfileUpdateDraft } from '@/shared/types/auth';
 
 const authStorageKey = 'catdex.auth.session';
 
@@ -134,6 +134,25 @@ export function useAuth() {
     }
   };
 
+  const updateProfile = async (draft: ProfileUpdateDraft) => {
+    if (!currentUser) {
+      throw new Error('프로필 수정에는 로그인이 필요합니다.');
+    }
+
+    const nextUser = await updateMyProfile(draft, currentUser.provider);
+    setCurrentUser(nextUser);
+
+    const storedSession = await restoreSession();
+    if (storedSession) {
+      await persistSession({
+        ...storedSession,
+        user: nextUser,
+      });
+    }
+
+    return nextUser;
+  };
+
   const isAuthenticated = useMemo(() => currentUser !== null, [currentUser]);
 
   return {
@@ -145,6 +164,7 @@ export function useAuth() {
     pendingProvider,
     loginWithKakao,
     loginWithGoogle,
+    updateProfile,
     logout,
   };
 }

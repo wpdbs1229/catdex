@@ -20,6 +20,7 @@ interface MyPageScreenProps {
   onOpenCollectionDrawer: () => void;
   onOpenCollectionRankings: () => void;
   onOpenNotifications: () => void;
+  onOpenProfileEdit: () => void;
 }
 
 const illustrations = {
@@ -60,6 +61,7 @@ export function MyPageScreen({
   onOpenCollectionDrawer,
   onOpenCollectionRankings,
   onOpenNotifications,
+  onOpenProfileEdit,
 }: MyPageScreenProps) {
   const achievedBadges = badges.filter((badge) => badge.achieved);
   const displayBadges = achievedBadges.length > 0 ? achievedBadges.slice(0, 4) : badges.slice(0, 4);
@@ -81,7 +83,7 @@ export function MyPageScreen({
             <ProgressBar value={profile.nextLevelProgress} />
           </View>
         </View>
-        <Pressable style={styles.iconButton}>
+        <Pressable onPress={onOpenProfileEdit} style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}>
           <Settings color={theme.colors.primaryDark} size={20} />
         </Pressable>
       </View>
