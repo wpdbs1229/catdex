@@ -22,7 +22,7 @@ export function UserLevelCard({ profile }: UserLevelCardProps) {
           <Text style={styles.rediscoveryValue}>{profile.rediscoveries}회</Text>
         </View>
       </View>
-      <ProgressBar indicatorColor="#FFCD68" trackColor="rgba(255,255,255,0.2)" value={profile.nextLevelProgress} />
+      <ProgressBar indicatorColor="#E7B956" trackColor="rgba(255,253,246,0.22)" value={profile.nextLevelProgress} />
       <Text style={styles.footer}>{profile.nextLevelLabel}</Text>
     </Card>
   );
@@ -30,7 +30,8 @@ export function UserLevelCard({ profile }: UserLevelCardProps) {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#5C4030',
+    backgroundColor: theme.colors.primaryDark,
+    borderColor: '#765640',
   },
   kicker: {
     fontSize: 14,
@@ -57,7 +58,9 @@ const styles = StyleSheet.create({
     borderRadius: theme.radius.lg,
     paddingHorizontal: theme.spacing.md,
     paddingVertical: theme.spacing.md,
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: 'rgba(255,253,246,0.13)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,253,246,0.12)',
   },
   rediscoveryLabel: {
     fontSize: 12,

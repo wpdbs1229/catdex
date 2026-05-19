@@ -29,8 +29,9 @@ export function LoginScreen({
   return (
     <SafeAreaView edges={['top', 'right', 'bottom', 'left']} style={styles.safeArea}>
       <View style={styles.backgroundLayer}>
-        <View style={styles.topShape} />
-        <View style={styles.bottomShape} />
+        <View style={styles.paperWashTop} />
+        <View style={styles.paperWashSide} />
+        <View style={styles.lowHill} />
       </View>
 
       <View style={styles.container}>
@@ -81,23 +82,35 @@ const styles = StyleSheet.create({
   backgroundLayer: {
     ...StyleSheet.absoluteFillObject,
   },
-  topShape: {
+  paperWashTop: {
     position: 'absolute',
-    top: 120,
-    right: -48,
-    width: 190,
-    height: 190,
-    borderRadius: 95,
-    backgroundColor: '#F8E5CA',
+    top: -60,
+    right: -54,
+    left: -54,
+    height: 210,
+    borderBottomLeftRadius: 150,
+    borderBottomRightRadius: 150,
+    backgroundColor: 'rgba(255, 244, 220, 0.78)',
   },
-  bottomShape: {
+  paperWashSide: {
     position: 'absolute',
-    bottom: 72,
-    left: -42,
-    width: 150,
-    height: 150,
-    borderRadius: 75,
-    backgroundColor: '#F7ECD9',
+    top: 158,
+    right: -30,
+    width: 86,
+    height: 420,
+    borderRadius: 28,
+    backgroundColor: 'rgba(201, 121, 73, 0.08)',
+    transform: [{ rotate: '-9deg' }],
+  },
+  lowHill: {
+    position: 'absolute',
+    right: -76,
+    bottom: -28,
+    left: -76,
+    height: 160,
+    borderTopLeftRadius: 150,
+    borderTopRightRadius: 150,
+    backgroundColor: 'rgba(221, 229, 200, 0.5)',
   },
   container: {
     flex: 1,
@@ -112,10 +125,12 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: theme.spacing.md,
     paddingVertical: 7,
-    backgroundColor: 'rgba(255,255,255,0.78)',
+    backgroundColor: 'rgba(255, 253, 246, 0.78)',
+    borderWidth: 1,
+    borderColor: theme.colors.border,
   },
   kickerText: {
-    color: '#916B53',
+    color: theme.colors.primary,
     fontSize: 12,
     fontWeight: '700',
   },
@@ -136,6 +151,7 @@ const styles = StyleSheet.create({
   loginCard: {
     padding: theme.spacing.xl,
     borderRadius: theme.radius.xl,
+    backgroundColor: 'rgba(255, 253, 246, 0.92)',
     ...createShadow(16),
   },
   cardTitle: {

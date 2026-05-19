@@ -1,6 +1,6 @@
 import { throwIfSupabaseError } from '@/shared/api/client';
 import { assertSupabaseConfigured, supabase } from '@/shared/supabase/client';
-import { catFilters, coatOptions, personalityOptions, totalDexCount } from '@/shared/data/cats.mock';
+import { catFilters, coatOptions, personalityOptions, totalDexCount } from '@/shared/constants/cat.constants';
 import type { Cat, CatEncounter, CatFilter, CatReportDraft, CatRarity, CatType, CaptureCatDraft, DexPlaceholder, DexProgress, HomeSummary, PersonalityTag } from '@/shared/types/cat';
 
 export interface CatOptionsResponse {

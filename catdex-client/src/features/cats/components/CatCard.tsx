@@ -86,8 +86,8 @@ const styles = StyleSheet.create({
     padding: theme.spacing.md,
   },
   lockedCard: {
-    backgroundColor: '#EFE7DA',
-    borderColor: '#D8C7B4',
+    backgroundColor: '#F0E7D6',
+    borderColor: '#D7C4A8',
   },
   row: {
     flexDirection: 'row',
@@ -101,7 +101,7 @@ const styles = StyleSheet.create({
   },
   stars: {
     fontSize: 12,
-    color: theme.colors.primary,
+    color: theme.colors.warning,
   },
   art: {
     height: 112,
@@ -110,6 +110,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginTop: theme.spacing.md,
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(91, 62, 48, 0.12)',
   },
   lockedArt: {
     borderWidth: 1,
@@ -134,7 +136,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 5,
-    backgroundColor: 'rgba(255, 247, 239, 0.92)',
+    backgroundColor: 'rgba(255, 253, 246, 0.92)',
     borderWidth: 1,
     borderColor: '#DECAB5',
   },
@@ -164,7 +166,7 @@ const styles = StyleSheet.create({
   clue: {
     fontSize: 13,
     lineHeight: 19,
-    color: '#6F5444',
+    color: theme.colors.primaryDark,
   },
   hintList: {
     gap: 4,

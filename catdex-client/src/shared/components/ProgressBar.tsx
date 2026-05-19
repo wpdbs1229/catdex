@@ -9,7 +9,7 @@ interface ProgressBarProps {
 
 export function ProgressBar({
   value,
-  trackColor = 'rgba(255,255,255,0.78)',
+  trackColor = 'rgba(91, 62, 48, 0.13)',
   indicatorColor = theme.colors.primary,
 }: ProgressBarProps) {
   return (

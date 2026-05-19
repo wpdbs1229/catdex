@@ -138,7 +138,7 @@ export function useCats(selectedCatId: string | null, enabled = true) {
     const lastRegionName =
       regionName ??
       selectedCatEncounters[selectedCatEncounters.length - 1]?.regionName ??
-      '부천시 중동 근처';
+      '동네 미지정';
 
     await recordCatEncounter(catId, {
       regionName: lastRegionName,

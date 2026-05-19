@@ -46,9 +46,9 @@ export function SplashScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View pointerEvents="none" style={styles.backgroundLayer}>
-        <View style={styles.blobTop} />
-        <View style={styles.blobRight} />
-        <View style={styles.blobBottom} />
+        <View style={styles.paperWashTop} />
+        <View style={styles.paperWashSide} />
+        <View style={styles.lowHill} />
         <Text style={[styles.backgroundPaw, styles.backgroundPawOne]}>🐾</Text>
         <Text style={[styles.backgroundPaw, styles.backgroundPawTwo]}>🐾</Text>
         <Text style={[styles.backgroundPaw, styles.backgroundPawThree]}>🐾</Text>
@@ -100,32 +100,35 @@ const styles = StyleSheet.create({
   backgroundLayer: {
     ...StyleSheet.absoluteFillObject,
   },
-  blobTop: {
+  paperWashTop: {
     position: 'absolute',
-    top: 36,
-    left: -52,
-    width: 170,
-    height: 170,
-    borderRadius: 85,
-    backgroundColor: '#FFF1DC',
+    top: -72,
+    right: -50,
+    left: -50,
+    height: 210,
+    borderBottomLeftRadius: 150,
+    borderBottomRightRadius: 150,
+    backgroundColor: 'rgba(255, 244, 220, 0.8)',
   },
-  blobRight: {
+  paperWashSide: {
     position: 'absolute',
-    top: 190,
-    right: -72,
-    width: 230,
-    height: 230,
-    borderRadius: 115,
-    backgroundColor: '#F8E4C8',
+    top: 172,
+    right: -30,
+    width: 86,
+    height: 410,
+    borderRadius: 28,
+    backgroundColor: 'rgba(201, 121, 73, 0.08)',
+    transform: [{ rotate: '-9deg' }],
   },
-  blobBottom: {
+  lowHill: {
     position: 'absolute',
-    bottom: -58,
-    left: 28,
-    width: 180,
-    height: 180,
-    borderRadius: 90,
-    backgroundColor: '#F6E8D2',
+    right: -80,
+    bottom: -34,
+    left: -80,
+    height: 168,
+    borderTopLeftRadius: 150,
+    borderTopRightRadius: 150,
+    backgroundColor: 'rgba(221, 229, 200, 0.52)',
   },
   backgroundPaw: {
     position: 'absolute',
@@ -159,9 +162,9 @@ const styles = StyleSheet.create({
     minHeight: 258,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#F7E8D6',
+    borderColor: 'rgba(139, 112, 83, 0.16)',
     borderRadius: 34,
-    backgroundColor: 'rgba(255, 255, 255, 0.92)',
+    backgroundColor: 'rgba(255, 253, 246, 0.94)',
     padding: theme.spacing.lg,
     ...createShadow(18),
   },
@@ -186,7 +189,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 34,
-    backgroundColor: '#2F241D',
+    backgroundColor: theme.colors.primaryDark,
   },
   catSilhouette: {
     color: theme.colors.surface,
@@ -213,7 +216,7 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
     fontSize: 44,
     fontWeight: '900',
-    letterSpacing: -1.6,
+    letterSpacing: 0,
   },
   subtitle: {
     marginTop: theme.spacing.sm,

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 import type { Region } from '@/shared/types/region';
 import { theme } from '@/shared/styles/theme';
@@ -87,7 +87,7 @@ function createMapHtml(appKey: string, regions: Region[], selectedRegionId: stri
         height: 100%;
         margin: 0;
         padding: 0;
-        background: #efe4d6;
+        background: #e7dec9;
       }
 
       .fallback {
@@ -102,6 +102,34 @@ function createMapHtml(appKey: string, regions: Region[], selectedRegionId: stri
         font: 600 14px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
         line-height: 1.5;
         text-align: center;
+      }
+
+      .map-label {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        min-width: 74px;
+        transform: translate(-50%, -100%);
+        border: 1px solid rgba(91, 62, 48, 0.18);
+        border-radius: 999px;
+        padding: 7px 10px;
+        background: rgba(255, 253, 246, 0.92);
+        box-shadow: 0 8px 20px rgba(91, 62, 48, 0.14);
+        color: #4A3428;
+        font: 700 12px -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+        white-space: nowrap;
+      }
+
+      .map-label-selected {
+        background: rgba(246, 226, 190, 0.96);
+        border-color: rgba(191, 120, 72, 0.48);
+      }
+
+      .map-label-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 4px;
+        background: #617A43;
       }
     </style>
   </head>
@@ -144,10 +172,10 @@ function createMapHtml(appKey: string, regions: Region[], selectedRegionId: stri
                   center: new kakao.maps.LatLng(region.lat, region.lng),
                   radius: region.radius,
                   strokeWeight: 2,
-                  strokeColor: isSelected ? '#92400E' : '#C9804C',
+                  strokeColor: isSelected ? '#5B3E30' : '#8BA070',
                   strokeOpacity: 0.7,
                   strokeStyle: 'solid',
-                  fillColor: isSelected ? '#F59E0B' : '#D97706',
+                  fillColor: isSelected ? '#C97949' : '#8BA070',
                   fillOpacity: 0.2
                 });
 
@@ -155,6 +183,22 @@ function createMapHtml(appKey: string, regions: Region[], selectedRegionId: stri
                 kakao.maps.event.addListener(circle, 'click', function () {
                   postMessage({ type: 'REGION_SELECTED', regionId: region.id });
                 });
+
+                var label = document.createElement('button');
+                label.type = 'button';
+                label.className = 'map-label' + (isSelected ? ' map-label-selected' : '');
+                label.innerHTML = '<span class="map-label-dot"></span><span>' + region.name.replace('부천시 ', '').replace(' 근처', '') + ' · ' + region.cats.length + '마리</span>';
+                label.onclick = function () {
+                  postMessage({ type: 'REGION_SELECTED', regionId: region.id });
+                };
+
+                var overlay = new kakao.maps.CustomOverlay({
+                  position: new kakao.maps.LatLng(region.lat, region.lng),
+                  content: label,
+                  yAnchor: 0.18
+                });
+
+                overlay.setMap(map);
               });
             });
           } catch (error) {
@@ -180,6 +224,7 @@ export function KakaoMapView({ regions, selectedRegionId, onSelectRegion, style 
   const [isLoading, setIsLoading] = useState(true);
   const [hasLoadFailed, setHasLoadFailed] = useState(false);
   const appKey = process.env.EXPO_PUBLIC_KAKAO_MAP_APP_KEY?.trim();
+  const kakaoMapWebOrigin = process.env.EXPO_PUBLIC_KAKAO_MAP_WEB_ORIGIN?.trim() || 'https://catdex.local';
   const html = useMemo(() => (appKey ? createMapHtml(appKey, regions, selectedRegionId) : ''), [appKey, regions, selectedRegionId]);
 
   const handleMessage = (event: WebViewMessageEvent) => {
@@ -204,7 +249,32 @@ export function KakaoMapView({ regions, selectedRegionId, onSelectRegion, style 
   if (!appKey || hasLoadFailed) {
     return (
       <View style={[styles.fallbackContainer, style]}>
-        <Text style={styles.fallbackText}>{fallbackMessage}</Text>
+        <View style={styles.paperRoad} />
+        <View style={styles.paperPark} />
+        {regions.map((region, index) => {
+          const isSelected = region.id === selectedRegionId;
+          const position = fallbackRegionPositions[index % fallbackRegionPositions.length];
+
+          return (
+            <Pressable
+              key={region.id}
+              onPress={() => onSelectRegion(region)}
+              style={[
+                styles.regionCircle,
+                position,
+                isSelected ? styles.regionCircleSelected : null,
+              ]}
+            >
+              <Text numberOfLines={1} style={[styles.regionCircleText, isSelected ? styles.regionCircleTextSelected : null]}>
+                {region.name.replace('부천시 ', '').replace(' 근처', '')}
+              </Text>
+              <Text style={[styles.regionCircleCount, isSelected ? styles.regionCircleTextSelected : null]}>
+                {region.cats.length}마리
+              </Text>
+            </Pressable>
+          );
+        })}
+        <Text style={styles.fallbackText}>Kakao 지도를 불러오지 못해 지역 단위 지도로 표시 중이에요.</Text>
       </View>
     );
   }
@@ -220,6 +290,7 @@ export function KakaoMapView({ regions, selectedRegionId, onSelectRegion, style 
         key={selectedRegionId ?? 'map'}
         domStorageEnabled
         javaScriptEnabled
+        mixedContentMode="always"
         onError={() => setHasLoadFailed(true)}
         onHttpError={() => setHasLoadFailed(true)}
         onLoadEnd={() => setIsLoading(false)}
@@ -227,8 +298,9 @@ export function KakaoMapView({ regions, selectedRegionId, onSelectRegion, style 
         onMessage={handleMessage}
         originWhitelist={['*']}
         scrollEnabled={false}
-        source={{ html, baseUrl: 'http://localhost:8085' }}
+        source={{ html, baseUrl: kakaoMapWebOrigin }}
         style={styles.webView}
+        thirdPartyCookiesEnabled
       />
     </View>
   );
@@ -253,18 +325,83 @@ const styles = StyleSheet.create({
   },
   fallbackContainer: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    overflow: 'hidden',
     paddingHorizontal: theme.spacing.xl,
     backgroundColor: theme.colors.mapBase,
     borderWidth: 1,
     borderColor: theme.colors.border,
   },
-  fallbackText: {
+  paperRoad: {
+    position: 'absolute',
+    top: 80,
+    left: -40,
+    width: 520,
+    height: 110,
+    borderRadius: 80,
+    backgroundColor: 'rgba(255,253,246,0.38)',
+    transform: [{ rotate: '-14deg' }],
+  },
+  paperPark: {
+    position: 'absolute',
+    right: -70,
+    bottom: 82,
+    left: -70,
+    height: 190,
+    borderTopLeftRadius: 180,
+    borderTopRightRadius: 180,
+    backgroundColor: 'rgba(221,229,200,0.64)',
+  },
+  regionCircle: {
+    position: 'absolute',
+    width: 118,
+    height: 118,
+    borderRadius: 59,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: theme.spacing.md,
+    backgroundColor: 'rgba(139,160,112,0.25)',
+    borderWidth: 2,
+    borderColor: 'rgba(139,160,112,0.58)',
+  },
+  regionCircleSelected: {
+    backgroundColor: 'rgba(201,121,73,0.26)',
+    borderColor: theme.colors.primary,
+  },
+  regionCircleText: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: theme.colors.primaryDark,
+    textAlign: 'center',
+  },
+  regionCircleCount: {
+    marginTop: 4,
+    fontSize: 12,
+    fontWeight: '700',
     color: theme.colors.mutedText,
-    fontSize: 14,
+  },
+  regionCircleTextSelected: {
+    color: theme.colors.text,
+  },
+  fallbackText: {
+    position: 'absolute',
+    right: theme.spacing.xl,
+    bottom: 260,
+    left: theme.spacing.xl,
+    color: theme.colors.mutedText,
+    fontSize: 13,
     fontWeight: '600',
-    lineHeight: 22,
+    lineHeight: 20,
     textAlign: 'center',
   },
 });
+
+const fallbackRegionPositions: Array<{
+  top?: number;
+  right?: number;
+  bottom?: number;
+  left?: number;
+}> = [
+  { top: 190, left: 42 },
+  { top: 300, right: 52 },
+  { bottom: 260, left: 92 },
+];

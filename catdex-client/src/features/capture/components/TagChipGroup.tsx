@@ -43,11 +43,11 @@ export function TagChipGroup<T extends string>({
 const styles = StyleSheet.create({
   label: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '800',
     color: '#8B6956',
   },
   wrap: {
-    marginTop: theme.spacing.md,
+    marginTop: theme.spacing.sm,
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: theme.spacing.sm,

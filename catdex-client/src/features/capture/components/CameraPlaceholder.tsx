@@ -121,10 +121,12 @@ export function CameraPlaceholder({ capturedImageUri, onPhotoCaptured, onRetake 
 
 const styles = StyleSheet.create({
   container: {
-    height: 332,
+    height: 306,
     overflow: 'hidden',
     borderRadius: theme.radius.xl,
     backgroundColor: '#2F2924',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 253, 246, 0.2)',
   },
   camera: {
     flex: 1,
@@ -207,12 +209,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF7EA',
   },
   fallback: {
-    minHeight: 300,
+    minHeight: 286,
     borderRadius: theme.radius.xl,
     padding: theme.spacing.xl,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#8B7D71',
+    backgroundColor: '#6F745C',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 253, 246, 0.28)',
   },
   fallbackTitle: {
     color: '#FFF7EA',
@@ -239,7 +243,7 @@ const styles = StyleSheet.create({
     borderRadius: theme.radius.lg,
     paddingHorizontal: theme.spacing.md,
     paddingVertical: theme.spacing.sm,
-    backgroundColor: 'rgba(47,36,29,0.82)',
+    backgroundColor: 'rgba(47,36,29,0.86)',
   },
   errorText: {
     color: '#FFF7EA',

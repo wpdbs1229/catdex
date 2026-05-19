@@ -40,37 +40,42 @@ export function Button({ children, onPress, variant = 'primary', disabled = fals
 const styles = StyleSheet.create({
   base: {
     minHeight: 54,
+    maxWidth: '100%',
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: theme.radius.xl,
     paddingHorizontal: theme.spacing.lg,
-    ...createShadow(10),
+    borderWidth: 1,
+    ...createShadow(8),
   },
   primary: {
-    backgroundColor: '#4A3428',
+    backgroundColor: theme.colors.primaryDark,
+    borderColor: '#765640',
   },
   secondary: {
-    backgroundColor: 'rgba(255,255,255,0.88)',
-    borderWidth: 1,
+    backgroundColor: 'rgba(255, 253, 246, 0.92)',
     borderColor: theme.colors.border,
   },
   ghost: {
     backgroundColor: 'transparent',
-    borderWidth: 1,
     borderColor: 'transparent',
     shadowOpacity: 0,
     elevation: 0,
   },
   row: {
+    maxWidth: '100%',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: theme.spacing.sm,
   },
   label: {
+    flexShrink: 1,
     color: '#FFF8F0',
     fontSize: 16,
     fontWeight: '700',
+    lineHeight: 22,
+    textAlign: 'center',
   },
   secondaryLabel: {
     color: theme.colors.text,

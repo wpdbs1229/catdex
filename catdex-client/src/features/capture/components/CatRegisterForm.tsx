@@ -6,14 +6,6 @@ import { Card } from '@/shared/components/Card';
 import { TagChipGroup } from '@/features/capture/components/TagChipGroup';
 import { theme } from '@/shared/styles/theme';
 
-const defaultDraft: CaptureCatDraft = {
-  name: '감자',
-  type: '치즈냥',
-  tags: ['느긋함', '애교많음'],
-  regionName: '부천시 중동 근처',
-  memo: '벤치 밑에서 졸다가 사람 기척에 천천히 고개를 들었어요.',
-};
-
 interface CatRegisterFormProps {
   coatOptions: CatType[];
   personalityOptions: PersonalityTag[];
@@ -31,11 +23,17 @@ export function CatRegisterForm({
   onSubmit,
   onSubmitSighting,
 }: CatRegisterFormProps) {
-  const [draft, setDraft] = useState<CaptureCatDraft>(defaultDraft);
+  const [draft, setDraft] = useState<CaptureCatDraft>(() => ({
+    name: '',
+    type: coatOptions[0] ?? '치즈냥',
+    tags: [],
+    regionName: '',
+    memo: '',
+  }));
   const submitDraft: CaptureCatDraft = capturedImageUri ? { ...draft, imageUrl: capturedImageUri } : draft;
 
   return (
-    <Card>
+    <Card style={styles.card}>
       <View style={styles.section}>
         <Text style={styles.label}>촬영 사진</Text>
         <View style={styles.photoStatus}>
@@ -77,6 +75,8 @@ export function CatRegisterForm({
         <Text style={styles.label}>발견 장소</Text>
         <TextInput
           onChangeText={(regionName) => setDraft((current) => ({ ...current, regionName }))}
+          placeholder="동네 단위로 입력해 주세요"
+          placeholderTextColor="#B59680"
           style={styles.input}
           value={draft.regionName}
         />
@@ -96,11 +96,11 @@ export function CatRegisterForm({
       </View>
 
       <View style={styles.actions}>
-        <Button disabled={isSubmitting} onPress={() => onSubmitSighting(submitDraft)} variant="secondary">
-          {isSubmitting ? '저장 중...' : '미확인 제보로 남기기'}
-        </Button>
         <Button disabled={isSubmitting} onPress={() => onSubmit(submitDraft)}>
           {isSubmitting ? '등록 중...' : '도감에 등록하기'}
+        </Button>
+        <Button disabled={isSubmitting} onPress={() => onSubmitSighting(submitDraft)} variant="secondary">
+          {isSubmitting ? '저장 중...' : '미확인 제보로 남기기'}
         </Button>
       </View>
     </Card>
@@ -108,28 +108,35 @@ export function CatRegisterForm({
 }
 
 const styles = StyleSheet.create({
+  card: {
+    backgroundColor: 'rgba(255,253,246,0.92)',
+  },
   section: {
-    marginBottom: theme.spacing.lg,
+    marginBottom: theme.spacing.md,
   },
   label: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '800',
     color: '#8B6956',
   },
   input: {
-    marginTop: theme.spacing.md,
-    height: 52,
+    marginTop: theme.spacing.sm,
+    minHeight: 48,
     borderRadius: theme.radius.lg,
     paddingHorizontal: theme.spacing.lg,
-    backgroundColor: '#F7EFE3',
+    backgroundColor: '#F7EBD8',
     color: theme.colors.text,
+    fontSize: 14,
+    fontWeight: '700',
+    borderWidth: 1,
+    borderColor: theme.colors.border,
   },
   photoStatus: {
-    marginTop: theme.spacing.md,
+    marginTop: theme.spacing.sm,
     borderRadius: theme.radius.lg,
     paddingHorizontal: theme.spacing.lg,
     paddingVertical: theme.spacing.md,
-    backgroundColor: '#FFF7EF',
+    backgroundColor: '#FFF8EC',
     borderWidth: 1,
     borderColor: '#EAD9C4',
   },
@@ -139,15 +146,19 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   textarea: {
-    marginTop: theme.spacing.md,
-    minHeight: 120,
+    marginTop: theme.spacing.sm,
+    minHeight: 94,
     borderRadius: theme.radius.lg,
     paddingHorizontal: theme.spacing.lg,
     paddingVertical: theme.spacing.md,
-    backgroundColor: '#F7EFE3',
+    backgroundColor: '#F7EBD8',
     color: theme.colors.text,
+    fontSize: 14,
+    fontWeight: '700',
+    borderWidth: 1,
+    borderColor: theme.colors.border,
   },
   actions: {
-    gap: theme.spacing.md,
+    gap: theme.spacing.sm,
   },
 });
