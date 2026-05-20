@@ -52,7 +52,11 @@ Deno.serve(async (request) => {
   const dispatchSecret = Deno.env.get('NOTIFICATION_DISPATCH_SECRET');
   const authHeader = request.headers.get('authorization');
 
-  if (dispatchSecret && authHeader !== `Bearer ${dispatchSecret}`) {
+  if (!dispatchSecret) {
+    return jsonResponse({ error: 'Missing notification dispatch secret' }, 500);
+  }
+
+  if (authHeader !== `Bearer ${dispatchSecret}`) {
     return jsonResponse({ error: 'Unauthorized' }, 401);
   }
 

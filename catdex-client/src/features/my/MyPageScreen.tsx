@@ -19,7 +19,11 @@ interface MyPageScreenProps {
   onOpenCat: (catId: string) => void;
   onOpenCollectionDrawer: () => void;
   onOpenCollectionRankings: () => void;
+  onOpenExplorationHistory: () => void;
+  onOpenSharedCollections: () => void;
+  onOpenLikedCollections: () => void;
   onOpenNotifications: () => void;
+  onOpenProfileEdit: () => void;
 }
 
 const illustrations = {
@@ -59,7 +63,11 @@ export function MyPageScreen({
   onOpenCat,
   onOpenCollectionDrawer,
   onOpenCollectionRankings,
+  onOpenExplorationHistory,
+  onOpenSharedCollections,
+  onOpenLikedCollections,
   onOpenNotifications,
+  onOpenProfileEdit,
 }: MyPageScreenProps) {
   const achievedBadges = badges.filter((badge) => badge.achieved);
   const displayBadges = achievedBadges.length > 0 ? achievedBadges.slice(0, 4) : badges.slice(0, 4);
@@ -81,7 +89,7 @@ export function MyPageScreen({
             <ProgressBar value={profile.nextLevelProgress} />
           </View>
         </View>
-        <Pressable style={styles.iconButton}>
+        <Pressable onPress={onOpenProfileEdit} style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}>
           <Settings color={theme.colors.primaryDark} size={20} />
         </Pressable>
       </View>
@@ -153,9 +161,9 @@ export function MyPageScreen({
       <View style={styles.menuPanel}>
         <MenuItem icon={Palette} label="고양이 서랍" onPress={onOpenCollectionDrawer} />
         <MenuItem icon={Trophy} label="동네 도감 랭킹" onPress={onOpenCollectionRankings} />
-        <MenuItem icon={BookOpen} label="탐험 기록" />
-        <MenuItem icon={Cloud} label="내가 공유한 도감" />
-        <MenuItem icon={Heart} label="좋아요한 도감" />
+        <MenuItem icon={BookOpen} label="탐험 기록" onPress={onOpenExplorationHistory} />
+        <MenuItem icon={Cloud} label="내가 공유한 도감" onPress={onOpenSharedCollections} />
+        <MenuItem icon={Heart} label="좋아요한 도감" onPress={onOpenLikedCollections} />
         <MenuItem icon={Bell} label="알림 설정" onPress={onOpenNotifications} />
         <MenuItem disabled={isSigningOut} icon={LogOut} label={isSigningOut ? '로그아웃 중...' : '로그아웃'} onPress={onLogout} />
       </View>

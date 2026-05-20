@@ -30,7 +30,17 @@ export function CatRegisterForm({
     regionName: '',
     memo: '',
   }));
-  const submitDraft: CaptureCatDraft = capturedImageUri ? { ...draft, imageUrl: capturedImageUri } : draft;
+  const trimmedDraft: CaptureCatDraft = {
+    ...draft,
+    name: draft.name.trim(),
+    regionName: draft.regionName.trim(),
+    memo: draft.memo.trim(),
+  };
+  const submitDraft: CaptureCatDraft = capturedImageUri ? { ...trimmedDraft, imageUrl: capturedImageUri } : trimmedDraft;
+  const hasName = trimmedDraft.name.length > 0;
+  const hasRegionName = trimmedDraft.regionName.length > 0;
+  const canSubmitCat = hasName && hasRegionName && !isSubmitting;
+  const canSubmitSighting = hasRegionName && !isSubmitting;
 
   return (
     <Card style={styles.card}>
@@ -50,6 +60,7 @@ export function CatRegisterForm({
           style={styles.input}
           value={draft.name}
         />
+        <Text style={[styles.helperText, !hasName && styles.requiredText]}>도감 등록에는 이름이 필요해요.</Text>
       </View>
 
       <View style={styles.section}>
@@ -80,6 +91,7 @@ export function CatRegisterForm({
           style={styles.input}
           value={draft.regionName}
         />
+        <Text style={[styles.helperText, !hasRegionName && styles.requiredText]}>도감 등록과 미확인 제보에는 발견 장소가 필요해요.</Text>
       </View>
 
       <View style={styles.section}>
@@ -96,10 +108,10 @@ export function CatRegisterForm({
       </View>
 
       <View style={styles.actions}>
-        <Button disabled={isSubmitting} onPress={() => onSubmit(submitDraft)}>
+        <Button disabled={!canSubmitCat} onPress={() => onSubmit(submitDraft)}>
           {isSubmitting ? '등록 중...' : '도감에 등록하기'}
         </Button>
-        <Button disabled={isSubmitting} onPress={() => onSubmitSighting(submitDraft)} variant="secondary">
+        <Button disabled={!canSubmitSighting} onPress={() => onSubmitSighting(submitDraft)} variant="secondary">
           {isSubmitting ? '저장 중...' : '미확인 제보로 남기기'}
         </Button>
       </View>
@@ -130,6 +142,16 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     borderWidth: 1,
     borderColor: theme.colors.border,
+  },
+  helperText: {
+    marginTop: 6,
+    color: theme.colors.mutedText,
+    fontSize: 11,
+    fontWeight: '700',
+    lineHeight: 16,
+  },
+  requiredText: {
+    color: theme.colors.primaryDark,
   },
   photoStatus: {
     marginTop: theme.spacing.sm,

@@ -302,10 +302,16 @@ begin
 end;
 $$;
 
-drop trigger if exists cat_sightings_enqueue_notification on public.cat_sightings;
-create trigger cat_sightings_enqueue_notification
-  after insert on public.cat_sightings
-  for each row execute function private.notify_shared_cat_sighting();
+do $$
+begin
+  if to_regclass('public.cat_sightings') is not null then
+    drop trigger if exists cat_sightings_enqueue_notification on public.cat_sightings;
+    create trigger cat_sightings_enqueue_notification
+      after insert on public.cat_sightings
+      for each row execute function private.notify_shared_cat_sighting();
+  end if;
+end;
+$$;
 
 drop trigger if exists user_badges_enqueue_notification on public.user_badges;
 create trigger user_badges_enqueue_notification

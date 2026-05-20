@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Filter, PawPrint, Search } from 'lucide-react-native';
-import { Image, Pressable, ScrollView, StyleSheet, Text, View, type ImageSourcePropType } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type ImageSourcePropType } from 'react-native';
 import { CollectionCoverHeader } from '@/features/cats/components/CollectionCoverHeader';
 import { createShadow, theme } from '@/shared/styles/theme';
 import type { Cat, CatFilter, CatType, DexPlaceholder, DexProgress } from '@/shared/types/cat';
@@ -47,6 +47,46 @@ function imageForType(type: CatType, imageUrl?: string): ImageSourcePropType {
   return illustrations.orange;
 }
 
+function normalizeSearchText(value: string) {
+  return value.trim().toLowerCase();
+}
+
+function catMatchesSearch(cat: Cat, query: string) {
+  if (!query) {
+    return true;
+  }
+
+  return [
+    cat.name,
+    cat.type,
+    cat.relationshipLevel,
+    cat.memo ?? '',
+    `no.${String(cat.number).padStart(3, '0')}`,
+    String(cat.number),
+    ...cat.tags,
+  ]
+    .join(' ')
+    .toLowerCase()
+    .includes(query);
+}
+
+function placeholderMatchesSearch(placeholder: DexPlaceholder, query: string) {
+  if (!query) {
+    return true;
+  }
+
+  return [
+    placeholder.type,
+    placeholder.regionHint,
+    placeholder.behaviorHint,
+    placeholder.clueTitle,
+    placeholder.clue,
+  ]
+    .join(' ')
+    .toLowerCase()
+    .includes(query);
+}
+
 export function CatDexScreen({
   cats,
   collectionProfile,
@@ -59,14 +99,31 @@ export function CatDexScreen({
   onOpenCat,
 }: CatDexScreenProps) {
   const [selectedFilter, setSelectedFilter] = useState<CatFilter>('전체');
+  const [searchQuery, setSearchQuery] = useState('');
+  const normalizedSearchQuery = normalizeSearchText(searchQuery);
   const visibleCats = useMemo(
-    () => (selectedFilter === '전체' ? cats : cats.filter((cat) => cat.type === selectedFilter)),
-    [cats, selectedFilter],
+    () =>
+      cats.filter((cat) => {
+        const matchesFilter = selectedFilter === '전체' || cat.type === selectedFilter;
+
+        return matchesFilter && catMatchesSearch(cat, normalizedSearchQuery);
+      }),
+    [cats, normalizedSearchQuery, selectedFilter],
   );
-  const lockedCount = Math.max(0, Math.min(placeholders.length, 1));
+  const visiblePlaceholders = useMemo(
+    () =>
+      placeholders.filter((placeholder) => {
+        const matchesFilter = selectedFilter === '전체' || placeholder.type === selectedFilter;
+
+        return matchesFilter && placeholderMatchesSearch(placeholder, normalizedSearchQuery);
+      }),
+    [normalizedSearchQuery, placeholders, selectedFilter],
+  );
+  const lockedCount = Math.max(0, Math.min(visiblePlaceholders.length, 1));
+  const hasSearchQuery = normalizedSearchQuery.length > 0;
 
   return (
-    <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+    <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
       <CollectionCoverHeader
         collectionTheme={collectionTheme}
         onCustomize={onOpenCollectionDrawer}
@@ -78,7 +135,16 @@ export function CatDexScreen({
 
       <View style={styles.searchBar}>
         <Search color={theme.colors.mutedText} size={18} />
-        <Text style={styles.searchText}>고양이 이름, 특징으로 검색</Text>
+        <TextInput
+          autoCapitalize="none"
+          autoCorrect={false}
+          onChangeText={setSearchQuery}
+          placeholder="고양이 이름, 특징으로 검색"
+          placeholderTextColor={theme.colors.mutedText}
+          returnKeyType="search"
+          style={styles.searchInput}
+          value={searchQuery}
+        />
         <Filter color={theme.colors.primaryDark} size={17} />
       </View>
 
@@ -95,7 +161,9 @@ export function CatDexScreen({
       </ScrollView>
 
       <View style={styles.countRow}>
-        <Text style={styles.countText}>전체 {visibleCats.length}마리</Text>
+        <Text style={styles.countText}>
+          {hasSearchQuery ? '검색 결과' : '전체'} {visibleCats.length}마리
+        </Text>
       </View>
 
       <View style={styles.grid}>
@@ -126,8 +194,10 @@ export function CatDexScreen({
       {visibleCats.length === 0 && lockedCount === 0 ? (
         <View style={styles.emptyState}>
           <PawPrint color="#D4B989" size={38} />
-          <Text style={styles.emptyTitle}>아직 수집한 고양이가 없어요</Text>
-          <Text style={styles.emptyText}>첫 고양이를 등록하면 도감 카드가 여기에 채워져요.</Text>
+          <Text style={styles.emptyTitle}>{hasSearchQuery ? '검색 결과가 없어요' : '아직 수집한 고양이가 없어요'}</Text>
+          <Text style={styles.emptyText}>
+            {hasSearchQuery ? '다른 이름, 특징, 태그로 다시 찾아보세요.' : '첫 고양이를 등록하면 도감 카드가 여기에 채워져요.'}
+          </Text>
         </View>
       ) : null}
     </ScrollView>
@@ -152,10 +222,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(232,211,183,0.86)',
   },
-  searchText: {
+  searchInput: {
     flex: 1,
+    minWidth: 0,
+    paddingVertical: 0,
     fontSize: 13,
-    color: theme.colors.mutedText,
+    fontWeight: '700',
+    color: theme.colors.text,
   },
   filterRow: {
     gap: theme.spacing.sm,

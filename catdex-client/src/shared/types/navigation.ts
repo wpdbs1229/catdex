@@ -6,11 +6,26 @@ export type Screen =
   | 'map'
   | 'my'
   | 'drawer'
+  | 'explorationHistory'
+  | 'sharedCollections'
+  | 'likedCollections'
+  | 'profileEdit'
   | 'notifications'
   | 'ranking'
   | 'publicCollection';
 
-export type TabScreen = Exclude<Screen, 'detail' | 'drawer' | 'notifications' | 'ranking' | 'publicCollection'>;
+export type TabScreen = Exclude<
+  Screen,
+  | 'detail'
+  | 'drawer'
+  | 'explorationHistory'
+  | 'sharedCollections'
+  | 'likedCollections'
+  | 'profileEdit'
+  | 'notifications'
+  | 'ranking'
+  | 'publicCollection'
+>;
 
 export interface NavigationState {
   screen: Screen;

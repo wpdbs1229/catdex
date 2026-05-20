@@ -22,7 +22,13 @@ import { CatDexScreen } from '@/features/cats/CatDexScreen';
 import { useCats } from '@/features/cats/hooks/useCats';
 import { HomeScreen } from '@/features/home/HomeScreen';
 import { MapScreen } from '@/features/map/MapScreen';
+import {
+  ExplorationHistoryScreen,
+  LikedCollectionsScreen,
+  SharedCollectionsScreen,
+} from '@/features/my/MyLinkedCollectionScreens';
 import { MyPageScreen } from '@/features/my/MyPageScreen';
+import { ProfileEditScreen } from '@/features/my/ProfileEditScreen';
 import { NotificationSettingsScreen } from '@/features/notifications/NotificationSettingsScreen';
 import { NeighborhoodRankingScreen } from '@/features/social/NeighborhoodRankingScreen';
 import { PublicCollectionScreen } from '@/features/social/PublicCollectionScreen';
@@ -51,6 +57,7 @@ import {
   sendAchievementPreviewNotification,
 } from '@/shared/notifications/notification.service';
 import type { Badge, ExplorerProfile } from '@/shared/types/badge';
+import type { ProfileUpdateDraft } from '@/shared/types/auth';
 import type { CaptureCatDraft } from '@/shared/types/cat';
 import type { CatType, PersonalityTag } from '@/shared/types/cat';
 import type { CollectionCustomizationState, CollectionProfile, CollectionSummary } from '@/shared/types/collection';
@@ -98,6 +105,7 @@ export default function App() {
     pendingProvider,
     loginWithGoogle,
     loginWithKakao,
+    updateProfile,
     logout,
   } = useAuth();
   const [navigation, setNavigation] = useState<NavigationState>({
@@ -119,6 +127,7 @@ export default function App() {
   const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>(defaultNotificationSettings);
   const [notificationPermissionState, setNotificationPermissionState] = useState<NotificationPermissionState>('undetermined');
   const [isNotificationSaving, setIsNotificationSaving] = useState(false);
+  const [isProfileSaving, setIsProfileSaving] = useState(false);
   const payments = useNyangkkureomiPayments(currentUser?.id ?? null);
   const {
     addEncounter,
@@ -137,7 +146,12 @@ export default function App() {
   const activeTab: TabScreen =
     navigation.screen === 'detail' || navigation.screen === 'ranking' || navigation.screen === 'publicCollection'
       ? 'dex'
-      : navigation.screen === 'drawer' || navigation.screen === 'notifications'
+      : navigation.screen === 'drawer' ||
+          navigation.screen === 'explorationHistory' ||
+          navigation.screen === 'sharedCollections' ||
+          navigation.screen === 'likedCollections' ||
+          navigation.screen === 'profileEdit' ||
+          navigation.screen === 'notifications'
         ? 'my'
         : navigation.screen;
 
@@ -334,12 +348,62 @@ export default function App() {
     });
   };
 
+  const handleOpenExplorationHistory = () => {
+    setNavigation({
+      screen: 'explorationHistory',
+      selectedCatId: null,
+      selectedOwnerId: null,
+    });
+  };
+
+  const handleOpenSharedCollections = () => {
+    setNavigation({
+      screen: 'sharedCollections',
+      selectedCatId: null,
+      selectedOwnerId: null,
+    });
+  };
+
+  const handleOpenLikedCollections = async () => {
+    setNavigation({
+      screen: 'likedCollections',
+      selectedCatId: null,
+      selectedOwnerId: null,
+    });
+    await loadCollectionRankings();
+  };
+
   const handleOpenNotifications = () => {
     setNavigation({
       screen: 'notifications',
       selectedCatId: null,
       selectedOwnerId: null,
     });
+  };
+
+  const handleOpenProfileEdit = () => {
+    setNavigation({
+      screen: 'profileEdit',
+      selectedCatId: null,
+      selectedOwnerId: null,
+    });
+  };
+
+  const handleSaveProfile = async (draft: ProfileUpdateDraft) => {
+    setIsProfileSaving(true);
+
+    try {
+      await updateProfile(draft);
+      setNavigation({
+        screen: 'my',
+        selectedCatId: null,
+        selectedOwnerId: null,
+      });
+    } catch (error) {
+      Alert.alert('프로필 저장 실패', error instanceof Error ? error.message : '프로필을 저장하지 못했어요.');
+    } finally {
+      setIsProfileSaving(false);
+    }
   };
 
   const handleChangeNotificationSettings = async (nextSettings: NotificationSettings) => {
@@ -477,6 +541,7 @@ export default function App() {
     achievedBadgeCount: customization.alleyBadges.filter((badge) => badge.achieved).length,
     achievedStampCount: customization.seasonStamps.filter((stamp) => stamp.achieved).length,
   };
+  const likedCollections = publicCollections.filter((collection) => collection.viewer.liked && !collection.viewer.isOwner);
 
   const renderScreen = () => {
     switch (navigation.screen) {
@@ -548,10 +613,52 @@ export default function App() {
             myCats={myCats}
             onOpenCollectionDrawer={handleOpenCollectionDrawer}
             onOpenCollectionRankings={handleOpenCollectionRankings}
+            onOpenExplorationHistory={handleOpenExplorationHistory}
+            onOpenSharedCollections={handleOpenSharedCollections}
+            onOpenLikedCollections={handleOpenLikedCollections}
             onOpenNotifications={handleOpenNotifications}
+            onOpenProfileEdit={handleOpenProfileEdit}
             onOpenCat={handleOpenCat}
             onLogout={logout}
             profile={profile}
+            user={currentUser}
+          />
+        ) : null;
+      case 'explorationHistory':
+        return (
+          <ExplorationHistoryScreen
+            cats={myCats}
+            onBack={() => handleTabChange('my')}
+            onOpenCat={handleOpenCat}
+          />
+        );
+      case 'sharedCollections':
+        return currentUser ? (
+          <SharedCollectionsScreen
+            cats={myCats}
+            collectionProfile={customization.profile}
+            collectionSummary={collectionSummary}
+            onBack={() => handleTabChange('my')}
+            onOpenCat={handleOpenCat}
+            onOpenCollectionDrawer={handleOpenCollectionDrawer}
+            user={currentUser}
+          />
+        ) : null;
+      case 'likedCollections':
+        return (
+          <LikedCollectionsScreen
+            collections={likedCollections}
+            isLoading={isSocialLoading}
+            onBack={() => handleTabChange('my')}
+            onOpenCollection={handleOpenPublicCollection}
+          />
+        );
+      case 'profileEdit':
+        return currentUser ? (
+          <ProfileEditScreen
+            isSaving={isProfileSaving}
+            onBack={() => handleTabChange('my')}
+            onSave={handleSaveProfile}
             user={currentUser}
           />
         ) : null;
