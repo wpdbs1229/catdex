@@ -14,12 +14,24 @@ WebBrowser.maybeCompleteAuthSession();
 function getOAuthRedirectUri() {
   const configuredRedirectUri = process.env.EXPO_PUBLIC_OAUTH_REDIRECT_URI?.trim();
   const isExpoGo = Constants.appOwnership === 'expo';
+  const isLocalDevelopmentRedirectUri =
+    configuredRedirectUri?.startsWith('http://localhost') ||
+    configuredRedirectUri?.startsWith('http://127.0.0.1') ||
+    configuredRedirectUri?.startsWith('exp://localhost') ||
+    configuredRedirectUri?.startsWith('exp://127.0.0.1');
 
-  if (
-    configuredRedirectUri &&
-    (Platform.OS === 'web' || (!configuredRedirectUri.startsWith('http://localhost') && !(isExpoGo && configuredRedirectUri.startsWith('catdex://'))))
-  ) {
-    return configuredRedirectUri;
+  if (configuredRedirectUri) {
+    if (Platform.OS === 'web') {
+      return configuredRedirectUri;
+    }
+
+    if (isExpoGo) {
+      return configuredRedirectUri.startsWith('catdex://') ? Linking.createURL('auth/callback') : configuredRedirectUri;
+    }
+
+    if (!isLocalDevelopmentRedirectUri) {
+      return configuredRedirectUri;
+    }
   }
 
   if (isExpoGo) {
