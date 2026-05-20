@@ -14,6 +14,7 @@ interface HomeScreenProps {
 
 const illustrations = {
   hero: require('../../../assets/illustrations/home-hero-scene-cutout.png'),
+  titleGrassCat: require('../../../assets/illustrations/home-title-lounging-cat.png'),
   orange: require('../../../assets/illustrations/cat-orange-clean.png'),
   dark: require('../../../assets/illustrations/cat-dark-clean.png'),
   tuxedo: require('../../../assets/illustrations/cat-tuxedo-clean.png'),
@@ -74,7 +75,14 @@ export function HomeScreen({ summary, recentCats, onOpenCat, onGoCapture }: Home
         <View style={styles.summaryTop}>
           <View style={styles.summaryCopy}>
             <Text style={styles.kicker}>오늘의 발견 요약</Text>
-            <Text style={styles.summaryTitle}>내 수집과 공유 도감을 한눈에 확인해요</Text>
+            <View style={styles.summaryTitleBlock}>
+              <Text style={styles.summaryTitle}>내 수집과 공유 도감을</Text>
+              <View style={styles.summaryTitleInline}>
+                <Text style={styles.summaryTitle}>한눈</Text>
+                <Image resizeMode="contain" source={illustrations.titleGrassCat} style={styles.titleGrassCat} />
+                <Text style={styles.summaryTitle}>에 확인해요</Text>
+              </View>
+            </View>
             <Text style={styles.summaryCaption}>동네에서 만난 고양이를 도감처럼 차곡차곡 모아보세요.</Text>
           </View>
           <View pointerEvents="none" style={styles.heroArt}>
@@ -243,11 +251,24 @@ const styles = StyleSheet.create({
     color: theme.colors.primary,
   },
   summaryTitle: {
-    marginTop: theme.spacing.sm,
     fontSize: 21,
     lineHeight: 29,
     fontWeight: theme.typography.titleWeight,
     color: theme.colors.text,
+  },
+  summaryTitleBlock: {
+    marginTop: theme.spacing.sm,
+  },
+  summaryTitleInline: {
+    minHeight: 32,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  titleGrassCat: {
+    width: 52,
+    height: 32,
+    marginHorizontal: 2,
+    transform: [{ translateY: 1 }],
   },
   summaryCaption: {
     marginTop: theme.spacing.sm,
