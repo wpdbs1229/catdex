@@ -22,6 +22,11 @@ import { CatDexScreen } from '@/features/cats/CatDexScreen';
 import { useCats } from '@/features/cats/hooks/useCats';
 import { HomeScreen } from '@/features/home/HomeScreen';
 import { MapScreen } from '@/features/map/MapScreen';
+import {
+  ExplorationHistoryScreen,
+  LikedCollectionsScreen,
+  SharedCollectionsScreen,
+} from '@/features/my/MyLinkedCollectionScreens';
 import { MyPageScreen } from '@/features/my/MyPageScreen';
 import { ProfileEditScreen } from '@/features/my/ProfileEditScreen';
 import { NotificationSettingsScreen } from '@/features/notifications/NotificationSettingsScreen';
@@ -141,7 +146,12 @@ export default function App() {
   const activeTab: TabScreen =
     navigation.screen === 'detail' || navigation.screen === 'ranking' || navigation.screen === 'publicCollection'
       ? 'dex'
-      : navigation.screen === 'drawer' || navigation.screen === 'profileEdit' || navigation.screen === 'notifications'
+      : navigation.screen === 'drawer' ||
+          navigation.screen === 'explorationHistory' ||
+          navigation.screen === 'sharedCollections' ||
+          navigation.screen === 'likedCollections' ||
+          navigation.screen === 'profileEdit' ||
+          navigation.screen === 'notifications'
         ? 'my'
         : navigation.screen;
 
@@ -338,6 +348,31 @@ export default function App() {
     });
   };
 
+  const handleOpenExplorationHistory = () => {
+    setNavigation({
+      screen: 'explorationHistory',
+      selectedCatId: null,
+      selectedOwnerId: null,
+    });
+  };
+
+  const handleOpenSharedCollections = () => {
+    setNavigation({
+      screen: 'sharedCollections',
+      selectedCatId: null,
+      selectedOwnerId: null,
+    });
+  };
+
+  const handleOpenLikedCollections = async () => {
+    setNavigation({
+      screen: 'likedCollections',
+      selectedCatId: null,
+      selectedOwnerId: null,
+    });
+    await loadCollectionRankings();
+  };
+
   const handleOpenNotifications = () => {
     setNavigation({
       screen: 'notifications',
@@ -506,6 +541,7 @@ export default function App() {
     achievedBadgeCount: customization.alleyBadges.filter((badge) => badge.achieved).length,
     achievedStampCount: customization.seasonStamps.filter((stamp) => stamp.achieved).length,
   };
+  const likedCollections = publicCollections.filter((collection) => collection.viewer.liked && !collection.viewer.isOwner);
 
   const renderScreen = () => {
     switch (navigation.screen) {
@@ -577,6 +613,9 @@ export default function App() {
             myCats={myCats}
             onOpenCollectionDrawer={handleOpenCollectionDrawer}
             onOpenCollectionRankings={handleOpenCollectionRankings}
+            onOpenExplorationHistory={handleOpenExplorationHistory}
+            onOpenSharedCollections={handleOpenSharedCollections}
+            onOpenLikedCollections={handleOpenLikedCollections}
             onOpenNotifications={handleOpenNotifications}
             onOpenProfileEdit={handleOpenProfileEdit}
             onOpenCat={handleOpenCat}
@@ -585,6 +624,35 @@ export default function App() {
             user={currentUser}
           />
         ) : null;
+      case 'explorationHistory':
+        return (
+          <ExplorationHistoryScreen
+            cats={myCats}
+            onBack={() => handleTabChange('my')}
+            onOpenCat={handleOpenCat}
+          />
+        );
+      case 'sharedCollections':
+        return currentUser ? (
+          <SharedCollectionsScreen
+            cats={myCats}
+            collectionProfile={customization.profile}
+            collectionSummary={collectionSummary}
+            onBack={() => handleTabChange('my')}
+            onOpenCat={handleOpenCat}
+            onOpenCollectionDrawer={handleOpenCollectionDrawer}
+            user={currentUser}
+          />
+        ) : null;
+      case 'likedCollections':
+        return (
+          <LikedCollectionsScreen
+            collections={likedCollections}
+            isLoading={isSocialLoading}
+            onBack={() => handleTabChange('my')}
+            onOpenCollection={handleOpenPublicCollection}
+          />
+        );
       case 'profileEdit':
         return currentUser ? (
           <ProfileEditScreen

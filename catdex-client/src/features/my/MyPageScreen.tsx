@@ -19,6 +19,9 @@ interface MyPageScreenProps {
   onOpenCat: (catId: string) => void;
   onOpenCollectionDrawer: () => void;
   onOpenCollectionRankings: () => void;
+  onOpenExplorationHistory: () => void;
+  onOpenSharedCollections: () => void;
+  onOpenLikedCollections: () => void;
   onOpenNotifications: () => void;
   onOpenProfileEdit: () => void;
 }
@@ -60,6 +63,9 @@ export function MyPageScreen({
   onOpenCat,
   onOpenCollectionDrawer,
   onOpenCollectionRankings,
+  onOpenExplorationHistory,
+  onOpenSharedCollections,
+  onOpenLikedCollections,
   onOpenNotifications,
   onOpenProfileEdit,
 }: MyPageScreenProps) {
@@ -155,9 +161,9 @@ export function MyPageScreen({
       <View style={styles.menuPanel}>
         <MenuItem icon={Palette} label="고양이 서랍" onPress={onOpenCollectionDrawer} />
         <MenuItem icon={Trophy} label="동네 도감 랭킹" onPress={onOpenCollectionRankings} />
-        <MenuItem icon={BookOpen} label="탐험 기록" />
-        <MenuItem icon={Cloud} label="내가 공유한 도감" />
-        <MenuItem icon={Heart} label="좋아요한 도감" />
+        <MenuItem icon={BookOpen} label="탐험 기록" onPress={onOpenExplorationHistory} />
+        <MenuItem icon={Cloud} label="내가 공유한 도감" onPress={onOpenSharedCollections} />
+        <MenuItem icon={Heart} label="좋아요한 도감" onPress={onOpenLikedCollections} />
         <MenuItem icon={Bell} label="알림 설정" onPress={onOpenNotifications} />
         <MenuItem disabled={isSigningOut} icon={LogOut} label={isSigningOut ? '로그아웃 중...' : '로그아웃'} onPress={onLogout} />
       </View>
