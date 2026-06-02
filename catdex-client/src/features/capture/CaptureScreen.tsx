@@ -1,71 +1,113 @@
 import { useState } from 'react';
-import { Camera, PawPrint, RotateCcw, Sparkles } from 'lucide-react-native';
-import { Image, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions, type ImageSourcePropType } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
+import { Camera, ImagePlus, PawPrint } from 'lucide-react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { CameraPlaceholder } from '@/features/capture/components/CameraPlaceholder';
 import { CatRegisterForm } from '@/features/capture/components/CatRegisterForm';
+import { RediscoveryPanel } from '@/features/capture/components/RediscoveryPanel';
+import { extractCoordinatesFromExif, suggestRegionFromCoordinates } from '@/features/capture/utils/exifLocation';
+import { sanitizeCaptureImage } from '@/features/capture/utils/sanitizeCaptureImage';
 import { Button } from '@/shared/components/Button';
-import { Card } from '@/shared/components/Card';
 import { createShadow, theme } from '@/shared/styles/theme';
-import type { CaptureCatDraft, Cat, CatType, PersonalityTag } from '@/shared/types/cat';
+import type { CaptureCatDraft, Cat, CatEncounterDraft, CatType, PersonalityTag } from '@/shared/types/cat';
+import type { Region } from '@/shared/types/region';
 
 interface CaptureScreenProps {
   coatOptions: CatType[];
   existingCats: Cat[];
   personalityOptions: PersonalityTag[];
+  regions: Region[];
   isSubmitting?: boolean;
-  onRecordExisting: (catId: string) => Promise<void> | void;
+  onRecordExisting: (catId: string, draft: CatEncounterDraft) => Promise<void> | void;
   onSave: (draft: CaptureCatDraft) => Promise<void> | void;
   onSaveSighting: (draft: CaptureCatDraft) => Promise<void> | void;
 }
 
-const catImages = {
-  orange: require('../../../assets/illustrations/cat-orange-clean.png'),
-  dark: require('../../../assets/illustrations/cat-dark-clean.png'),
-  tuxedo: require('../../../assets/illustrations/cat-tuxedo-clean.png'),
-  gray: require('../../../assets/illustrations/cat-gray-clean.png'),
-} satisfies Record<string, ImageSourcePropType>;
-
-function imageForCat(cat: Cat): ImageSourcePropType {
-  if (cat.imageUrl) {
-    return { uri: cat.imageUrl };
-  }
-
-  if (cat.type === '턱시도') {
-    return catImages.tuxedo;
-  }
-
-  if (cat.type === '흰냥') {
-    return catImages.gray;
-  }
-
-  if (cat.type === '삼색이' || cat.type === '검은냥') {
-    return catImages.dark;
-  }
-
-  return catImages.orange;
+interface CaptureImageState {
+  uri: string;
+  source: 'camera' | 'gallery';
+  suggestedRegionName?: string;
+  locationMessage?: string;
 }
 
 export function CaptureScreen({
   coatOptions,
   existingCats,
   personalityOptions,
+  regions,
   isSubmitting = false,
   onRecordExisting,
   onSave,
   onSaveSighting,
 }: CaptureScreenProps) {
-  const [capturedImageUri, setCapturedImageUri] = useState<string | null>(null);
+  const [capturedImage, setCapturedImage] = useState<CaptureImageState | null>(null);
   const [step, setStep] = useState<'capture' | 'details'>('capture');
+  const [isPreparingImage, setIsPreparingImage] = useState(false);
   const { height: windowHeight } = useWindowDimensions();
-  const candidateCats = existingCats.slice(0, 3);
   const cameraHeight = Math.min(620, Math.max(430, windowHeight - 250));
 
-  const handlePhotoCaptured = (uri: string) => {
-    setCapturedImageUri(uri);
+  const handlePhotoCaptured = async (uri: string) => {
+    setIsPreparingImage(true);
+
+    try {
+      setCapturedImage({
+        uri: await sanitizeCaptureImage(uri),
+        source: 'camera',
+      });
+    } catch {
+      Alert.alert('사진 처리 실패', '사진을 안전하게 저장할 준비를 하지 못했어요. 다시 시도해주세요.');
+    } finally {
+      setIsPreparingImage(false);
+    }
+  };
+
+  const handlePickFromGallery = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+    if (!permission.granted) {
+      Alert.alert('사진 접근 권한 필요', '갤러리 사진으로 고양이를 기록하려면 사진 접근을 허용해 주세요.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      allowsEditing: false,
+      exif: true,
+      mediaTypes: ['images'],
+      quality: 1,
+    });
+
+    if (result.canceled || !result.assets[0]) {
+      return;
+    }
+
+    setIsPreparingImage(true);
+
+    try {
+      const asset = result.assets[0];
+      const coordinates = extractCoordinatesFromExif(asset.exif);
+      const suggestion = suggestRegionFromCoordinates(coordinates, regions);
+      const canUseSuggestion = suggestion?.isWithinRegion === true;
+
+      setCapturedImage({
+        uri: await sanitizeCaptureImage(asset.uri),
+        source: 'gallery',
+        suggestedRegionName: canUseSuggestion ? suggestion.regionName : undefined,
+        locationMessage: canUseSuggestion
+          ? '사진 위치로 동네를 추정했어요. 필요하면 직접 바꿀 수 있어요.'
+          : coordinates
+            ? '사진 위치가 등록된 동네 범위와 맞지 않아요. 발견 장소를 직접 선택해 주세요.'
+            : '사진에서 위치정보를 찾지 못했어요. 발견 장소를 직접 선택해 주세요.',
+      });
+      setStep('details');
+    } catch {
+      Alert.alert('사진 처리 실패', '갤러리 사진을 안전하게 불러오지 못했어요. 다른 사진으로 다시 시도해주세요.');
+    } finally {
+      setIsPreparingImage(false);
+    }
   };
 
   const handleRetake = () => {
-    setCapturedImageUri(null);
+    setCapturedImage(null);
     setStep('capture');
   };
 
@@ -77,58 +119,37 @@ export function CaptureScreen({
             <Text style={styles.backButtonText}>촬영</Text>
           </Pressable>
           <View style={styles.detailTitleWrap}>
-            <Text style={styles.title}>기록 설정</Text>
-            <Text style={styles.subtitle}>촬영한 사진을 도감에 등록하거나 기존 고양이 재발견으로 남겨요.</Text>
+            <Text style={styles.title}>만남 기록 설정</Text>
+            <Text style={styles.subtitle}>촬영한 사진을 새 고양이, 재관찰, 미확인 제보 중 하나로 남겨요.</Text>
           </View>
         </View>
 
-        <Card style={styles.rediscoveryCard}>
-          <View style={styles.rediscoveryHeader}>
-            <View style={styles.rediscoveryIcon}>
-              <RotateCcw color={theme.colors.primaryDark} size={18} />
-            </View>
-            <View style={styles.rediscoveryText}>
-              <Text style={styles.rediscoveryTitle}>기존 고양이 재발견</Text>
-              <Text style={styles.rediscoverySubtitle}>이미 도감에 있는 고양이라면 재발견으로 기록해요.</Text>
-            </View>
-          </View>
-
-          {candidateCats.length > 0 ? (
-            <View style={styles.candidateRow}>
-              {candidateCats.map((cat) => (
-                <Pressable
-                  disabled={isSubmitting}
-                  key={cat.id}
-                  onPress={() => onRecordExisting(cat.id)}
-                  style={({ pressed }) => [styles.candidate, pressed && styles.pressed]}
-                >
-                  <Image resizeMode="cover" source={imageForCat(cat)} style={styles.candidateImage} />
-                  <Text numberOfLines={1} style={styles.candidateName}>
-                    {cat.name}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-          ) : (
-            <View style={styles.emptyCandidate}>
-              <Sparkles color={theme.colors.accent} size={18} />
-              <Text style={styles.emptyCandidateText}>아직 재발견할 내 도감 고양이가 없어요.</Text>
-            </View>
-          )}
-        </Card>
+        <RediscoveryPanel
+          capturedImageUri={capturedImage?.uri ?? null}
+          coatOptions={coatOptions}
+          existingCats={existingCats}
+          isSubmitting={isSubmitting}
+          onRecordExisting={onRecordExisting}
+          regions={regions}
+          suggestedRegionName={capturedImage?.suggestedRegionName}
+        />
 
         <View style={styles.formHeader}>
           <Camera color={theme.colors.primaryDark} size={18} />
-          <Text style={styles.formTitle}>촬영 기록 작성</Text>
+          <Text style={styles.formTitle}>새 고양이 또는 미확인 제보</Text>
         </View>
 
         <CatRegisterForm
-          capturedImageUri={capturedImageUri}
+          capturedImageUri={capturedImage?.uri ?? null}
           coatOptions={coatOptions}
           isSubmitting={isSubmitting}
+          locationMessage={capturedImage?.locationMessage}
           onSubmit={onSave}
           onSubmitSighting={onSaveSighting}
           personalityOptions={personalityOptions}
+          regions={regions}
+          source={capturedImage?.source}
+          suggestedRegionName={capturedImage?.suggestedRegionName}
         />
       </ScrollView>
     );
@@ -138,15 +159,15 @@ export function CaptureScreen({
     <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <View style={styles.header}>
         <View style={styles.titleRow}>
-          <Text style={styles.title}>새 고양이 등록</Text>
+          <Text style={styles.title}>고양이 만남 기록</Text>
           <PawPrint color={theme.colors.primary} size={18} />
         </View>
-        <Text style={styles.subtitle}>카메라로 고양이를 촬영하고 도감에 기록해요.</Text>
+        <Text style={styles.subtitle}>카메라로 고양이를 촬영하고 오늘의 만남을 도감에 이어 붙여요.</Text>
       </View>
 
       <View style={styles.cameraFrame}>
         <CameraPlaceholder
-          capturedImageUri={capturedImageUri}
+          capturedImageUri={capturedImage?.uri ?? null}
           height={cameraHeight}
           onPhotoCaptured={handlePhotoCaptured}
           onRetake={handleRetake}
@@ -154,10 +175,18 @@ export function CaptureScreen({
       </View>
 
       <View style={styles.captureActions}>
-        {capturedImageUri ? (
+        {capturedImage ? (
           <Button onPress={() => setStep('details')}>다음</Button>
         ) : (
-          <Text style={styles.captureHint}>고양이가 프레임에 들어오면 셔터를 눌러주세요.</Text>
+          <>
+            <Button disabled={isPreparingImage} onPress={handlePickFromGallery} variant="secondary">
+              <View style={styles.galleryButtonContent}>
+                <ImagePlus color={theme.colors.primaryDark} size={18} />
+                <Text style={styles.galleryButtonText}>{isPreparingImage ? '사진 준비 중...' : '갤러리에서 불러오기'}</Text>
+              </View>
+            </Button>
+            <Text style={styles.captureHint}>고양이가 프레임에 들어오면 셔터를 누르거나 갤러리 사진을 선택해 주세요.</Text>
+          </>
         )}
       </View>
     </ScrollView>
@@ -220,6 +249,7 @@ const styles = StyleSheet.create({
   },
   captureActions: {
     marginTop: theme.spacing.lg,
+    gap: theme.spacing.sm,
   },
   captureHint: {
     borderRadius: theme.radius.lg,
@@ -232,79 +262,19 @@ const styles = StyleSheet.create({
     color: theme.colors.mutedText,
     backgroundColor: 'rgba(255,253,246,0.82)',
   },
-  rediscoveryCard: {
-    marginTop: theme.spacing.md,
-    backgroundColor: 'rgba(255,253,246,0.92)',
-    overflow: 'hidden',
-  },
-  rediscoveryHeader: {
+  galleryButtonContent: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.md,
-  },
-  rediscoveryIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: theme.colors.surfaceAlt,
-  },
-  rediscoveryText: {
-    flex: 1,
-  },
-  rediscoveryTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: theme.colors.text,
-  },
-  rediscoverySubtitle: {
-    marginTop: 4,
-    fontSize: 12,
-    lineHeight: 17,
-    color: theme.colors.mutedText,
-  },
-  candidateRow: {
-    flexDirection: 'row',
     gap: theme.spacing.sm,
-    marginTop: theme.spacing.md,
   },
-  candidate: {
-    flex: 1,
-    minWidth: 0,
-    borderRadius: theme.radius.md,
-    padding: 6,
-    backgroundColor: 'rgba(248,234,210,0.76)',
-    borderWidth: 1,
-    borderColor: 'rgba(232,211,183,0.88)',
+  galleryButtonText: {
+    color: theme.colors.primaryDark,
+    fontSize: 14,
+    fontWeight: '800',
   },
   pressed: {
     opacity: 0.82,
-  },
-  candidateImage: {
-    width: '100%',
-    aspectRatio: 1,
-    borderRadius: theme.radius.sm,
-  },
-  candidateName: {
-    marginTop: 6,
-    fontSize: 11,
-    fontWeight: '800',
-    color: theme.colors.text,
-  },
-  emptyCandidate: {
-    marginTop: theme.spacing.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.sm,
-    borderRadius: theme.radius.md,
-    padding: theme.spacing.md,
-    backgroundColor: 'rgba(221,229,200,0.52)',
-  },
-  emptyCandidateText: {
-    flex: 1,
-    fontSize: 13,
-    color: theme.colors.mutedText,
   },
   formHeader: {
     marginTop: theme.spacing.xl,

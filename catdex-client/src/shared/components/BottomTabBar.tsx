@@ -36,17 +36,17 @@ export function BottomTabBar({ activeTab, onChange }: BottomTabBarProps) {
             onPress={() => onChange(id)}
             style={({ pressed }) => [
               styles.tabButton,
-              primary ? styles.primaryTab : styles.defaultTab,
-              isActive ? (primary ? styles.primaryTabActive : styles.defaultTabActive) : null,
               pressed ? styles.tabPressed : null,
             ]}
           >
-            <View style={[styles.iconWrap, primary ? styles.primaryIconWrap : null]}>
-              <Icon color={isActive ? (primary ? '#FFF8F0' : theme.colors.text) : theme.colors.tabMuted} size={primary ? 20 : 18} />
+            <View style={[styles.tabSurface, primary ? styles.primaryTab : styles.defaultTab, isActive ? (primary ? styles.primaryTabActive : styles.defaultTabActive) : null]}>
+              <View style={[styles.iconWrap, primary ? styles.primaryIconWrap : null]}>
+                <Icon color={isActive ? (primary ? '#FFF8F0' : theme.colors.text) : theme.colors.tabMuted} size={primary ? 20 : 18} />
+              </View>
+              <Text style={[styles.tabLabel, isActive ? styles.tabLabelActive : null, primary && isActive ? styles.tabLabelPrimary : null]}>
+                {label}
+              </Text>
             </View>
-            <Text style={[styles.tabLabel, isActive ? styles.tabLabelActive : null, primary && isActive ? styles.tabLabelPrimary : null]}>
-              {label}
-            </Text>
           </Pressable>
         );
       })}
@@ -72,12 +72,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 6,
-    borderRadius: theme.radius.lg,
+  },
+  tabSurface: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   defaultTab: {
+    width: '66%',
+    minHeight: 56,
+    borderRadius: 18,
     backgroundColor: 'transparent',
   },
   primaryTab: {
+    width: '82%',
+    minHeight: 72,
+    borderRadius: theme.radius.lg,
     backgroundColor: '#F2DFC4',
   },
   defaultTabActive: {

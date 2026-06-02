@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { Check, ChevronLeft, Lock, Sparkles, Star } from 'lucide-react-native';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Image, ImageBackground, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Button } from '@/shared/components/Button';
 import { Card } from '@/shared/components/Card';
 import { SectionHeader } from '@/shared/components/SectionHeader';
 import { hasActiveNyangkkureomi } from '@/shared/api/collection.api';
 import { createShadow, theme } from '@/shared/styles/theme';
-import { collectionPaletteStyle } from '@/shared/utils/collectionTheme';
+import { collectionCoverImageSource, collectionPaletteStyle } from '@/shared/utils/collectionTheme';
+import { seasonStampImageSource } from '@/shared/utils/seasonStamp';
 import type { Cat } from '@/shared/types/cat';
 import type { CollectionCustomizationState, CollectionProfile } from '@/shared/types/collection';
 import type { NyangkkureomiPackage } from '@/shared/types/payments';
@@ -44,6 +45,7 @@ export function CollectionDrawerScreen({
 }: CollectionDrawerScreenProps) {
   const hasNyangkkureomi = hasActiveNyangkkureomi(customization.entitlement);
   const selectedTheme = customization.themes.find((theme) => theme.id === customization.profile.coverThemeId);
+  const selectedCoverImage = collectionCoverImageSource(selectedTheme ?? { id: customization.profile.coverThemeId });
   const selectedCatIds = new Set(customization.featuredCatSlots.map((slot) => slot.catId));
   const selectedBadgeIds = new Set(customization.profile.selectedBadgeIds);
   const selectedBadges = customization.profile.selectedBadgeIds
@@ -160,6 +162,47 @@ export function CollectionDrawerScreen({
   };
 
   const featuredCatBySlot = new Map(customization.featuredCatSlots.map((slot) => [slot.slot, slot.catId]));
+  const coverPreviewContent = (
+    <>
+      {selectedCoverImage ? <View pointerEvents="none" style={styles.coverImageOverlay} /> : null}
+      <View style={styles.coverContent}>
+        <Text style={styles.coverEyebrow}>도감 표지</Text>
+        <Text numberOfLines={1} style={styles.coverTitle}>
+          {customization.profile.displayTitle}
+        </Text>
+        <Text style={styles.coverIntro}>{customization.profile.intro}</Text>
+        <Text style={styles.coverTheme}>{selectedTheme?.name ?? '노을 언덕 도감'}</Text>
+        {selectedBadges.length > 0 ? (
+          <View style={styles.coverBadgeRow}>
+            {selectedBadges.slice(0, badgeDisplayLimit).map((badge) => (
+              <View key={badge.id} style={styles.coverBadgePill}>
+                <Star color={theme.colors.warning} fill={theme.colors.warning} size={12} />
+                <Text numberOfLines={1} style={styles.coverBadgeText}>
+                  {badge.name}
+                </Text>
+              </View>
+            ))}
+          </View>
+        ) : null}
+        {selectedStamps.length > 0 ? (
+          <View style={styles.coverStampRow}>
+            {selectedStamps.slice(0, stampDisplayLimit).map((stamp) => {
+              const stampImage = seasonStampImageSource(stamp);
+
+              return (
+                <View key={stamp.id} style={styles.coverStampPill}>
+                  {stampImage ? <Image resizeMode="contain" source={stampImage} style={styles.coverStampImage} /> : <Text style={styles.coverStampIcon}>◦</Text>}
+                  <Text numberOfLines={1} style={styles.coverStampText}>
+                    {stamp.name}
+                  </Text>
+                </View>
+              );
+            })}
+          </View>
+        ) : null}
+      </View>
+    </>
+  );
 
   return (
     <ScrollView contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
@@ -176,38 +219,18 @@ export function CollectionDrawerScreen({
         <Text style={styles.subtitle}>도감 표지, 골목 배지, 냥발 도장으로 내 냥도감을 꾸며요.</Text>
       </View>
 
-      <Card style={[styles.coverCard, collectionPaletteStyle(selectedTheme?.palette)]}>
-        <Text style={styles.coverEyebrow}>도감 표지</Text>
-        <Text numberOfLines={1} style={styles.coverTitle}>
-          {customization.profile.displayTitle}
-        </Text>
-        <Text style={styles.coverIntro}>{customization.profile.intro}</Text>
-        <Text style={styles.coverTheme}>{selectedTheme?.name ?? '골목 관찰 노트'}</Text>
-        {selectedBadges.length > 0 ? (
-          <View style={styles.coverBadgeRow}>
-            {selectedBadges.slice(0, badgeDisplayLimit).map((badge) => (
-              <View key={badge.id} style={styles.coverBadgePill}>
-                <Star color={theme.colors.warning} fill={theme.colors.warning} size={12} />
-                <Text numberOfLines={1} style={styles.coverBadgeText}>
-                  {badge.name}
-                </Text>
-              </View>
-            ))}
-          </View>
-        ) : null}
-        {selectedStamps.length > 0 ? (
-          <View style={styles.coverStampRow}>
-            {selectedStamps.slice(0, stampDisplayLimit).map((stamp) => (
-              <View key={stamp.id} style={styles.coverStampPill}>
-                <Text style={styles.coverStampIcon}>◦</Text>
-                <Text numberOfLines={1} style={styles.coverStampText}>
-                  {stamp.name}
-                </Text>
-              </View>
-            ))}
-          </View>
-        ) : null}
-      </Card>
+      {selectedCoverImage ? (
+        <ImageBackground
+          imageStyle={styles.coverBackgroundImage}
+          resizeMode="cover"
+          source={selectedCoverImage}
+          style={[styles.coverCard, styles.coverCardWithImage]}
+        >
+          {coverPreviewContent}
+        </ImageBackground>
+      ) : (
+        <Card style={[styles.coverCard, collectionPaletteStyle(selectedTheme?.palette)]}>{coverPreviewContent}</Card>
+      )}
 
       <View style={styles.section}>
         <SectionHeader subtitle="도감 화면에 그대로 보이는 제목과 소개예요" title="표지 문구" />
@@ -275,6 +298,7 @@ export function CollectionDrawerScreen({
           {customization.themes.map((collectionTheme) => {
             const isSelected = customization.profile.coverThemeId === collectionTheme.id;
             const isLocked = collectionTheme.isPremium && !hasNyangkkureomi;
+            const coverImage = collectionCoverImageSource(collectionTheme);
 
             return (
               <Pressable
@@ -288,13 +312,17 @@ export function CollectionDrawerScreen({
                   pressed ? styles.pressed : null,
                 ]}
               >
-                <View style={styles.themeHeader}>
-                  <Text style={styles.themeName}>{collectionTheme.name}</Text>
-                  {isLocked ? <Lock color={theme.colors.primaryDark} size={16} /> : null}
-                  {isSelected ? <Check color={theme.colors.success} size={18} /> : null}
+                {coverImage ? <Image resizeMode="cover" source={coverImage} style={styles.themeBackground} /> : null}
+                {coverImage ? <View pointerEvents="none" style={styles.themeImageOverlay} /> : null}
+                <View style={styles.themeContent}>
+                  <View style={styles.themeHeader}>
+                    <Text style={styles.themeName}>{collectionTheme.name}</Text>
+                    {isLocked ? <Lock color={theme.colors.primaryDark} size={16} /> : null}
+                    {isSelected ? <Check color={theme.colors.success} size={18} /> : null}
+                  </View>
+                  <Text style={styles.themeDescription}>{collectionTheme.description}</Text>
+                  {collectionTheme.isPremium ? <Text style={styles.premiumText}>냥꾸러미</Text> : <Text style={styles.freeText}>기본</Text>}
                 </View>
-                <Text style={styles.themeDescription}>{collectionTheme.description}</Text>
-                {collectionTheme.isPremium ? <Text style={styles.premiumText}>냥꾸러미</Text> : <Text style={styles.freeText}>기본</Text>}
               </Pressable>
             );
           })}
@@ -384,6 +412,7 @@ export function CollectionDrawerScreen({
           {customization.seasonStamps.map((stamp) => {
             const isLocked = stamp.isPremium && !hasNyangkkureomi;
             const isSelected = selectedStampIds.has(stamp.id);
+            const stampImage = seasonStampImageSource(stamp);
 
             return (
               <Pressable
@@ -398,7 +427,13 @@ export function CollectionDrawerScreen({
                 ]}
               >
                 <View style={styles.stampIcon}>
-                  {isLocked ? <Lock color={theme.colors.primaryDark} size={18} /> : <Text style={styles.stampPaw}>◦</Text>}
+                  {isLocked ? (
+                    <Lock color={theme.colors.primaryDark} size={18} />
+                  ) : stampImage ? (
+                    <Image resizeMode="contain" source={stampImage} style={styles.stampImage} />
+                  ) : (
+                    <Text style={styles.stampPaw}>◦</Text>
+                  )}
                 </View>
                 <View style={styles.stampMeta}>
                   <Text style={styles.stampName}>{stamp.name}</Text>
@@ -510,8 +545,32 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   coverCard: {
-    minHeight: 152,
+    position: 'relative',
+    minHeight: 236,
     justifyContent: 'flex-end',
+    borderRadius: theme.radius.lg,
+    borderWidth: 1,
+    borderColor: 'rgba(139, 112, 83, 0.16)',
+    padding: theme.spacing.lg,
+    overflow: 'hidden',
+    ...createShadow(8),
+  },
+  coverCardWithImage: {
+    borderWidth: 0,
+    backgroundColor: 'transparent',
+  },
+  coverBackgroundImage: {
+    borderRadius: theme.radius.lg,
+    width: '100%',
+    height: '100%',
+  },
+  coverImageOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(255, 248, 236, 0.24)',
+  },
+  coverContent: {
+    position: 'relative',
+    zIndex: 1,
   },
   coverEyebrow: {
     color: '#8B6956',
@@ -521,7 +580,7 @@ const styles = StyleSheet.create({
   coverTitle: {
     marginTop: theme.spacing.sm,
     color: theme.colors.text,
-    fontSize: 25,
+    fontSize: 23,
     fontWeight: '900',
   },
   coverIntro: {
@@ -584,6 +643,10 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '900',
     lineHeight: 18,
+  },
+  coverStampImage: {
+    width: 22,
+    height: 22,
   },
   coverStampText: {
     flexShrink: 1,
@@ -683,10 +746,12 @@ const styles = StyleSheet.create({
     gap: theme.spacing.md,
   },
   themeCard: {
+    position: 'relative',
     minHeight: 108,
     borderRadius: theme.radius.md,
     borderWidth: 1,
     padding: theme.spacing.md,
+    overflow: 'hidden',
     ...createShadow(4),
   },
   selectedCard: {
@@ -703,6 +768,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: theme.spacing.sm,
+  },
+  themeBackground: {
+    ...StyleSheet.absoluteFillObject,
+    width: '100%',
+    height: '100%',
+  },
+  themeImageOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(255, 250, 240, 0.28)',
+  },
+  themeContent: {
+    position: 'relative',
+    zIndex: 1,
   },
   themeName: {
     flex: 1,
@@ -857,14 +935,18 @@ const styles = StyleSheet.create({
     backgroundColor: '#F0F7F8',
   },
   stampIcon: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 46,
+    height: 46,
+    borderRadius: 23,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: theme.colors.badge,
+    backgroundColor: 'rgba(255, 253, 246, 0.82)',
     borderWidth: 1,
     borderColor: theme.colors.border,
+  },
+  stampImage: {
+    width: 42,
+    height: 42,
   },
   stampPaw: {
     color: theme.colors.primaryDark,

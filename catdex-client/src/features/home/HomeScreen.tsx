@@ -13,8 +13,7 @@ interface HomeScreenProps {
 }
 
 const illustrations = {
-  hero: require('../../../assets/illustrations/home-hero-scene-cutout.png'),
-  titleGrassCat: require('../../../assets/illustrations/home-title-lounging-cat.png'),
+  hero: require('../../../assets/illustrations/home-hero-watercolor-cat.png'),
   orange: require('../../../assets/illustrations/cat-orange-clean.png'),
   dark: require('../../../assets/illustrations/cat-dark-clean.png'),
   tuxedo: require('../../../assets/illustrations/cat-tuxedo-clean.png'),
@@ -77,13 +76,9 @@ export function HomeScreen({ summary, recentCats, onOpenCat, onGoCapture }: Home
             <Text style={styles.kicker}>오늘의 발견 요약</Text>
             <View style={styles.summaryTitleBlock}>
               <Text style={styles.summaryTitle}>내 수집과 공유 도감을</Text>
-              <View style={styles.summaryTitleInline}>
-                <Text style={styles.summaryTitle}>한눈</Text>
-                <Image resizeMode="contain" source={illustrations.titleGrassCat} style={styles.titleGrassCat} />
-                <Text style={styles.summaryTitle}>에 확인해요</Text>
-              </View>
+              <Text style={styles.summaryTitle}>한눈에 확인해요</Text>
             </View>
-            <Text style={styles.summaryCaption}>동네에서 만난 고양이를 도감처럼 차곡차곡 모아보세요.</Text>
+            <Text style={styles.summaryCaption}>동네에서 만난 고양이를 이름과 다시 만난 기록으로 이어가세요.</Text>
           </View>
           <View pointerEvents="none" style={styles.heroArt}>
             <View style={styles.heroHalo} />
@@ -103,7 +98,7 @@ export function HomeScreen({ summary, recentCats, onOpenCat, onGoCapture }: Home
 
         <Button onPress={onGoCapture}>
           <Plus color="#FFF8F0" size={18} />
-          <Text style={styles.buttonLabel}>새 고양이 등록하기</Text>
+          <Text style={styles.buttonLabel}>고양이 만남 기록하기</Text>
         </Button>
       </Card>
 
@@ -259,17 +254,6 @@ const styles = StyleSheet.create({
   summaryTitleBlock: {
     marginTop: theme.spacing.sm,
   },
-  summaryTitleInline: {
-    minHeight: 32,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  titleGrassCat: {
-    width: 52,
-    height: 32,
-    marginHorizontal: 2,
-    transform: [{ translateY: 1 }],
-  },
   summaryCaption: {
     marginTop: theme.spacing.sm,
     maxWidth: 210,
@@ -280,10 +264,10 @@ const styles = StyleSheet.create({
   },
   heroArt: {
     position: 'absolute',
-    right: -14,
-    top: 6,
-    width: 138,
-    height: 148,
+    right: -4,
+    top: 2,
+    width: 132,
+    height: 142,
     alignItems: 'center',
     justifyContent: 'flex-end',
     overflow: 'visible',
@@ -300,10 +284,10 @@ const styles = StyleSheet.create({
     transform: [{ rotate: '-12deg' }],
   },
   heroCat: {
-    width: 132,
-    height: 132,
-    opacity: 0.94,
-    transform: [{ translateY: 7 }, { rotate: '-1deg' }],
+    width: 126,
+    height: 126,
+    opacity: 0.98,
+    transform: [{ translateY: 5 }, { rotate: '-1deg' }],
   },
   statGrid: {
     flexDirection: 'row',

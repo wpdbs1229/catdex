@@ -9,7 +9,7 @@ import { theme } from '@/shared/styles/theme';
 interface CameraPlaceholderProps {
   capturedImageUri: string | null;
   height?: number;
-  onPhotoCaptured: (uri: string) => void;
+  onPhotoCaptured: (uri: string) => Promise<void> | void;
   onRetake: () => void;
 }
 
@@ -36,7 +36,7 @@ export function CameraPlaceholder({ capturedImageUri, height, onPhotoCaptured, o
       });
 
       if (photo?.uri) {
-        onPhotoCaptured(photo.uri);
+        await onPhotoCaptured(photo.uri);
       }
     } catch {
       setErrorMessage('사진을 찍지 못했어요. 실제 기기에서 다시 시도해주세요.');
