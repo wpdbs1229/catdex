@@ -1,3 +1,4 @@
 .env
 .harness-state.json
 .DS_Store
+supabase/.temp/
