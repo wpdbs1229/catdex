@@ -435,11 +435,12 @@ const styles = StyleSheet.create({
     color: theme.colors.primaryDark,
   },
   bottomCat: {
-    width: 150,
-    height: 130,
+    width: 132,
+    height: 100,
     alignSelf: 'flex-end',
-    marginTop: -22,
-    marginRight: -6,
+    marginTop: theme.spacing.md,
+    marginRight: 2,
+    opacity: 0.92,
   },
   pressed: {
     opacity: 0.82,

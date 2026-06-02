@@ -12,7 +12,7 @@ import {
   fetchRecentCats,
   recordCatEncounter,
 } from '@/shared/api/cats.api';
-import type { Cat, CatEncounter, CaptureCatDraft, DexPlaceholder, DexProgress, HomeSummary } from '@/shared/types/cat';
+import type { Cat, CatEncounter, CatEncounterDraft, CaptureCatDraft, DexPlaceholder, DexProgress, HomeSummary } from '@/shared/types/cat';
 
 const emptyHomeSummary: HomeSummary = {
   myWeeklyCollected: 0,
@@ -134,15 +134,18 @@ export function useCats(selectedCatId: string | null, enabled = true) {
     await reloadCats();
   };
 
-  const addEncounter = async (catId: string, regionName?: string) => {
-    const lastRegionName =
-      regionName ??
-      selectedCatEncounters[selectedCatEncounters.length - 1]?.regionName ??
-      '동네 미지정';
+  const addEncounter = async (catId: string, draft?: CatEncounterDraft) => {
+    const uploadedImage = draft?.imageUrl?.startsWith('file:')
+      ? await uploadCatImage(draft.imageUrl)
+      : null;
+    const fallbackRegionName = selectedCatEncounters[selectedCatEncounters.length - 1]?.regionName;
+    const lastRegionName = draft?.regionName.trim() || fallbackRegionName || '동네 미지정';
+    const memo = draft?.memo.trim() || '다시 만남 기록';
 
     await recordCatEncounter(catId, {
       regionName: lastRegionName,
-      memo: '다시 만남 기록',
+      memo,
+      imageUrl: uploadedImage?.imageUrl ?? draft?.imageUrl,
     });
 
     await reloadCats();

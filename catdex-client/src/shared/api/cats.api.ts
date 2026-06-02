@@ -49,6 +49,11 @@ interface CatSightingRow {
   sighted_at: string;
 }
 
+interface CatRegionNameRow {
+  cat_id: string;
+  regions: { name: string } | { name: string }[] | null;
+}
+
 function formatDate(value: string) {
   return value.replaceAll('-', '.');
 }
@@ -84,7 +89,33 @@ async function getDisplayImageUrl(imageUrl: string | null) {
   return data.signedUrl;
 }
 
-async function mapCat(row: CatRow): Promise<Cat> {
+async function fetchCatRegionNames(catIds: string[]) {
+  const uniqueCatIds = Array.from(new Set(catIds));
+
+  if (uniqueCatIds.length === 0) {
+    return new Map<string, string[]>();
+  }
+
+  const { data, error } = await supabase
+    .from('cat_regions')
+    .select('cat_id, regions(name)')
+    .in('cat_id', uniqueCatIds);
+
+  throwIfSupabaseError(error);
+
+  return ((data ?? []) as CatRegionNameRow[]).reduce<Map<string, string[]>>((acc, row) => {
+    const region = Array.isArray(row.regions) ? row.regions[0] : row.regions;
+
+    if (!region?.name) {
+      return acc;
+    }
+
+    acc.set(row.cat_id, [...(acc.get(row.cat_id) ?? []), region.name]);
+    return acc;
+  }, new Map<string, string[]>());
+}
+
+async function mapCat(row: CatRow, regionNames: string[] = []): Promise<Cat> {
   return {
     id: row.id,
     number: row.number,
@@ -96,9 +127,16 @@ async function mapCat(row: CatRow): Promise<Cat> {
     lastSeenAt: formatDate(row.last_seen_at),
     relationshipLevel: row.relationship_level,
     tags: row.tags,
+    regionNames,
     memo: row.memo ?? undefined,
     imageUrl: await getDisplayImageUrl(row.image_url),
   };
+}
+
+async function mapCats(rows: CatRow[]) {
+  const regionNamesByCatId = await fetchCatRegionNames(rows.map((row) => row.id));
+
+  return Promise.all(rows.map((row) => mapCat(row, regionNamesByCatId.get(row.id) ?? [])));
 }
 
 async function mapEncounter(row: CatEncounterRow): Promise<CatEncounter> {
@@ -130,7 +168,7 @@ export async function fetchCats(filter: CatFilter = '전체') {
   const { data, error } = await query;
   throwIfSupabaseError(error);
 
-  return Promise.all(((data ?? []) as CatRow[]).map(mapCat));
+  return mapCats((data ?? []) as CatRow[]);
 }
 
 export async function fetchRecentCats(limit = 3) {
@@ -145,7 +183,7 @@ export async function fetchRecentCats(limit = 3) {
 
   throwIfSupabaseError(error);
 
-  return Promise.all(((data ?? []) as CatRow[]).map(mapCat));
+  return mapCats((data ?? []) as CatRow[]);
 }
 
 export async function fetchMyCats() {
@@ -158,25 +196,24 @@ export async function fetchMyCats() {
 
   throwIfSupabaseError(error);
 
-  return Promise.all(
-    ((data ?? []) as UserCatCollectionRow[])
-      .map((row) => {
-        const cat = Array.isArray(row.cats) ? row.cats[0] : row.cats;
+  const rows = ((data ?? []) as UserCatCollectionRow[])
+    .map((row) => {
+      const cat = Array.isArray(row.cats) ? row.cats[0] : row.cats;
 
-        if (!cat) {
-          return null;
-        }
+      if (!cat) {
+        return null;
+      }
 
-        return {
-          ...cat,
-          encounter_count: row.encounter_count,
-          first_seen_at: row.first_collected_at,
-          last_seen_at: row.last_seen_at,
-        };
-      })
-      .filter((row): row is CatRow => row !== null)
-      .map(mapCat),
-  );
+      return {
+        ...cat,
+        encounter_count: row.encounter_count,
+        first_seen_at: row.first_collected_at,
+        last_seen_at: row.last_seen_at,
+      };
+    })
+    .filter((row): row is CatRow => row !== null);
+
+  return mapCats(rows);
 }
 
 export async function fetchHomeSummary(): Promise<HomeSummary> {

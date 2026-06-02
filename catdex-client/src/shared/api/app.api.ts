@@ -18,6 +18,11 @@ interface CatRegionRow {
   cat_id: string;
 }
 
+interface MyCatEncounterRegionRow {
+  cat_id: string;
+  region_name: string;
+}
+
 interface BadgeRow {
   id: string;
   name: string;
@@ -64,6 +69,59 @@ export async function fetchRegions() {
     radius: Math.max(region.radius, 300),
     cats: regionCats[region.id] ?? [],
   }));
+}
+
+export async function fetchMyRegions() {
+  assertSupabaseConfigured();
+
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  throwIfSupabaseError(userError);
+
+  if (!user) {
+    return [];
+  }
+
+  const [regionsResponse, encountersResponse, cats] = await Promise.all([
+    supabase.from('regions').select('*').order('name', { ascending: true }),
+    supabase.from('cat_encounters').select('cat_id, region_name').eq('user_id', user.id),
+    fetchMyCats(),
+  ]);
+
+  throwIfSupabaseError(regionsResponse.error);
+  throwIfSupabaseError(encountersResponse.error);
+
+  const regionByName = new Map(((regionsResponse.data ?? []) as RegionRow[]).map((region) => [region.name, region]));
+  const catNameById = new Map(cats.map((cat) => [cat.id, cat.name]));
+  const catsByRegionName = ((encountersResponse.data ?? []) as MyCatEncounterRegionRow[]).reduce<Record<string, Set<string>>>((acc, row) => {
+    const catName = catNameById.get(row.cat_id);
+
+    if (!catName) {
+      return acc;
+    }
+
+    acc[row.region_name] = acc[row.region_name] ?? new Set<string>();
+    acc[row.region_name].add(catName);
+    return acc;
+  }, {});
+
+  return Object.entries(catsByRegionName)
+    .map<Region>(([regionName, catNames]) => {
+      const region = regionByName.get(regionName);
+
+      return {
+        id: region?.id ?? `my-${regionName}`,
+        name: regionName,
+        lat: region ? Number(region.lat.toFixed(3)) : 37.5,
+        lng: region ? Number(region.lng.toFixed(3)) : 126.76,
+        radius: Math.max(region?.radius ?? 300, 300),
+        cats: Array.from(catNames),
+      };
+    })
+    .sort((a, b) => a.name.localeCompare(b.name));
 }
 
 export async function fetchProfile(): Promise<ExplorerProfile> {

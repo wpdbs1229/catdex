@@ -3,7 +3,7 @@ import { Image, Pressable, ScrollView, StyleSheet, Text, View, type ImageSourceP
 import { Button } from '@/shared/components/Button';
 import { Card } from '@/shared/components/Card';
 import { createShadow, theme } from '@/shared/styles/theme';
-import { collectionPaletteStyle } from '@/shared/utils/collectionTheme';
+import { collectionCoverImageSource, collectionPaletteStyle } from '@/shared/utils/collectionTheme';
 import type { PublicCollection, PublicFeaturedCat } from '@/shared/types/social';
 
 interface PublicCollectionScreenProps {
@@ -71,6 +71,8 @@ export function PublicCollectionScreen({
     );
   }
 
+  const coverImage = collectionCoverImageSource(collection.theme);
+
   return (
     <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <Pressable onPress={onBack} style={({ pressed }) => [styles.backButton, pressed ? styles.pressed : null]}>
@@ -79,28 +81,32 @@ export function PublicCollectionScreen({
       </Pressable>
 
       <View style={[styles.cover, collectionPaletteStyle(collection.theme.palette)]}>
-        <Text style={styles.owner}>{collection.nickname}의 도감</Text>
-        <Text numberOfLines={2} style={styles.title}>
-          {collection.profile.displayTitle}
-        </Text>
-        <Text numberOfLines={3} style={styles.intro}>
-          {collection.profile.intro}
-        </Text>
-        <Text style={styles.themeName}>{collection.theme.name}</Text>
+        {coverImage ? <Image resizeMode="cover" source={coverImage} style={styles.coverBackground} /> : null}
+        {coverImage ? <View pointerEvents="none" style={styles.coverImageOverlay} /> : null}
+        <View style={styles.coverContent}>
+          <Text style={styles.owner}>{collection.nickname}의 도감</Text>
+          <Text numberOfLines={2} style={styles.title}>
+            {collection.profile.displayTitle}
+          </Text>
+          <Text numberOfLines={3} style={styles.intro}>
+            {collection.profile.intro}
+          </Text>
+          <Text style={styles.themeName}>{collection.theme.name}</Text>
 
-        <View style={styles.featuredRow}>
-          {collection.featuredCats.length > 0 ? (
-            collection.featuredCats.slice(0, collection.hasNyangkkureomi ? 3 : 1).map((cat) => (
-              <View key={cat.id} style={styles.featuredCat}>
-                <Image resizeMode="cover" source={imageForCat(cat)} style={styles.featuredImage} />
-                <Text numberOfLines={1} style={styles.featuredName}>
-                  {cat.name}
-                </Text>
-              </View>
-            ))
-          ) : (
-            <Text style={styles.emptyFeatured}>아직 대표 고양이가 없어요.</Text>
-          )}
+          <View style={styles.featuredRow}>
+            {collection.featuredCats.length > 0 ? (
+              collection.featuredCats.slice(0, collection.hasNyangkkureomi ? 3 : 1).map((cat) => (
+                <View key={cat.id} style={styles.featuredCat}>
+                  <Image resizeMode="cover" source={imageForCat(cat)} style={styles.featuredImage} />
+                  <Text numberOfLines={1} style={styles.featuredName}>
+                    {cat.name}
+                  </Text>
+                </View>
+              ))
+            ) : (
+              <Text style={styles.emptyFeatured}>아직 대표 고양이가 없어요.</Text>
+            )}
+          </View>
         </View>
       </View>
 
@@ -204,6 +210,7 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   cover: {
+    position: 'relative',
     minHeight: 260,
     marginTop: theme.spacing.md,
     borderRadius: theme.radius.lg,
@@ -211,6 +218,19 @@ const styles = StyleSheet.create({
     padding: theme.spacing.md,
     overflow: 'hidden',
     ...createShadow(8),
+  },
+  coverBackground: {
+    ...StyleSheet.absoluteFillObject,
+    width: '100%',
+    height: '100%',
+  },
+  coverImageOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(255, 248, 236, 0.24)',
+  },
+  coverContent: {
+    position: 'relative',
+    zIndex: 1,
   },
   owner: {
     color: theme.colors.primaryDark,

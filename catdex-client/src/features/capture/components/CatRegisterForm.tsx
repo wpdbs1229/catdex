@@ -1,16 +1,21 @@
-import { useState } from 'react';
-import { StyleSheet, Text, TextInput, View } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Button } from '@/shared/components/Button';
 import type { CaptureCatDraft, CatType, PersonalityTag } from '@/shared/types/cat';
 import { Card } from '@/shared/components/Card';
 import { TagChipGroup } from '@/features/capture/components/TagChipGroup';
 import { theme } from '@/shared/styles/theme';
+import type { Region } from '@/shared/types/region';
 
 interface CatRegisterFormProps {
   coatOptions: CatType[];
   personalityOptions: PersonalityTag[];
   capturedImageUri: string | null;
+  locationMessage?: string;
+  regions: Region[];
   isSubmitting?: boolean;
+  source?: 'camera' | 'gallery';
+  suggestedRegionName?: string;
   onSubmit: (draft: CaptureCatDraft) => Promise<void> | void;
   onSubmitSighting: (draft: CaptureCatDraft) => Promise<void> | void;
 }
@@ -19,7 +24,11 @@ export function CatRegisterForm({
   coatOptions,
   personalityOptions,
   capturedImageUri,
+  locationMessage,
+  regions,
   isSubmitting = false,
+  source,
+  suggestedRegionName,
   onSubmit,
   onSubmitSighting,
 }: CatRegisterFormProps) {
@@ -41,13 +50,36 @@ export function CatRegisterForm({
   const hasRegionName = trimmedDraft.regionName.length > 0;
   const canSubmitCat = hasName && hasRegionName && !isSubmitting;
   const canSubmitSighting = hasRegionName && !isSubmitting;
+  const regionOptions = useMemo(() => {
+    const names = regions.map((region) => region.name);
+
+    if (suggestedRegionName) {
+      return [suggestedRegionName, ...names.filter((name) => name !== suggestedRegionName)].slice(0, 8);
+    }
+
+    return names.slice(0, 8);
+  }, [regions, suggestedRegionName]);
+
+  useEffect(() => {
+    if (!suggestedRegionName) {
+      return;
+    }
+
+    setDraft((current) => (current.regionName.trim().length > 0 ? current : { ...current, regionName: suggestedRegionName }));
+  }, [suggestedRegionName]);
 
   return (
     <Card style={styles.card}>
       <View style={styles.section}>
-        <Text style={styles.label}>촬영 사진</Text>
+        <Text style={styles.label}>첨부 사진</Text>
         <View style={styles.photoStatus}>
-          <Text style={styles.photoStatusText}>{capturedImageUri ? '사진이 등록 폼에 첨부됐어요.' : '사진을 찍으면 도감 기록에 첨부돼요.'}</Text>
+          <Text style={styles.photoStatusText}>
+            {capturedImageUri
+              ? source === 'gallery'
+                ? '갤러리 사진이 등록 폼에 첨부됐어요.'
+                : '사진이 등록 폼에 첨부됐어요.'
+              : '사진을 찍거나 갤러리에서 고르면 도감 기록에 첨부돼요.'}
+          </Text>
         </View>
       </View>
 
@@ -74,7 +106,7 @@ export function CatRegisterForm({
 
       <View style={styles.section}>
         <TagChipGroup
-          label="성격 태그"
+          label="성격/관찰 태그"
           multiple
           onChange={(value) => setDraft((current) => ({ ...current, tags: value }))}
           options={personalityOptions}
@@ -84,6 +116,11 @@ export function CatRegisterForm({
 
       <View style={styles.section}>
         <Text style={styles.label}>발견 장소</Text>
+        {locationMessage ? (
+          <View style={suggestedRegionName ? styles.locationNotice : styles.locationWarning}>
+            <Text style={styles.locationNoticeText}>{locationMessage}</Text>
+          </View>
+        ) : null}
         <TextInput
           onChangeText={(regionName) => setDraft((current) => ({ ...current, regionName }))}
           placeholder="동네 단위로 입력해 주세요"
@@ -92,6 +129,25 @@ export function CatRegisterForm({
           value={draft.regionName}
         />
         <Text style={[styles.helperText, !hasRegionName && styles.requiredText]}>도감 등록과 미확인 제보에는 발견 장소가 필요해요.</Text>
+        {regionOptions.length > 0 ? (
+          <View style={styles.regionChipWrap}>
+            {regionOptions.map((regionName) => {
+              const isSelected = draft.regionName === regionName;
+
+              return (
+                <Pressable
+                  key={regionName}
+                  onPress={() => setDraft((current) => ({ ...current, regionName }))}
+                  style={({ pressed }) => [styles.regionChip, isSelected && styles.regionChipSelected, pressed && styles.pressed]}
+                >
+                  <Text numberOfLines={1} style={[styles.regionChipText, isSelected && styles.regionChipTextSelected]}>
+                    {regionName}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        ) : null}
       </View>
 
       <View style={styles.section}>
@@ -166,6 +222,62 @@ const styles = StyleSheet.create({
     color: theme.colors.mutedText,
     fontSize: 13,
     fontWeight: '600',
+  },
+  locationNotice: {
+    marginTop: theme.spacing.sm,
+    borderRadius: theme.radius.md,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    backgroundColor: '#EFF8F0',
+    borderWidth: 1,
+    borderColor: '#BFDDBF',
+  },
+  locationWarning: {
+    marginTop: theme.spacing.sm,
+    borderRadius: theme.radius.md,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    backgroundColor: '#FFF4E1',
+    borderWidth: 1,
+    borderColor: '#E9C88F',
+  },
+  locationNoticeText: {
+    color: '#6E5746',
+    fontSize: 12,
+    fontWeight: '700',
+    lineHeight: 17,
+  },
+  regionChipWrap: {
+    marginTop: theme.spacing.sm,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: theme.spacing.sm,
+  },
+  regionChip: {
+    maxWidth: '100%',
+    minHeight: 34,
+    borderRadius: 17,
+    paddingHorizontal: theme.spacing.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFF8EC',
+    borderWidth: 1,
+    borderColor: '#EAD9C4',
+  },
+  regionChipSelected: {
+    backgroundColor: theme.colors.primary,
+    borderColor: theme.colors.primary,
+  },
+  regionChipText: {
+    color: theme.colors.mutedText,
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  regionChipTextSelected: {
+    color: '#FFF8F0',
+  },
+  pressed: {
+    opacity: 0.72,
   },
   textarea: {
     marginTop: theme.spacing.sm,

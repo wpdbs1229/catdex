@@ -4,6 +4,7 @@ export type Screen =
   | 'detail'
   | 'capture'
   | 'map'
+  | 'sharedMap'
   | 'my'
   | 'drawer'
   | 'explorationHistory'
@@ -11,18 +12,21 @@ export type Screen =
   | 'likedCollections'
   | 'profileEdit'
   | 'notifications'
+  | 'subscriptionUpsell'
   | 'ranking'
   | 'publicCollection';
 
 export type TabScreen = Exclude<
   Screen,
   | 'detail'
+  | 'sharedMap'
   | 'drawer'
   | 'explorationHistory'
   | 'sharedCollections'
   | 'likedCollections'
   | 'profileEdit'
   | 'notifications'
+  | 'subscriptionUpsell'
   | 'ranking'
   | 'publicCollection'
 >;

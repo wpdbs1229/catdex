@@ -4,7 +4,7 @@ import { Alert } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AppShell } from '@/shared/components/AppShell';
 import { BottomTabBar } from '@/shared/components/BottomTabBar';
-import { fetchAchievedBadges, fetchProfile, fetchRegions } from '@/shared/api/app.api';
+import { fetchAchievedBadges, fetchMyRegions, fetchProfile, fetchRegions } from '@/shared/api/app.api';
 import {
   fetchCollectionCustomization,
   hasActiveNyangkkureomi,
@@ -33,6 +33,7 @@ import { NotificationSettingsScreen } from '@/features/notifications/Notificatio
 import { NeighborhoodRankingScreen } from '@/features/social/NeighborhoodRankingScreen';
 import { PublicCollectionScreen } from '@/features/social/PublicCollectionScreen';
 import { SplashScreen } from '@/features/splash/SplashScreen';
+import { NyangkkureomiUpsellScreen } from '@/features/subscription/NyangkkureomiUpsellScreen';
 import { useNyangkkureomiPayments } from '@/features/subscription/hooks/useNyangkkureomiPayments';
 import {
   fetchPublicCollection,
@@ -58,7 +59,7 @@ import {
 } from '@/shared/notifications/notification.service';
 import type { Badge, ExplorerProfile } from '@/shared/types/badge';
 import type { ProfileUpdateDraft } from '@/shared/types/auth';
-import type { CaptureCatDraft } from '@/shared/types/cat';
+import type { CatEncounterDraft, CaptureCatDraft } from '@/shared/types/cat';
 import type { CatType, PersonalityTag } from '@/shared/types/cat';
 import type { CollectionCustomizationState, CollectionProfile, CollectionSummary } from '@/shared/types/collection';
 import type { NavigationState, TabScreen } from '@/shared/types/navigation';
@@ -118,6 +119,7 @@ export default function App() {
   const [apiCoatOptions, setApiCoatOptions] = useState<CatType[]>(coatOptions);
   const [apiPersonalityOptions, setApiPersonalityOptions] = useState<PersonalityTag[]>(personalityOptions);
   const [regions, setRegions] = useState<Region[]>([]);
+  const [myRegions, setMyRegions] = useState<Region[]>([]);
   const [badges, setBadges] = useState<Badge[]>([]);
   const [profile, setProfile] = useState<ExplorerProfile>(emptyProfile);
   const [customization, setCustomization] = useState<CollectionCustomizationState>(emptyCustomization);
@@ -128,6 +130,7 @@ export default function App() {
   const [notificationPermissionState, setNotificationPermissionState] = useState<NotificationPermissionState>('undetermined');
   const [isNotificationSaving, setIsNotificationSaving] = useState(false);
   const [isProfileSaving, setIsProfileSaving] = useState(false);
+  const [upsellSource, setUpsellSource] = useState<'map' | 'social' | 'drawer'>('drawer');
   const payments = useNyangkkureomiPayments(currentUser?.id ?? null);
   const {
     addEncounter,
@@ -143,9 +146,17 @@ export default function App() {
     undiscoveredDexSlots,
   } = useCats(navigation.selectedCatId, isAuthenticated);
 
+  const hasNyangkkureomiAccess = hasActiveNyangkkureomi(customization.entitlement) || payments.hasNyangkkureomi;
+
   const activeTab: TabScreen =
     navigation.screen === 'detail' || navigation.screen === 'ranking' || navigation.screen === 'publicCollection'
       ? 'dex'
+      : navigation.screen === 'sharedMap'
+        ? 'map'
+      : navigation.screen === 'subscriptionUpsell'
+        ? upsellSource === 'map'
+          ? 'map'
+          : 'my'
       : navigation.screen === 'drawer' ||
           navigation.screen === 'explorationHistory' ||
           navigation.screen === 'sharedCollections' ||
@@ -166,9 +177,10 @@ export default function App() {
   }, []);
 
   const reloadAppResources = async () => {
-    const [nextOptions, nextRegions, nextBadges, nextProfile, nextCustomization] = await Promise.all([
+    const [nextOptions, nextRegions, nextMyRegions, nextBadges, nextProfile, nextCustomization] = await Promise.all([
       fetchCatOptions(),
       fetchRegions(),
+      fetchMyRegions(),
       fetchAchievedBadges(),
       fetchProfile(),
       fetchCollectionCustomization(),
@@ -177,6 +189,7 @@ export default function App() {
     setApiCoatOptions(nextOptions.coatTypes);
     setApiPersonalityOptions(nextOptions.personalityTags);
     setRegions(nextRegions);
+    setMyRegions(nextMyRegions);
     setBadges(nextBadges);
     setProfile(nextProfile);
     setCustomization(nextCustomization);
@@ -265,20 +278,20 @@ export default function App() {
     }
   };
 
-  const handleRecordEncounter = async () => {
+  const handleRecordEncounter = async (draft: CatEncounterDraft) => {
     if (!selectedCat) {
       return;
     }
 
-    await addEncounter(selectedCat.id);
+    await addEncounter(selectedCat.id, draft);
     await reloadAppResources();
   };
 
-  const handleRecordExistingCat = async (catId: string) => {
+  const handleRecordExistingCat = async (catId: string, draft: CatEncounterDraft) => {
     setIsSaving(true);
 
     try {
-      await addEncounter(catId);
+      await addEncounter(catId, draft);
       await reloadAppResources();
       setNavigation({
         screen: 'detail',
@@ -325,7 +338,7 @@ export default function App() {
     }
   };
 
-  const handleShowNyangkkureomiUpsell = () => {
+  const handleShowPaymentSetup = () => {
     if (!payments.isAvailable) {
       Alert.alert(
         '냥꾸러미 결제 준비',
@@ -338,6 +351,15 @@ export default function App() {
       '냥꾸러미',
       '프리미엄 표지, 우리 도감 주인공 3마리, 시즌 냥발 도장을 사용할 수 있어요. 결제와 영수증은 App Store 또는 Google Play 구독으로 처리됩니다.',
     );
+  };
+
+  const handleShowNyangkkureomiUpsell = () => {
+    setUpsellSource('drawer');
+    setNavigation({
+      screen: 'subscriptionUpsell',
+      selectedCatId: null,
+      selectedOwnerId: null,
+    });
   };
 
   const handleOpenCollectionDrawer = () => {
@@ -357,6 +379,16 @@ export default function App() {
   };
 
   const handleOpenSharedCollections = () => {
+    if (!hasNyangkkureomiAccess) {
+      setUpsellSource('social');
+      setNavigation({
+        screen: 'subscriptionUpsell',
+        selectedCatId: null,
+        selectedOwnerId: null,
+      });
+      return;
+    }
+
     setNavigation({
       screen: 'sharedCollections',
       selectedCatId: null,
@@ -365,6 +397,16 @@ export default function App() {
   };
 
   const handleOpenLikedCollections = async () => {
+    if (!hasNyangkkureomiAccess) {
+      setUpsellSource('social');
+      setNavigation({
+        screen: 'subscriptionUpsell',
+        selectedCatId: null,
+        selectedOwnerId: null,
+      });
+      return;
+    }
+
     setNavigation({
       screen: 'likedCollections',
       selectedCatId: null,
@@ -384,6 +426,24 @@ export default function App() {
   const handleOpenProfileEdit = () => {
     setNavigation({
       screen: 'profileEdit',
+      selectedCatId: null,
+      selectedOwnerId: null,
+    });
+  };
+
+  const handleOpenSharedMap = () => {
+    if (!hasNyangkkureomiAccess) {
+      setUpsellSource('map');
+      setNavigation({
+        screen: 'subscriptionUpsell',
+        selectedCatId: null,
+        selectedOwnerId: null,
+      });
+      return;
+    }
+
+    setNavigation({
+      screen: 'sharedMap',
       selectedCatId: null,
       selectedOwnerId: null,
     });
@@ -458,6 +518,16 @@ export default function App() {
   };
 
   const handleOpenCollectionRankings = async () => {
+    if (!hasNyangkkureomiAccess) {
+      setUpsellSource('social');
+      setNavigation({
+        screen: 'subscriptionUpsell',
+        selectedCatId: null,
+        selectedOwnerId: null,
+      });
+      return;
+    }
+
     setNavigation({
       screen: 'ranking',
       selectedCatId: null,
@@ -467,6 +537,16 @@ export default function App() {
   };
 
   const handleOpenPublicCollection = async (ownerId: string) => {
+    if (!hasNyangkkureomiAccess) {
+      setUpsellSource('social');
+      setNavigation({
+        screen: 'subscriptionUpsell',
+        selectedCatId: null,
+        selectedOwnerId: null,
+      });
+      return;
+    }
+
     setNavigation({
       screen: 'publicCollection',
       selectedCatId: null,
@@ -530,8 +610,8 @@ export default function App() {
     .filter((stamp): stamp is NonNullable<typeof stamp> => Boolean(stamp));
 
   const collectionSummary: CollectionSummary = {
-    planName: hasActiveNyangkkureomi(customization.entitlement) || payments.hasNyangkkureomi ? '냥꾸러미 사용 중' : '무료 서랍',
-    hasNyangkkureomi: hasActiveNyangkkureomi(customization.entitlement) || payments.hasNyangkkureomi,
+    planName: hasNyangkkureomiAccess ? '냥꾸러미 사용 중' : '무료 서랍',
+    hasNyangkkureomi: hasNyangkkureomiAccess,
     coverThemeName: selectedCollectionTheme?.name ?? '골목 관찰 노트',
     featuredCats: customization.featuredCatSlots
       .map((slot) => myCats.find((cat) => cat.id === slot.catId))
@@ -594,16 +674,19 @@ export default function App() {
         return (
           <CaptureScreen
             coatOptions={apiCoatOptions}
-            existingCats={recentCats}
+            existingCats={cats}
             isSubmitting={isSaving}
             onRecordExisting={handleRecordExistingCat}
             onSave={handleSaveCapture}
             onSaveSighting={handleSaveSighting}
             personalityOptions={apiPersonalityOptions}
+            regions={regions}
           />
         );
       case 'map':
-        return <MapScreen regions={regions} />;
+        return <MapScreen mode="personal" onOpenSharedMap={handleOpenSharedMap} regions={myRegions} />;
+      case 'sharedMap':
+        return <MapScreen mode="shared" regions={regions} />;
       case 'my':
         return currentUser ? (
           <MyPageScreen
@@ -690,6 +773,20 @@ export default function App() {
             onShowUpsell={handleShowNyangkkureomiUpsell}
             paymentErrorMessage={payments.errorMessage}
             paymentPackages={payments.packages}
+          />
+        );
+      case 'subscriptionUpsell':
+        return (
+          <NyangkkureomiUpsellScreen
+            isPaymentAvailable={payments.isAvailable}
+            isPurchasing={payments.isPurchasing}
+            onBack={() => handleTabChange(upsellSource === 'map' ? 'map' : 'my')}
+            onPurchasePackage={payments.purchase}
+            onRestorePurchases={payments.restore}
+            onShowPaymentSetup={handleShowPaymentSetup}
+            paymentErrorMessage={payments.errorMessage}
+            paymentPackages={payments.packages}
+            source={upsellSource}
           />
         );
       case 'ranking':

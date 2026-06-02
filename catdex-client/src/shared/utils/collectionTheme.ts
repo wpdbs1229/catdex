@@ -1,7 +1,34 @@
 import { theme } from '@/shared/styles/theme';
+import type { ImageSourcePropType } from 'react-native';
+
+interface CollectionThemeLike {
+  id?: string;
+  palette?: string;
+}
+
+const coverBackgrounds = {
+  sunsetHill: require('../../../assets/collection-covers/sunset-hill.png'),
+  mossForest: require('../../../assets/collection-covers/moss-forest.png'),
+  rainGarden: require('../../../assets/collection-covers/rain-garden.png'),
+  summerRiver: require('../../../assets/collection-covers/summer-river.png'),
+  autumnShrine: require('../../../assets/collection-covers/autumn-shrine.png'),
+  snowVillage: require('../../../assets/collection-covers/snow-village.png'),
+} satisfies Record<string, ImageSourcePropType>;
 
 export function collectionPaletteStyle(palette?: string) {
   switch (palette) {
+    case 'sunset-hill':
+      return { backgroundColor: '#F7DFA7', borderColor: '#D99B67' };
+    case 'moss-forest':
+      return { backgroundColor: '#DCEBCF', borderColor: '#87A765' };
+    case 'rain-garden':
+      return { backgroundColor: '#E7E4F0', borderColor: '#9EA0BC' };
+    case 'summer-river':
+      return { backgroundColor: '#DCEFF4', borderColor: '#7CB1C4' };
+    case 'autumn-shrine':
+      return { backgroundColor: '#F1D8BD', borderColor: '#BE7653' };
+    case 'snow-village':
+      return { backgroundColor: '#EEF3F5', borderColor: '#AFC6CA' };
     case 'spring':
       return { backgroundColor: '#FFF1F4', borderColor: '#E8A7B5' };
     case 'summer':
@@ -24,5 +51,43 @@ export function collectionPaletteStyle(palette?: string) {
       return { backgroundColor: '#EAF1F2', borderColor: '#AFC6CA' };
     default:
       return { backgroundColor: theme.colors.surface, borderColor: theme.colors.border };
+  }
+}
+
+export function collectionCoverImageSource(collectionTheme?: CollectionThemeLike): ImageSourcePropType | null {
+  switch (collectionTheme?.palette) {
+    case 'sunset-hill':
+      return coverBackgrounds.sunsetHill;
+    case 'moss-forest':
+      return coverBackgrounds.mossForest;
+    case 'rain-garden':
+      return coverBackgrounds.rainGarden;
+    case 'summer-river':
+      return coverBackgrounds.summerRiver;
+    case 'autumn-shrine':
+      return coverBackgrounds.autumnShrine;
+    case 'snow-village':
+      return coverBackgrounds.snowVillage;
+  }
+
+  switch (collectionTheme?.id) {
+    case 'field-note':
+    case 'spring-flower-alley':
+      return coverBackgrounds.sunsetHill;
+    case 'sunny-window':
+    case 'summer-awning-shade':
+      return coverBackgrounds.summerRiver;
+    case 'storybook-forest-path':
+      return coverBackgrounds.mossForest;
+    case 'moonlight-lamp-alley':
+    case 'night-alley':
+      return coverBackgrounds.rainGarden;
+    case 'prague-rooftop':
+    case 'sticker-drawer':
+      return coverBackgrounds.autumnShrine;
+    case 'winter-blanket':
+      return coverBackgrounds.snowVillage;
+    default:
+      return null;
   }
 }
