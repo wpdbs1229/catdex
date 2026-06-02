@@ -82,6 +82,26 @@ where user_id in (
   '40000000-0000-0000-0000-0000000000b2'
 );
 
+delete from public.collection_likes
+where owner_id in (
+  '30000000-0000-0000-0000-0000000000f1',
+  '40000000-0000-0000-0000-0000000000b2'
+)
+or liked_by in (
+  '30000000-0000-0000-0000-0000000000f1',
+  '40000000-0000-0000-0000-0000000000b2'
+);
+
+delete from public.collection_follows
+where followed_id in (
+  '30000000-0000-0000-0000-0000000000f1',
+  '40000000-0000-0000-0000-0000000000b2'
+)
+or follower_id in (
+  '30000000-0000-0000-0000-0000000000f1',
+  '40000000-0000-0000-0000-0000000000b2'
+);
+
 delete from public.user_season_stamps
 where user_id in (
   '30000000-0000-0000-0000-0000000000f1',
@@ -396,7 +416,7 @@ values
   ),
   (
     '40000000-0000-0000-0000-0000000000b2',
-    'sticker-drawer',
+    'prague-rooftop',
     '냥꾸러미 서랍 도감',
     '프리미엄 표지와 주인공 3마리를 진열한 도감',
     array['first-cat', 'regular-cat', 'cheese-collector', 'winter-recorder'],
