@@ -1,8 +1,8 @@
 import { File } from 'expo-file-system';
 import { throwIfSupabaseError } from '@/shared/api/client';
-import { fetchCats, fetchMyCats } from '@/shared/api/cats.api';
+import { fetchMyCats } from '@/shared/api/cats.api';
 import { assertSupabaseConfigured, supabase } from '@/shared/supabase/client';
-import type { Badge, ExplorerProfile } from '@/shared/types/badge';
+import type { ExplorerProfile } from '@/shared/types/profile';
 import type { Region } from '@/shared/types/region';
 
 interface RegionRow {
@@ -23,35 +23,42 @@ interface MyCatEncounterRegionRow {
   region_name: string;
 }
 
-interface BadgeRow {
+interface CatNameRow {
   id: string;
   name: string;
-  description: string;
 }
 
-interface UserBadgeRow {
-  badge_id: string;
-  achieved_at: string;
-}
+async function fetchCatNameMap(catIds: string[]) {
+  const uniqueCatIds = Array.from(new Set(catIds));
 
-function formatDate(value: string) {
-  return value.replaceAll('-', '.');
+  if (uniqueCatIds.length === 0) {
+    return new Map<string, string>();
+  }
+
+  const { data, error } = await supabase
+    .from('cats')
+    .select('id, name')
+    .in('id', uniqueCatIds);
+
+  throwIfSupabaseError(error);
+
+  return new Map(((data ?? []) as CatNameRow[]).map((cat) => [cat.id, cat.name]));
 }
 
 export async function fetchRegions() {
   assertSupabaseConfigured();
 
-  const [regionsResponse, regionCatsResponse, cats] = await Promise.all([
+  const [regionsResponse, regionCatsResponse] = await Promise.all([
     supabase.from('regions').select('*').order('name', { ascending: true }),
     supabase.from('cat_regions').select('region_id, cat_id'),
-    fetchCats(),
   ]);
 
   throwIfSupabaseError(regionsResponse.error);
   throwIfSupabaseError(regionCatsResponse.error);
 
-  const catNameById = new Map(cats.map((cat) => [cat.id, cat.name]));
-  const regionCats = ((regionCatsResponse.data ?? []) as CatRegionRow[]).reduce<Record<string, string[]>>((acc, row) => {
+  const regionCatRows = (regionCatsResponse.data ?? []) as CatRegionRow[];
+  const catNameById = await fetchCatNameMap(regionCatRows.map((row) => row.cat_id));
+  const regionCats = regionCatRows.reduce<Record<string, string[]>>((acc, row) => {
     const catName = catNameById.get(row.cat_id);
 
     if (catName) {
@@ -85,18 +92,18 @@ export async function fetchMyRegions() {
     return [];
   }
 
-  const [regionsResponse, encountersResponse, cats] = await Promise.all([
+  const [regionsResponse, encountersResponse] = await Promise.all([
     supabase.from('regions').select('*').order('name', { ascending: true }),
     supabase.from('cat_encounters').select('cat_id, region_name').eq('user_id', user.id),
-    fetchMyCats(),
   ]);
 
   throwIfSupabaseError(regionsResponse.error);
   throwIfSupabaseError(encountersResponse.error);
 
   const regionByName = new Map(((regionsResponse.data ?? []) as RegionRow[]).map((region) => [region.name, region]));
-  const catNameById = new Map(cats.map((cat) => [cat.id, cat.name]));
-  const catsByRegionName = ((encountersResponse.data ?? []) as MyCatEncounterRegionRow[]).reduce<Record<string, Set<string>>>((acc, row) => {
+  const encounterRows = (encountersResponse.data ?? []) as MyCatEncounterRegionRow[];
+  const catNameById = await fetchCatNameMap(encounterRows.map((row) => row.cat_id));
+  const catsByRegionName = encounterRows.reduce<Record<string, Set<string>>>((acc, row) => {
     const catName = catNameById.get(row.cat_id);
 
     if (!catName) {
@@ -141,32 +148,6 @@ export async function fetchProfile(): Promise<ExplorerProfile> {
     nextLevelProgress: Math.min(95, 40 + rareCount * 11),
     nextLevelLabel: '희귀 냥이 2마리 더 발견하면 Lv.5',
   };
-}
-
-export async function fetchAchievedBadges() {
-  assertSupabaseConfigured();
-
-  const [badgesResponse, userBadgesResponse] = await Promise.all([
-    supabase.from('badges').select('*').order('id', { ascending: true }),
-    supabase.from('user_badges').select('badge_id, achieved_at').order('achieved_at', { ascending: true }),
-  ]);
-
-  throwIfSupabaseError(badgesResponse.error);
-  throwIfSupabaseError(userBadgesResponse.error);
-
-  const achievedByBadgeId = new Map(
-    ((userBadgesResponse.data ?? []) as UserBadgeRow[]).map((row) => [row.badge_id, row.achieved_at]),
-  );
-
-  return ((badgesResponse.data ?? []) as BadgeRow[])
-    .map<Badge>((badge) => ({
-      id: badge.id,
-      name: badge.name,
-      description: badge.description,
-      achieved: achievedByBadgeId.has(badge.id),
-      achievedAt: achievedByBadgeId.get(badge.id) ? formatDate(achievedByBadgeId.get(badge.id) as string) : undefined,
-    }))
-    .filter((badge) => badge.achieved);
 }
 
 export async function uploadCatImage(imageUri: string) {

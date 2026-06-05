@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react-native';
-import { BookOpen, Camera, House, Map, UserRound } from 'lucide-react-native';
+import { BookOpen, Camera, Map, UserRound } from 'lucide-react-native';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { TabScreen } from '@/shared/types/navigation';
 import { createShadow, theme } from '@/shared/styles/theme';
@@ -12,10 +12,9 @@ interface TabRoute {
 }
 
 const tabRoutes: TabRoute[] = [
-  { id: 'home', label: '홈', icon: House },
+  { id: 'home', label: '홈', icon: Map },
   { id: 'dex', label: '도감', icon: BookOpen },
   { id: 'capture', label: '촬영', icon: Camera, primary: true },
-  { id: 'map', label: '지도', icon: Map },
   { id: 'my', label: 'MY', icon: UserRound },
 ];
 
@@ -39,11 +38,18 @@ export function BottomTabBar({ activeTab, onChange }: BottomTabBarProps) {
               pressed ? styles.tabPressed : null,
             ]}
           >
-            <View style={[styles.tabSurface, primary ? styles.primaryTab : styles.defaultTab, isActive ? (primary ? styles.primaryTabActive : styles.defaultTabActive) : null]}>
+            <View
+              style={[
+                styles.tabSurface,
+                primary ? styles.primaryTab : styles.defaultTab,
+                isActive && styles.activeTab,
+                isActive ? (primary ? styles.primaryTabActive : styles.defaultTabActive) : null,
+              ]}
+            >
               <View style={[styles.iconWrap, primary ? styles.primaryIconWrap : null]}>
-                <Icon color={isActive ? (primary ? '#FFF8F0' : theme.colors.text) : theme.colors.tabMuted} size={primary ? 20 : 18} />
+                <Icon color={isActive ? theme.colors.text : theme.colors.tabMuted} size={primary ? 20 : 18} />
               </View>
-              <Text style={[styles.tabLabel, isActive ? styles.tabLabelActive : null, primary && isActive ? styles.tabLabelPrimary : null]}>
+              <Text style={[styles.tabLabel, isActive ? styles.tabLabelActive : null]}>
                 {label}
               </Text>
             </View>
@@ -76,6 +82,8 @@ const styles = StyleSheet.create({
   tabSurface: {
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: 'transparent',
   },
   defaultTab: {
     width: '66%',
@@ -90,10 +98,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#F2DFC4',
   },
   defaultTabActive: {
-    backgroundColor: theme.colors.accentSoft,
+    backgroundColor: 'rgba(221, 232, 200, 0.72)',
   },
   primaryTabActive: {
-    backgroundColor: theme.colors.primaryDark,
+    backgroundColor: '#F7E8CE',
+  },
+  activeTab: {
+    borderColor: theme.colors.success,
   },
   tabPressed: {
     opacity: 0.84,
@@ -118,8 +129,5 @@ const styles = StyleSheet.create({
   },
   tabLabelActive: {
     color: theme.colors.text,
-  },
-  tabLabelPrimary: {
-    color: '#FFF8F0',
   },
 });

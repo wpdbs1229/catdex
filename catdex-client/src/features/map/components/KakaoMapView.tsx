@@ -1,12 +1,19 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 import type { Region } from '@/shared/types/region';
 import { theme } from '@/shared/styles/theme';
 
-const fallbackMessage = '지도를 불러오지 못했어요. Kakao Map API Key 설정을 확인해주세요.';
+const fallbackMessage = 'Kakao 지도를 불러오지 못해 지역 단위 지도로 표시 중이에요.';
+const defaultKakaoMapWebOrigin = 'https://catdex.local/';
+const kakaoMapSdkUrl = 'https://dapi.kakao.com/v2/maps/sdk.js';
+const kakaoMapSdkLoadTimeoutMs = 20000;
+const nativeMapReadyTimeoutMs = 26000;
 
 type KakaoMapBridgeMessage =
+  | {
+      type: 'MAP_READY';
+    }
   | {
       type: 'REGION_SELECTED';
       regionId: string;
@@ -32,6 +39,12 @@ function parseBridgeMessage(data: string): KakaoMapBridgeMessage | null {
     }
 
     const payload = parsed as Record<string, unknown>;
+
+    if (payload.type === 'MAP_READY') {
+      return {
+        type: 'MAP_READY',
+      };
+    }
 
     if (payload.type === 'REGION_SELECTED' && typeof payload.regionId === 'string') {
       return {
@@ -64,6 +77,44 @@ function serializeRegions(regions: Region[]) {
       cats,
     })),
   ).replace(/</g, '\\u003c');
+}
+
+function resolveKakaoMapWebOrigin(value?: string) {
+  const trimmedValue = value?.trim();
+
+  if (!trimmedValue) {
+    return {
+      origin: defaultKakaoMapWebOrigin,
+      warning: null,
+    };
+  }
+
+  const hasExplicitProtocol = /^[a-z][a-z0-9+.-]*:\/\//i.test(trimmedValue);
+  const candidate = hasExplicitProtocol ? trimmedValue : `https://${trimmedValue}`;
+
+  try {
+    const url = new URL(candidate);
+
+    if ((url.protocol !== 'http:' && url.protocol !== 'https:') || !url.hostname) {
+      throw new Error('Kakao Map Web origin must use http or https.');
+    }
+
+    const origin = `${url.protocol}//${url.host}/`;
+    const warning =
+      !hasExplicitProtocol || url.pathname !== '/' || url.search || url.hash
+        ? `EXPO_PUBLIC_KAKAO_MAP_WEB_ORIGIN을 ${origin}로 정규화했어요.`
+        : null;
+
+    return {
+      origin,
+      warning,
+    };
+  } catch {
+    return {
+      origin: defaultKakaoMapWebOrigin,
+      warning: `EXPO_PUBLIC_KAKAO_MAP_WEB_ORIGIN 값이 유효한 http(s) origin이 아니어서 ${defaultKakaoMapWebOrigin}를 사용했어요.`,
+    };
+  }
 }
 
 function createMapHtml(appKey: string, regions: Region[], selectedRegionId: string | null) {
@@ -146,8 +197,23 @@ function createMapHtml(appKey: string, regions: Region[], selectedRegionId: stri
           }
         }
 
+        function getDiagnostics(message) {
+          return [
+            message,
+            'origin=' + (window.location && window.location.origin ? window.location.origin : 'unknown'),
+            'href=' + (window.location && window.location.href ? window.location.href : 'unknown'),
+            'referrer=' + (document.referrer || 'empty')
+          ].join(' | ');
+        }
+
         function fail(message) {
-          postMessage({ type: 'MAP_LOAD_ERROR', message: message });
+          if (hasResolvedMapLoad) {
+            return;
+          }
+
+          hasResolvedMapLoad = true;
+          clearTimeout(loadTimeoutId);
+          postMessage({ type: 'MAP_LOAD_ERROR', message: getDiagnostics(message) });
           document.body.innerHTML = '<div class="fallback">${fallbackMessage}</div>';
         }
 
@@ -159,6 +225,12 @@ function createMapHtml(appKey: string, regions: Region[], selectedRegionId: stri
             }
 
             window.kakao.maps.load(function () {
+              if (hasResolvedMapLoad) {
+                return;
+              }
+
+              hasResolvedMapLoad = true;
+              clearTimeout(loadTimeoutId);
               var kakao = window.kakao;
               var mapElement = document.getElementById('map');
               var map = new kakao.maps.Map(mapElement, {
@@ -187,7 +259,13 @@ function createMapHtml(appKey: string, regions: Region[], selectedRegionId: stri
                 var label = document.createElement('button');
                 label.type = 'button';
                 label.className = 'map-label' + (isSelected ? ' map-label-selected' : '');
-                label.innerHTML = '<span class="map-label-dot"></span><span>' + region.name.replace('부천시 ', '').replace(' 근처', '') + ' · ' + region.cats.length + '마리</span>';
+                var dot = document.createElement('span');
+                var text = document.createElement('span');
+
+                dot.className = 'map-label-dot';
+                text.textContent = region.name.replace('부천시 ', '').replace(' 근처', '') + ' · ' + region.cats.length + '마리';
+                label.appendChild(dot);
+                label.appendChild(text);
                 label.onclick = function () {
                   postMessage({ type: 'REGION_SELECTED', regionId: region.id });
                 };
@@ -200,14 +278,20 @@ function createMapHtml(appKey: string, regions: Region[], selectedRegionId: stri
 
                 overlay.setMap(map);
               });
+
+              postMessage({ type: 'MAP_READY' });
             });
           } catch (error) {
             fail('KAKAO_MAP_INIT_FAILED');
           }
         }
 
+        var hasResolvedMapLoad = false;
+        var loadTimeoutId = setTimeout(function () {
+          fail('KAKAO_MAP_LOAD_TIMEOUT_${kakaoMapSdkLoadTimeoutMs}MS');
+        }, ${kakaoMapSdkLoadTimeoutMs});
         var script = document.createElement('script');
-        script.src = 'https://dapi.kakao.com/v2/maps/sdk.js?appkey=${encodedAppKey}&autoload=false';
+        script.src = '${kakaoMapSdkUrl}?appkey=${encodedAppKey}&autoload=false';
         script.async = true;
         script.onload = initializeMap;
         script.onerror = function () {
@@ -220,12 +304,118 @@ function createMapHtml(appKey: string, regions: Region[], selectedRegionId: stri
 </html>`;
 }
 
+interface FallbackRegionMapProps {
+  detail?: string | null;
+  onSelectRegion: (region: Region) => void;
+  regions: Region[];
+  selectedRegionId: string | null;
+  style?: StyleProp<ViewStyle>;
+  webOrigin?: string;
+}
+
+function FallbackRegionMap({ detail, onSelectRegion, regions, selectedRegionId, style, webOrigin }: FallbackRegionMapProps) {
+  return (
+    <View style={[styles.fallbackContainer, style]}>
+      <View style={styles.paperRoad} />
+      <View style={styles.paperPark} />
+      {regions.map((region, index) => {
+        const isSelected = region.id === selectedRegionId;
+        const position = fallbackRegionPositions[index % fallbackRegionPositions.length];
+
+        return (
+          <Pressable
+            key={region.id}
+            onPress={() => onSelectRegion(region)}
+            style={[
+              styles.regionCircle,
+              position,
+              isSelected ? styles.regionCircleSelected : null,
+            ]}
+          >
+            <Text numberOfLines={1} style={[styles.regionCircleText, isSelected ? styles.regionCircleTextSelected : null]}>
+              {region.name.replace('부천시 ', '').replace(' 근처', '')}
+            </Text>
+            <Text style={[styles.regionCircleCount, isSelected ? styles.regionCircleTextSelected : null]}>
+              {region.cats.length}마리
+            </Text>
+          </Pressable>
+        );
+      })}
+      <View style={styles.fallbackCopy}>
+        <Text style={styles.fallbackText}>{fallbackMessage}</Text>
+        {detail ? (
+          <Text selectable style={styles.fallbackDetail}>
+            {detail}
+          </Text>
+        ) : null}
+        {webOrigin ? (
+          <Text selectable style={styles.fallbackDetail}>
+            webOrigin={webOrigin}
+          </Text>
+        ) : null}
+      </View>
+    </View>
+  );
+}
+
+function isKakaoMapSdkRequest(url?: string) {
+  return Boolean(url?.startsWith(kakaoMapSdkUrl));
+}
+
+function redactKakaoMapUrl(url?: string) {
+  if (!url) {
+    return 'unknown';
+  }
+
+  try {
+    const parsedUrl = new URL(url);
+
+    if (parsedUrl.searchParams.has('appkey')) {
+      parsedUrl.searchParams.set('appkey', '<redacted>');
+    }
+
+    return parsedUrl.toString();
+  } catch {
+    return url.replace(/appkey=[^&]+/i, 'appkey=<redacted>');
+  }
+}
+
 export function KakaoMapView({ regions, selectedRegionId, onSelectRegion, style }: KakaoMapViewProps) {
   const [isLoading, setIsLoading] = useState(true);
+  const [isMapReady, setIsMapReady] = useState(false);
   const [hasLoadFailed, setHasLoadFailed] = useState(false);
+  const [loadErrorMessage, setLoadErrorMessage] = useState<string | null>(null);
   const appKey = process.env.EXPO_PUBLIC_KAKAO_MAP_APP_KEY?.trim();
-  const kakaoMapWebOrigin = process.env.EXPO_PUBLIC_KAKAO_MAP_WEB_ORIGIN?.trim() || 'https://catdex.local';
+  const { origin: kakaoMapWebOrigin, warning: kakaoMapWebOriginWarning } = resolveKakaoMapWebOrigin(process.env.EXPO_PUBLIC_KAKAO_MAP_WEB_ORIGIN);
+  const regionsFingerprint = useMemo(
+    () => regions.map((region) => `${region.id}:${region.lat}:${region.lng}:${region.radius}:${region.cats.length}`).join('|'),
+    [regions],
+  );
+  const mapSourceKey = `${appKey ?? ''}:${kakaoMapWebOrigin}:${regionsFingerprint}`;
   const html = useMemo(() => (appKey ? createMapHtml(appKey, regions, selectedRegionId) : ''), [appKey, regions, selectedRegionId]);
+
+  useEffect(() => {
+    setHasLoadFailed(false);
+    setIsMapReady(false);
+    setLoadErrorMessage(null);
+    setIsLoading(Boolean(appKey));
+  }, [appKey, mapSourceKey]);
+
+  useEffect(() => {
+    if (!appKey || hasLoadFailed || isMapReady) {
+      return;
+    }
+
+    const timeoutId = setTimeout(() => {
+      setHasLoadFailed(true);
+      setLoadErrorMessage(`NATIVE_WEBVIEW_LOAD_TIMEOUT_${nativeMapReadyTimeoutMs}MS`);
+      setIsLoading(false);
+    }, nativeMapReadyTimeoutMs);
+
+    return () => {
+      clearTimeout(timeoutId);
+    };
+  }, [appKey, hasLoadFailed, isMapReady, mapSourceKey]);
 
   const handleMessage = (event: WebViewMessageEvent) => {
     const message = parseBridgeMessage(event.nativeEvent.data);
@@ -236,6 +426,16 @@ export function KakaoMapView({ regions, selectedRegionId, onSelectRegion, style 
 
     if (message.type === 'MAP_LOAD_ERROR') {
       setHasLoadFailed(true);
+      setIsMapReady(false);
+      setLoadErrorMessage(message.message ?? 'KAKAO_MAP_UNKNOWN_ERROR');
+      setIsLoading(false);
+      return;
+    }
+
+    if (message.type === 'MAP_READY') {
+      setHasLoadFailed(false);
+      setIsMapReady(true);
+      setIsLoading(false);
       return;
     }
 
@@ -247,61 +447,73 @@ export function KakaoMapView({ regions, selectedRegionId, onSelectRegion, style 
   };
 
   if (!appKey || hasLoadFailed) {
-    return (
-      <View style={[styles.fallbackContainer, style]}>
-        <View style={styles.paperRoad} />
-        <View style={styles.paperPark} />
-        {regions.map((region, index) => {
-          const isSelected = region.id === selectedRegionId;
-          const position = fallbackRegionPositions[index % fallbackRegionPositions.length];
+    const fallbackDetail = [
+      !appKey ? 'EXPO_PUBLIC_KAKAO_MAP_APP_KEY가 비어 있어요.' : loadErrorMessage ?? 'Kakao SDK 로드 상태를 확인하지 못했어요.',
+      kakaoMapWebOriginWarning,
+    ]
+      .filter(Boolean)
+      .join('\n');
 
-          return (
-            <Pressable
-              key={region.id}
-              onPress={() => onSelectRegion(region)}
-              style={[
-                styles.regionCircle,
-                position,
-                isSelected ? styles.regionCircleSelected : null,
-              ]}
-            >
-              <Text numberOfLines={1} style={[styles.regionCircleText, isSelected ? styles.regionCircleTextSelected : null]}>
-                {region.name.replace('부천시 ', '').replace(' 근처', '')}
-              </Text>
-              <Text style={[styles.regionCircleCount, isSelected ? styles.regionCircleTextSelected : null]}>
-                {region.cats.length}마리
-              </Text>
-            </Pressable>
-          );
-        })}
-        <Text style={styles.fallbackText}>Kakao 지도를 불러오지 못해 지역 단위 지도로 표시 중이에요.</Text>
-      </View>
+    return (
+      <FallbackRegionMap
+        detail={fallbackDetail}
+        onSelectRegion={onSelectRegion}
+        regions={regions}
+        selectedRegionId={selectedRegionId}
+        style={style}
+        webOrigin={kakaoMapWebOrigin}
+      />
     );
   }
 
   return (
     <View style={[styles.container, style]}>
-      {isLoading ? (
-        <View style={styles.loadingOverlay}>
-          <ActivityIndicator color={theme.colors.primaryDark} />
+      <FallbackRegionMap
+        detail={isLoading ? 'Kakao 지도 로딩 중이에요.' : null}
+        onSelectRegion={onSelectRegion}
+        regions={regions}
+        selectedRegionId={selectedRegionId}
+        style={styles.fallbackUnderlay}
+      />
+      <View pointerEvents={isMapReady ? 'auto' : 'none'} style={[styles.webViewLayer, isMapReady ? null : styles.hiddenWebView]}>
+        <WebView
+          key={mapSourceKey}
+          domStorageEnabled
+          javaScriptEnabled
+          mixedContentMode="always"
+          onError={(event) => {
+            setHasLoadFailed(true);
+            setIsMapReady(false);
+            setLoadErrorMessage(event.nativeEvent.description || 'WEBVIEW_LOAD_ERROR');
+            setIsLoading(false);
+          }}
+          onHttpError={(event) => {
+            const requestUrl = event.nativeEvent.url;
+
+            if (!isKakaoMapSdkRequest(requestUrl)) {
+              return;
+            }
+
+            setHasLoadFailed(true);
+            setIsMapReady(false);
+            setLoadErrorMessage(`WEBVIEW_HTTP_ERROR_${event.nativeEvent.statusCode}:${redactKakaoMapUrl(requestUrl)}`);
+            setIsLoading(false);
+          }}
+          onLoadStart={() => setIsLoading(true)}
+          onMessage={handleMessage}
+          originWhitelist={['*']}
+          scrollEnabled={false}
+          source={{ html, baseUrl: kakaoMapWebOrigin }}
+          style={styles.webView}
+          thirdPartyCookiesEnabled
+        />
+      </View>
+      {isLoading && !isMapReady ? (
+        <View style={styles.loadingBadge}>
+          <ActivityIndicator color={theme.colors.primaryDark} size="small" />
+          <Text style={styles.loadingBadgeText}>Kakao 지도 확인 중</Text>
         </View>
       ) : null}
-      <WebView
-        key={selectedRegionId ?? 'map'}
-        domStorageEnabled
-        javaScriptEnabled
-        mixedContentMode="always"
-        onError={() => setHasLoadFailed(true)}
-        onHttpError={() => setHasLoadFailed(true)}
-        onLoadEnd={() => setIsLoading(false)}
-        onLoadStart={() => setIsLoading(true)}
-        onMessage={handleMessage}
-        originWhitelist={['*']}
-        scrollEnabled={false}
-        source={{ html, baseUrl: kakaoMapWebOrigin }}
-        style={styles.webView}
-        thirdPartyCookiesEnabled
-      />
     </View>
   );
 }
@@ -316,12 +528,35 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: theme.colors.mapBase,
   },
-  loadingOverlay: {
+  webViewLayer: {
     ...StyleSheet.absoluteFillObject,
-    zIndex: 1,
+    backgroundColor: theme.colors.mapBase,
+  },
+  hiddenWebView: {
+    opacity: 0,
+  },
+  loadingBadge: {
+    position: 'absolute',
+    right: theme.spacing.xl,
+    bottom: 232,
+    left: theme.spacing.xl,
+    minHeight: 36,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(239, 228, 214, 0.72)',
+    gap: theme.spacing.sm,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255, 253, 246, 0.88)',
+    borderWidth: 1,
+    borderColor: 'rgba(139, 112, 83, 0.16)',
+  },
+  loadingBadgeText: {
+    color: theme.colors.primaryDark,
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  fallbackUnderlay: {
+    ...StyleSheet.absoluteFillObject,
   },
   fallbackContainer: {
     flex: 1,
@@ -382,15 +617,25 @@ const styles = StyleSheet.create({
   regionCircleTextSelected: {
     color: theme.colors.text,
   },
-  fallbackText: {
+  fallbackCopy: {
     position: 'absolute',
     right: theme.spacing.xl,
     bottom: 260,
     left: theme.spacing.xl,
+    gap: 6,
+  },
+  fallbackText: {
     color: theme.colors.mutedText,
     fontSize: 13,
     fontWeight: '600',
     lineHeight: 20,
+    textAlign: 'center',
+  },
+  fallbackDetail: {
+    color: '#8A7468',
+    fontSize: 10,
+    fontWeight: '700',
+    lineHeight: 15,
     textAlign: 'center',
   },
 });

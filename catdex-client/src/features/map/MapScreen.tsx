@@ -5,13 +5,10 @@ import { KakaoMapView } from '@/features/map/components/KakaoMapView';
 import { theme } from '@/shared/styles/theme';
 
 interface MapScreenProps {
-  mode?: 'personal' | 'shared';
-  onOpenSharedMap?: () => void;
   regions: Region[];
 }
 
-export function MapScreen({ mode = 'personal', onOpenSharedMap, regions }: MapScreenProps) {
-  const isShared = mode === 'shared';
+export function MapScreen({ regions }: MapScreenProps) {
   const displayRegions = useMemo(() => regions, [regions]);
   const [selectedRegion, setSelectedRegion] = useState<Region | null>(displayRegions[0] ?? null);
 
@@ -38,40 +35,31 @@ export function MapScreen({ mode = 'personal', onOpenSharedMap, regions }: MapSc
       <View style={styles.header}>
         <View style={styles.headerRow}>
           <View style={styles.headerCopy}>
-            <Text style={styles.title}>{isShared ? '공유 도감 지도' : '내 발견 지도'}</Text>
-            <Text style={styles.subtitle}>
-              {isShared ? '동네 단위의 공개 발견만 보여줘요. 정확한 위치는 공개하지 않아요.' : '내가 발견한 고양이만 동네 단위로 보여줘요.'}
-            </Text>
+            <Text style={styles.title}>내 발견 지도</Text>
+            <Text style={styles.subtitle}>내가 발견한 고양이만 동네 단위로 보여줘요.</Text>
           </View>
           <View style={styles.badge}>
-            <Text style={styles.badgeText}>{isShared ? '공유 지역' : '내 기록'}</Text>
+            <Text style={styles.badgeText}>내 기록</Text>
           </View>
         </View>
-        {!isShared && onOpenSharedMap ? (
-          <Pressable onPress={onOpenSharedMap} style={({ pressed }) => [styles.sharedMapButton, pressed ? styles.pressed : null]}>
-            <Text style={styles.sharedMapButtonText}>공유지도 보기</Text>
-          </Pressable>
-        ) : null}
       </View>
 
       <View style={styles.bottomSheet}>
         {displayRegions.length === 0 ? (
           <View style={styles.emptyRegion}>
-            <Text style={styles.emptyRegionTitle}>{isShared ? '표시할 공유 지역이 없어요' : '아직 내 발견 지역이 없어요'}</Text>
-            <Text style={styles.emptyRegionText}>
-              {isShared ? '공유 도감에 등록된 지역이 생기면 지도에 표시돼요.' : '고양이를 등록하거나 다시 만나면 내 발견 지도가 채워져요.'}
-            </Text>
+            <Text style={styles.emptyRegionTitle}>아직 내 발견 지역이 없어요</Text>
+            <Text style={styles.emptyRegionText}>고양이를 등록하거나 다시 만나면 내 발견 지도가 채워져요.</Text>
           </View>
         ) : selectedRegion ? (
           <View style={styles.selectedRegionSummary}>
             <View style={styles.selectedRegionText}>
-              <Text style={styles.regionKicker}>{isShared ? '공유 발견 지역' : '내 발견 지역'}</Text>
+              <Text style={styles.regionKicker}>내 발견 지역</Text>
               <Text numberOfLines={1} style={styles.regionTitle}>
                 {selectedRegion.name}
               </Text>
             </View>
             <View style={styles.regionCountPill}>
-              <Text style={styles.regionCount}>{isShared ? '공유' : '내 기록'} {selectedRegion.cats.length}마리</Text>
+              <Text style={styles.regionCount}>내 기록 {selectedRegion.cats.length}마리</Text>
             </View>
           </View>
         ) : null}
@@ -103,7 +91,7 @@ export function MapScreen({ mode = 'personal', onOpenSharedMap, regions }: MapSc
                     {region.name}
                   </Text>
                   <Text style={[styles.regionPillCount, isSelected && styles.regionPillTextSelected]}>
-                    {isShared ? '공유' : '내 기록'} {region.cats.length}마리
+                    내 기록 {region.cats.length}마리
                   </Text>
                 </Pressable>
               );
@@ -140,19 +128,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: theme.spacing.md,
-  },
-  sharedMapButton: {
-    alignSelf: 'flex-start',
-    marginTop: theme.spacing.md,
-    borderRadius: 999,
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: 9,
-    backgroundColor: theme.colors.primaryDark,
-  },
-  sharedMapButtonText: {
-    color: '#FFF8F0',
-    fontSize: 13,
-    fontWeight: '900',
   },
   headerCopy: {
     flex: 1,

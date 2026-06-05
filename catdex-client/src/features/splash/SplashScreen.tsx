@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { Animated, Easing, StyleSheet, Text, View } from 'react-native';
+import { Animated, Easing, Image, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { createShadow, theme } from '@/shared/styles/theme';
 
@@ -70,7 +70,7 @@ export function SplashScreen() {
             <View style={[styles.dot, styles.dotMuted]} />
           </View>
           <View style={styles.catBadge}>
-            <Text style={styles.catSilhouette}>🐈‍⬛</Text>
+            <Image resizeMode="contain" source={require('../../../assets/catdex-icon.png')} style={styles.catIcon} />
           </View>
           <Text style={styles.dexNumber}>No.???</Text>
           <Text style={styles.dexHint}>새로운 동네 친구 탐색 중</Text>
@@ -189,11 +189,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 34,
-    backgroundColor: theme.colors.primaryDark,
+    backgroundColor: '#FFF2DE',
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(139,112,83,0.16)',
   },
-  catSilhouette: {
-    color: theme.colors.surface,
-    fontSize: 58,
+  catIcon: {
+    width: 118,
+    height: 118,
   },
   dexNumber: {
     marginTop: theme.spacing.lg,
