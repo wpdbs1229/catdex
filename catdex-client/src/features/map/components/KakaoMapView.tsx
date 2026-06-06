@@ -197,12 +197,38 @@ function createMapHtml(appKey: string, regions: Region[], selectedRegionId: stri
           }
         }
 
+        function redactUrl(url) {
+          return String(url || 'unknown').replace(/appkey=[^&]+/i, 'appkey=<redacted>');
+        }
+
+        function getScriptDiagnostics() {
+          return Array.prototype.slice.call(document.scripts)
+            .map(function (script) {
+              return redactUrl(script.src || 'inline');
+            })
+            .join(',');
+        }
+
+        function getErrorMessage(error) {
+          if (!error) {
+            return 'unknown';
+          }
+
+          if (error.message) {
+            return error.name ? error.name + ':' + error.message : error.message;
+          }
+
+          return String(error);
+        }
+
         function getDiagnostics(message) {
           return [
             message,
             'origin=' + (window.location && window.location.origin ? window.location.origin : 'unknown'),
             'href=' + (window.location && window.location.href ? window.location.href : 'unknown'),
-            'referrer=' + (document.referrer || 'empty')
+            'referrer=' + (document.referrer || 'empty'),
+            'readyState=' + document.readyState,
+            'scripts=' + getScriptDiagnostics()
           ].join(' | ');
         }
 
@@ -217,6 +243,23 @@ function createMapHtml(appKey: string, regions: Region[], selectedRegionId: stri
           document.body.innerHTML = '<div class="fallback">${fallbackMessage}</div>';
         }
 
+        window.addEventListener('error', function (event) {
+          var target = event.target;
+
+          if (target && target.tagName === 'SCRIPT') {
+            fail('SCRIPT_LOAD_ERROR:' + redactUrl(target.src));
+            return;
+          }
+
+          if (event.message) {
+            fail('WINDOW_ERROR:' + event.message);
+          }
+        }, true);
+
+        window.addEventListener('unhandledrejection', function (event) {
+          fail('UNHANDLED_REJECTION:' + getErrorMessage(event.reason));
+        });
+
         function initializeMap() {
           try {
             if (!window.kakao || !window.kakao.maps) {
@@ -225,64 +268,74 @@ function createMapHtml(appKey: string, regions: Region[], selectedRegionId: stri
             }
 
             window.kakao.maps.load(function () {
-              if (hasResolvedMapLoad) {
-                return;
+              try {
+                if (hasResolvedMapLoad) {
+                  return;
+                }
+
+                clearTimeout(loadTimeoutId);
+                var kakao = window.kakao;
+                var mapElement = document.getElementById('map');
+
+                if (!mapElement) {
+                  fail('KAKAO_MAP_ELEMENT_NOT_FOUND');
+                  return;
+                }
+
+                var map = new kakao.maps.Map(mapElement, {
+                  center: new kakao.maps.LatLng(${centerLat}, ${centerLng}),
+                  level: 5
+                });
+
+                regions.forEach(function (region) {
+                  var isSelected = region.id === selectedRegionId;
+                  var circle = new kakao.maps.Circle({
+                    center: new kakao.maps.LatLng(region.lat, region.lng),
+                    radius: region.radius,
+                    strokeWeight: 2,
+                    strokeColor: isSelected ? '#5B3E30' : '#8BA070',
+                    strokeOpacity: 0.7,
+                    strokeStyle: 'solid',
+                    fillColor: isSelected ? '#C97949' : '#8BA070',
+                    fillOpacity: 0.2
+                  });
+
+                  circle.setMap(map);
+                  kakao.maps.event.addListener(circle, 'click', function () {
+                    postMessage({ type: 'REGION_SELECTED', regionId: region.id });
+                  });
+
+                  var label = document.createElement('button');
+                  label.type = 'button';
+                  label.className = 'map-label' + (isSelected ? ' map-label-selected' : '');
+                  var dot = document.createElement('span');
+                  var text = document.createElement('span');
+
+                  dot.className = 'map-label-dot';
+                  text.textContent = region.name.replace('부천시 ', '').replace(' 근처', '') + ' · ' + region.cats.length + '마리';
+                  label.appendChild(dot);
+                  label.appendChild(text);
+                  label.onclick = function () {
+                    postMessage({ type: 'REGION_SELECTED', regionId: region.id });
+                  };
+
+                  var overlay = new kakao.maps.CustomOverlay({
+                    position: new kakao.maps.LatLng(region.lat, region.lng),
+                    content: label,
+                    yAnchor: 0.18
+                  });
+
+                  overlay.setMap(map);
+                });
+
+                hasResolvedMapLoad = true;
+                postMessage({ type: 'MAP_READY' });
+              } catch (error) {
+                fail('KAKAO_MAP_INIT_FAILED:' + getErrorMessage(error));
               }
-
-              hasResolvedMapLoad = true;
-              clearTimeout(loadTimeoutId);
-              var kakao = window.kakao;
-              var mapElement = document.getElementById('map');
-              var map = new kakao.maps.Map(mapElement, {
-                center: new kakao.maps.LatLng(${centerLat}, ${centerLng}),
-                level: 5
-              });
-
-              regions.forEach(function (region) {
-                var isSelected = region.id === selectedRegionId;
-                var circle = new kakao.maps.Circle({
-                  center: new kakao.maps.LatLng(region.lat, region.lng),
-                  radius: region.radius,
-                  strokeWeight: 2,
-                  strokeColor: isSelected ? '#5B3E30' : '#8BA070',
-                  strokeOpacity: 0.7,
-                  strokeStyle: 'solid',
-                  fillColor: isSelected ? '#C97949' : '#8BA070',
-                  fillOpacity: 0.2
-                });
-
-                circle.setMap(map);
-                kakao.maps.event.addListener(circle, 'click', function () {
-                  postMessage({ type: 'REGION_SELECTED', regionId: region.id });
-                });
-
-                var label = document.createElement('button');
-                label.type = 'button';
-                label.className = 'map-label' + (isSelected ? ' map-label-selected' : '');
-                var dot = document.createElement('span');
-                var text = document.createElement('span');
-
-                dot.className = 'map-label-dot';
-                text.textContent = region.name.replace('부천시 ', '').replace(' 근처', '') + ' · ' + region.cats.length + '마리';
-                label.appendChild(dot);
-                label.appendChild(text);
-                label.onclick = function () {
-                  postMessage({ type: 'REGION_SELECTED', regionId: region.id });
-                };
-
-                var overlay = new kakao.maps.CustomOverlay({
-                  position: new kakao.maps.LatLng(region.lat, region.lng),
-                  content: label,
-                  yAnchor: 0.18
-                });
-
-                overlay.setMap(map);
-              });
-
-              postMessage({ type: 'MAP_READY' });
             });
           } catch (error) {
-            fail('KAKAO_MAP_INIT_FAILED');
+            fail('KAKAO_MAP_LOAD_FAILED:' + getErrorMessage(error));
           }
         }
 
@@ -358,8 +411,26 @@ function FallbackRegionMap({ detail, onSelectRegion, regions, selectedRegionId, 
   );
 }
 
-function isKakaoMapSdkRequest(url?: string) {
-  return Boolean(url?.startsWith(kakaoMapSdkUrl));
+function isKakaoMapResourceRequest(url?: string) {
+  if (!url) {
+    return false;
+  }
+
+  try {
+    const parsedUrl = new URL(url);
+
+    if (parsedUrl.hostname === 'dapi.kakao.com') {
+      return parsedUrl.pathname.startsWith('/v2/maps/sdk.js');
+    }
+
+    if (parsedUrl.hostname === 't1.daumcdn.net') {
+      return parsedUrl.pathname.includes('/mapjsapi/');
+    }
+
+    return false;
+  } catch {
+    return url.startsWith(kakaoMapSdkUrl);
+  }
 }
 
 function redactKakaoMapUrl(url?: string) {
@@ -490,7 +561,7 @@ export function KakaoMapView({ regions, selectedRegionId, onSelectRegion, style 
           onHttpError={(event) => {
             const requestUrl = event.nativeEvent.url;
 
-            if (!isKakaoMapSdkRequest(requestUrl)) {
+            if (!isKakaoMapResourceRequest(requestUrl)) {
               return;
             }
 
