@@ -478,7 +478,6 @@ export function KakaoMapView({ regions, selectedRegionId, onSelectRegion, style 
     }
 
     const timeoutId = setTimeout(() => {
-      setHasLoadFailed(true);
       setLoadErrorMessage(`NATIVE_WEBVIEW_LOAD_TIMEOUT_${nativeMapReadyTimeoutMs}MS`);
       setIsLoading(false);
     }, nativeMapReadyTimeoutMs);
@@ -540,7 +539,7 @@ export function KakaoMapView({ regions, selectedRegionId, onSelectRegion, style 
   return (
     <View style={[styles.container, style]}>
       <FallbackRegionMap
-        detail={isLoading ? 'Kakao 지도 로딩 중이에요.' : null}
+        detail={!isMapReady ? (isLoading ? 'Kakao 지도 로딩 중이에요.' : loadErrorMessage) : null}
         onSelectRegion={onSelectRegion}
         regions={regions}
         selectedRegionId={selectedRegionId}
