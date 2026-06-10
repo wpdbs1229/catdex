@@ -5,6 +5,9 @@ export type Screen =
   | 'capture'
   | 'map'
   | 'sharedMap'
+  | 'community'
+  | 'communityPostCreate'
+  | 'communityComments'
   | 'my'
   | 'drawer'
   | 'explorationHistory'
@@ -20,6 +23,8 @@ export type TabScreen = Exclude<
   Screen,
   | 'detail'
   | 'sharedMap'
+  | 'communityPostCreate'
+  | 'communityComments'
   | 'drawer'
   | 'explorationHistory'
   | 'sharedCollections'
@@ -35,4 +40,5 @@ export interface NavigationState {
   screen: Screen;
   selectedCatId: string | null;
   selectedOwnerId: string | null;
+  selectedCommunityPostId?: string | null;
 }
