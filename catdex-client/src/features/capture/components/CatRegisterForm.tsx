@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Keyboard, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Button } from '@/shared/components/Button';
 import type { CaptureCatDraft, CatType, PersonalityTag } from '@/shared/types/cat';
 import { Card } from '@/shared/components/Card';
@@ -39,6 +39,7 @@ export function CatRegisterForm({
     regionName: '',
     memo: '',
   }));
+  const [localSubmitType, setLocalSubmitType] = useState<'cat' | 'sighting' | null>(null);
   const trimmedDraft: CaptureCatDraft = {
     ...draft,
     name: draft.name.trim(),
@@ -48,8 +49,8 @@ export function CatRegisterForm({
   const submitDraft: CaptureCatDraft = capturedImageUri ? { ...trimmedDraft, imageUrl: capturedImageUri } : trimmedDraft;
   const hasName = trimmedDraft.name.length > 0;
   const hasRegionName = trimmedDraft.regionName.length > 0;
-  const canSubmitCat = hasName && hasRegionName && !isSubmitting;
-  const canSubmitSighting = hasRegionName && !isSubmitting;
+  const missingCatFields = [!hasName ? '이름' : null, !hasRegionName ? '발견 장소' : null].filter(Boolean).join(', ');
+  const isBusy = isSubmitting || localSubmitType !== null;
   const regionOptions = useMemo(() => {
     const names = regions.map((region) => region.name);
 
@@ -67,6 +68,37 @@ export function CatRegisterForm({
 
     setDraft((current) => (current.regionName.trim().length > 0 ? current : { ...current, regionName: suggestedRegionName }));
   }, [suggestedRegionName]);
+
+  const runSubmit = (type: 'cat' | 'sighting', submit: () => Promise<void> | void) => {
+    Keyboard.dismiss();
+    setLocalSubmitType(type);
+
+    setTimeout(async () => {
+      try {
+        await submit();
+      } finally {
+        setLocalSubmitType(null);
+      }
+    }, 0);
+  };
+
+  const handleSubmitCat = () => {
+    if (!hasName || !hasRegionName) {
+      Alert.alert('등록 정보 확인', `${missingCatFields}를 입력해 주세요.`);
+      return;
+    }
+
+    runSubmit('cat', () => onSubmit(submitDraft));
+  };
+
+  const handleSubmitSighting = () => {
+    if (!hasRegionName) {
+      Alert.alert('제보 정보 확인', '발견 장소를 입력해 주세요.');
+      return;
+    }
+
+    runSubmit('sighting', () => onSubmitSighting(submitDraft));
+  };
 
   return (
     <Card style={styles.card}>
@@ -164,11 +196,11 @@ export function CatRegisterForm({
       </View>
 
       <View style={styles.actions}>
-        <Button disabled={!canSubmitCat} onPress={() => onSubmit(submitDraft)}>
-          {isSubmitting ? '등록 중...' : '도감에 등록하기'}
+        <Button disabled={isBusy} onPress={handleSubmitCat}>
+          {localSubmitType === 'cat' || isSubmitting ? '등록 중...' : '도감에 등록하기'}
         </Button>
-        <Button disabled={!canSubmitSighting} onPress={() => onSubmitSighting(submitDraft)} variant="secondary">
-          {isSubmitting ? '저장 중...' : '미확인 제보로 남기기'}
+        <Button disabled={isBusy} onPress={handleSubmitSighting} variant="secondary">
+          {localSubmitType === 'sighting' || isSubmitting ? '저장 중...' : '미확인 제보로 남기기'}
         </Button>
       </View>
     </Card>

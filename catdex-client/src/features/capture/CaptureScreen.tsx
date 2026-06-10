@@ -113,7 +113,12 @@ export function CaptureScreen({
 
   if (step === 'details') {
     return (
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        keyboardDismissMode="on-drag"
+        keyboardShouldPersistTaps="always"
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.detailHeader}>
           <Pressable onPress={() => setStep('capture')} style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}>
             <Text style={styles.backButtonText}>촬영</Text>
@@ -156,7 +161,12 @@ export function CaptureScreen({
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+    <ScrollView
+      contentContainerStyle={styles.content}
+      keyboardDismissMode="on-drag"
+      keyboardShouldPersistTaps="always"
+      showsVerticalScrollIndicator={false}
+    >
       <View style={styles.header}>
         <View style={styles.titleRow}>
           <Text style={styles.title}>고양이 만남 기록</Text>
