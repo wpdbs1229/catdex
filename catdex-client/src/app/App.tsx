@@ -20,6 +20,10 @@ import { CollectionDrawerScreen } from '@/features/collection/CollectionDrawerSc
 import { CatDetailScreen } from '@/features/cats/CatDetailScreen';
 import { CatDexScreen } from '@/features/cats/CatDexScreen';
 import { useCats } from '@/features/cats/hooks/useCats';
+import { CommunityCommentsScreen } from '@/features/community/CommunityCommentsScreen';
+import { CommunityFeedScreen } from '@/features/community/CommunityFeedScreen';
+import { CommunityPostCreateScreen } from '@/features/community/CommunityPostCreateScreen';
+import { useCommunity } from '@/features/community/hooks/useCommunity';
 import { HomeScreen } from '@/features/home/HomeScreen';
 import { MapScreen } from '@/features/map/MapScreen';
 import {
@@ -61,6 +65,7 @@ import type { Badge, ExplorerProfile } from '@/shared/types/badge';
 import type { ProfileUpdateDraft } from '@/shared/types/auth';
 import type { CatEncounterDraft, CaptureCatDraft } from '@/shared/types/cat';
 import type { CatType, PersonalityTag } from '@/shared/types/cat';
+import type { CommunityPost, CommunityReportReason } from '@/features/community/types';
 import type { CollectionCustomizationState, CollectionProfile, CollectionSummary } from '@/shared/types/collection';
 import type { NavigationState, TabScreen } from '@/shared/types/navigation';
 import type { NotificationPermissionState, NotificationSettings } from '@/shared/types/notification';
@@ -145,6 +150,7 @@ export default function App() {
     selectedCatEncounters,
     undiscoveredDexSlots,
   } = useCats(navigation.selectedCatId, isAuthenticated);
+  const community = useCommunity(currentUser);
 
   const hasNyangkkureomiAccess = hasActiveNyangkkureomi(customization.entitlement) || payments.hasNyangkkureomi;
 
@@ -153,6 +159,8 @@ export default function App() {
       ? 'dex'
       : navigation.screen === 'sharedMap'
         ? 'map'
+      : navigation.screen === 'communityPostCreate' || navigation.screen === 'communityComments'
+        ? 'community'
       : navigation.screen === 'subscriptionUpsell'
         ? upsellSource === 'map'
           ? 'map'
@@ -235,6 +243,7 @@ export default function App() {
       screen,
       selectedCatId: null,
       selectedOwnerId: null,
+      selectedCommunityPostId: null,
     });
   };
 
@@ -446,6 +455,37 @@ export default function App() {
       screen: 'sharedMap',
       selectedCatId: null,
       selectedOwnerId: null,
+    });
+  };
+
+  const handleOpenCommunityPostCreate = () => {
+    setNavigation({
+      screen: 'communityPostCreate',
+      selectedCatId: null,
+      selectedOwnerId: null,
+      selectedCommunityPostId: null,
+    });
+  };
+
+  const handleOpenCommunityComments = (post: CommunityPost) => {
+    setNavigation({
+      screen: 'communityComments',
+      selectedCatId: null,
+      selectedOwnerId: null,
+      selectedCommunityPostId: post.id,
+    });
+  };
+
+  const handleReportCommunityPost = async (post: CommunityPost, reason: CommunityReportReason) => {
+    if (!currentUser) {
+      return;
+    }
+
+    await community.reportTarget({
+      targetType: 'POST',
+      targetId: post.id,
+      reason,
+      reporter: currentUser,
     });
   };
 
@@ -687,6 +727,44 @@ export default function App() {
         return <MapScreen mode="personal" onOpenSharedMap={handleOpenSharedMap} regions={myRegions} />;
       case 'sharedMap':
         return <MapScreen mode="shared" regions={regions} />;
+      case 'community':
+        return (
+          <CommunityFeedScreen
+            currentUser={currentUser}
+            errorMessage={community.errorMessage}
+            isLoading={community.isLoading}
+            isPaginating={community.isPaginating}
+            isRefreshing={community.isRefreshing}
+            onDeletePost={(post) => (currentUser ? community.removePost(post.id, currentUser) : undefined)}
+            onLoadMore={community.loadMore}
+            onOpenComments={handleOpenCommunityComments}
+            onOpenCreate={handleOpenCommunityPostCreate}
+            onRefresh={community.refresh}
+            onReportPost={handleReportCommunityPost}
+            onRetry={community.retry}
+            onToggleLike={(post) => (currentUser ? community.toggleLike(post.id, currentUser) : undefined)}
+            posts={community.posts}
+          />
+        );
+      case 'communityPostCreate':
+        return (
+          <CommunityPostCreateScreen
+            currentUser={currentUser}
+            onBack={() => handleTabChange('community')}
+            onCreatePost={community.addPost}
+          />
+        );
+      case 'communityComments':
+        return (
+          <CommunityCommentsScreen
+            currentUser={currentUser}
+            onBack={() => handleTabChange('community')}
+            onCreateComment={community.addComment}
+            onDeleteComment={community.removeComment}
+            onLoadComments={community.loadComments}
+            post={community.getPostById(navigation.selectedCommunityPostId)}
+          />
+        );
       case 'my':
         return currentUser ? (
           <MyPageScreen

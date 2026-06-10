@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react-native';
-import { BookOpen, Camera, House, Map, UserRound } from 'lucide-react-native';
+import { BookOpen, Camera, House, Map, MessageCircle, UserRound } from 'lucide-react-native';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { TabScreen } from '@/shared/types/navigation';
 import { createShadow, theme } from '@/shared/styles/theme';
@@ -16,6 +16,7 @@ const tabRoutes: TabRoute[] = [
   { id: 'dex', label: '도감', icon: BookOpen },
   { id: 'capture', label: '촬영', icon: Camera, primary: true },
   { id: 'map', label: '지도', icon: Map },
+  { id: 'community', label: '커뮤니티', icon: MessageCircle },
   { id: 'my', label: 'MY', icon: UserRound },
 ];
 
