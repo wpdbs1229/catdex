@@ -3,7 +3,7 @@ import { throwIfSupabaseError } from '@/shared/api/client';
 import { fetchMyCats } from '@/shared/api/cats.api';
 import { assertSupabaseConfigured, supabase } from '@/shared/supabase/client';
 import type { ExplorerProfile } from '@/shared/types/profile';
-import type { Region } from '@/shared/types/region';
+import type { Region, RegionCatPreview } from '@/shared/types/region';
 
 interface RegionRow {
   id: string;
@@ -23,26 +23,67 @@ interface MyCatEncounterRegionRow {
   region_name: string;
 }
 
-interface CatNameRow {
+interface CatPreviewRow {
   id: string;
   name: string;
+  image_url: string | null;
 }
 
-async function fetchCatNameMap(catIds: string[]) {
+async function getDisplayImageUrl(imageUrl: string | null) {
+  if (!imageUrl || imageUrl.startsWith('http') || imageUrl.startsWith('file:')) {
+    return imageUrl ?? undefined;
+  }
+
+  const { data, error } = await supabase.storage.from('cat-images').createSignedUrl(imageUrl, 60 * 60);
+  throwIfSupabaseError(error);
+
+  return data.signedUrl;
+}
+
+async function fetchCatPreviewMap(catIds: string[]) {
   const uniqueCatIds = Array.from(new Set(catIds));
 
   if (uniqueCatIds.length === 0) {
-    return new Map<string, string>();
+    return new Map<string, RegionCatPreview>();
   }
 
   const { data, error } = await supabase
     .from('cats')
-    .select('id, name')
+    .select('id, name, image_url')
     .in('id', uniqueCatIds);
 
   throwIfSupabaseError(error);
 
-  return new Map(((data ?? []) as CatNameRow[]).map((cat) => [cat.id, cat.name]));
+  const previews = await Promise.all(
+    ((data ?? []) as CatPreviewRow[]).map(async (cat) => [
+      cat.id,
+      {
+        id: cat.id,
+        name: cat.name,
+        imageUrl: await getDisplayImageUrl(cat.image_url),
+      },
+    ] as const),
+  );
+
+  return new Map(previews);
+}
+
+function appendCatPreview(
+  previewsByRegion: Record<string, RegionCatPreview[]>,
+  regionKey: string,
+  catPreview: RegionCatPreview | undefined,
+) {
+  if (!catPreview) {
+    return;
+  }
+
+  const currentPreviews = previewsByRegion[regionKey] ?? [];
+
+  if (currentPreviews.some((preview) => preview.id === catPreview.id)) {
+    return;
+  }
+
+  previewsByRegion[regionKey] = [...currentPreviews, catPreview];
 }
 
 export async function fetchRegions() {
@@ -57,14 +98,9 @@ export async function fetchRegions() {
   throwIfSupabaseError(regionCatsResponse.error);
 
   const regionCatRows = (regionCatsResponse.data ?? []) as CatRegionRow[];
-  const catNameById = await fetchCatNameMap(regionCatRows.map((row) => row.cat_id));
-  const regionCats = regionCatRows.reduce<Record<string, string[]>>((acc, row) => {
-    const catName = catNameById.get(row.cat_id);
-
-    if (catName) {
-      acc[row.region_id] = [...(acc[row.region_id] ?? []), catName];
-    }
-
+  const catPreviewById = await fetchCatPreviewMap(regionCatRows.map((row) => row.cat_id));
+  const regionCatPreviews = regionCatRows.reduce<Record<string, RegionCatPreview[]>>((acc, row) => {
+    appendCatPreview(acc, row.region_id, catPreviewById.get(row.cat_id));
     return acc;
   }, {});
 
@@ -74,7 +110,8 @@ export async function fetchRegions() {
     lat: Number(region.lat.toFixed(3)),
     lng: Number(region.lng.toFixed(3)),
     radius: Math.max(region.radius, 300),
-    cats: regionCats[region.id] ?? [],
+    cats: (regionCatPreviews[region.id] ?? []).map((cat) => cat.name),
+    catPreviews: regionCatPreviews[region.id] ?? [],
   }));
 }
 
@@ -102,21 +139,14 @@ export async function fetchMyRegions() {
 
   const regionByName = new Map(((regionsResponse.data ?? []) as RegionRow[]).map((region) => [region.name, region]));
   const encounterRows = (encountersResponse.data ?? []) as MyCatEncounterRegionRow[];
-  const catNameById = await fetchCatNameMap(encounterRows.map((row) => row.cat_id));
-  const catsByRegionName = encounterRows.reduce<Record<string, Set<string>>>((acc, row) => {
-    const catName = catNameById.get(row.cat_id);
-
-    if (!catName) {
-      return acc;
-    }
-
-    acc[row.region_name] = acc[row.region_name] ?? new Set<string>();
-    acc[row.region_name].add(catName);
+  const catPreviewById = await fetchCatPreviewMap(encounterRows.map((row) => row.cat_id));
+  const catPreviewsByRegionName = encounterRows.reduce<Record<string, RegionCatPreview[]>>((acc, row) => {
+    appendCatPreview(acc, row.region_name, catPreviewById.get(row.cat_id));
     return acc;
   }, {});
 
-  return Object.entries(catsByRegionName)
-    .map<Region>(([regionName, catNames]) => {
+  return Object.entries(catPreviewsByRegionName)
+    .map<Region>(([regionName, catPreviews]) => {
       const region = regionByName.get(regionName);
 
       return {
@@ -125,7 +155,8 @@ export async function fetchMyRegions() {
         lat: region ? Number(region.lat.toFixed(3)) : 37.5,
         lng: region ? Number(region.lng.toFixed(3)) : 126.76,
         radius: Math.max(region?.radius ?? 300, 300),
-        cats: Array.from(catNames),
+        cats: catPreviews.map((cat) => cat.name),
+        catPreviews,
       };
     })
     .sort((a, b) => a.name.localeCompare(b.name));

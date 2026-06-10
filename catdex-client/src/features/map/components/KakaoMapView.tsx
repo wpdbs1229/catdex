@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
+import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 import type { Region } from '@/shared/types/region';
 import { theme } from '@/shared/styles/theme';
@@ -68,13 +68,17 @@ function parseBridgeMessage(data: string): KakaoMapBridgeMessage | null {
 
 function serializeRegions(regions: Region[]) {
   return JSON.stringify(
-    regions.map(({ id, name, lat, lng, radius, cats }) => ({
+    regions.map(({ id, name, lat, lng, radius, cats, catPreviews }) => ({
       id,
       name,
       lat,
       lng,
       radius,
       cats,
+      catPreviews: catPreviews ?? cats.map((catName, index) => ({
+        id: `${id}-${index}`,
+        name: catName,
+      })),
     })),
   ).replace(/</g, '\\u003c');
 }
@@ -155,32 +159,94 @@ function createMapHtml(appKey: string, regions: Region[], selectedRegionId: stri
         text-align: center;
       }
 
-      .map-label {
+      .map-cat-marker {
+        appearance: none;
+        -webkit-appearance: none;
         display: inline-flex;
+        flex-direction: column;
         align-items: center;
-        gap: 4px;
+        gap: 5px;
         min-width: 74px;
         transform: translate(-50%, -100%);
-        border: 1px solid rgba(91, 62, 48, 0.18);
-        border-radius: 999px;
-        padding: 7px 10px;
-        background: rgba(255, 253, 246, 0.92);
-        box-shadow: 0 8px 20px rgba(91, 62, 48, 0.14);
+        border: 0;
+        padding: 0;
+        background: transparent;
         color: #4A3428;
         font: 700 12px -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
         white-space: nowrap;
+        cursor: pointer;
       }
 
-      .map-label-selected {
+      .map-cat-avatar {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 58px;
+        height: 58px;
+        border: 3px solid rgba(255, 253, 246, 0.96);
+        border-radius: 999px;
+        background: #FFFDF6;
+        box-shadow: 0 8px 18px rgba(91, 62, 48, 0.22);
+      }
+
+      .map-cat-marker-selected .map-cat-avatar {
+        border-color: #C97949;
+        box-shadow: 0 10px 24px rgba(91, 62, 48, 0.28);
+      }
+
+      .map-cat-image {
+        display: block;
+        width: 100%;
+        height: 100%;
+        border-radius: 999px;
+        object-fit: cover;
+      }
+
+      .map-cat-initial {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        height: 100%;
+        border-radius: 999px;
+        background: #DDE8C8;
+        color: #4A3428;
+        font-size: 22px;
+        font-weight: 900;
+      }
+
+      .map-cat-count {
+        position: absolute;
+        right: -6px;
+        bottom: -5px;
+        min-width: 24px;
+        height: 24px;
+        border: 2px solid #FFFDF6;
+        border-radius: 999px;
+        padding: 0 6px;
+        background: #BF7848;
+        color: #FFFDF6;
+        font-size: 10px;
+        font-weight: 900;
+        line-height: 20px;
+        text-align: center;
+      }
+
+      .map-cat-name {
+        max-width: 96px;
+        overflow: hidden;
+        border: 1px solid rgba(91, 62, 48, 0.14);
+        border-radius: 999px;
+        padding: 4px 8px;
+        background: rgba(255, 253, 246, 0.9);
+        box-shadow: 0 5px 12px rgba(91, 62, 48, 0.12);
+        text-overflow: ellipsis;
+      }
+
+      .map-cat-marker-selected .map-cat-name {
         background: rgba(246, 226, 190, 0.96);
-        border-color: rgba(191, 120, 72, 0.48);
-      }
-
-      .map-label-dot {
-        width: 8px;
-        height: 8px;
-        border-radius: 4px;
-        background: #617A43;
+        border-color: rgba(191, 120, 72, 0.38);
       }
     </style>
   </head>
@@ -287,6 +353,33 @@ function createMapHtml(appKey: string, regions: Region[], selectedRegionId: stri
                   level: 5
                 });
 
+                function getShortRegionName(regionName) {
+                  return String(regionName || '').replace('부천시 ', '').replace(' 근처', '');
+                }
+
+                function getPrimaryCat(region) {
+                  var previews = Array.isArray(region.catPreviews) ? region.catPreviews : [];
+
+                  if (previews.length > 0) {
+                    return previews[0];
+                  }
+
+                  if (Array.isArray(region.cats) && region.cats.length > 0) {
+                    return {
+                      name: region.cats[0]
+                    };
+                  }
+
+                  return null;
+                }
+
+                function appendInitial(avatar, label) {
+                  var initial = document.createElement('span');
+                  initial.className = 'map-cat-initial';
+                  initial.textContent = String(label || '?').slice(0, 1);
+                  avatar.appendChild(initial);
+                }
+
                 regions.forEach(function (region) {
                   var isSelected = region.id === selectedRegionId;
                   var circle = new kakao.maps.Circle({
@@ -305,24 +398,51 @@ function createMapHtml(appKey: string, regions: Region[], selectedRegionId: stri
                     postMessage({ type: 'REGION_SELECTED', regionId: region.id });
                   });
 
-                  var label = document.createElement('button');
-                  label.type = 'button';
-                  label.className = 'map-label' + (isSelected ? ' map-label-selected' : '');
-                  var dot = document.createElement('span');
-                  var text = document.createElement('span');
+                  var primaryCat = getPrimaryCat(region);
+                  var marker = document.createElement('button');
+                  marker.type = 'button';
+                  marker.className = 'map-cat-marker' + (isSelected ? ' map-cat-marker-selected' : '');
 
-                  dot.className = 'map-label-dot';
-                  text.textContent = region.name.replace('부천시 ', '').replace(' 근처', '') + ' · ' + region.cats.length + '마리';
-                  label.appendChild(dot);
-                  label.appendChild(text);
-                  label.onclick = function () {
+                  var avatar = document.createElement('span');
+                  avatar.className = 'map-cat-avatar';
+
+                  if (primaryCat && primaryCat.imageUrl) {
+                    var image = document.createElement('img');
+                    image.className = 'map-cat-image';
+                    image.alt = primaryCat.name || region.name;
+                    image.src = primaryCat.imageUrl;
+                    image.onerror = function () {
+                      if (image.parentNode) {
+                        image.parentNode.removeChild(image);
+                      }
+                      appendInitial(avatar, primaryCat.name || region.name);
+                    };
+                    avatar.appendChild(image);
+                  } else {
+                    appendInitial(avatar, (primaryCat && primaryCat.name) || region.name);
+                  }
+
+                  if (Array.isArray(region.cats) && region.cats.length > 1) {
+                    var count = document.createElement('span');
+                    count.className = 'map-cat-count';
+                    count.textContent = String(region.cats.length);
+                    avatar.appendChild(count);
+                  }
+
+                  var name = document.createElement('span');
+                  name.className = 'map-cat-name';
+                  name.textContent = primaryCat ? primaryCat.name : getShortRegionName(region.name);
+
+                  marker.appendChild(avatar);
+                  marker.appendChild(name);
+                  marker.onclick = function () {
                     postMessage({ type: 'REGION_SELECTED', regionId: region.id });
                   };
 
                   var overlay = new kakao.maps.CustomOverlay({
                     position: new kakao.maps.LatLng(region.lat, region.lng),
-                    content: label,
-                    yAnchor: 0.18
+                    content: marker,
+                    yAnchor: 0.16
                   });
 
                   overlay.setMap(map);
@@ -366,6 +486,14 @@ interface FallbackRegionMapProps {
   webOrigin?: string;
 }
 
+function getShortRegionName(regionName: string) {
+  return regionName.replace('부천시 ', '').replace(' 근처', '');
+}
+
+function getPrimaryRegionCat(region: Region) {
+  return region.catPreviews?.[0] ?? (region.cats[0] ? { id: `${region.id}-fallback`, name: region.cats[0] } : null);
+}
+
 function FallbackRegionMap({ detail, onSelectRegion, regions, selectedRegionId, style, webOrigin }: FallbackRegionMapProps) {
   return (
     <View style={[styles.fallbackContainer, style]}>
@@ -374,6 +502,8 @@ function FallbackRegionMap({ detail, onSelectRegion, regions, selectedRegionId, 
       {regions.map((region, index) => {
         const isSelected = region.id === selectedRegionId;
         const position = fallbackRegionPositions[index % fallbackRegionPositions.length];
+        const primaryCat = getPrimaryRegionCat(region);
+        const markerLabel = primaryCat?.name ?? getShortRegionName(region.name);
 
         return (
           <Pressable
@@ -385,8 +515,20 @@ function FallbackRegionMap({ detail, onSelectRegion, regions, selectedRegionId, 
               isSelected ? styles.regionCircleSelected : null,
             ]}
           >
+            <View style={[styles.regionAvatarFrame, isSelected ? styles.regionAvatarFrameSelected : null]}>
+              {primaryCat?.imageUrl ? (
+                <Image resizeMode="cover" source={{ uri: primaryCat.imageUrl }} style={styles.regionAvatarImage} />
+              ) : (
+                <Text style={styles.regionAvatarInitial}>{markerLabel.slice(0, 1)}</Text>
+              )}
+              {region.cats.length > 1 ? (
+                <View style={styles.regionAvatarCountBadge}>
+                  <Text style={styles.regionAvatarCountText}>{region.cats.length}</Text>
+                </View>
+              ) : null}
+            </View>
             <Text numberOfLines={1} style={[styles.regionCircleText, isSelected ? styles.regionCircleTextSelected : null]}>
-              {region.name.replace('부천시 ', '').replace(' 근처', '')}
+              {markerLabel}
             </Text>
             <Text style={[styles.regionCircleCount, isSelected ? styles.regionCircleTextSelected : null]}>
               {region.cats.length}마리
@@ -459,7 +601,15 @@ export function KakaoMapView({ regions, selectedRegionId, onSelectRegion, style 
   const appKey = process.env.EXPO_PUBLIC_KAKAO_MAP_APP_KEY?.trim();
   const { origin: kakaoMapWebOrigin, warning: kakaoMapWebOriginWarning } = resolveKakaoMapWebOrigin(process.env.EXPO_PUBLIC_KAKAO_MAP_WEB_ORIGIN);
   const regionsFingerprint = useMemo(
-    () => regions.map((region) => `${region.id}:${region.lat}:${region.lng}:${region.radius}:${region.cats.length}`).join('|'),
+    () => regions
+      .map((region) => {
+        const previewFingerprint = (region.catPreviews ?? [])
+          .map((cat) => `${cat.id}:${cat.imageUrl ?? ''}`)
+          .join(',');
+
+        return `${region.id}:${region.lat}:${region.lng}:${region.radius}:${region.cats.length}:${previewFingerprint}`;
+      })
+      .join('|'),
     [regions],
   );
   const mapSourceKey = `${appKey ?? ''}:${kakaoMapWebOrigin}:${regionsFingerprint}`;
@@ -672,7 +822,50 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(201,121,73,0.26)',
     borderColor: theme.colors.primary,
   },
+  regionAvatarFrame: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.colors.surface,
+    borderWidth: 3,
+    borderColor: 'rgba(255,253,246,0.92)',
+  },
+  regionAvatarFrameSelected: {
+    borderColor: theme.colors.primary,
+  },
+  regionAvatarImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 27,
+  },
+  regionAvatarInitial: {
+    color: theme.colors.primaryDark,
+    fontSize: 21,
+    fontWeight: '900',
+  },
+  regionAvatarCountBadge: {
+    position: 'absolute',
+    right: -5,
+    bottom: -5,
+    minWidth: 22,
+    height: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 11,
+    paddingHorizontal: 5,
+    backgroundColor: theme.colors.primary,
+    borderWidth: 2,
+    borderColor: theme.colors.surface,
+  },
+  regionAvatarCountText: {
+    color: theme.colors.surface,
+    fontSize: 10,
+    fontWeight: '900',
+  },
   regionCircleText: {
+    marginTop: 7,
     fontSize: 15,
     fontWeight: '800',
     color: theme.colors.primaryDark,

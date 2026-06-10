@@ -1,14 +1,18 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Region } from '@/shared/types/region';
 import { KakaoMapView } from '@/features/map/components/KakaoMapView';
 import { theme } from '@/shared/styles/theme';
+
+const floatingTabClearance = 220;
 
 interface MapScreenProps {
   regions: Region[];
 }
 
 export function MapScreen({ regions }: MapScreenProps) {
+  const insets = useSafeAreaInsets();
   const displayRegions = useMemo(() => regions, [regions]);
   const [selectedRegion, setSelectedRegion] = useState<Region | null>(displayRegions[0] ?? null);
 
@@ -44,7 +48,7 @@ export function MapScreen({ regions }: MapScreenProps) {
         </View>
       </View>
 
-      <View style={styles.bottomSheet}>
+      <View style={[styles.bottomSheet, { bottom: Math.max(insets.bottom, theme.spacing.md) + floatingTabClearance }]}>
         {displayRegions.length === 0 ? (
           <View style={styles.emptyRegion}>
             <Text style={styles.emptyRegionTitle}>아직 내 발견 지역이 없어요</Text>
@@ -159,7 +163,6 @@ const styles = StyleSheet.create({
   bottomSheet: {
     position: 'absolute',
     right: theme.spacing.md,
-    bottom: 104,
     left: theme.spacing.md,
     borderRadius: theme.radius.xl,
     padding: theme.spacing.md,
