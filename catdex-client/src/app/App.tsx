@@ -13,6 +13,10 @@ import { CaptureScreen } from '@/features/capture/CaptureScreen';
 import { CatDetailScreen } from '@/features/cats/CatDetailScreen';
 import { CatDexScreen } from '@/features/cats/CatDexScreen';
 import { useCats } from '@/features/cats/hooks/useCats';
+import { CommunityCommentsScreen } from '@/features/community/CommunityCommentsScreen';
+import { CommunityFeedScreen } from '@/features/community/CommunityFeedScreen';
+import { CommunityPostCreateScreen } from '@/features/community/CommunityPostCreateScreen';
+import { useCommunity } from '@/features/community/hooks/useCommunity';
 import { MapScreen } from '@/features/map/MapScreen';
 import { ExplorationHistoryScreen } from '@/features/my/MyLinkedCollectionScreens';
 import { MyPageScreen } from '@/features/my/MyPageScreen';
@@ -37,6 +41,7 @@ import {
 } from '@/shared/notifications/notification.service';
 import type { ProfileUpdateDraft } from '@/shared/types/auth';
 import type { CatEncounterDraft, CaptureCatDraft, CatType, PersonalityTag } from '@/shared/types/cat';
+import type { CommunityPost, CommunityReportReason } from '@/features/community/types';
 import type { NavigationState, TabScreen } from '@/shared/types/navigation';
 import type { NotificationPermissionState, NotificationSettings } from '@/shared/types/notification';
 import type { ExplorerProfile } from '@/shared/types/profile';
@@ -99,10 +104,13 @@ export default function App() {
     selectedCatEncounters,
     undiscoveredDexSlots,
   } = useCats(navigation.selectedCatId, isAuthenticated);
+  const community = useCommunity(currentUser);
 
   const activeTab: TabScreen =
     navigation.screen === 'detail'
       ? 'dex'
+      : navigation.screen === 'communityPostCreate' || navigation.screen === 'communityComments'
+        ? 'community'
       : navigation.screen === 'explorationHistory' || navigation.screen === 'profileEdit' || navigation.screen === 'notifications'
         ? 'my'
         : navigation.screen;
@@ -179,6 +187,7 @@ export default function App() {
     setNavigation({
       screen,
       selectedCatId: null,
+      selectedCommunityPostId: null,
     });
   };
 
@@ -281,6 +290,35 @@ export default function App() {
     });
   };
 
+  const handleOpenCommunityPostCreate = () => {
+    setNavigation({
+      screen: 'communityPostCreate',
+      selectedCatId: null,
+      selectedCommunityPostId: null,
+    });
+  };
+
+  const handleOpenCommunityComments = (post: CommunityPost) => {
+    setNavigation({
+      screen: 'communityComments',
+      selectedCatId: null,
+      selectedCommunityPostId: post.id,
+    });
+  };
+
+  const handleReportCommunityPost = async (post: CommunityPost, reason: CommunityReportReason) => {
+    if (!currentUser) {
+      return;
+    }
+
+    await community.reportTarget({
+      targetType: 'POST',
+      targetId: post.id,
+      reason,
+      reporter: currentUser,
+    });
+  };
+
   const handleSaveProfile = async (draft: ProfileUpdateDraft) => {
     setIsProfileSaving(true);
 
@@ -378,6 +416,44 @@ export default function App() {
             onSaveSighting={handleSaveSighting}
             personalityOptions={apiPersonalityOptions}
             regions={regions}
+          />
+        );
+      case 'community':
+        return (
+          <CommunityFeedScreen
+            currentUser={currentUser}
+            errorMessage={community.errorMessage}
+            isLoading={community.isLoading}
+            isPaginating={community.isPaginating}
+            isRefreshing={community.isRefreshing}
+            onDeletePost={(post) => (currentUser ? community.removePost(post.id, currentUser) : undefined)}
+            onLoadMore={community.loadMore}
+            onOpenComments={handleOpenCommunityComments}
+            onOpenCreate={handleOpenCommunityPostCreate}
+            onRefresh={community.refresh}
+            onReportPost={handleReportCommunityPost}
+            onRetry={community.retry}
+            onToggleLike={(post) => (currentUser ? community.toggleLike(post.id, currentUser) : undefined)}
+            posts={community.posts}
+          />
+        );
+      case 'communityPostCreate':
+        return (
+          <CommunityPostCreateScreen
+            currentUser={currentUser}
+            onBack={() => handleTabChange('community')}
+            onCreatePost={community.addPost}
+          />
+        );
+      case 'communityComments':
+        return (
+          <CommunityCommentsScreen
+            currentUser={currentUser}
+            onBack={() => handleTabChange('community')}
+            onCreateComment={community.addComment}
+            onDeleteComment={community.removeComment}
+            onLoadComments={community.loadComments}
+            post={community.getPostById(navigation.selectedCommunityPostId)}
           />
         );
       case 'my':
