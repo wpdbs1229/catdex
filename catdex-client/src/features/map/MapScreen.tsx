@@ -1,12 +1,13 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Filter, PawPrint, Search, X } from 'lucide-react-native';
-import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Animated, Image, PanResponder, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Region, RegionCatPreview } from '@/shared/types/region';
 import { KakaoMapView } from '@/features/map/components/KakaoMapView';
 import { theme } from '@/shared/styles/theme';
 
-const floatingTabClearance = 220;
+const collapsedTabClearance = 124;
+const expandedSheetLift = 156;
 const filterModes = ['전체', '지역별', '고양이별'] as const;
 
 type MapFilterMode = (typeof filterModes)[number];
@@ -74,10 +75,12 @@ function getSearchPlaceholder(mode: MapFilterMode) {
 
 export function MapScreen({ regions }: MapScreenProps) {
   const insets = useSafeAreaInsets();
+  const sheetTranslateY = useRef(new Animated.Value(0)).current;
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [filterMode, setFilterMode] = useState<MapFilterMode>('전체');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCatId, setSelectedCatId] = useState<string | null>(null);
+  const [isSheetExpanded, setIsSheetExpanded] = useState(false);
   const normalizedSearchQuery = normalizeFilterText(searchQuery);
   const allCatOptions = useMemo(() => regions.flatMap(getRegionCatOptions), [regions]);
   const selectedCat = useMemo(
@@ -128,6 +131,55 @@ export function MapScreen({ regions }: MapScreenProps) {
   const activeFilterCount = Number(filterMode !== '전체') + Number(normalizedSearchQuery.length > 0) + Number(selectedCatId !== null);
   const searchPlaceholder = getSearchPlaceholder(filterMode);
 
+  const snapSheet = useCallback(
+    (expanded: boolean) => {
+      if (!expanded) {
+        setIsFilterOpen(false);
+      }
+
+      setIsSheetExpanded(expanded);
+      Animated.spring(sheetTranslateY, {
+        toValue: expanded ? -expandedSheetLift : 0,
+        damping: 22,
+        stiffness: 220,
+        mass: 0.8,
+        useNativeDriver: true,
+      }).start();
+    },
+    [sheetTranslateY],
+  );
+
+  const sheetPanResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponder: (_, gesture) => Math.abs(gesture.dy) > 6 && Math.abs(gesture.dy) > Math.abs(gesture.dx),
+        onPanResponderMove: (_, gesture) => {
+          const baseOffset = isSheetExpanded ? -expandedSheetLift : 0;
+          const nextOffset = Math.min(0, Math.max(-expandedSheetLift, baseOffset + gesture.dy));
+
+          sheetTranslateY.setValue(nextOffset);
+        },
+        onPanResponderRelease: (_, gesture) => {
+          if (gesture.vy > 0.35) {
+            snapSheet(false);
+            return;
+          }
+
+          if (gesture.vy < -0.35) {
+            snapSheet(true);
+            return;
+          }
+
+          const baseOffset = isSheetExpanded ? -expandedSheetLift : 0;
+          snapSheet(baseOffset + gesture.dy < -expandedSheetLift / 2);
+        },
+        onPanResponderTerminate: () => {
+          snapSheet(isSheetExpanded);
+        },
+      }),
+    [isSheetExpanded, sheetTranslateY, snapSheet],
+  );
+
   useEffect(() => {
     if (!selectedRegion && displayRegions[0]) {
       setSelectedRegion(displayRegions[0]);
@@ -149,6 +201,7 @@ export function MapScreen({ regions }: MapScreenProps) {
     setFilterMode('고양이별');
     setSelectedCatId(cat.id);
     setSelectedRegion(regions.find((region) => region.id === cat.regionId) ?? null);
+    snapSheet(true);
   };
 
   return (
@@ -169,7 +222,17 @@ export function MapScreen({ regions }: MapScreenProps) {
           <View style={styles.headerActions}>
             <Pressable
               accessibilityLabel="지도 필터 열기"
-              onPress={() => setIsFilterOpen((value) => !value)}
+              onPress={() => {
+                setIsFilterOpen((value) => {
+                  const nextValue = !value;
+
+                  if (nextValue) {
+                    snapSheet(true);
+                  }
+
+                  return nextValue;
+                });
+              }}
               style={({ pressed }) => [
                 styles.filterButton,
                 isFilterOpen || hasActiveFilters ? styles.filterButtonActive : null,
@@ -190,7 +253,23 @@ export function MapScreen({ regions }: MapScreenProps) {
         </View>
       </View>
 
-      <View style={[styles.bottomSheet, { bottom: Math.max(insets.bottom, theme.spacing.md) + floatingTabClearance }]}>
+      <Animated.View
+        style={[
+          styles.bottomSheet,
+          {
+            bottom: Math.max(insets.bottom, theme.spacing.md) + collapsedTabClearance,
+            transform: [{ translateY: sheetTranslateY }],
+          },
+        ]}
+      >
+        <Pressable
+          onPress={() => snapSheet(!isSheetExpanded)}
+          style={({ pressed }) => [styles.sheetHandleArea, pressed && styles.pressed]}
+          {...sheetPanResponder.panHandlers}
+        >
+          <View style={styles.sheetHandle} />
+        </Pressable>
+
         {isFilterOpen ? (
           <View style={styles.filterPanel}>
             <View style={styles.searchBar}>
@@ -261,7 +340,7 @@ export function MapScreen({ regions }: MapScreenProps) {
           </View>
         ) : null}
 
-        {selectedRegionCats.length ? (
+        {isSheetExpanded && selectedRegionCats.length ? (
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             <View style={styles.regionList}>
               {selectedRegionCats.map((cat) => (
@@ -273,7 +352,7 @@ export function MapScreen({ regions }: MapScreenProps) {
           </ScrollView>
         ) : null}
 
-        {filterMode === '고양이별' ? (
+        {isSheetExpanded && filterMode === '고양이별' ? (
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             <View style={styles.catSelector}>
               {visibleCatOptions.map((cat) => {
@@ -305,7 +384,7 @@ export function MapScreen({ regions }: MapScreenProps) {
               })}
             </View>
           </ScrollView>
-        ) : (
+        ) : isSheetExpanded ? (
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             <View style={styles.regionSelector}>
               {displayRegions.map((region) => {
@@ -328,8 +407,8 @@ export function MapScreen({ regions }: MapScreenProps) {
               })}
             </View>
           </ScrollView>
-        )}
-      </View>
+        ) : null}
+      </Animated.View>
     </View>
   );
 }
@@ -436,6 +515,19 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 253, 246, 0.92)',
     borderWidth: 1,
     borderColor: 'rgba(139, 112, 83, 0.16)',
+  },
+  sheetHandleArea: {
+    minHeight: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: -theme.spacing.xs,
+    paddingBottom: theme.spacing.sm,
+  },
+  sheetHandle: {
+    width: 46,
+    height: 5,
+    borderRadius: 999,
+    backgroundColor: 'rgba(117,101,83,0.32)',
   },
   filterPanel: {
     marginBottom: theme.spacing.md,
