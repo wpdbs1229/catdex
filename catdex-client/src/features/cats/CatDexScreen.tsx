@@ -1,20 +1,13 @@
 import { useMemo, useState } from 'react';
 import { Filter, PawPrint, Search } from 'lucide-react-native';
 import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type ImageSourcePropType } from 'react-native';
-import { CollectionCoverHeader } from '@/features/cats/components/CollectionCoverHeader';
 import { createShadow, theme } from '@/shared/styles/theme';
 import type { Cat, CatFilter, CatType, DexPlaceholder, DexProgress } from '@/shared/types/cat';
-import type { CollectionProfile, CollectionSummary, CollectionTheme } from '@/shared/types/collection';
 
 interface CatDexScreenProps {
   cats: Cat[];
-  collectionProfile: CollectionProfile;
-  collectionSummary: CollectionSummary;
-  collectionTheme?: CollectionTheme;
   placeholders: DexPlaceholder[];
   progress: DexProgress;
-  onOpenCollectionRankings: () => void;
-  onOpenCollectionDrawer: () => void;
   onOpenCat: (catId: string) => void;
 }
 
@@ -89,76 +82,84 @@ function placeholderMatchesSearch(placeholder: DexPlaceholder, query: string) {
 
 export function CatDexScreen({
   cats,
-  collectionProfile,
-  collectionSummary,
-  collectionTheme,
   placeholders,
   progress,
-  onOpenCollectionRankings,
-  onOpenCollectionDrawer,
   onOpenCat,
 }: CatDexScreenProps) {
   const [selectedFilter, setSelectedFilter] = useState<CatFilter>('전체');
   const [searchQuery, setSearchQuery] = useState('');
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
   const normalizedSearchQuery = normalizeSearchText(searchQuery);
+  const effectiveSearchQuery = isFilterOpen ? normalizedSearchQuery : '';
+  const effectiveFilter = isFilterOpen ? selectedFilter : '전체';
   const visibleCats = useMemo(
     () =>
       cats.filter((cat) => {
-        const matchesFilter = selectedFilter === '전체' || cat.type === selectedFilter;
+        const matchesFilter = effectiveFilter === '전체' || cat.type === effectiveFilter;
 
-        return matchesFilter && catMatchesSearch(cat, normalizedSearchQuery);
+        return matchesFilter && catMatchesSearch(cat, effectiveSearchQuery);
       }),
-    [cats, normalizedSearchQuery, selectedFilter],
+    [cats, effectiveFilter, effectiveSearchQuery],
   );
   const visiblePlaceholders = useMemo(
     () =>
       placeholders.filter((placeholder) => {
-        const matchesFilter = selectedFilter === '전체' || placeholder.type === selectedFilter;
+        const matchesFilter = effectiveFilter === '전체' || placeholder.type === effectiveFilter;
 
-        return matchesFilter && placeholderMatchesSearch(placeholder, normalizedSearchQuery);
+        return matchesFilter && placeholderMatchesSearch(placeholder, effectiveSearchQuery);
       }),
-    [normalizedSearchQuery, placeholders, selectedFilter],
+    [effectiveFilter, effectiveSearchQuery, placeholders],
   );
   const lockedCount = Math.max(0, Math.min(visiblePlaceholders.length, 1));
-  const hasSearchQuery = normalizedSearchQuery.length > 0;
+  const hasSearchQuery = effectiveSearchQuery.length > 0;
 
   return (
     <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-      <CollectionCoverHeader
-        collectionTheme={collectionTheme}
-        onCustomize={onOpenCollectionDrawer}
-        onExplore={onOpenCollectionRankings}
-        profile={collectionProfile}
-        progress={progress}
-        summary={collectionSummary}
-      />
-
-      <View style={styles.searchBar}>
-        <Search color={theme.colors.mutedText} size={18} />
-        <TextInput
-          autoCapitalize="none"
-          autoCorrect={false}
-          onChangeText={setSearchQuery}
-          placeholder="고양이 이름, 특징으로 검색"
-          placeholderTextColor={theme.colors.mutedText}
-          returnKeyType="search"
-          style={styles.searchInput}
-          value={searchQuery}
-        />
-        <Filter color={theme.colors.primaryDark} size={17} />
+      <View style={styles.header}>
+        <View style={styles.headerCopy}>
+          <Text style={styles.title}>냥도감</Text>
+          <Text style={styles.subtitle}>
+            {progress.collected} / {progress.total}마리 수집
+          </Text>
+        </View>
+        <Pressable
+          accessibilityLabel="검색과 필터 열기"
+          onPress={() => setIsFilterOpen((value) => !value)}
+          style={({ pressed }) => [styles.filterButton, isFilterOpen && styles.filterButtonActive, pressed && styles.pressed]}
+        >
+          <Filter color={isFilterOpen ? '#FFF8F0' : theme.colors.primaryDark} size={19} />
+        </Pressable>
       </View>
 
-      <ScrollView contentContainerStyle={styles.filterRow} horizontal showsHorizontalScrollIndicator={false}>
-        {filters.map((filter) => {
-          const isSelected = selectedFilter === filter;
+      {isFilterOpen ? (
+        <>
+          <View style={styles.searchBar}>
+            <Search color={theme.colors.mutedText} size={18} />
+            <TextInput
+              autoCapitalize="none"
+              autoCorrect={false}
+              onChangeText={setSearchQuery}
+              placeholder="고양이 이름, 특징으로 검색"
+              placeholderTextColor={theme.colors.mutedText}
+              returnKeyType="search"
+              style={styles.searchInput}
+              value={searchQuery}
+            />
+          </View>
 
-          return (
-            <Pressable key={filter} onPress={() => setSelectedFilter(filter)} style={[styles.filterChip, isSelected && styles.filterChipActive]}>
-              <Text style={[styles.filterText, isSelected && styles.filterTextActive]}>{filter}</Text>
-            </Pressable>
-          );
-        })}
-      </ScrollView>
+          <ScrollView contentContainerStyle={styles.filterRow} horizontal showsHorizontalScrollIndicator={false}>
+            {filters.map((filter) => {
+              const isSelected = selectedFilter === filter;
+
+              return (
+                <Pressable key={filter} onPress={() => setSelectedFilter(filter)} style={[styles.filterChip, isSelected && styles.filterChipActive]}>
+                  <Text style={[styles.filterText, isSelected && styles.filterTextActive]}>{filter}</Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        </>
+      ) : null}
 
       <View style={styles.countRow}>
         <Text style={styles.countText}>
@@ -210,9 +211,44 @@ const styles = StyleSheet.create({
     paddingTop: theme.spacing.md,
     paddingBottom: 132,
   },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: theme.spacing.md,
+    marginBottom: theme.spacing.md,
+  },
+  headerCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  title: {
+    color: theme.colors.text,
+    fontSize: 26,
+    fontWeight: '900',
+  },
+  subtitle: {
+    marginTop: 4,
+    color: theme.colors.mutedText,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  filterButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,253,246,0.92)',
+    borderWidth: 1,
+    borderColor: 'rgba(232,211,183,0.86)',
+  },
+  filterButtonActive: {
+    backgroundColor: theme.colors.primaryDark,
+    borderColor: theme.colors.primaryDark,
+  },
   searchBar: {
     height: 46,
-    marginTop: theme.spacing.lg,
     flexDirection: 'row',
     alignItems: 'center',
     gap: theme.spacing.sm,

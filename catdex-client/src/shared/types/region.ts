@@ -1,3 +1,9 @@
+export interface RegionCatPreview {
+  id: string;
+  name: string;
+  imageUrl?: string;
+}
+
 export interface Region {
   id: string;
   name: string;
@@ -5,4 +11,5 @@ export interface Region {
   lng: number;
   radius: number;
   cats: string[];
+  catPreviews?: RegionCatPreview[];
 }

@@ -76,10 +76,17 @@ export function useAuth() {
 
         if (isMounted) {
           if (restoredSession) {
-            await supabase.auth.setSession({
+            const { data, error } = await supabase.auth.setSession({
               access_token: restoredSession.accessToken,
               refresh_token: restoredSession.refreshToken,
             });
+
+            if (error || !data.session) {
+              await SecureStore.deleteItemAsync(authStorageKey);
+              setApiAccessToken(null);
+              setCurrentUser(null);
+              return;
+            }
           }
 
           setApiAccessToken(restoredSession?.accessToken ?? null);

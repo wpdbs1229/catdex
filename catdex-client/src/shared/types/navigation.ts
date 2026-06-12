@@ -3,42 +3,24 @@ export type Screen =
   | 'dex'
   | 'detail'
   | 'capture'
-  | 'map'
-  | 'sharedMap'
   | 'community'
   | 'communityPostCreate'
   | 'communityComments'
+  | 'communityMedia'
   | 'my'
-  | 'drawer'
   | 'explorationHistory'
-  | 'sharedCollections'
-  | 'likedCollections'
   | 'profileEdit'
-  | 'notifications'
-  | 'subscriptionUpsell'
-  | 'ranking'
-  | 'publicCollection';
+  | 'notifications';
 
 export type TabScreen = Exclude<
   Screen,
-  | 'detail'
-  | 'sharedMap'
-  | 'communityPostCreate'
-  | 'communityComments'
-  | 'drawer'
-  | 'explorationHistory'
-  | 'sharedCollections'
-  | 'likedCollections'
-  | 'profileEdit'
-  | 'notifications'
-  | 'subscriptionUpsell'
-  | 'ranking'
-  | 'publicCollection'
+  'detail' | 'communityPostCreate' | 'communityComments' | 'communityMedia' | 'explorationHistory' | 'profileEdit' | 'notifications'
 >;
 
 export interface NavigationState {
   screen: Screen;
   selectedCatId: string | null;
-  selectedOwnerId: string | null;
   selectedCommunityPostId?: string | null;
+  selectedCommunityMediaId?: string | null;
+  communityMediaReturnScreen?: 'community' | 'communityComments';
 }

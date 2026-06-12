@@ -1,6 +1,5 @@
 import { Heart, MessageCircle, MoreHorizontal, ShieldAlert, Trash2, Edit3 } from 'lucide-react-native';
 import { Image, Pressable, StyleSheet, Text, View, type ImageSourcePropType } from 'react-native';
-import { Card } from '@/shared/components/Card';
 import { theme } from '@/shared/styles/theme';
 import { CommunityPostMediaViewer } from '@/features/community/components/CommunityPostMediaViewer';
 import type { CommunityPost, CommunityPostMedia } from '@/features/community/types';
@@ -10,6 +9,7 @@ interface CommunityPostCardProps {
   currentUserId?: string;
   onToggleLike: (post: CommunityPost) => void;
   onOpenComments: (post: CommunityPost) => void;
+  onOpenPost: (post: CommunityPost) => void;
   onOpenMedia: (media: CommunityPostMedia) => void;
   onDeletePost: (post: CommunityPost) => void;
   onReportPost: (post: CommunityPost) => void;
@@ -50,6 +50,7 @@ export function CommunityPostCard({
   currentUserId,
   onToggleLike,
   onOpenComments,
+  onOpenPost,
   onOpenMedia,
   onDeletePost,
   onReportPost,
@@ -61,7 +62,7 @@ export function CommunityPostCard({
   const isMenuOpen = openMenuPostId === post.id;
 
   return (
-    <Card style={styles.card}>
+    <View style={styles.post}>
       <View style={styles.header}>
         <Image
           resizeMode="cover"
@@ -105,9 +106,7 @@ export function CommunityPostCard({
         </View>
       ) : null}
 
-      {post.content.length > 0 ? <Text style={styles.contentText}>{post.content}</Text> : null}
-
-      <CommunityPostMediaViewer mediaList={post.mediaList} onOpenMedia={onOpenMedia} />
+      <CommunityPostMediaViewer mediaList={post.mediaList} onOpenMedia={post.mediaList.length > 0 ? onOpenMedia : undefined} />
 
       <View style={styles.actionRow}>
         <Pressable onPress={() => onToggleLike(post)} style={({ pressed }) => [styles.actionButton, pressed && styles.pressed]}>
@@ -116,25 +115,42 @@ export function CommunityPostCard({
             fill={post.isLikedByMe ? '#C85B5B' : 'transparent'}
             size={20}
           />
-          <Text style={[styles.actionText, post.isLikedByMe && styles.likedText]}>좋아요 {post.likeCount}</Text>
         </Pressable>
         <Pressable onPress={() => onOpenComments(post)} style={({ pressed }) => [styles.actionButton, pressed && styles.pressed]}>
           <MessageCircle color={theme.colors.primaryDark} size={20} />
-          <Text style={styles.actionText}>댓글 {post.commentCount}</Text>
         </Pressable>
       </View>
-    </Card>
+
+      <Pressable onPress={() => onOpenPost(post)} style={({ pressed }) => [styles.caption, pressed && styles.pressed]}>
+        <Text style={styles.likeText}>좋아요 {post.likeCount}개</Text>
+        {post.content.length > 0 ? (
+          <Text numberOfLines={3} style={styles.contentText}>
+            <Text style={styles.captionAuthor}>{post.authorNickname} </Text>
+            {post.content}
+          </Text>
+        ) : null}
+        <Text style={styles.commentText}>
+          {post.commentCount > 0 ? `댓글 ${post.commentCount}개 모두 보기` : '첫 댓글 남기기'}
+        </Text>
+        <Text style={styles.timeText}>{formatRelativeTime(post.createdAt)}</Text>
+      </Pressable>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    gap: theme.spacing.md,
+  post: {
+    backgroundColor: theme.colors.surface,
+    borderBottomWidth: 1,
+    borderColor: 'rgba(139,112,83,0.16)',
   },
   header: {
+    minHeight: 54,
     flexDirection: 'row',
     alignItems: 'center',
     gap: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: 8,
   },
   avatar: {
     width: 42,
@@ -154,7 +170,6 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   timeText: {
-    marginTop: 2,
     color: theme.colors.mutedText,
     fontSize: 11,
     fontWeight: '700',
@@ -168,6 +183,8 @@ const styles = StyleSheet.create({
   menu: {
     alignSelf: 'flex-end',
     minWidth: 124,
+    marginRight: theme.spacing.md,
+    marginBottom: theme.spacing.sm,
     overflow: 'hidden',
     borderRadius: theme.radius.md,
     backgroundColor: 'rgba(255,253,246,0.98)',
@@ -191,30 +208,43 @@ const styles = StyleSheet.create({
   },
   contentText: {
     color: theme.colors.text,
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '600',
-    lineHeight: 22,
+    lineHeight: 20,
   },
   actionRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: theme.spacing.md,
+    gap: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
+    paddingTop: 9,
   },
   actionButton: {
+    width: 36,
     minHeight: 36,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    justifyContent: 'center',
     borderRadius: 18,
-    paddingHorizontal: theme.spacing.sm,
   },
-  actionText: {
+  caption: {
+    gap: 5,
+    paddingHorizontal: theme.spacing.md,
+    paddingBottom: theme.spacing.md,
+  },
+  likeText: {
     color: theme.colors.primaryDark,
     fontSize: 13,
-    fontWeight: '800',
+    fontWeight: '900',
   },
-  likedText: {
-    color: '#C85B5B',
+  captionAuthor: {
+    color: theme.colors.text,
+    fontWeight: '900',
+  },
+  commentText: {
+    color: theme.colors.mutedText,
+    fontSize: 13,
+    fontWeight: '700',
   },
   pressed: {
     opacity: 0.78,

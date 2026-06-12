@@ -11,8 +11,6 @@ export const defaultNotificationSettings: NotificationSettings = {
   dailyReminderEnabled: false,
   dailyReminderTime: '20:00',
   sharedCatEnabled: true,
-  achievementEnabled: true,
-  socialEnabled: true,
   scheduledDailyReminderId: null,
 };
 
@@ -166,16 +164,16 @@ export async function applyNotificationSettings(settings: NotificationSettings):
   return nextSettings;
 }
 
-export async function sendAchievementPreviewNotification() {
+export async function sendNotificationPreview() {
   await ensureAndroidNotificationChannel();
 
   return Notifications.scheduleNotificationAsync({
     content: {
-      title: '새 배지를 획득했어요',
-      body: '냥도감 MY 페이지에서 새 배지를 확인해보세요.',
+      title: '냥도감 알림 미리보기',
+      body: '오늘 만난 고양이를 도감에 기록해보세요.',
       data: {
-        screen: 'my',
-        notificationType: 'achievementPreview',
+        screen: 'capture',
+        notificationType: 'preview',
       },
       sound: true,
     },

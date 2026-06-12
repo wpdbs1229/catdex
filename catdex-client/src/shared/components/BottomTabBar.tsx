@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react-native';
-import { BookOpen, Camera, House, Map, MessageCircle, UserRound } from 'lucide-react-native';
+import { BookOpen, Camera, Map, MessageCircle, UserRound } from 'lucide-react-native';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { TabScreen } from '@/shared/types/navigation';
 import { createShadow, theme } from '@/shared/styles/theme';
@@ -12,10 +12,9 @@ interface TabRoute {
 }
 
 const tabRoutes: TabRoute[] = [
-  { id: 'home', label: '홈', icon: House },
+  { id: 'home', label: '홈', icon: Map },
   { id: 'dex', label: '도감', icon: BookOpen },
   { id: 'capture', label: '촬영', icon: Camera, primary: true },
-  { id: 'map', label: '지도', icon: Map },
   { id: 'community', label: '커뮤니티', icon: MessageCircle },
   { id: 'my', label: 'MY', icon: UserRound },
 ];
@@ -23,11 +22,12 @@ const tabRoutes: TabRoute[] = [
 interface BottomTabBarProps {
   activeTab: TabScreen;
   onChange: (tab: TabScreen) => void;
+  variant?: 'floating' | 'embedded';
 }
 
-export function BottomTabBar({ activeTab, onChange }: BottomTabBarProps) {
+export function BottomTabBar({ activeTab, onChange, variant = 'floating' }: BottomTabBarProps) {
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, variant === 'embedded' && styles.embeddedContainer]}>
       {tabRoutes.map(({ id, label, icon: Icon, primary }) => {
         const isActive = activeTab === id;
 
@@ -40,11 +40,18 @@ export function BottomTabBar({ activeTab, onChange }: BottomTabBarProps) {
               pressed ? styles.tabPressed : null,
             ]}
           >
-            <View style={[styles.tabSurface, primary ? styles.primaryTab : styles.defaultTab, isActive ? (primary ? styles.primaryTabActive : styles.defaultTabActive) : null]}>
+            <View
+              style={[
+                styles.tabSurface,
+                primary ? styles.primaryTab : styles.defaultTab,
+                isActive && styles.activeTab,
+                isActive ? (primary ? styles.primaryTabActive : styles.defaultTabActive) : null,
+              ]}
+            >
               <View style={[styles.iconWrap, primary ? styles.primaryIconWrap : null]}>
-                <Icon color={isActive ? (primary ? '#FFF8F0' : theme.colors.text) : theme.colors.tabMuted} size={primary ? 20 : 18} />
+                <Icon color={isActive ? theme.colors.text : theme.colors.tabMuted} size={primary ? 20 : 18} />
               </View>
-              <Text style={[styles.tabLabel, isActive ? styles.tabLabelActive : null, primary && isActive ? styles.tabLabelPrimary : null]}>
+              <Text style={[styles.tabLabel, isActive ? styles.tabLabelActive : null]}>
                 {label}
               </Text>
             </View>
@@ -67,6 +74,15 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(139, 112, 83, 0.18)',
     ...createShadow(10),
   },
+  embeddedContainer: {
+    borderRadius: 0,
+    paddingHorizontal: theme.spacing.lg,
+    paddingTop: theme.spacing.sm,
+    backgroundColor: 'transparent',
+    borderWidth: 0,
+    shadowOpacity: 0,
+    elevation: 0,
+  },
   tabButton: {
     flex: 1,
     minWidth: 0,
@@ -77,6 +93,8 @@ const styles = StyleSheet.create({
   tabSurface: {
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: 'transparent',
   },
   defaultTab: {
     width: '66%',
@@ -91,10 +109,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#F2DFC4',
   },
   defaultTabActive: {
-    backgroundColor: theme.colors.accentSoft,
+    backgroundColor: 'rgba(221, 232, 200, 0.72)',
   },
   primaryTabActive: {
-    backgroundColor: theme.colors.primaryDark,
+    backgroundColor: '#F7E8CE',
+  },
+  activeTab: {
+    borderColor: theme.colors.success,
   },
   tabPressed: {
     opacity: 0.84,
@@ -119,8 +140,5 @@ const styles = StyleSheet.create({
   },
   tabLabelActive: {
     color: theme.colors.text,
-  },
-  tabLabelPrimary: {
-    color: '#FFF8F0',
   },
 });

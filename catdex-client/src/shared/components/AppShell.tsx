@@ -6,10 +6,12 @@ import { theme } from '@/shared/styles/theme';
 interface AppShellProps {
   children: ReactNode;
   bottomBar: ReactNode;
+  bottomBarVariant?: 'floating' | 'docked';
 }
 
-export function AppShell({ children, bottomBar }: AppShellProps) {
+export function AppShell({ children, bottomBar, bottomBarVariant = 'floating' }: AppShellProps) {
   const insets = useSafeAreaInsets();
+  const isDocked = bottomBarVariant === 'docked';
 
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}>
@@ -22,7 +24,7 @@ export function AppShell({ children, bottomBar }: AppShellProps) {
           <View style={styles.nearHill} />
         </View>
         <View style={styles.content}>{children}</View>
-        <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, theme.spacing.md) }]}>
+        <View style={[styles.bottomBar, isDocked && styles.bottomBarDocked, { paddingBottom: Math.max(insets.bottom, theme.spacing.md) }]}>
           {bottomBar}
         </View>
       </View>
@@ -103,5 +105,16 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: theme.spacing.md,
     zIndex: 2,
+  },
+  bottomBarDocked: {
+    right: 0,
+    left: 0,
+    backgroundColor: 'rgba(255, 248, 236, 0.97)',
+    borderRightWidth: 1,
+    borderBottomWidth: 1,
+    borderLeftWidth: 1,
+    borderColor: 'rgba(139, 112, 83, 0.16)',
+    borderBottomLeftRadius: theme.radius.xl,
+    borderBottomRightRadius: theme.radius.xl,
   },
 });

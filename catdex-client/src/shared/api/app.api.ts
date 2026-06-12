@@ -1,9 +1,9 @@
 import { File } from 'expo-file-system';
 import { throwIfSupabaseError } from '@/shared/api/client';
-import { fetchCats, fetchMyCats } from '@/shared/api/cats.api';
+import { fetchMyCats } from '@/shared/api/cats.api';
 import { assertSupabaseConfigured, supabase } from '@/shared/supabase/client';
-import type { Badge, ExplorerProfile } from '@/shared/types/badge';
-import type { Region } from '@/shared/types/region';
+import type { ExplorerProfile } from '@/shared/types/profile';
+import type { Region, RegionCatPreview } from '@/shared/types/region';
 
 interface RegionRow {
   id: string;
@@ -23,41 +23,84 @@ interface MyCatEncounterRegionRow {
   region_name: string;
 }
 
-interface BadgeRow {
+interface CatPreviewRow {
   id: string;
   name: string;
-  description: string;
+  image_url: string | null;
 }
 
-interface UserBadgeRow {
-  badge_id: string;
-  achieved_at: string;
+async function getDisplayImageUrl(imageUrl: string | null) {
+  if (!imageUrl || imageUrl.startsWith('http') || imageUrl.startsWith('file:')) {
+    return imageUrl ?? undefined;
+  }
+
+  const { data, error } = await supabase.storage.from('cat-images').createSignedUrl(imageUrl, 60 * 60);
+  throwIfSupabaseError(error);
+
+  return data.signedUrl;
 }
 
-function formatDate(value: string) {
-  return value.replaceAll('-', '.');
+async function fetchCatPreviewMap(catIds: string[]) {
+  const uniqueCatIds = Array.from(new Set(catIds));
+
+  if (uniqueCatIds.length === 0) {
+    return new Map<string, RegionCatPreview>();
+  }
+
+  const { data, error } = await supabase
+    .from('cats')
+    .select('id, name, image_url')
+    .in('id', uniqueCatIds);
+
+  throwIfSupabaseError(error);
+
+  const previews = await Promise.all(
+    ((data ?? []) as CatPreviewRow[]).map(async (cat) => [
+      cat.id,
+      {
+        id: cat.id,
+        name: cat.name,
+        imageUrl: await getDisplayImageUrl(cat.image_url),
+      },
+    ] as const),
+  );
+
+  return new Map(previews);
+}
+
+function appendCatPreview(
+  previewsByRegion: Record<string, RegionCatPreview[]>,
+  regionKey: string,
+  catPreview: RegionCatPreview | undefined,
+) {
+  if (!catPreview) {
+    return;
+  }
+
+  const currentPreviews = previewsByRegion[regionKey] ?? [];
+
+  if (currentPreviews.some((preview) => preview.id === catPreview.id)) {
+    return;
+  }
+
+  previewsByRegion[regionKey] = [...currentPreviews, catPreview];
 }
 
 export async function fetchRegions() {
   assertSupabaseConfigured();
 
-  const [regionsResponse, regionCatsResponse, cats] = await Promise.all([
+  const [regionsResponse, regionCatsResponse] = await Promise.all([
     supabase.from('regions').select('*').order('name', { ascending: true }),
     supabase.from('cat_regions').select('region_id, cat_id'),
-    fetchCats(),
   ]);
 
   throwIfSupabaseError(regionsResponse.error);
   throwIfSupabaseError(regionCatsResponse.error);
 
-  const catNameById = new Map(cats.map((cat) => [cat.id, cat.name]));
-  const regionCats = ((regionCatsResponse.data ?? []) as CatRegionRow[]).reduce<Record<string, string[]>>((acc, row) => {
-    const catName = catNameById.get(row.cat_id);
-
-    if (catName) {
-      acc[row.region_id] = [...(acc[row.region_id] ?? []), catName];
-    }
-
+  const regionCatRows = (regionCatsResponse.data ?? []) as CatRegionRow[];
+  const catPreviewById = await fetchCatPreviewMap(regionCatRows.map((row) => row.cat_id));
+  const regionCatPreviews = regionCatRows.reduce<Record<string, RegionCatPreview[]>>((acc, row) => {
+    appendCatPreview(acc, row.region_id, catPreviewById.get(row.cat_id));
     return acc;
   }, {});
 
@@ -67,7 +110,8 @@ export async function fetchRegions() {
     lat: Number(region.lat.toFixed(3)),
     lng: Number(region.lng.toFixed(3)),
     radius: Math.max(region.radius, 300),
-    cats: regionCats[region.id] ?? [],
+    cats: (regionCatPreviews[region.id] ?? []).map((cat) => cat.name),
+    catPreviews: regionCatPreviews[region.id] ?? [],
   }));
 }
 
@@ -85,31 +129,24 @@ export async function fetchMyRegions() {
     return [];
   }
 
-  const [regionsResponse, encountersResponse, cats] = await Promise.all([
+  const [regionsResponse, encountersResponse] = await Promise.all([
     supabase.from('regions').select('*').order('name', { ascending: true }),
     supabase.from('cat_encounters').select('cat_id, region_name').eq('user_id', user.id),
-    fetchMyCats(),
   ]);
 
   throwIfSupabaseError(regionsResponse.error);
   throwIfSupabaseError(encountersResponse.error);
 
   const regionByName = new Map(((regionsResponse.data ?? []) as RegionRow[]).map((region) => [region.name, region]));
-  const catNameById = new Map(cats.map((cat) => [cat.id, cat.name]));
-  const catsByRegionName = ((encountersResponse.data ?? []) as MyCatEncounterRegionRow[]).reduce<Record<string, Set<string>>>((acc, row) => {
-    const catName = catNameById.get(row.cat_id);
-
-    if (!catName) {
-      return acc;
-    }
-
-    acc[row.region_name] = acc[row.region_name] ?? new Set<string>();
-    acc[row.region_name].add(catName);
+  const encounterRows = (encountersResponse.data ?? []) as MyCatEncounterRegionRow[];
+  const catPreviewById = await fetchCatPreviewMap(encounterRows.map((row) => row.cat_id));
+  const catPreviewsByRegionName = encounterRows.reduce<Record<string, RegionCatPreview[]>>((acc, row) => {
+    appendCatPreview(acc, row.region_name, catPreviewById.get(row.cat_id));
     return acc;
   }, {});
 
-  return Object.entries(catsByRegionName)
-    .map<Region>(([regionName, catNames]) => {
+  return Object.entries(catPreviewsByRegionName)
+    .map<Region>(([regionName, catPreviews]) => {
       const region = regionByName.get(regionName);
 
       return {
@@ -118,7 +155,8 @@ export async function fetchMyRegions() {
         lat: region ? Number(region.lat.toFixed(3)) : 37.5,
         lng: region ? Number(region.lng.toFixed(3)) : 126.76,
         radius: Math.max(region?.radius ?? 300, 300),
-        cats: Array.from(catNames),
+        cats: catPreviews.map((cat) => cat.name),
+        catPreviews,
       };
     })
     .sort((a, b) => a.name.localeCompare(b.name));
@@ -141,32 +179,6 @@ export async function fetchProfile(): Promise<ExplorerProfile> {
     nextLevelProgress: Math.min(95, 40 + rareCount * 11),
     nextLevelLabel: '희귀 냥이 2마리 더 발견하면 Lv.5',
   };
-}
-
-export async function fetchAchievedBadges() {
-  assertSupabaseConfigured();
-
-  const [badgesResponse, userBadgesResponse] = await Promise.all([
-    supabase.from('badges').select('*').order('id', { ascending: true }),
-    supabase.from('user_badges').select('badge_id, achieved_at').order('achieved_at', { ascending: true }),
-  ]);
-
-  throwIfSupabaseError(badgesResponse.error);
-  throwIfSupabaseError(userBadgesResponse.error);
-
-  const achievedByBadgeId = new Map(
-    ((userBadgesResponse.data ?? []) as UserBadgeRow[]).map((row) => [row.badge_id, row.achieved_at]),
-  );
-
-  return ((badgesResponse.data ?? []) as BadgeRow[])
-    .map<Badge>((badge) => ({
-      id: badge.id,
-      name: badge.name,
-      description: badge.description,
-      achieved: achievedByBadgeId.has(badge.id),
-      achievedAt: achievedByBadgeId.get(badge.id) ? formatDate(achievedByBadgeId.get(badge.id) as string) : undefined,
-    }))
-    .filter((badge) => badge.achieved);
 }
 
 export async function uploadCatImage(imageUri: string) {

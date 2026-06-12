@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react-native';
-import { Bell, ChevronLeft, Clock, PawPrint, Share2, Sparkles, Trophy } from 'lucide-react-native';
+import { Bell, ChevronLeft, Clock, PawPrint, Share2 } from 'lucide-react-native';
 import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { Button } from '@/shared/components/Button';
 import { createShadow, theme } from '@/shared/styles/theme';
@@ -43,7 +43,7 @@ export function NotificationSettingsScreen({
         </Pressable>
         <View style={styles.headerCopy}>
           <Text style={styles.title}>알림 설정</Text>
-          <Text style={styles.subtitle}>탐험 리마인더와 도감 활동 알림을 관리해요.</Text>
+          <Text style={styles.subtitle}>탐험 리마인더와 새 공유 고양이 알림을 관리해요.</Text>
         </View>
       </View>
 
@@ -103,22 +103,6 @@ export function NotificationSettingsScreen({
           label="새 공유 고양이"
           onValueChange={(value) => updateSetting({ sharedCatEnabled: value })}
           value={settings.sharedCatEnabled}
-        />
-        <NotificationToggle
-          description="배지 획득, 레벨업, 재발견 기록 같은 성취를 알려줘요."
-          disabled={isSaving}
-          icon={Trophy}
-          label="배지와 레벨"
-          onValueChange={(value) => updateSetting({ achievementEnabled: value })}
-          value={settings.achievementEnabled}
-        />
-        <NotificationToggle
-          description="내 공개 도감 좋아요, 팔로우, 랭킹 변화를 알려줘요."
-          disabled={isSaving}
-          icon={Sparkles}
-          label="도감 소셜 활동"
-          onValueChange={(value) => updateSetting({ socialEnabled: value })}
-          value={settings.socialEnabled}
         />
       </View>
 

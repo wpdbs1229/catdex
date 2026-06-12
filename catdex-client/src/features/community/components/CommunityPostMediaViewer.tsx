@@ -1,5 +1,5 @@
 import { Play } from 'lucide-react-native';
-import { Image, Pressable, ScrollView, StyleSheet, Text, View, type ImageSourcePropType } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { theme } from '@/shared/styles/theme';
 import type { CommunityPostMedia } from '@/features/community/types';
 
@@ -8,28 +8,17 @@ interface CommunityPostMediaViewerProps {
   onOpenMedia?: (media: CommunityPostMedia) => void;
 }
 
-const mockAssets = {
-  'asset:orange': require('../../../../assets/illustrations/cat-orange-clean.png'),
-  'asset:dark': require('../../../../assets/illustrations/cat-dark-clean.png'),
-  'asset:tuxedo': require('../../../../assets/illustrations/cat-tuxedo-clean.png'),
-  'asset:gray': require('../../../../assets/illustrations/cat-gray-clean.png'),
-} satisfies Record<string, ImageSourcePropType>;
-
-function mediaSource(media: CommunityPostMedia): ImageSourcePropType | null {
-  const source = media.type === 'VIDEO' ? media.thumbnailUrl : media.url;
-
-  if (!source) {
-    return null;
+function getDisplayUri(media: CommunityPostMedia) {
+  if (media.type === 'VIDEO') {
+    return media.thumbnailUrl;
   }
 
-  if (source in mockAssets) {
-    return mockAssets[source as keyof typeof mockAssets];
-  }
-
-  return { uri: source };
+  return media.url;
 }
 
 export function CommunityPostMediaViewer({ mediaList, onOpenMedia }: CommunityPostMediaViewerProps) {
+  const { width } = useWindowDimensions();
+
   if (mediaList.length === 0) {
     return null;
   }
@@ -42,15 +31,15 @@ export function CommunityPostMediaViewer({ mediaList, onOpenMedia }: CommunityPo
       showsHorizontalScrollIndicator={false}
     >
       {mediaList.map((media) => {
-        const source = mediaSource(media);
+        const uri = getDisplayUri(media);
 
         return (
           <Pressable
             key={media.id}
             onPress={() => onOpenMedia?.(media)}
-            style={({ pressed }) => [styles.mediaFrame, mediaList.length > 1 && styles.mediaFrameCompact, pressed && styles.pressed]}
+            style={({ pressed }) => [styles.mediaFrame, { width }, pressed && styles.pressed]}
           >
-            {source ? <Image resizeMode="cover" source={source} style={styles.media} /> : <View style={styles.mediaFallback} />}
+            {uri ? <Image resizeMode="cover" source={{ uri }} style={styles.media} /> : <View style={styles.mediaFallback} />}
             {media.type === 'VIDEO' ? (
               <View style={styles.videoOverlay}>
                 <View style={styles.playButton}>
@@ -68,21 +57,13 @@ export function CommunityPostMediaViewer({ mediaList, onOpenMedia }: CommunityPo
 
 const styles = StyleSheet.create({
   mediaRow: {
-    gap: theme.spacing.sm,
+    gap: 0,
   },
   mediaFrame: {
-    width: '100%',
-    minWidth: 280,
-    aspectRatio: 4 / 3,
+    aspectRatio: 1,
     overflow: 'hidden',
-    borderRadius: theme.radius.lg,
-    backgroundColor: theme.colors.surfaceAlt,
-    borderWidth: 1,
-    borderColor: 'rgba(139,112,83,0.16)',
-  },
-  mediaFrameCompact: {
-    width: 248,
-    minWidth: 248,
+    borderRadius: 0,
+    backgroundColor: '#EAE0D1',
   },
   media: {
     width: '100%',

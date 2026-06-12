@@ -178,7 +178,7 @@ on conflict (id) do update set
 
 insert into public.season_stamps (id, name, description, season_key, starts_on, ends_on, is_premium, sort_order) values
   ('spring-walk-2026', '봄 산책 냥발 도장', '봄 골목에서 만난 친구들을 기억해요.', '2026-spring', date '2026-03-01', date '2026-05-31', false, 10),
-  ('summer-shade-2026', '여름 그늘 냥발 도장', '더운 날 그늘 아래의 만남을 남겨요.', '2026-summer', date '2026-06-01', date '2026-08-31', false, 20),
+  ('rainy-day-2026', '비 오는 날 냥발 도장', '비 오는 골목에서 만난 순간을 남겨요.', '2026-rainy', date '2026-06-01', date '2026-07-15', false, 20),
   ('autumn-alley-2026', '가을 골목 냥발 도장', '선선한 골목에서 마주친 순간을 모아요.', '2026-autumn', date '2026-09-01', date '2026-11-30', true, 30),
   ('winter-blanket-2026', '겨울 담요 냥발 도장', '겨울 냥도감에 포근한 도장을 붙여요.', '2026-winter', date '2026-12-01', date '2027-02-28', true, 40)
 on conflict (id) do update set

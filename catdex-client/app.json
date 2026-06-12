@@ -6,7 +6,10 @@
     "scheme": "catdex",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
+    "icon": "./assets/catdex-icon.png",
     "splash": {
+      "image": "./assets/catdex-icon.png",
+      "resizeMode": "contain",
       "backgroundColor": "#FFF7EA"
     },
     "assetBundlePatterns": [
@@ -15,12 +18,16 @@
     "ios": {
       "bundleIdentifier": "com.persimmontree.catdex",
       "splash": {
+        "image": "./assets/catdex-icon.png",
+        "resizeMode": "contain",
         "backgroundColor": "#FFF7EA"
       }
     },
     "android": {
       "package": "com.persimmontree.catdex",
       "splash": {
+        "image": "./assets/catdex-icon.png",
+        "resizeMode": "contain",
         "backgroundColor": "#FFF7EA"
       },
       "permissions": [
