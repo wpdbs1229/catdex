@@ -6,6 +6,7 @@ import { AppShell } from '@/shared/components/AppShell';
 import { BottomTabBar } from '@/shared/components/BottomTabBar';
 import { fetchMyRegions, fetchProfile, fetchRegions } from '@/shared/api/app.api';
 import { fetchCatOptions, reportCat } from '@/shared/api/cats.api';
+import { fetchSharedMapAccess, fetchSharedMapRegions, restoreSharedMapPurchase, startSharedMapPurchase } from '@/shared/api/shared-map.api';
 import { coatOptions, personalityOptions } from '@/shared/constants/cat.constants';
 import { LoginScreen } from '@/features/auth/LoginScreen';
 import { useAuth } from '@/features/auth/hooks/useAuth';
@@ -15,6 +16,7 @@ import { CatDexScreen } from '@/features/cats/CatDexScreen';
 import { useCats } from '@/features/cats/hooks/useCats';
 import { CommunityCommentsScreen } from '@/features/community/CommunityCommentsScreen';
 import { CommunityFeedScreen } from '@/features/community/CommunityFeedScreen';
+import { CommunityMediaScreen } from '@/features/community/CommunityMediaScreen';
 import { CommunityPostCreateScreen } from '@/features/community/CommunityPostCreateScreen';
 import { useCommunity } from '@/features/community/hooks/useCommunity';
 import { MapScreen } from '@/features/map/MapScreen';
@@ -41,7 +43,8 @@ import {
 } from '@/shared/notifications/notification.service';
 import type { ProfileUpdateDraft } from '@/shared/types/auth';
 import type { CatEncounterDraft, CaptureCatDraft, CatType, PersonalityTag } from '@/shared/types/cat';
-import type { CommunityPost, CommunityReportReason } from '@/features/community/types';
+import type { CommunityPost, CommunityPostMedia, CommunityReportReason } from '@/features/community/types';
+import type { SharedMapAccess } from '@/shared/types/entitlement';
 import type { NavigationState, TabScreen } from '@/shared/types/navigation';
 import type { NotificationPermissionState, NotificationSettings } from '@/shared/types/notification';
 import type { ExplorerProfile } from '@/shared/types/profile';
@@ -54,6 +57,11 @@ const emptyProfile: ExplorerProfile = {
   rediscoveries: 0,
   nextLevelProgress: 0,
   nextLevelLabel: '탐험 기록을 불러오는 중',
+};
+
+const defaultSharedMapAccess: SharedMapAccess = {
+  hasLifetimeAccess: false,
+  priceLabel: '15,900원',
 };
 
 function applySettledResource<T>(label: string, result: PromiseSettledResult<T>, apply: (value: T) => void) {
@@ -88,6 +96,9 @@ export default function App() {
   const [apiPersonalityOptions, setApiPersonalityOptions] = useState<PersonalityTag[]>(personalityOptions);
   const [regions, setRegions] = useState<Region[]>([]);
   const [myRegions, setMyRegions] = useState<Region[]>([]);
+  const [sharedMapAccess, setSharedMapAccess] = useState<SharedMapAccess>(defaultSharedMapAccess);
+  const [sharedMapRegions, setSharedMapRegions] = useState<Region[]>([]);
+  const [isSharedMapPurchasePending, setIsSharedMapPurchasePending] = useState(false);
   const [profile, setProfile] = useState<ExplorerProfile>(emptyProfile);
   const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>(defaultNotificationSettings);
   const [notificationPermissionState, setNotificationPermissionState] = useState<NotificationPermissionState>('undetermined');
@@ -109,7 +120,7 @@ export default function App() {
   const activeTab: TabScreen =
     navigation.screen === 'detail'
       ? 'dex'
-      : navigation.screen === 'communityPostCreate' || navigation.screen === 'communityComments'
+      : navigation.screen === 'communityPostCreate' || navigation.screen === 'communityComments' || navigation.screen === 'communityMedia'
         ? 'community'
       : navigation.screen === 'explorationHistory' || navigation.screen === 'profileEdit' || navigation.screen === 'notifications'
         ? 'my'
@@ -126,12 +137,15 @@ export default function App() {
   }, []);
 
   const reloadAppResources = useCallback(async () => {
-    const [nextOptions, nextRegions, nextMyRegions, nextProfile] = await Promise.allSettled([
+    const [nextOptions, nextRegions, nextMyRegions, nextProfile, nextSharedMapAccess] = await Promise.allSettled([
       fetchCatOptions(),
       fetchRegions(),
       fetchMyRegions(),
       fetchProfile(),
+      fetchSharedMapAccess(),
     ]);
+
+    const canLoadSharedMap = nextSharedMapAccess.status === 'fulfilled' && nextSharedMapAccess.value.hasLifetimeAccess;
 
     applySettledResource('고양이 옵션', nextOptions, (options) => {
       setApiCoatOptions(options.coatTypes);
@@ -140,12 +154,34 @@ export default function App() {
     applySettledResource('공유 지역', nextRegions, setRegions);
     applySettledResource('내 발견 지역', nextMyRegions, setMyRegions);
     applySettledResource('프로필', nextProfile, setProfile);
+    applySettledResource('공유지도 권한', nextSharedMapAccess, setSharedMapAccess);
+
+    if (nextSharedMapAccess.status === 'rejected') {
+      setSharedMapAccess(defaultSharedMapAccess);
+    }
+
+    if (!canLoadSharedMap) {
+      setSharedMapRegions([]);
+      return;
+    }
+
+    try {
+      setSharedMapRegions(await fetchSharedMapRegions());
+    } catch (error) {
+      console.warn('[catdex] 공유지도 지역 리소스 로드 실패', error);
+      setSharedMapRegions([]);
+    }
   }, []);
 
   useEffect(() => {
     if (isAuthenticated) {
       reloadAppResources();
+      return;
     }
+
+    setSharedMapAccess(defaultSharedMapAccess);
+    setSharedMapRegions([]);
+    setIsSharedMapPurchasePending(false);
   }, [isAuthenticated, reloadAppResources]);
 
   useEffect(() => {
@@ -306,6 +342,33 @@ export default function App() {
     });
   };
 
+  const handleOpenCommunityMedia = (
+    post: CommunityPost,
+    media: CommunityPostMedia,
+    returnScreen: 'community' | 'communityComments' = 'community',
+  ) => {
+    setNavigation({
+      screen: 'communityMedia',
+      selectedCatId: null,
+      selectedCommunityPostId: post.id,
+      selectedCommunityMediaId: media.id,
+      communityMediaReturnScreen: returnScreen,
+    });
+  };
+
+  const handleCloseCommunityMedia = () => {
+    if (navigation.communityMediaReturnScreen === 'communityComments' && navigation.selectedCommunityPostId) {
+      setNavigation({
+        screen: 'communityComments',
+        selectedCatId: null,
+        selectedCommunityPostId: navigation.selectedCommunityPostId,
+      });
+      return;
+    }
+
+    handleTabChange('community');
+  };
+
   const handleReportCommunityPost = async (post: CommunityPost, reason: CommunityReportReason) => {
     if (!currentUser) {
       return;
@@ -317,6 +380,56 @@ export default function App() {
       reason,
       reporter: currentUser,
     });
+  };
+
+  const handleStartSharedMapPurchase = async () => {
+    setIsSharedMapPurchasePending(true);
+
+    try {
+      const purchase = await startSharedMapPurchase();
+
+      if (!purchase.hasLifetimeAccess) {
+        Alert.alert('결제 미완료', purchase.message ?? '공유지도 평생 이용권 결제가 완료되지 않았어요.');
+        return;
+      }
+
+      await reloadAppResources();
+      setSharedMapAccess({
+        hasLifetimeAccess: true,
+        priceLabel: sharedMapAccess.priceLabel,
+        source: 'revenuecat',
+      });
+      Alert.alert('구매 완료', '공유지도 평생 이용권이 활성화됐어요.');
+    } catch (error) {
+      Alert.alert('결제 실패', error instanceof Error ? error.message : '공유지도 결제를 완료하지 못했어요.');
+    } finally {
+      setIsSharedMapPurchasePending(false);
+    }
+  };
+
+  const handleRestoreSharedMapPurchase = async () => {
+    setIsSharedMapPurchasePending(true);
+
+    try {
+      const purchase = await restoreSharedMapPurchase();
+
+      if (!purchase.hasLifetimeAccess) {
+        Alert.alert('복원 내역 없음', purchase.message ?? '복원 가능한 공유지도 구매 내역이 없습니다.');
+        return;
+      }
+
+      await reloadAppResources();
+      setSharedMapAccess({
+        hasLifetimeAccess: true,
+        priceLabel: sharedMapAccess.priceLabel,
+        source: 'revenuecat',
+      });
+      Alert.alert('복원 완료', '공유지도 평생 이용권이 복원됐어요.');
+    } catch (error) {
+      Alert.alert('복원 실패', error instanceof Error ? error.message : '공유지도 구매 내역을 복원하지 못했어요.');
+    } finally {
+      setIsSharedMapPurchasePending(false);
+    }
   };
 
   const handleSaveProfile = async (draft: ProfileUpdateDraft) => {
@@ -378,7 +491,18 @@ export default function App() {
   const renderScreen = () => {
     switch (navigation.screen) {
       case 'home':
-        return <MapScreen regions={myRegions} />;
+        return (
+          <MapScreen
+            hasSharedMapAccess={sharedMapAccess.hasLifetimeAccess}
+            isSharedMapPurchasePending={isSharedMapPurchasePending}
+            onOpenCat={handleOpenCat}
+            onRestoreSharedMapPurchase={handleRestoreSharedMapPurchase}
+            onStartSharedMapPurchase={handleStartSharedMapPurchase}
+            regions={myRegions}
+            sharedMapPriceLabel={sharedMapAccess.priceLabel}
+            sharedRegions={sharedMapRegions}
+          />
+        );
       case 'dex':
         return (
           <CatDexScreen
@@ -430,6 +554,7 @@ export default function App() {
             onLoadMore={community.loadMore}
             onOpenComments={handleOpenCommunityComments}
             onOpenCreate={handleOpenCommunityPostCreate}
+            onOpenMedia={(post, media) => handleOpenCommunityMedia(post, media, 'community')}
             onRefresh={community.refresh}
             onReportPost={handleReportCommunityPost}
             onRetry={community.retry}
@@ -453,7 +578,16 @@ export default function App() {
             onCreateComment={community.addComment}
             onDeleteComment={community.removeComment}
             onLoadComments={community.loadComments}
+            onOpenMedia={(post, media) => handleOpenCommunityMedia(post, media, 'communityComments')}
             post={community.getPostById(navigation.selectedCommunityPostId)}
+          />
+        );
+      case 'communityMedia':
+        return (
+          <CommunityMediaScreen
+            onBack={handleCloseCommunityMedia}
+            post={community.getPostById(navigation.selectedCommunityPostId)}
+            selectedMediaId={navigation.selectedCommunityMediaId}
           />
         );
       case 'my':
@@ -510,7 +644,10 @@ export default function App() {
       {!hasCompletedSplash || isRestoring ? (
         <SplashScreen />
       ) : isAuthenticated && currentUser ? (
-        <AppShell bottomBar={<BottomTabBar activeTab={activeTab} onChange={handleTabChange} />}>
+        <AppShell
+          bottomBar={<BottomTabBar activeTab={activeTab} onChange={handleTabChange} variant={activeTab === 'home' ? 'embedded' : 'floating'} />}
+          bottomBarVariant={activeTab === 'home' ? 'docked' : 'floating'}
+        >
           {renderScreen()}
         </AppShell>
       ) : (

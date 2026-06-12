@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type ImageSourcePropType } from 'react-native';
 import { ChevronLeft, Send } from 'lucide-react-native';
 import { CommunityCommentItem } from '@/features/community/components/CommunityCommentItem';
 import { CommunityErrorState } from '@/features/community/components/CommunityStates';
+import { CommunityPostMediaViewer } from '@/features/community/components/CommunityPostMediaViewer';
 import { theme } from '@/shared/styles/theme';
 import type { AuthUser } from '@/shared/types/auth';
-import type { CommunityComment, CommunityPost } from '@/features/community/types';
+import type { CommunityComment, CommunityPost, CommunityPostMedia } from '@/features/community/types';
 
 interface CommunityCommentsScreenProps {
   currentUser: AuthUser | null;
@@ -14,7 +15,12 @@ interface CommunityCommentsScreenProps {
   onLoadComments: (postId: string) => Promise<CommunityComment[]>;
   onCreateComment: (postId: string, content: string, author: AuthUser) => Promise<CommunityComment> | CommunityComment;
   onDeleteComment: (postId: string, commentId: string, user: AuthUser) => Promise<void> | void;
+  onOpenMedia?: (post: CommunityPost, media: CommunityPostMedia) => void;
 }
+
+const illustrations = {
+  profile: require('../../../assets/illustrations/profile-cat.png'),
+} satisfies Record<string, ImageSourcePropType>;
 
 export function CommunityCommentsScreen({
   currentUser,
@@ -23,6 +29,7 @@ export function CommunityCommentsScreen({
   onLoadComments,
   onCreateComment,
   onDeleteComment,
+  onOpenMedia,
 }: CommunityCommentsScreenProps) {
   const [comments, setComments] = useState<CommunityComment[]>([]);
   const [input, setInput] = useState('');
@@ -113,7 +120,7 @@ export function CommunityCommentsScreen({
           <Pressable onPress={onBack} style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}>
             <ChevronLeft color={theme.colors.primaryDark} size={22} />
           </Pressable>
-          <Text style={styles.title}>댓글</Text>
+          <Text style={styles.title}>게시글</Text>
           <View style={styles.headerSpacer} />
         </View>
         <CommunityErrorState message="게시글을 찾지 못했어요." onRetry={onBack} />
@@ -127,20 +134,37 @@ export function CommunityCommentsScreen({
         <Pressable onPress={onBack} style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}>
           <ChevronLeft color={theme.colors.primaryDark} size={22} />
         </Pressable>
-        <Text style={styles.title}>댓글</Text>
+        <Text style={styles.title}>게시글</Text>
         <View style={styles.headerSpacer} />
       </View>
 
       <ScrollView contentContainerStyle={styles.commentList} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-        <View style={styles.postSummary}>
-          <Text numberOfLines={1} style={styles.postAuthor}>
-            {post.authorNickname}
-          </Text>
-          <Text numberOfLines={2} style={styles.postContent}>
-            {post.content || '미디어 게시글'}
-          </Text>
+        <View style={styles.postBlock}>
+          <View style={styles.postHeader}>
+            <Image
+              resizeMode="cover"
+              source={post.authorProfileImageUrl ? { uri: post.authorProfileImageUrl } : illustrations.profile}
+              style={styles.avatar}
+            />
+            <View style={styles.postAuthorBlock}>
+              <Text numberOfLines={1} style={styles.postAuthor}>
+                {post.authorNickname}
+              </Text>
+              <Text style={styles.postMeta}>좋아요 {post.likeCount}개 · 댓글 {post.commentCount}개</Text>
+            </View>
+          </View>
+          <CommunityPostMediaViewer mediaList={post.mediaList} onOpenMedia={onOpenMedia ? (media) => onOpenMedia(post, media) : undefined} />
+          {post.content.length > 0 ? (
+            <View style={styles.postCaption}>
+              <Text style={styles.postContent}>
+                <Text style={styles.postAuthorInline}>{post.authorNickname} </Text>
+                {post.content}
+              </Text>
+            </View>
+          ) : null}
         </View>
 
+        <View style={styles.commentsSection}>
         {isLoading ? (
           <View style={styles.loadingBox}>
             <ActivityIndicator color={theme.colors.primaryDark} />
@@ -163,6 +187,7 @@ export function CommunityCommentsScreen({
             />
           ))
         )}
+        </View>
       </ScrollView>
 
       <View style={styles.composer}>
@@ -189,7 +214,6 @@ export function CommunityCommentsScreen({
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    paddingHorizontal: theme.spacing.lg,
     paddingTop: theme.spacing.md,
     paddingBottom: 112,
     gap: theme.spacing.md,
@@ -199,6 +223,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.lg,
   },
   backButton: {
     width: 42,
@@ -221,27 +246,60 @@ const styles = StyleSheet.create({
     width: 42,
   },
   commentList: {
-    gap: theme.spacing.md,
     paddingBottom: theme.spacing.lg,
   },
-  postSummary: {
-    borderRadius: theme.radius.lg,
-    padding: theme.spacing.md,
-    backgroundColor: 'rgba(255,253,246,0.76)',
+  postBlock: {
+    backgroundColor: theme.colors.surface,
+    borderBottomWidth: 1,
+    borderColor: 'rgba(139,112,83,0.16)',
+  },
+  postHeader: {
+    minHeight: 54,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: 8,
+  },
+  avatar: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: theme.colors.surfaceAlt,
     borderWidth: 1,
-    borderColor: 'rgba(232,211,183,0.72)',
+    borderColor: 'rgba(201,121,73,0.2)',
+  },
+  postAuthorBlock: {
+    flex: 1,
+    minWidth: 0,
   },
   postAuthor: {
     color: theme.colors.primaryDark,
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '900',
   },
+  postMeta: {
+    marginTop: 2,
+    color: theme.colors.mutedText,
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  postCaption: {
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.md,
+  },
   postContent: {
-    marginTop: 4,
     color: theme.colors.text,
     fontSize: 14,
     fontWeight: '600',
     lineHeight: 20,
+  },
+  postAuthorInline: {
+    fontWeight: '900',
+  },
+  commentsSection: {
+    gap: theme.spacing.md,
+    padding: theme.spacing.lg,
   },
   loadingBox: {
     minHeight: 180,
@@ -271,6 +329,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   composer: {
+    marginHorizontal: theme.spacing.lg,
     minHeight: 54,
     flexDirection: 'row',
     alignItems: 'center',

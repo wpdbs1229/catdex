@@ -135,8 +135,8 @@ function getTargetTransferUserIds(event: RevenueCatEvent, key: 'transferred_from
   return [...new Set((event[key] ?? []).filter(isUuid))];
 }
 
-function getTargetEntitlementId() {
-  return Deno.env.get('REVENUECAT_NYANGKKUREOMI_ENTITLEMENT_ID')?.trim() || 'nyangkkureomi';
+function getSharedMapEntitlementId() {
+  return Deno.env.get('REVENUECAT_SHARED_MAP_ENTITLEMENT_ID')?.trim() || 'shared_map';
 }
 
 function isTargetEntitlementEvent(event: RevenueCatEvent) {
@@ -147,7 +147,7 @@ function isTargetEntitlementEvent(event: RevenueCatEvent) {
     return eventType === 'TRANSFER';
   }
 
-  return entitlementIds.includes(getTargetEntitlementId());
+  return entitlementIds.includes(getSharedMapEntitlementId());
 }
 
 function timestampMsToIso(timestampMs: number | null | undefined) {
@@ -192,7 +192,7 @@ async function syncEntitlement(
     .upsert(
       {
         user_id: userId,
-        tier: 'nyangkkureomi',
+        tier: 'shared_map_lifetime',
         status,
         source: 'revenuecat',
         current_period_ends_at: currentPeriodEndsAt,
@@ -258,7 +258,7 @@ Deno.serve(async (request) => {
     return jsonResponse({
       ok: true,
       ignored: true,
-      reason: 'Event does not include the nyangkkureomi entitlement',
+      reason: 'Event does not include the shared map entitlement',
       eventId: event.id ?? null,
       eventType,
     });

@@ -22,11 +22,12 @@ const tabRoutes: TabRoute[] = [
 interface BottomTabBarProps {
   activeTab: TabScreen;
   onChange: (tab: TabScreen) => void;
+  variant?: 'floating' | 'embedded';
 }
 
-export function BottomTabBar({ activeTab, onChange }: BottomTabBarProps) {
+export function BottomTabBar({ activeTab, onChange, variant = 'floating' }: BottomTabBarProps) {
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, variant === 'embedded' && styles.embeddedContainer]}>
       {tabRoutes.map(({ id, label, icon: Icon, primary }) => {
         const isActive = activeTab === id;
 
@@ -72,6 +73,15 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(139, 112, 83, 0.18)',
     ...createShadow(10),
+  },
+  embeddedContainer: {
+    borderRadius: 0,
+    paddingHorizontal: theme.spacing.lg,
+    paddingTop: theme.spacing.sm,
+    backgroundColor: 'transparent',
+    borderWidth: 0,
+    shadowOpacity: 0,
+    elevation: 0,
   },
   tabButton: {
     flex: 1,

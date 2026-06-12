@@ -20,6 +20,7 @@ interface CommunityFeedScreenProps {
   onRetry: () => void;
   onOpenCreate: () => void;
   onOpenComments: (post: CommunityPost) => void;
+  onOpenMedia: (post: CommunityPost, media: CommunityPostMedia) => void;
   onToggleLike: (post: CommunityPost) => Promise<void> | void;
   onDeletePost: (post: CommunityPost) => Promise<void> | void;
   onReportPost: (post: CommunityPost, reason: CommunityReportReason) => Promise<void> | void;
@@ -37,6 +38,7 @@ export function CommunityFeedScreen({
   onRetry,
   onOpenCreate,
   onOpenComments,
+  onOpenMedia,
   onToggleLike,
   onDeletePost,
   onReportPost,
@@ -117,10 +119,6 @@ export function CommunityFeedScreen({
     ]);
   };
 
-  const handleOpenMedia = (media: CommunityPostMedia) => {
-    Alert.alert(media.type === 'VIDEO' ? '영상 보기' : '사진 보기', '미디어 상세 화면으로 확장할 수 있게 연결되어 있어요.');
-  };
-
   const handleEditPost = () => {
     setOpenMenuPostId(null);
     Alert.alert('게시글 수정', '수정 화면은 실제 API 연결 단계에서 이어 붙일 수 있어요.');
@@ -182,7 +180,8 @@ export function CommunityFeedScreen({
             onDeletePost={handleDeletePost}
             onEditPost={handleEditPost}
             onOpenComments={onOpenComments}
-            onOpenMedia={handleOpenMedia}
+            onOpenMedia={(media) => onOpenMedia(item, media)}
+            onOpenPost={onOpenComments}
             onReportPost={handleReportPost}
             onToggleLike={handleToggleLike}
             onToggleMenu={(postId) => setOpenMenuPostId((current) => (current === postId ? null : postId))}
@@ -202,13 +201,17 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    gap: theme.spacing.md,
-    paddingHorizontal: theme.spacing.lg,
-    paddingTop: theme.spacing.md,
+    paddingTop: 0,
     paddingBottom: 164,
   },
   header: {
     gap: 4,
+    paddingHorizontal: theme.spacing.lg,
+    paddingTop: theme.spacing.md,
+    paddingBottom: theme.spacing.md,
+    backgroundColor: theme.colors.surface,
+    borderBottomWidth: 1,
+    borderColor: 'rgba(139,112,83,0.16)',
   },
   titleRow: {
     flexDirection: 'row',

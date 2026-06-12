@@ -288,6 +288,8 @@ PODS:
   - libwebp/sharpyuv (1.5.0)
   - libwebp/webp (1.5.0):
     - libwebp/sharpyuv
+  - PurchasesHybridCommon (18.11.0):
+    - RevenueCat (= 5.76.0)
   - RCTDeprecation (0.81.5)
   - RCTRequired (0.81.5)
   - RCTTypeSafety (0.81.5):
@@ -2008,6 +2010,7 @@ PODS:
     - React-utils (= 0.81.5)
     - ReactNativeDependencies
   - ReactNativeDependencies (0.81.5)
+  - RevenueCat (5.76.0)
   - RNCAsyncStorage (2.2.0):
     - hermes-engine
     - RCTRequired
@@ -2077,6 +2080,9 @@ PODS:
     - ReactNativeDependencies
     - RNCKakaoCore
     - Yoga
+  - RNPurchases (10.2.3):
+    - PurchasesHybridCommon (= 18.11.0)
+    - React-Core
   - RNSVG (15.12.1):
     - hermes-engine
     - RCTRequired
@@ -2231,6 +2237,7 @@ DEPENDENCIES:
   - "RNCAsyncStorage (from `../node_modules/@react-native-async-storage/async-storage`)"
   - "RNCKakaoCore (from `../node_modules/@react-native-kakao/core`)"
   - "RNCKakaoUser (from `../node_modules/@react-native-kakao/user`)"
+  - RNPurchases (from `../node_modules/react-native-purchases`)
   - RNSVG (from `../node_modules/react-native-svg`)
   - Yoga (from `../node_modules/react-native/ReactCommon/yoga`)
 
@@ -2241,6 +2248,8 @@ SPEC REPOS:
     - KakaoSDKCommon
     - KakaoSDKUser
     - libwebp
+    - PurchasesHybridCommon
+    - RevenueCat
     - SDWebImage
     - SDWebImageWebPCoder
     - ZXingObjC
@@ -2439,6 +2448,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/@react-native-kakao/core"
   RNCKakaoUser:
     :path: "../node_modules/@react-native-kakao/user"
+  RNPurchases:
+    :path: "../node_modules/react-native-purchases"
   RNSVG:
     :path: "../node_modules/react-native-svg"
   Yoga:
@@ -2477,6 +2488,7 @@ SPEC CHECKSUMS:
   KakaoSDKCommon: d57127c339fc79e73aa8b236a4c77211c29924f1
   KakaoSDKUser: 043bcd7e91454ebf3bf64f150c430e6f65f0a08d
   libwebp: 02b23773aedb6ff1fd38cec7a77b81414c6842a8
+  PurchasesHybridCommon: 9aacdbe30c2f534efbe4b7fb7c533f6ef97f3bab
   RCTDeprecation: 943572d4be82d480a48f4884f670135ae30bf990
   RCTRequired: 8f3cfc90cc25cf6e420ddb3e7caaaabc57df6043
   RCTTypeSafety: 16a4144ca3f959583ab019b57d5633df10b5e97c
@@ -2543,9 +2555,11 @@ SPEC CHECKSUMS:
   ReactCodegen: 7d4593f7591f002d137fe40cef3f6c11f13c88cc
   ReactCommon: 08810150b1206cc44aecf5f6ae19af32f29151a8
   ReactNativeDependencies: 71ce9c28beb282aa720ea7b46980fff9669f428a
+  RevenueCat: 792388288b4207a5056550fbf8f673090f1fbe22
   RNCAsyncStorage: 3a4f5e2777dae1688b781a487923a08569e27fe4
   RNCKakaoCore: b546a16131ed2f6c71fbffeca6eb13650fc036c0
   RNCKakaoUser: 19c442e597ea7e52d32103183b220160bfabeb4d
+  RNPurchases: 5a9360fb290c534f80ce3520b7028b6a786ecad1
   RNSVG: 31d6639663c249b7d5abc9728dde2041eb2a3c34
   SDWebImage: e9fc87c1aab89a8ab1bbd74eba378c6f53be8abf
   SDWebImageWebPCoder: 0e06e365080397465cc73a7a9b472d8a3bd0f377

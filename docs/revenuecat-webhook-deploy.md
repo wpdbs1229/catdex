@@ -6,7 +6,7 @@ Target Supabase project: `wqiqdybzhbmsvccpklli`
 
 - Before this change, Edge Functions only included `notification-dispatch`.
 - `revenuecat-webhook` is deployed with `verify_jwt = false`; the function rejects requests unless its own `REVENUECAT_WEBHOOK_SECRET` check passes.
-- `user_entitlements`: present on the remote migration history as of `nyangkkureomi_subscription`
+- `user_entitlements`: restored for the shared map lifetime entitlement
 - Local follow-up migration `supabase/migrations/000019_restore_user_entitlements_for_revenuecat.sql` keeps the table available if later migrations remove it first.
 
 ## Required Secrets
@@ -17,10 +17,10 @@ Set the webhook secret before enabling the RevenueCat integration:
 supabase secrets set REVENUECAT_WEBHOOK_SECRET='<strong-random-secret>' --project-ref wqiqdybzhbmsvccpklli
 ```
 
-Optional, only if the RevenueCat entitlement id differs from `nyangkkureomi`:
+Optional, only if the RevenueCat entitlement id differs from `shared_map`:
 
 ```sh
-supabase secrets set REVENUECAT_NYANGKKUREOMI_ENTITLEMENT_ID='<revenuecat-entitlement-id>' --project-ref wqiqdybzhbmsvccpklli
+supabase secrets set REVENUECAT_SHARED_MAP_ENTITLEMENT_ID='<revenuecat-entitlement-id>' --project-ref wqiqdybzhbmsvccpklli
 ```
 
 RevenueCat Webhook settings:
@@ -65,8 +65,8 @@ curl -i -X POST \
       "type": "INITIAL_PURCHASE",
       "app_user_id": "<user-id>",
       "period_type": "NORMAL",
-      "entitlement_ids": ["nyangkkureomi"],
-      "expiration_at_ms": 1798761600000
+      "entitlement_ids": ["shared_map"],
+      "expiration_at_ms": null
     }
   }'
 ```
@@ -83,10 +83,10 @@ where user_id = '<user-id>';
 
 Expected row:
 
-- `tier = 'nyangkkureomi'`
+- `tier = 'shared_map_lifetime'`
 - `status = 'active'`
 - `source = 'revenuecat'`
-- `current_period_ends_at` matches the webhook expiration timestamp
+- `current_period_ends_at` is null for a lifetime purchase
 
 Then verify cancellation and expiration transitions:
 
@@ -100,7 +100,7 @@ curl -i -X POST \
       "id": "manual-verification-expiration",
       "type": "EXPIRATION",
       "app_user_id": "<user-id>",
-      "entitlement_ids": ["nyangkkureomi"],
+      "entitlement_ids": ["shared_map"],
       "expiration_at_ms": 1767225600000
     }
   }'

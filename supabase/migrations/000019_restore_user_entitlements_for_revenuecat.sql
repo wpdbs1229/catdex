@@ -3,7 +3,7 @@
 
 create table if not exists public.user_entitlements (
   user_id uuid primary key references auth.users(id) on delete cascade,
-  tier text not null default 'free' check (tier in ('free', 'nyangkkureomi')),
+  tier text not null default 'free' check (tier in ('free', 'shared_map_lifetime')),
   status text not null default 'active' check (status in ('active', 'trialing', 'canceled', 'expired')),
   source text not null default 'manual' check (source in ('manual', 'revenuecat', 'app_store', 'play_store')),
   current_period_ends_at timestamptz,
@@ -16,25 +16,7 @@ create trigger user_entitlements_set_updated_at
   before update on public.user_entitlements
   for each row execute function public.set_updated_at();
 
-create or replace function private.user_has_nyangkkureomi(p_user_id uuid)
-returns boolean
-language sql
-stable
-security definer
-set search_path = ''
-as $$
-  select exists (
-    select 1
-    from public.user_entitlements
-    where user_id = p_user_id
-      and tier = 'nyangkkureomi'
-      and (
-        status in ('active', 'trialing')
-        or (status = 'canceled' and current_period_ends_at is not null and current_period_ends_at > now())
-      )
-      and (current_period_ends_at is null or current_period_ends_at > now())
-  );
-$$;
+drop function if exists private.user_has_nyangkkureomi(uuid);
 
 alter table public.user_entitlements enable row level security;
 
