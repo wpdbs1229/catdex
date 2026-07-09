@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react-native';
-import { BookOpen, Camera, House, Map, UserRound } from 'lucide-react-native';
+import { BookOpen, Camera, House, IdCard, Map } from 'lucide-react-native';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { TabScreen } from '@/shared/types/navigation';
 import { createShadow, theme } from '@/shared/styles/theme';
@@ -15,8 +15,8 @@ const tabRoutes: TabRoute[] = [
   { id: 'home', label: '홈', icon: House },
   { id: 'dex', label: '도감', icon: BookOpen },
   { id: 'capture', label: '촬영', icon: Camera, primary: true },
-  { id: 'map', label: '지도', icon: Map },
-  { id: 'my', label: 'MY', icon: UserRound },
+  { id: 'map', label: '동네', icon: Map },
+  { id: 'my', label: '사원증', icon: IdCard },
 ];
 
 interface BottomTabBarProps {
@@ -32,6 +32,9 @@ export function BottomTabBar({ activeTab, onChange }: BottomTabBarProps) {
 
         return (
           <Pressable
+            accessibilityLabel={`${label} 탭`}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: isActive }}
             key={id}
             onPress={() => onChange(id)}
             style={({ pressed }) => [
@@ -42,7 +45,7 @@ export function BottomTabBar({ activeTab, onChange }: BottomTabBarProps) {
             ]}
           >
             <View style={[styles.iconWrap, primary ? styles.primaryIconWrap : null]}>
-              <Icon color={isActive ? (primary ? '#FFF8F0' : theme.colors.text) : theme.colors.tabMuted} size={primary ? 20 : 18} />
+              <Icon color={isActive ? (primary ? '#FFF8F0' : theme.colors.text) : theme.colors.tabMuted} size={primary ? 20 : 18} strokeWidth={2.15} />
             </View>
             <Text style={[styles.tabLabel, isActive ? styles.tabLabelActive : null, primary && isActive ? styles.tabLabelPrimary : null]}>
               {label}
@@ -58,30 +61,31 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    borderRadius: theme.radius.xl,
+    borderRadius: 30,
     paddingHorizontal: 6,
-    paddingTop: 6,
-    backgroundColor: 'rgba(255, 253, 246, 0.96)',
+    paddingVertical: 6,
+    backgroundColor: 'rgba(255, 253, 246, 0.88)',
     borderWidth: 1,
-    borderColor: 'rgba(139, 112, 83, 0.18)',
-    ...createShadow(10),
+    borderColor: 'rgba(139, 112, 83, 0.13)',
+    ...createShadow(7),
   },
   tabButton: {
     flex: 1,
     minWidth: 0,
+    minHeight: 58,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 6,
-    borderRadius: theme.radius.lg,
+    paddingVertical: 5,
+    borderRadius: 24,
   },
   defaultTab: {
     backgroundColor: 'transparent',
   },
   primaryTab: {
-    backgroundColor: '#F2DFC4',
+    backgroundColor: 'rgba(242, 198, 159, 0.42)',
   },
   defaultTabActive: {
-    backgroundColor: theme.colors.accentSoft,
+    backgroundColor: 'rgba(221, 232, 200, 0.78)',
   },
   primaryTabActive: {
     backgroundColor: theme.colors.primaryDark,
@@ -90,21 +94,21 @@ const styles = StyleSheet.create({
     opacity: 0.84,
   },
   iconWrap: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
   },
   primaryIconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
   },
   tabLabel: {
-    marginTop: 2,
+    marginTop: 1,
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '800',
     color: theme.colors.tabMuted,
   },
   tabLabelActive: {

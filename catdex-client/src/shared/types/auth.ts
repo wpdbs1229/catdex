@@ -6,6 +6,11 @@ export interface AuthUser {
   email?: string;
   provider: AuthProvider;
   profileImageUrl?: string;
+  profileSetupCompleted: boolean;
+  providerProfile?: {
+    nickname?: string;
+    profileImageUrl?: string;
+  };
 }
 
 export interface AuthSession {
@@ -18,4 +23,6 @@ export interface ProfileUpdateDraft {
   nickname: string;
   profileImageUri?: string;
   profileImageMimeType?: string;
+  profileImageUrl?: string;
+  useDefaultProfileImage?: boolean;
 }

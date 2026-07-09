@@ -3,7 +3,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 interface NotificationEventRow {
   id: string;
   recipient_id: string;
-  type: 'shared_cat' | 'achievement' | 'collection_like' | 'collection_follow';
+  type: 'shared_cat' | 'achievement' | 'collection_like' | 'collection_follow' | 'cat_rediscovery' | 'rare_neighborhood_cat' | 'weekly_summary';
   title: string;
   body: string;
   data: Record<string, unknown>;

@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import * as ImagePicker from 'expo-image-picker';
-import { Camera, ChevronLeft, ImagePlus } from 'lucide-react-native';
+import { Camera, ChevronLeft, ImagePlus, RotateCcw, Sparkles } from 'lucide-react-native';
 import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type ImageSourcePropType } from 'react-native';
 import { Button } from '@/shared/components/Button';
+import { PROFILE_NICKNAME_SUGGESTIONS } from '@/shared/constants/profile.constants';
 import { createShadow, theme } from '@/shared/styles/theme';
 import type { AuthUser, ProfileUpdateDraft } from '@/shared/types/auth';
 
@@ -14,15 +15,18 @@ interface ProfileEditScreenProps {
 }
 
 const illustrations = {
-  profile: require('../../../assets/illustrations/profile-cat.png'),
+  profile: require('../../../assets/illustrations/default-profile-avatar.png'),
 } satisfies Record<string, ImageSourcePropType>;
 
 export function ProfileEditScreen({ user, isSaving, onBack, onSave }: ProfileEditScreenProps) {
   const [nickname, setNickname] = useState(user.nickname);
   const [profileImageUri, setProfileImageUri] = useState<string | undefined>();
   const [profileImageMimeType, setProfileImageMimeType] = useState<string | undefined>();
-  const previewImage = profileImageUri ?? user.profileImageUrl;
+  const [profileImageUrl, setProfileImageUrl] = useState<string | undefined>(user.profileImageUrl);
+  const [useDefaultProfileImage, setUseDefaultProfileImage] = useState(false);
+  const previewImage = useDefaultProfileImage ? undefined : (profileImageUri ?? profileImageUrl);
   const isNicknameValid = nickname.trim().length >= 2 && nickname.trim().length <= 20;
+  const canUseProviderProfile = Boolean(user.providerProfile?.nickname || user.providerProfile?.profileImageUrl);
 
   const handlePickImage = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -45,6 +49,28 @@ export function ProfileEditScreen({ user, isSaving, onBack, onSave }: ProfileEdi
 
     setProfileImageUri(result.assets[0].uri);
     setProfileImageMimeType(result.assets[0].mimeType);
+    setProfileImageUrl(undefined);
+    setUseDefaultProfileImage(false);
+  };
+
+  const handleUseProviderProfile = () => {
+    if (user.providerProfile?.nickname) {
+      setNickname(user.providerProfile.nickname);
+    }
+
+    if (user.providerProfile?.profileImageUrl) {
+      setProfileImageUri(undefined);
+      setProfileImageMimeType(undefined);
+      setProfileImageUrl(user.providerProfile.profileImageUrl);
+      setUseDefaultProfileImage(false);
+    }
+  };
+
+  const handleUseDefaultImage = () => {
+    setProfileImageUri(undefined);
+    setProfileImageMimeType(undefined);
+    setProfileImageUrl(undefined);
+    setUseDefaultProfileImage(true);
   };
 
   const handleSave = () => {
@@ -57,6 +83,8 @@ export function ProfileEditScreen({ user, isSaving, onBack, onSave }: ProfileEdi
       nickname: nickname.trim(),
       profileImageUri,
       profileImageMimeType,
+      profileImageUrl,
+      useDefaultProfileImage,
     });
   };
 
@@ -81,6 +109,17 @@ export function ProfileEditScreen({ user, isSaving, onBack, onSave }: ProfileEdi
         </View>
         <Text style={styles.avatarHint}>정사각형으로 잘라서 프로필에 사용해요.</Text>
 
+        <View style={styles.inlineActions}>
+          <Pressable disabled={isSaving || !canUseProviderProfile} onPress={handleUseProviderProfile} style={({ pressed }) => [styles.smallAction, !canUseProviderProfile && styles.disabledAction, pressed && styles.pressed]}>
+            <Sparkles color={canUseProviderProfile ? theme.colors.primaryDark : '#BCA995'} size={15} />
+            <Text style={[styles.smallActionText, !canUseProviderProfile && styles.disabledActionText]}>계정 프로필 불러오기</Text>
+          </Pressable>
+          <Pressable disabled={isSaving} onPress={handleUseDefaultImage} style={({ pressed }) => [styles.smallAction, pressed && styles.pressed]}>
+            <RotateCcw color={theme.colors.primaryDark} size={15} />
+            <Text style={styles.smallActionText}>기본 이미지</Text>
+          </Pressable>
+        </View>
+
         <View style={styles.field}>
           <Text style={styles.label}>닉네임</Text>
           <TextInput
@@ -93,6 +132,26 @@ export function ProfileEditScreen({ user, isSaving, onBack, onSave }: ProfileEdi
             value={nickname}
           />
           <Text style={[styles.counter, !isNicknameValid && styles.counterError]}>{nickname.trim().length} / 20</Text>
+        </View>
+
+        <View style={styles.suggestionBlock}>
+          <Text style={styles.suggestionLabel}>추천 닉네임</Text>
+          <View style={styles.suggestionGrid}>
+            {PROFILE_NICKNAME_SUGGESTIONS.map((suggestion) => {
+              const isActive = nickname === suggestion;
+
+              return (
+                <Pressable
+                  disabled={isSaving}
+                  key={suggestion}
+                  onPress={() => setNickname(suggestion)}
+                  style={({ pressed }) => [styles.suggestionChip, isActive && styles.suggestionChipActive, pressed && styles.pressed]}
+                >
+                  <Text style={[styles.suggestionText, isActive && styles.suggestionTextActive]}>{suggestion}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
         </View>
       </View>
 
@@ -187,6 +246,35 @@ const styles = StyleSheet.create({
     color: theme.colors.mutedText,
     textAlign: 'center',
   },
+  inlineActions: {
+    width: '100%',
+    marginTop: theme.spacing.lg,
+    flexDirection: 'row',
+    gap: theme.spacing.sm,
+  },
+  smallAction: {
+    flex: 1,
+    minHeight: 42,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    borderRadius: 21,
+    backgroundColor: 'rgba(248,234,210,0.66)',
+    borderWidth: 1,
+    borderColor: 'rgba(232,211,183,0.86)',
+  },
+  smallActionText: {
+    color: theme.colors.primaryDark,
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  disabledAction: {
+    opacity: 0.55,
+  },
+  disabledActionText: {
+    color: '#BCA995',
+  },
   field: {
     width: '100%',
     marginTop: theme.spacing.xl,
@@ -219,6 +307,42 @@ const styles = StyleSheet.create({
   },
   counterError: {
     color: '#B94635',
+  },
+  suggestionBlock: {
+    width: '100%',
+    marginTop: theme.spacing.md,
+  },
+  suggestionLabel: {
+    color: theme.colors.mutedText,
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  suggestionGrid: {
+    marginTop: theme.spacing.sm,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: theme.spacing.sm,
+  },
+  suggestionChip: {
+    minHeight: 34,
+    justifyContent: 'center',
+    borderRadius: 17,
+    paddingHorizontal: theme.spacing.md,
+    backgroundColor: 'rgba(255,248,236,0.88)',
+    borderWidth: 1,
+    borderColor: 'rgba(232,211,183,0.86)',
+  },
+  suggestionChipActive: {
+    backgroundColor: theme.colors.primaryDark,
+    borderColor: theme.colors.primaryDark,
+  },
+  suggestionText: {
+    color: theme.colors.mutedText,
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  suggestionTextActive: {
+    color: '#FFF8F0',
   },
   actions: {
     marginTop: theme.spacing.lg,

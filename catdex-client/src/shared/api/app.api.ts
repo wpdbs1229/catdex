@@ -1,6 +1,8 @@
 import { File } from 'expo-file-system';
 import { throwIfSupabaseError } from '@/shared/api/client';
 import { fetchCats, fetchMyCats } from '@/shared/api/cats.api';
+import { DEFAULT_BADGE_CATALOG } from '@/shared/constants/badge.constants';
+import { getNyangnyangdanRankState } from '@/shared/profile/nyangnyangdan-rank';
 import { assertSupabaseConfigured, supabase } from '@/shared/supabase/client';
 import type { Badge, ExplorerProfile } from '@/shared/types/badge';
 import type { Region } from '@/shared/types/region';
@@ -73,15 +75,15 @@ export async function fetchProfile(): Promise<ExplorerProfile> {
   const totalDiscoveries = cats.length;
   const totalEncounters = cats.reduce((sum, cat) => sum + cat.encounterCount, 0);
   const rediscoveries = Math.max(totalEncounters - totalDiscoveries, 0);
-  const rareCount = cats.filter((cat) => cat.rarity >= 4).length;
+  const rankState = getNyangnyangdanRankState(totalDiscoveries, rediscoveries);
 
   return {
-    title: '동네 냥이 탐험가',
-    level: Math.max(1, Math.floor(totalDiscoveries / 2) + 2),
+    title: rankState.current.title,
+    level: rankState.current.level,
     totalDiscoveries,
     rediscoveries,
-    nextLevelProgress: Math.min(95, 40 + rareCount * 11),
-    nextLevelLabel: '희귀 냥이 2마리 더 발견하면 Lv.5',
+    nextLevelProgress: rankState.progress,
+    nextLevelLabel: rankState.nextGoalLabel,
   };
 }
 
@@ -100,15 +102,17 @@ export async function fetchAchievedBadges() {
     ((userBadgesResponse.data ?? []) as UserBadgeRow[]).map((row) => [row.badge_id, row.achieved_at]),
   );
 
-  return ((badgesResponse.data ?? []) as BadgeRow[])
+  const badgeRows = (badgesResponse.data ?? []) as BadgeRow[];
+  const badgeCatalog = badgeRows.length > 0 ? badgeRows : DEFAULT_BADGE_CATALOG;
+
+  return badgeCatalog
     .map<Badge>((badge) => ({
       id: badge.id,
       name: badge.name,
       description: badge.description,
       achieved: achievedByBadgeId.has(badge.id),
       achievedAt: achievedByBadgeId.get(badge.id) ? formatDate(achievedByBadgeId.get(badge.id) as string) : undefined,
-    }))
-    .filter((badge) => badge.achieved);
+    }));
 }
 
 export async function uploadCatImage(imageUri: string) {
@@ -140,5 +144,39 @@ export async function uploadCatImage(imageUri: string) {
     filename: data.path.split('/').pop() ?? data.path,
     size: bytes.byteLength,
     mimetype: 'image/jpeg',
+  };
+}
+
+export async function uploadCatObservationImage(imageUri: string, kind: 'original' | 'cutout') {
+  assertSupabaseConfigured();
+
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  throwIfSupabaseError(userError);
+
+  if (!user) {
+    throw new Error('촬영 이미지 저장에는 로그인이 필요합니다.');
+  }
+
+  const file = new File(imageUri);
+  const bytes = await file.arrayBuffer();
+  const extension = kind === 'cutout' ? 'png' : 'jpg';
+  const contentType = kind === 'cutout' ? 'image/png' : 'image/jpeg';
+  const path = `${user.id}/observations/${kind}-${Date.now()}.${extension}`;
+  const { data, error } = await supabase.storage.from('cat-images').upload(path, bytes, {
+    contentType,
+    upsert: false,
+  });
+
+  throwIfSupabaseError(error);
+
+  return {
+    imageUrl: data.path,
+    filename: data.path.split('/').pop() ?? data.path,
+    size: bytes.byteLength,
+    mimetype: contentType,
   };
 }

@@ -2,49 +2,40 @@ import { useEffect, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { Alert } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { AppShell } from '@/shared/components/AppShell';
-import { BottomTabBar } from '@/shared/components/BottomTabBar';
-import { fetchAchievedBadges, fetchProfile, fetchRegions } from '@/shared/api/app.api';
+import { fetchAchievedBadges, fetchProfile, fetchRegions, uploadCatObservationImage } from '@/shared/api/app.api';
+import { fetchCollectionCustomization } from '@/shared/api/collection.api';
 import {
-  fetchCollectionCustomization,
-  hasActiveNyangkkureomi,
-  saveCollectionProfile,
-  saveFeaturedCat,
-} from '@/shared/api/collection.api';
-import { fetchCatOptions, reportCat } from '@/shared/api/cats.api';
-import { coatOptions, personalityOptions } from '@/shared/constants/cat.constants';
+  createCatObservation,
+  fetchCatMatchCandidates,
+  fetchCatOptions,
+  reportCat,
+  resolveCatObservation,
+} from '@/shared/api/cats.api';
+import { fetchRemoteNotificationSettings, registerNotificationDevice, saveRemoteNotificationSettings } from '@/shared/api/notifications.api';
 import { LoginScreen } from '@/features/auth/LoginScreen';
+import { ProfileSetupScreen } from '@/features/auth/ProfileSetupScreen';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { CaptureScreen } from '@/features/capture/CaptureScreen';
-import { CollectionDrawerScreen } from '@/features/collection/CollectionDrawerScreen';
 import { CatDetailScreen } from '@/features/cats/CatDetailScreen';
 import { CatDexScreen } from '@/features/cats/CatDexScreen';
 import { useCats } from '@/features/cats/hooks/useCats';
+import { CommunityBoardScreen } from '@/features/community/CommunityBoardScreen';
+import { CommunityComposerScreen } from '@/features/community/CommunityComposerScreen';
+import { CommunityPostDetailScreen } from '@/features/community/CommunityPostDetailScreen';
 import { HomeScreen } from '@/features/home/HomeScreen';
-import { MapScreen } from '@/features/map/MapScreen';
-import {
-  ExplorationHistoryScreen,
-  LikedCollectionsScreen,
-  SharedCollectionsScreen,
-} from '@/features/my/MyLinkedCollectionScreens';
+import { NeighborhoodMapScreen } from '@/features/map/NeighborhoodMapScreen';
+import { ExplorationHistoryScreen } from '@/features/my/MyLinkedCollectionScreens';
+import { BadgeBookScreen } from '@/features/my/BadgeBookScreen';
 import { MyPageScreen } from '@/features/my/MyPageScreen';
 import { ProfileEditScreen } from '@/features/my/ProfileEditScreen';
 import { NotificationSettingsScreen } from '@/features/notifications/NotificationSettingsScreen';
-import { NeighborhoodRankingScreen } from '@/features/social/NeighborhoodRankingScreen';
-import { PublicCollectionScreen } from '@/features/social/PublicCollectionScreen';
 import { SplashScreen } from '@/features/splash/SplashScreen';
-import { useNyangkkureomiPayments } from '@/features/subscription/hooks/useNyangkkureomiPayments';
-import {
-  fetchPublicCollection,
-  fetchPublicCollectionRankings,
-  toggleCollectionFollow,
-  toggleCollectionLike,
-} from '@/shared/api/social.api';
-import {
-  fetchRemoteNotificationSettings,
-  registerNotificationDevice,
-  saveRemoteNotificationSettings,
-} from '@/shared/api/notifications.api';
+import { AppShell } from '@/shared/components/AppShell';
+import { BottomTabBar } from '@/shared/components/BottomTabBar';
+import { coatOptions, personalityOptions } from '@/shared/constants/cat.constants';
+import { getUserFacingError } from '@/shared/errors/user-facing-error';
+import { detectCurrentNeighborhood } from '@/shared/neighborhood/neighborhood-location';
+import { loadNeighborhoodState, saveNeighborhoodState } from '@/shared/neighborhood/neighborhood-storage';
 import {
   applyNotificationSettings,
   defaultNotificationSettings,
@@ -56,44 +47,57 @@ import {
   requestNotificationPermissions,
   sendAchievementPreviewNotification,
 } from '@/shared/notifications/notification.service';
-import type { Badge, ExplorerProfile } from '@/shared/types/badge';
 import type { ProfileUpdateDraft } from '@/shared/types/auth';
-import type { CaptureCatDraft } from '@/shared/types/cat';
+import type { Badge, ExplorerProfile } from '@/shared/types/badge';
+import type { CaptureCatDraft, ProcessedCatPhoto } from '@/shared/types/cat';
 import type { CatType, PersonalityTag } from '@/shared/types/cat';
-import type { CollectionCustomizationState, CollectionProfile, CollectionSummary } from '@/shared/types/collection';
+import type { CollectionCustomizationState, CollectionSummary } from '@/shared/types/collection';
 import type { NavigationState, TabScreen } from '@/shared/types/navigation';
+import { MAX_SAVED_NEIGHBORHOODS, type SavedNeighborhood } from '@/shared/types/neighborhood';
 import type { NotificationPermissionState, NotificationSettings } from '@/shared/types/notification';
 import type { Region } from '@/shared/types/region';
-import type { PublicCollection } from '@/shared/types/social';
 
 const emptyProfile: ExplorerProfile = {
-  title: '동네 냥이 탐험가',
+  title: '냥냥단 인턴',
   level: 1,
   totalDiscoveries: 0,
   rediscoveries: 0,
   nextLevelProgress: 0,
-  nextLevelLabel: '탐험 기록을 불러오는 중',
+  nextLevelLabel: '첫 고양이를 기록하면 냥냥단 주임으로 승진',
 };
 
 const emptyCustomization: CollectionCustomizationState = {
-  entitlement: {
-    tier: 'free',
-    status: 'active',
-    currentPeriodEndsAt: null,
-  },
-  profile: {
-    coverThemeId: 'field-note',
-    displayTitle: '나의 냥도감',
-    intro: '오늘도 골목에서 만난 친구들을 기록해요.',
-    selectedBadgeIds: [],
-    selectedStampIds: [],
-    isPublic: true,
-  },
-  themes: [],
   featuredCatSlots: [],
-  alleyBadges: [],
-  seasonStamps: [],
 };
+
+const UNSET_NEIGHBORHOOD_NAME = '동네 설정 전';
+
+type NeighborhoodView = 'map' | 'board';
+
+function isSameNeighborhood(left: SavedNeighborhood, right: SavedNeighborhood) {
+  return (
+    left.id === right.id ||
+    (left.name === right.name && left.city === right.city && left.district === right.district)
+  );
+}
+
+function buildNeighborhoodRegions(neighborhoods: SavedNeighborhood[], regionCatsByNeighborhoodName: Record<string, string[]>) {
+  return neighborhoods.map<Region>((neighborhood) => ({
+    id: neighborhood.id,
+    name: neighborhood.name,
+    lat: neighborhood.lat,
+    lng: neighborhood.lng,
+    radius: neighborhood.radius,
+    cats: regionCatsByNeighborhoodName[neighborhood.name] ?? [],
+  }));
+}
+
+function getNeighborhoodRequiredAlert() {
+  return {
+    title: '동네를 먼저 설정해 주세요',
+    message: '현재 위치로 동네를 추가한 뒤 고양이를 기록할 수 있어요.',
+  };
+}
 
 export default function App() {
   const {
@@ -106,13 +110,21 @@ export default function App() {
     loginWithGoogle,
     loginWithKakao,
     updateProfile,
+    withdrawAccount,
     logout,
+    isWithdrawing,
   } = useAuth();
   const [navigation, setNavigation] = useState<NavigationState>({
     screen: 'home',
     selectedCatId: null,
     selectedOwnerId: null,
+    selectedCommunityPostId: null,
   });
+  const [neighborhoodView, setNeighborhoodView] = useState<NeighborhoodView>('map');
+  const [savedNeighborhoods, setSavedNeighborhoods] = useState<SavedNeighborhood[]>([]);
+  const [activeNeighborhoodId, setActiveNeighborhoodId] = useState('');
+  const [hasLoadedNeighborhoodState, setHasLoadedNeighborhoodState] = useState(false);
+  const [isDetectingNeighborhood, setIsDetectingNeighborhood] = useState(false);
   const [hasCompletedSplash, setHasCompletedSplash] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [apiCoatOptions, setApiCoatOptions] = useState<CatType[]>(coatOptions);
@@ -121,14 +133,11 @@ export default function App() {
   const [badges, setBadges] = useState<Badge[]>([]);
   const [profile, setProfile] = useState<ExplorerProfile>(emptyProfile);
   const [customization, setCustomization] = useState<CollectionCustomizationState>(emptyCustomization);
-  const [publicCollections, setPublicCollections] = useState<PublicCollection[]>([]);
-  const [selectedPublicCollection, setSelectedPublicCollection] = useState<PublicCollection | null>(null);
-  const [isSocialLoading, setIsSocialLoading] = useState(false);
   const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>(defaultNotificationSettings);
   const [notificationPermissionState, setNotificationPermissionState] = useState<NotificationPermissionState>('undetermined');
   const [isNotificationSaving, setIsNotificationSaving] = useState(false);
+  const [notificationReturnScreen, setNotificationReturnScreen] = useState<TabScreen>('my');
   const [isProfileSaving, setIsProfileSaving] = useState(false);
-  const payments = useNyangkkureomiPayments(currentUser?.id ?? null);
   const {
     addEncounter,
     cats,
@@ -142,18 +151,44 @@ export default function App() {
     selectedCatEncounters,
     undiscoveredDexSlots,
   } = useCats(navigation.selectedCatId, isAuthenticated);
-
-  const activeTab: TabScreen =
-    navigation.screen === 'detail' || navigation.screen === 'ranking' || navigation.screen === 'publicCollection'
-      ? 'dex'
-      : navigation.screen === 'drawer' ||
-          navigation.screen === 'explorationHistory' ||
-          navigation.screen === 'sharedCollections' ||
-          navigation.screen === 'likedCollections' ||
-          navigation.screen === 'profileEdit' ||
-          navigation.screen === 'notifications'
-        ? 'my'
-        : navigation.screen;
+  const activeNeighborhood =
+    savedNeighborhoods.find((neighborhood) => neighborhood.id === activeNeighborhoodId) ??
+    savedNeighborhoods[0] ??
+    null;
+  const hasActiveNeighborhood = activeNeighborhood !== null;
+  const activeNeighborhoodName = activeNeighborhood?.name ?? UNSET_NEIGHBORHOOD_NAME;
+  const regionCatsByNeighborhoodName = regions.reduce<Record<string, string[]>>((acc, region) => {
+    acc[region.name] = region.cats;
+    return acc;
+  }, {});
+  const neighborhoodCatCounts = savedNeighborhoods.reduce<Record<string, number>>((acc, neighborhood) => {
+    acc[neighborhood.id] = regionCatsByNeighborhoodName[neighborhood.name]?.length ?? 0;
+    return acc;
+  }, {});
+  const visibleRegions =
+    regions.length > 0
+      ? regions
+      : hasActiveNeighborhood
+        ? buildNeighborhoodRegions(savedNeighborhoods, regionCatsByNeighborhoodName)
+        : [];
+  const visibleSelectedCat = selectedCat;
+  const activeTab: TabScreen = (() => {
+    switch (navigation.screen) {
+      case 'detail':
+        return 'dex';
+      case 'communityPostDetail':
+      case 'communityCompose':
+        return 'map';
+      case 'explorationHistory':
+      case 'badgeBook':
+      case 'profileEdit':
+      case 'notifications':
+        return navigation.screen === 'notifications' ? notificationReturnScreen : 'my';
+      default:
+        return navigation.screen;
+    }
+  })();
+  const shouldHideBottomBar = activeTab === 'capture';
 
   useEffect(() => {
     const timerId = setTimeout(() => {
@@ -164,6 +199,41 @@ export default function App() {
       clearTimeout(timerId);
     };
   }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    loadNeighborhoodState()
+      .then((nextState) => {
+        if (!isMounted) {
+          return;
+        }
+
+        setSavedNeighborhoods(nextState.savedNeighborhoods);
+        setActiveNeighborhoodId(nextState.activeNeighborhoodId);
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        if (isMounted) {
+          setHasLoadedNeighborhoodState(true);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!hasLoadedNeighborhoodState) {
+      return;
+    }
+
+    saveNeighborhoodState({
+      activeNeighborhoodId,
+      savedNeighborhoods,
+    }).catch(() => undefined);
+  }, [activeNeighborhoodId, hasLoadedNeighborhoodState, savedNeighborhoods]);
 
   const reloadAppResources = async () => {
     const [nextOptions, nextRegions, nextBadges, nextProfile, nextCustomization] = await Promise.all([
@@ -218,6 +288,12 @@ export default function App() {
   }, [isAuthenticated]);
 
   const handleTabChange = (screen: TabScreen) => {
+    if (screen === 'capture' && !hasActiveNeighborhood) {
+      const alert = getNeighborhoodRequiredAlert();
+      Alert.alert(alert.title, alert.message);
+      return;
+    }
+
     setNavigation({
       screen,
       selectedCatId: null,
@@ -233,11 +309,162 @@ export default function App() {
     });
   };
 
+  const handleOpenNeighborhoodMap = () => {
+    setNeighborhoodView('map');
+    setNavigation({
+      screen: 'map',
+      selectedCatId: null,
+      selectedOwnerId: null,
+      selectedCommunityPostId: null,
+    });
+  };
+
+  const handleOpenCommunityBoard = () => {
+    setNeighborhoodView('board');
+    setNavigation({
+      screen: 'map',
+      selectedCatId: null,
+      selectedOwnerId: null,
+      selectedCommunityPostId: null,
+    });
+  };
+
+  const handleOpenCommunityPost = (postId: string) => {
+    setNeighborhoodView('board');
+    setNavigation({
+      screen: 'communityPostDetail',
+      selectedCatId: null,
+      selectedOwnerId: null,
+      selectedCommunityPostId: postId,
+    });
+  };
+
+  const handleOpenCommunityCompose = () => {
+    setNeighborhoodView('board');
+    setNavigation({
+      screen: 'communityCompose',
+      selectedCatId: null,
+      selectedOwnerId: null,
+      selectedCommunityPostId: null,
+    });
+  };
+
+  const handleSelectNeighborhood = (neighborhoodId: string) => {
+    setActiveNeighborhoodId(neighborhoodId);
+  };
+
+  const handleDetectNeighborhood = async () => {
+    setIsDetectingNeighborhood(true);
+
+    try {
+      const result = await detectCurrentNeighborhood();
+      const existingNeighborhood = savedNeighborhoods.find((neighborhood) => isSameNeighborhood(neighborhood, result.neighborhood));
+
+      if (existingNeighborhood) {
+        setSavedNeighborhoods((current) =>
+          current.map((neighborhood) =>
+            isSameNeighborhood(neighborhood, result.neighborhood)
+              ? {
+                  ...neighborhood,
+                  lat: result.neighborhood.lat,
+                  lng: result.neighborhood.lng,
+                  radius: result.neighborhood.radius,
+                  verifiedAt: result.neighborhood.verifiedAt,
+                }
+              : neighborhood,
+          ),
+        );
+        setActiveNeighborhoodId(existingNeighborhood.id);
+        Alert.alert('동네 전환', `${existingNeighborhood.name}으로 전환했어요.`);
+        return;
+      }
+
+      if (savedNeighborhoods.length >= MAX_SAVED_NEIGHBORHOODS) {
+        Alert.alert('동네는 5개까지', '새 동네를 추가하려면 쓰지 않는 동네를 먼저 목록에서 제거해주세요. 기존 기록은 삭제되지 않아요.');
+        return;
+      }
+
+      setSavedNeighborhoods((current) => [result.neighborhood, ...current]);
+      setActiveNeighborhoodId(result.neighborhood.id);
+      Alert.alert('동네 추가', result.notice ?? `${result.neighborhood.name}을 내 동네에 추가했어요.`);
+    } catch (error) {
+      console.warn('[neighborhood] detect failed', error);
+      const friendlyError = getUserFacingError(error, 'neighborhood.detect');
+      Alert.alert(friendlyError.title, friendlyError.message);
+    } finally {
+      setIsDetectingNeighborhood(false);
+    }
+  };
+
+  const handleRemoveNeighborhood = (neighborhoodId: string) => {
+    const targetNeighborhood = savedNeighborhoods.find((neighborhood) => neighborhood.id === neighborhoodId);
+
+    if (!targetNeighborhood) {
+      return;
+    }
+
+    Alert.alert('동네 목록에서 제거', `${targetNeighborhood.name}을 빠른 전환 목록에서 제거할까요? 등록한 고양이와 관찰 기록은 그대로 남아요.`, [
+      {
+        text: '취소',
+        style: 'cancel',
+      },
+      {
+        text: '제거',
+        style: 'destructive',
+        onPress: () => {
+          const nextNeighborhoods = savedNeighborhoods.filter((neighborhood) => neighborhood.id !== neighborhoodId);
+
+          setSavedNeighborhoods(nextNeighborhoods);
+
+          if (activeNeighborhoodId === neighborhoodId) {
+            setActiveNeighborhoodId(nextNeighborhoods[0]?.id ?? '');
+          }
+        },
+      },
+    ]);
+  };
+
+  const handleProcessCapturedPhoto = async (processedPhoto: ProcessedCatPhoto) => {
+    if (!hasActiveNeighborhood) {
+      const alert = getNeighborhoodRequiredAlert();
+      throw new Error(alert.message);
+    }
+
+    const [originalUpload, cutoutUpload] = await Promise.all([
+      uploadCatObservationImage(processedPhoto.originalImageUri, 'original'),
+      uploadCatObservationImage(processedPhoto.cutoutImageUri, 'cutout'),
+    ]);
+    const observation = await createCatObservation({
+      originalImageUrl: originalUpload.imageUrl,
+      cutoutImageUrl: cutoutUpload.imageUrl,
+      regionName: activeNeighborhoodName,
+      detectionConfidence: processedPhoto.confidence,
+      boundingBox: processedPhoto.boundingBox,
+      featureVector: processedPhoto.featureVector,
+      isPreciseCutout: processedPhoto.isPreciseCutout,
+    });
+    const candidates = await fetchCatMatchCandidates({
+      observationId: observation.id,
+      regionName: activeNeighborhoodName,
+      featureVector: processedPhoto.featureVector,
+      limit: 5,
+    });
+
+    return {
+      observationId: observation.id,
+      cutoutImageUrl: cutoutUpload.imageUrl,
+      candidates,
+    };
+  };
+
   const handleSaveCapture = async (draft: CaptureCatDraft) => {
     setIsSaving(true);
 
     try {
-      await createCat(draft);
+      const nextCat = await createCat(draft);
+      if (draft.observationId) {
+        await resolveCatObservation(draft.observationId, nextCat.id, 'new_cat');
+      }
       await reloadAppResources();
       setNavigation({
         screen: 'dex',
@@ -254,6 +481,9 @@ export default function App() {
 
     try {
       await createCatSighting(draft);
+      if (draft.observationId) {
+        await resolveCatObservation(draft.observationId, null, 'uncertain');
+      }
       await reloadAppResources();
       setNavigation({
         screen: 'dex',
@@ -266,19 +496,28 @@ export default function App() {
   };
 
   const handleRecordEncounter = async () => {
-    if (!selectedCat) {
+    if (!visibleSelectedCat) {
       return;
     }
 
-    await addEncounter(selectedCat.id);
+    await addEncounter(visibleSelectedCat.id);
     await reloadAppResources();
   };
 
-  const handleRecordExistingCat = async (catId: string) => {
+  const handleRecordExistingCat = async (catId: string, payload?: { observationId?: string; imageUrl?: string }) => {
+    if (!hasActiveNeighborhood) {
+      const alert = getNeighborhoodRequiredAlert();
+      Alert.alert(alert.title, alert.message);
+      return;
+    }
+
     setIsSaving(true);
 
     try {
-      await addEncounter(catId);
+      await addEncounter(catId, activeNeighborhoodName, payload?.imageUrl);
+      if (payload?.observationId) {
+        await resolveCatObservation(payload.observationId, catId, 'linked');
+      }
       await reloadAppResources();
       setNavigation({
         screen: 'detail',
@@ -291,61 +530,16 @@ export default function App() {
   };
 
   const handleReportSelectedCat = async () => {
-    if (!selectedCat) {
+    if (!visibleSelectedCat) {
       return;
     }
 
     await reportCat({
-      catId: selectedCat.id,
+      catId: visibleSelectedCat.id,
       reason: 'incorrect_info',
       memo: '앱에서 사용자 신고로 접수되었습니다.',
     });
     Alert.alert('신고 접수', '검토가 필요한 고양이 정보로 신고했어요.');
-  };
-
-  const handleSaveCollectionProfile = async (nextProfile: CollectionProfile) => {
-    setIsSaving(true);
-
-    try {
-      await saveCollectionProfile(nextProfile);
-      await reloadAppResources();
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handleSaveFeaturedCat = async (slot: number, catId: string | null) => {
-    setIsSaving(true);
-
-    try {
-      await saveFeaturedCat(slot, catId);
-      await reloadAppResources();
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handleShowNyangkkureomiUpsell = () => {
-    if (!payments.isAvailable) {
-      Alert.alert(
-        '냥꾸러미 결제 준비',
-        payments.errorMessage ?? 'RevenueCat 공개 SDK 키와 스토어 상품을 설정하면 이 화면에서 바로 구독 결제를 시작할 수 있어요.',
-      );
-      return;
-    }
-
-    Alert.alert(
-      '냥꾸러미',
-      '프리미엄 표지, 우리 도감 주인공 3마리, 시즌 냥발 도장을 사용할 수 있어요. 결제와 영수증은 App Store 또는 Google Play 구독으로 처리됩니다.',
-    );
-  };
-
-  const handleOpenCollectionDrawer = () => {
-    setNavigation({
-      screen: 'drawer',
-      selectedCatId: null,
-      selectedOwnerId: null,
-    });
   };
 
   const handleOpenExplorationHistory = () => {
@@ -356,24 +550,16 @@ export default function App() {
     });
   };
 
-  const handleOpenSharedCollections = () => {
+  const handleOpenBadgeBook = () => {
     setNavigation({
-      screen: 'sharedCollections',
+      screen: 'badgeBook',
       selectedCatId: null,
       selectedOwnerId: null,
     });
   };
 
-  const handleOpenLikedCollections = async () => {
-    setNavigation({
-      screen: 'likedCollections',
-      selectedCatId: null,
-      selectedOwnerId: null,
-    });
-    await loadCollectionRankings();
-  };
-
-  const handleOpenNotifications = () => {
+  const handleOpenNotifications = (returnScreen: TabScreen = 'my') => {
+    setNotificationReturnScreen(returnScreen);
     setNavigation({
       screen: 'notifications',
       selectedCatId: null,
@@ -400,9 +586,46 @@ export default function App() {
         selectedOwnerId: null,
       });
     } catch (error) {
-      Alert.alert('프로필 저장 실패', error instanceof Error ? error.message : '프로필을 저장하지 못했어요.');
+      console.warn('[profile] save failed', error);
+      const friendlyError = getUserFacingError(error, 'profile.save');
+      Alert.alert(friendlyError.title, friendlyError.message);
     } finally {
       setIsProfileSaving(false);
+    }
+  };
+
+  const handleCompleteProfileSetup = async (draft: ProfileUpdateDraft) => {
+    setIsProfileSaving(true);
+
+    try {
+      await updateProfile(draft);
+      setNavigation({
+        screen: 'home',
+        selectedCatId: null,
+        selectedOwnerId: null,
+      });
+    } catch (error) {
+      console.warn('[profile] setup failed', error);
+      const friendlyError = getUserFacingError(error, 'profile.save');
+      Alert.alert(friendlyError.title, friendlyError.message);
+    } finally {
+      setIsProfileSaving(false);
+    }
+  };
+
+  const handleWithdrawAccount = async () => {
+    try {
+      await withdrawAccount();
+      setNavigation({
+        screen: 'home',
+        selectedCatId: null,
+        selectedOwnerId: null,
+      });
+    } catch (error) {
+      console.warn('[auth] withdrawal failed', error);
+      const friendlyError = getUserFacingError(error, 'account.withdraw');
+      Alert.alert(friendlyError.title, friendlyError.message);
+      throw error;
     }
   };
 
@@ -414,7 +637,9 @@ export default function App() {
       await saveRemoteNotificationSettings(appliedSettings);
       setNotificationSettings(appliedSettings);
     } catch (error) {
-      Alert.alert('알림 설정 실패', error instanceof Error ? error.message : '알림 설정을 저장하지 못했어요.');
+      console.warn('[notifications] settings save failed', error);
+      const friendlyError = getUserFacingError(error, 'notification.save');
+      Alert.alert(friendlyError.title, friendlyError.message);
     } finally {
       setIsNotificationSaving(false);
     }
@@ -446,111 +671,56 @@ export default function App() {
     }
   };
 
-  const loadCollectionRankings = async () => {
-    setIsSocialLoading(true);
-
-    try {
-      const nextCollections = await fetchPublicCollectionRankings();
-      setPublicCollections(nextCollections);
-    } finally {
-      setIsSocialLoading(false);
+  const handleMarkCaptureUncertain = async (payload: {
+    observationId?: string;
+    cutoutImageUrl?: string;
+    processedPhoto: ProcessedCatPhoto;
+  }) => {
+    if (payload.observationId) {
+      await resolveCatObservation(payload.observationId, null, 'uncertain');
     }
-  };
 
-  const handleOpenCollectionRankings = async () => {
+    Alert.alert('미확인 기록 저장', '같은 고양이인지 판단하기 어려운 관찰로 남겼어요.');
     setNavigation({
-      screen: 'ranking',
+      screen: 'dex',
       selectedCatId: null,
       selectedOwnerId: null,
     });
-    await loadCollectionRankings();
   };
-
-  const handleOpenPublicCollection = async (ownerId: string) => {
-    setNavigation({
-      screen: 'publicCollection',
-      selectedCatId: null,
-      selectedOwnerId: ownerId,
-    });
-    setIsSocialLoading(true);
-
-    try {
-      setSelectedPublicCollection(await fetchPublicCollection(ownerId));
-    } finally {
-      setIsSocialLoading(false);
-    }
-  };
-
-  const reloadSelectedPublicCollection = async () => {
-    if (!navigation.selectedOwnerId) {
-      return;
-    }
-
-    setSelectedPublicCollection(await fetchPublicCollection(navigation.selectedOwnerId));
-  };
-
-  const handleToggleCollectionLike = async () => {
-    if (!navigation.selectedOwnerId) {
-      return;
-    }
-
-    setIsSaving(true);
-
-    try {
-      await toggleCollectionLike(navigation.selectedOwnerId);
-      await reloadSelectedPublicCollection();
-      await loadCollectionRankings();
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handleToggleCollectionFollow = async () => {
-    if (!navigation.selectedOwnerId) {
-      return;
-    }
-
-    setIsSaving(true);
-
-    try {
-      await toggleCollectionFollow(navigation.selectedOwnerId);
-      await reloadSelectedPublicCollection();
-      await loadCollectionRankings();
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const selectedCollectionTheme = customization.themes.find((theme) => theme.id === customization.profile.coverThemeId);
-  const selectedCollectionBadges = customization.profile.selectedBadgeIds
-    .map((badgeId) => customization.alleyBadges.find((badge) => badge.id === badgeId && badge.achieved))
-    .filter((badge): badge is NonNullable<typeof badge> => Boolean(badge));
-  const selectedCollectionStamps = customization.profile.selectedStampIds
-    .map((stampId) => customization.seasonStamps.find((stamp) => stamp.id === stampId && stamp.achieved))
-    .filter((stamp): stamp is NonNullable<typeof stamp> => Boolean(stamp));
 
   const collectionSummary: CollectionSummary = {
-    planName: hasActiveNyangkkureomi(customization.entitlement) || payments.hasNyangkkureomi ? '냥꾸러미 사용 중' : '무료 서랍',
-    hasNyangkkureomi: hasActiveNyangkkureomi(customization.entitlement) || payments.hasNyangkkureomi,
-    coverThemeName: selectedCollectionTheme?.name ?? '골목 관찰 노트',
     featuredCats: customization.featuredCatSlots
       .map((slot) => myCats.find((cat) => cat.id === slot.catId))
       .filter((cat): cat is NonNullable<typeof cat> => Boolean(cat)),
-    selectedBadges: selectedCollectionBadges,
-    selectedStamps: selectedCollectionStamps,
-    achievedBadgeCount: customization.alleyBadges.filter((badge) => badge.achieved).length,
-    achievedStampCount: customization.seasonStamps.filter((stamp) => stamp.achieved).length,
+    achievedBadgeCount: badges.filter((badge) => badge.achieved).length,
   };
-  const likedCollections = publicCollections.filter((collection) => collection.viewer.liked && !collection.viewer.isOwner);
 
   const renderScreen = () => {
     switch (navigation.screen) {
       case 'home':
         return (
           <HomeScreen
+            activeNeighborhoodId={activeNeighborhood?.id ?? ''}
+            badges={badges}
+            collectionSummary={collectionSummary}
+            currentUser={currentUser}
+            dexProgress={dexProgress}
+            favoriteCats={collectionSummary.featuredCats}
+            isDetectingNeighborhood={isDetectingNeighborhood}
+            neighborhoodName={activeNeighborhoodName}
+            onDetectNeighborhood={handleDetectNeighborhood}
             onGoCapture={() => handleTabChange('capture')}
+            onGoDex={() => handleTabChange('dex')}
+            onOpenBadges={handleOpenBadgeBook}
             onOpenCat={handleOpenCat}
+            onOpenNotifications={() => handleOpenNotifications('home')}
+            onRecordExisting={handleRecordExistingCat}
+            onRemoveNeighborhood={handleRemoveNeighborhood}
+            onSelectNeighborhood={handleSelectNeighborhood}
+            profile={profile}
             recentCats={recentCats}
+            neighborhoodCatCounts={neighborhoodCatCounts}
+            savedNeighborhoods={savedNeighborhoods}
             summary={homeSummary}
           />
         );
@@ -558,20 +728,14 @@ export default function App() {
         return (
           <CatDexScreen
             cats={cats}
-            collectionProfile={customization.profile}
-            collectionSummary={collectionSummary}
-            collectionTheme={selectedCollectionTheme}
-            onOpenCollectionRankings={handleOpenCollectionRankings}
-            onOpenCollectionDrawer={handleOpenCollectionDrawer}
             onOpenCat={handleOpenCat}
             placeholders={undiscoveredDexSlots}
-            progress={dexProgress}
           />
         );
       case 'detail':
-        return selectedCat ? (
+        return visibleSelectedCat ? (
           <CatDetailScreen
-            cat={selectedCat}
+            cat={visibleSelectedCat}
             encounters={selectedCatEncounters}
             onBack={() => handleTabChange('dex')}
             onRecordEncounter={handleRecordEncounter}
@@ -580,22 +744,19 @@ export default function App() {
         ) : (
           <CatDexScreen
             cats={cats}
-            collectionProfile={customization.profile}
-            collectionSummary={collectionSummary}
-            collectionTheme={selectedCollectionTheme}
-            onOpenCollectionRankings={handleOpenCollectionRankings}
-            onOpenCollectionDrawer={handleOpenCollectionDrawer}
             onOpenCat={handleOpenCat}
             placeholders={undiscoveredDexSlots}
-            progress={dexProgress}
           />
         );
       case 'capture':
         return (
           <CaptureScreen
             coatOptions={apiCoatOptions}
-            existingCats={recentCats}
             isSubmitting={isSaving}
+            neighborhoodName={activeNeighborhoodName}
+            onBack={() => handleTabChange('home')}
+            onMarkUncertain={handleMarkCaptureUncertain}
+            onProcessPhoto={handleProcessCapturedPhoto}
             onRecordExisting={handleRecordExistingCat}
             onSave={handleSaveCapture}
             onSaveSighting={handleSaveSighting}
@@ -603,54 +764,86 @@ export default function App() {
           />
         );
       case 'map':
-        return <MapScreen regions={regions} />;
+        return neighborhoodView === 'board' ? (
+          <CommunityBoardScreen
+            neighborhoodName={activeNeighborhoodName}
+            onComposePost={handleOpenCommunityCompose}
+            onOpenMap={handleOpenNeighborhoodMap}
+            onOpenPost={handleOpenCommunityPost}
+          />
+        ) : (
+          <NeighborhoodMapScreen
+            cats={cats}
+            neighborhoodName={activeNeighborhoodName}
+            onGoCapture={() => handleTabChange('capture')}
+            onOpenCommunityBoard={handleOpenCommunityBoard}
+            onOpenCommunityPost={handleOpenCommunityPost}
+            regions={visibleRegions}
+          />
+        );
+      case 'communityPostDetail':
+        return navigation.selectedCommunityPostId ? (
+          <CommunityPostDetailScreen
+            onBack={handleOpenCommunityBoard}
+            onOpenCat={handleOpenCat}
+            postId={navigation.selectedCommunityPostId}
+          />
+        ) : (
+          <CommunityBoardScreen
+            neighborhoodName={activeNeighborhoodName}
+            onComposePost={handleOpenCommunityCompose}
+            onOpenMap={handleOpenNeighborhoodMap}
+            onOpenPost={handleOpenCommunityPost}
+          />
+        );
+      case 'communityCompose':
+        return (
+          <CommunityComposerScreen
+            cats={cats}
+            neighborhoodName={activeNeighborhoodName}
+            onBack={handleOpenCommunityBoard}
+            onCreated={handleOpenCommunityPost}
+          />
+        );
       case 'my':
         return currentUser ? (
           <MyPageScreen
             badges={badges}
             collectionSummary={collectionSummary}
             isSigningOut={isSigningOut}
+            isWithdrawing={isWithdrawing}
             myCats={myCats}
-            onOpenCollectionDrawer={handleOpenCollectionDrawer}
-            onOpenCollectionRankings={handleOpenCollectionRankings}
+            neighborhoodName={activeNeighborhoodName}
             onOpenExplorationHistory={handleOpenExplorationHistory}
-            onOpenSharedCollections={handleOpenSharedCollections}
-            onOpenLikedCollections={handleOpenLikedCollections}
-            onOpenNotifications={handleOpenNotifications}
+            onOpenBadges={handleOpenBadgeBook}
+            onOpenNotifications={() => handleOpenNotifications('my')}
             onOpenProfileEdit={handleOpenProfileEdit}
             onOpenCat={handleOpenCat}
             onLogout={logout}
+            onWithdrawAccount={handleWithdrawAccount}
             profile={profile}
             user={currentUser}
           />
         ) : null;
+      case 'badgeBook':
+        return (
+          <BadgeBookScreen
+            badges={badges}
+            myCats={myCats}
+            neighborhoodName={activeNeighborhoodName}
+            onBack={() => handleTabChange('my')}
+            onGoCapture={() => handleTabChange('capture')}
+            onGoDex={() => handleTabChange('dex')}
+            onGoMap={() => handleTabChange('map')}
+            profile={profile}
+          />
+        );
       case 'explorationHistory':
         return (
           <ExplorationHistoryScreen
             cats={myCats}
             onBack={() => handleTabChange('my')}
             onOpenCat={handleOpenCat}
-          />
-        );
-      case 'sharedCollections':
-        return currentUser ? (
-          <SharedCollectionsScreen
-            cats={myCats}
-            collectionProfile={customization.profile}
-            collectionSummary={collectionSummary}
-            onBack={() => handleTabChange('my')}
-            onOpenCat={handleOpenCat}
-            onOpenCollectionDrawer={handleOpenCollectionDrawer}
-            user={currentUser}
-          />
-        ) : null;
-      case 'likedCollections':
-        return (
-          <LikedCollectionsScreen
-            collections={likedCollections}
-            isLoading={isSocialLoading}
-            onBack={() => handleTabChange('my')}
-            onOpenCollection={handleOpenPublicCollection}
           />
         );
       case 'profileEdit':
@@ -666,50 +859,12 @@ export default function App() {
         return (
           <NotificationSettingsScreen
             isSaving={isNotificationSaving}
-            onBack={() => handleTabChange('my')}
+            onBack={() => handleTabChange(notificationReturnScreen)}
             onChangeSettings={handleChangeNotificationSettings}
             onRequestPermission={handleRequestNotificationPermission}
             onSendPreview={handleSendNotificationPreview}
             permissionState={notificationPermissionState}
             settings={notificationSettings}
-          />
-        );
-      case 'drawer':
-        return (
-          <CollectionDrawerScreen
-            customization={customization}
-            isPaymentAvailable={payments.isAvailable}
-            isPurchasing={payments.isPurchasing}
-            isSaving={isSaving}
-            myCats={myCats}
-            onBack={() => handleTabChange('my')}
-            onPurchasePackage={payments.purchase}
-            onRestorePurchases={payments.restore}
-            onSaveFeaturedCat={handleSaveFeaturedCat}
-            onSaveProfile={handleSaveCollectionProfile}
-            onShowUpsell={handleShowNyangkkureomiUpsell}
-            paymentErrorMessage={payments.errorMessage}
-            paymentPackages={payments.packages}
-          />
-        );
-      case 'ranking':
-        return (
-          <NeighborhoodRankingScreen
-            collections={publicCollections}
-            isLoading={isSocialLoading}
-            onBack={() => handleTabChange('dex')}
-            onOpenCollection={handleOpenPublicCollection}
-          />
-        );
-      case 'publicCollection':
-        return (
-          <PublicCollectionScreen
-            collection={selectedPublicCollection}
-            isLoading={isSocialLoading}
-            isSaving={isSaving}
-            onBack={handleOpenCollectionRankings}
-            onToggleFollow={handleToggleCollectionFollow}
-            onToggleLike={handleToggleCollectionLike}
           />
         );
       default:
@@ -722,8 +877,14 @@ export default function App() {
       <StatusBar style="dark" />
       {!hasCompletedSplash || isRestoring ? (
         <SplashScreen />
+      ) : isAuthenticated && currentUser && !currentUser.profileSetupCompleted ? (
+        <ProfileSetupScreen
+          isSaving={isProfileSaving}
+          onComplete={handleCompleteProfileSetup}
+          user={currentUser}
+        />
       ) : isAuthenticated && currentUser ? (
-        <AppShell bottomBar={<BottomTabBar activeTab={activeTab} onChange={handleTabChange} />}>
+        <AppShell bottomBar={shouldHideBottomBar ? undefined : <BottomTabBar activeTab={activeTab} onChange={handleTabChange} />}>
           {renderScreen()}
         </AppShell>
       ) : (

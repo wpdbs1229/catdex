@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import * as SecureStore from 'expo-secure-store';
-import { signInWithGoogle, signInWithKakao, signOut, updateMyProfile } from '@/shared/api/auth.api';
+import { createAuthSessionFromSupabaseSession, signInWithGoogle, signInWithKakao, signOut, updateMyProfile, withdrawMyAccount } from '@/shared/api/auth.api';
 import { setApiAccessToken } from '@/shared/api/client';
+import { getUserFacingErrorMessage } from '@/shared/errors/user-facing-error';
 import { supabase } from '@/shared/supabase/client';
 import type { AuthProvider, AuthSession, AuthUser, ProfileUpdateDraft } from '@/shared/types/auth';
 
@@ -23,7 +24,8 @@ function isAuthUser(value: unknown): value is AuthUser {
     typeof candidate.nickname === 'string' &&
     isAuthProvider(candidate.provider) &&
     (candidate.email === undefined || typeof candidate.email === 'string') &&
-    (candidate.profileImageUrl === undefined || typeof candidate.profileImageUrl === 'string')
+    (candidate.profileImageUrl === undefined || typeof candidate.profileImageUrl === 'string') &&
+    (candidate.profileSetupCompleted === undefined || typeof candidate.profileSetupCompleted === 'boolean')
   );
 }
 
@@ -54,10 +56,41 @@ async function restoreSession() {
 
   try {
     const parsed: unknown = JSON.parse(storedSession);
-    return isAuthSession(parsed) ? parsed : null;
+    if (!isAuthSession(parsed)) {
+      return null;
+    }
+
+    return {
+      ...parsed,
+      user: {
+        ...parsed.user,
+        profileSetupCompleted: parsed.user.profileSetupCompleted ?? false,
+      },
+    };
   } catch {
     return null;
   }
+}
+
+async function restoreSupabaseSession(restoredSession: AuthSession | null) {
+  if (!restoredSession) {
+    return null;
+  }
+
+  const { data, error } = await supabase.auth.setSession({
+    access_token: restoredSession.accessToken,
+    refresh_token: restoredSession.refreshToken,
+  });
+
+  if (error || !data.session) {
+    await SecureStore.deleteItemAsync(authStorageKey);
+    return null;
+  }
+
+  const nextSession = createAuthSessionFromSupabaseSession(data.session, restoredSession.user.provider);
+
+  await persistSession(nextSession);
+  return nextSession;
 }
 
 export function useAuth() {
@@ -65,6 +98,7 @@ export function useAuth() {
   const [isRestoring, setIsRestoring] = useState(true);
   const [pendingProvider, setPendingProvider] = useState<AuthProvider | null>(null);
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [isWithdrawing, setIsWithdrawing] = useState(false);
   const [authErrorMessage, setAuthErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -73,17 +107,19 @@ export function useAuth() {
     async function hydrateAuthState() {
       try {
         const restoredSession = await restoreSession();
+        const activeSession = await restoreSupabaseSession(restoredSession);
 
         if (isMounted) {
-          if (restoredSession) {
-            await supabase.auth.setSession({
-              access_token: restoredSession.accessToken,
-              refresh_token: restoredSession.refreshToken,
-            });
-          }
+          setApiAccessToken(activeSession?.accessToken ?? null);
+          setCurrentUser(activeSession?.user ?? null);
+        }
+      } catch (error) {
+        console.warn('[auth] restore failed', error);
+        await SecureStore.deleteItemAsync(authStorageKey);
 
-          setApiAccessToken(restoredSession?.accessToken ?? null);
-          setCurrentUser(restoredSession?.user ?? null);
+        if (isMounted) {
+          setApiAccessToken(null);
+          setCurrentUser(null);
         }
       } finally {
         if (isMounted) {
@@ -110,8 +146,8 @@ export function useAuth() {
       setCurrentUser(nextSession.user);
       return nextSession.user;
     } catch (error) {
-      const message = error instanceof Error ? error.message : '로그인 중 알 수 없는 오류가 발생했습니다.';
-      setAuthErrorMessage(message);
+      console.warn('[auth] login failed', error);
+      setAuthErrorMessage(getUserFacingErrorMessage(error, 'auth.login'));
       throw error;
     } finally {
       setPendingProvider(null);
@@ -131,6 +167,20 @@ export function useAuth() {
       setCurrentUser(null);
     } finally {
       setIsSigningOut(false);
+    }
+  };
+
+  const withdrawAccount = async () => {
+    setIsWithdrawing(true);
+
+    try {
+      await withdrawMyAccount();
+      setApiAccessToken(null);
+      await SecureStore.deleteItemAsync(authStorageKey);
+      await supabase.auth.signOut({ scope: 'local' }).catch(() => undefined);
+      setCurrentUser(null);
+    } finally {
+      setIsWithdrawing(false);
     }
   };
 
@@ -160,11 +210,13 @@ export function useAuth() {
     isAuthenticated,
     isRestoring,
     isSigningOut,
+    isWithdrawing,
     authErrorMessage,
     pendingProvider,
     loginWithKakao,
     loginWithGoogle,
     updateProfile,
+    withdrawAccount,
     logout,
   };
 }

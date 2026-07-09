@@ -4,31 +4,28 @@ export type Screen =
   | 'detail'
   | 'capture'
   | 'map'
+  | 'communityPostDetail'
+  | 'communityCompose'
   | 'my'
-  | 'drawer'
+  | 'badgeBook'
   | 'explorationHistory'
-  | 'sharedCollections'
-  | 'likedCollections'
   | 'profileEdit'
-  | 'notifications'
-  | 'ranking'
-  | 'publicCollection';
+  | 'notifications';
 
 export type TabScreen = Exclude<
   Screen,
   | 'detail'
-  | 'drawer'
+  | 'communityPostDetail'
+  | 'communityCompose'
+  | 'badgeBook'
   | 'explorationHistory'
-  | 'sharedCollections'
-  | 'likedCollections'
   | 'profileEdit'
   | 'notifications'
-  | 'ranking'
-  | 'publicCollection'
 >;
 
 export interface NavigationState {
   screen: Screen;
   selectedCatId: string | null;
   selectedOwnerId: string | null;
+  selectedCommunityPostId?: string | null;
 }

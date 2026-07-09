@@ -5,7 +5,7 @@ create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   nickname text not null default '냥도감 탐험가',
   email text,
-  provider text not null default 'guest' check (provider in ('kakao', 'google', 'guest')),
+  provider text not null default 'kakao' check (provider in ('kakao', 'google')),
   profile_image_url text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -105,7 +105,10 @@ begin
     new.id,
     coalesce(new.raw_user_meta_data->>'nickname', new.raw_user_meta_data->>'name', '냥도감 탐험가'),
     new.email,
-    coalesce(new.raw_app_meta_data->>'provider', case when new.is_anonymous then 'guest' else 'guest' end),
+    case
+      when new.raw_app_meta_data->>'provider' in ('kakao', 'google') then new.raw_app_meta_data->>'provider'
+      else 'kakao'
+    end,
     coalesce(new.raw_user_meta_data->>'avatar_url', new.raw_user_meta_data->>'picture')
   )
   on conflict (id) do update set

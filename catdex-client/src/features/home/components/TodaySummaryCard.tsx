@@ -10,9 +10,9 @@ interface TodaySummaryCardProps {
 
 export function TodaySummaryCard({ summary }: TodaySummaryCardProps) {
   const items = [
-    { label: '오늘 공유 등록', value: `${summary.sharedTodayDiscovered}마리`, icon: Target },
+    { label: '오늘 동네 기록', value: `${summary.sharedTodayDiscovered}마리`, icon: Target },
     { label: '내 도감 수집', value: `${summary.myTotalCollected}마리`, icon: Footprints },
-    { label: '공유 도감 전체', value: `${summary.sharedTotalCats}마리`, icon: Sparkles },
+    { label: '동네 기록 전체', value: `${summary.sharedTotalCats}마리`, icon: Sparkles },
     { label: '내 최근 재발견', value: summary.recentMyRediscovered, icon: Footprints },
   ];
 
@@ -21,7 +21,7 @@ export function TodaySummaryCard({ summary }: TodaySummaryCardProps) {
       <View style={styles.header}>
         <View style={styles.headerText}>
           <Text style={styles.kicker}>오늘의 도감 요약</Text>
-          <Text style={styles.title}>내 수집과 공유 도감을 따로 보여줘요</Text>
+          <Text style={styles.title}>내 수집과 동네 기록을 따로 보여줘요</Text>
         </View>
         <View style={styles.pawBadge}>
           <Text style={styles.pawEmoji}>🐾</Text>

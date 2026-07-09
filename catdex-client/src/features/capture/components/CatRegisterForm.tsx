@@ -10,6 +10,8 @@ interface CatRegisterFormProps {
   coatOptions: CatType[];
   personalityOptions: PersonalityTag[];
   capturedImageUri: string | null;
+  defaultRegionName: string;
+  imageUrlOverride?: string;
   isSubmitting?: boolean;
   onSubmit: (draft: CaptureCatDraft) => Promise<void> | void;
   onSubmitSighting: (draft: CaptureCatDraft) => Promise<void> | void;
@@ -19,6 +21,8 @@ export function CatRegisterForm({
   coatOptions,
   personalityOptions,
   capturedImageUri,
+  defaultRegionName,
+  imageUrlOverride,
   isSubmitting = false,
   onSubmit,
   onSubmitSighting,
@@ -27,7 +31,7 @@ export function CatRegisterForm({
     name: '',
     type: coatOptions[0] ?? '치즈냥',
     tags: [],
-    regionName: '',
+    regionName: defaultRegionName,
     memo: '',
   }));
   const trimmedDraft: CaptureCatDraft = {
@@ -36,7 +40,11 @@ export function CatRegisterForm({
     regionName: draft.regionName.trim(),
     memo: draft.memo.trim(),
   };
-  const submitDraft: CaptureCatDraft = capturedImageUri ? { ...trimmedDraft, imageUrl: capturedImageUri } : trimmedDraft;
+  const submitDraft: CaptureCatDraft = imageUrlOverride
+    ? { ...trimmedDraft, imageUrl: imageUrlOverride, cutoutImageUrl: imageUrlOverride }
+    : capturedImageUri
+      ? { ...trimmedDraft, imageUrl: capturedImageUri, cutoutImageUrl: capturedImageUri }
+      : trimmedDraft;
   const hasName = trimmedDraft.name.length > 0;
   const hasRegionName = trimmedDraft.regionName.length > 0;
   const canSubmitCat = hasName && hasRegionName && !isSubmitting;
@@ -83,15 +91,15 @@ export function CatRegisterForm({
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.label}>발견 장소</Text>
+        <Text style={styles.label}>발견 동네</Text>
         <TextInput
           onChangeText={(regionName) => setDraft((current) => ({ ...current, regionName }))}
-          placeholder="동네 단위로 입력해 주세요"
+          placeholder="정확한 위치 말고 동네 이름만"
           placeholderTextColor="#B59680"
           style={styles.input}
           value={draft.regionName}
         />
-        <Text style={[styles.helperText, !hasRegionName && styles.requiredText]}>도감 등록과 미확인 제보에는 발견 장소가 필요해요.</Text>
+        <Text style={[styles.helperText, !hasRegionName && styles.requiredText]}>정확한 좌표 대신 동네 단위 기록만 남겨요.</Text>
       </View>
 
       <View style={styles.section}>
@@ -109,10 +117,10 @@ export function CatRegisterForm({
 
       <View style={styles.actions}>
         <Button disabled={!canSubmitCat} onPress={() => onSubmit(submitDraft)}>
-          {isSubmitting ? '등록 중...' : '도감에 등록하기'}
+          {isSubmitting ? '등록 중...' : '새 고양이로 등록'}
         </Button>
         <Button disabled={!canSubmitSighting} onPress={() => onSubmitSighting(submitDraft)} variant="secondary">
-          {isSubmitting ? '저장 중...' : '미확인 제보로 남기기'}
+          {isSubmitting ? '저장 중...' : '이웃 확인 요청으로 남기기'}
         </Button>
       </View>
     </Card>

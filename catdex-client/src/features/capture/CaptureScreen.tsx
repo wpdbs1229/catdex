@@ -1,19 +1,33 @@
 import { useState } from 'react';
-import { Camera, PawPrint, RotateCcw, Sparkles } from 'lucide-react-native';
-import { Image, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions, type ImageSourcePropType } from 'react-native';
+import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions, type ImageSourcePropType } from 'react-native';
+import { AlertCircle, ArrowLeft, Camera, Check, RotateCcw, Scissors, Sparkles } from 'lucide-react-native';
 import { CameraPlaceholder } from '@/features/capture/components/CameraPlaceholder';
 import { CatRegisterForm } from '@/features/capture/components/CatRegisterForm';
 import { Button } from '@/shared/components/Button';
 import { Card } from '@/shared/components/Card';
+import { getUserFacingError } from '@/shared/errors/user-facing-error';
+import { processCatPhoto } from '@/shared/native/catVision';
 import { createShadow, theme } from '@/shared/styles/theme';
-import type { CaptureCatDraft, Cat, CatType, PersonalityTag } from '@/shared/types/cat';
+import type { Cat, CatMatchCandidate, CatType, CaptureCatDraft, PersonalityTag, ProcessedCatPhoto } from '@/shared/types/cat';
+import { getCatIllustrationKey, type CatIllustrationKey } from '@/shared/utils/catPresentation';
+
+type CaptureStep = 'camera' | 'processing' | 'noCat' | 'match' | 'register';
+
+interface StoredCaptureResult {
+  observationId?: string;
+  cutoutImageUrl?: string;
+  candidates: CatMatchCandidate[];
+}
 
 interface CaptureScreenProps {
   coatOptions: CatType[];
-  existingCats: Cat[];
   personalityOptions: PersonalityTag[];
+  neighborhoodName: string;
   isSubmitting?: boolean;
-  onRecordExisting: (catId: string) => Promise<void> | void;
+  onMarkUncertain: (payload: { observationId?: string; cutoutImageUrl?: string; processedPhoto: ProcessedCatPhoto }) => Promise<void> | void;
+  onBack: () => void;
+  onProcessPhoto: (processedPhoto: ProcessedCatPhoto) => Promise<StoredCaptureResult>;
+  onRecordExisting: (catId: string, payload?: { observationId?: string; imageUrl?: string }) => Promise<void> | void;
   onSave: (draft: CaptureCatDraft) => Promise<void> | void;
   onSaveSighting: (draft: CaptureCatDraft) => Promise<void> | void;
 }
@@ -23,111 +37,221 @@ const catImages = {
   dark: require('../../../assets/illustrations/cat-dark-clean.png'),
   tuxedo: require('../../../assets/illustrations/cat-tuxedo-clean.png'),
   gray: require('../../../assets/illustrations/cat-gray-clean.png'),
-} satisfies Record<string, ImageSourcePropType>;
+} satisfies Record<CatIllustrationKey, ImageSourcePropType>;
 
 function imageForCat(cat: Cat): ImageSourcePropType {
   if (cat.imageUrl) {
     return { uri: cat.imageUrl };
   }
 
-  if (cat.type === '턱시도') {
-    return catImages.tuxedo;
-  }
-
-  if (cat.type === '흰냥') {
-    return catImages.gray;
-  }
-
-  if (cat.type === '삼색이' || cat.type === '검은냥') {
-    return catImages.dark;
-  }
-
-  return catImages.orange;
+  return catImages[getCatIllustrationKey(cat.type)];
 }
 
 export function CaptureScreen({
   coatOptions,
-  existingCats,
   personalityOptions,
+  neighborhoodName,
   isSubmitting = false,
+  onMarkUncertain,
+  onBack,
+  onProcessPhoto,
   onRecordExisting,
   onSave,
   onSaveSighting,
 }: CaptureScreenProps) {
   const [capturedImageUri, setCapturedImageUri] = useState<string | null>(null);
-  const [step, setStep] = useState<'capture' | 'details'>('capture');
+  const [processedPhoto, setProcessedPhoto] = useState<ProcessedCatPhoto | null>(null);
+  const [storedResult, setStoredResult] = useState<StoredCaptureResult | null>(null);
+  const [step, setStep] = useState<CaptureStep>('camera');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const { height: windowHeight } = useWindowDimensions();
-  const candidateCats = existingCats.slice(0, 3);
-  const cameraHeight = Math.min(620, Math.max(430, windowHeight - 250));
+  const cameraHeight = Math.min(680, Math.max(500, windowHeight - 190));
+  const candidates = storedResult?.candidates ?? [];
+  const currentImageUrl = storedResult?.cutoutImageUrl ?? processedPhoto?.cutoutImageUri;
 
-  const handlePhotoCaptured = (uri: string) => {
-    setCapturedImageUri(uri);
-  };
-
-  const handleRetake = () => {
+  const resetCapture = () => {
     setCapturedImageUri(null);
-    setStep('capture');
+    setProcessedPhoto(null);
+    setStoredResult(null);
+    setErrorMessage(null);
+    setStep('camera');
   };
 
-  if (step === 'details') {
+  const handlePhotoCaptured = async (uri: string) => {
+    setCapturedImageUri(uri);
+    setProcessedPhoto(null);
+    setStoredResult(null);
+    setErrorMessage(null);
+    setStep('processing');
+
+    try {
+      const visionResult = await processCatPhoto(uri);
+
+      if (!visionResult.hasCat || !visionResult.cutoutImageUri) {
+        setErrorMessage('사진에서 고양이를 찾지 못했어요.');
+        setStep('noCat');
+        return;
+      }
+
+      const nextProcessedPhoto: ProcessedCatPhoto = {
+        originalImageUri: uri,
+        cutoutImageUri: visionResult.cutoutImageUri,
+        confidence: visionResult.confidence,
+        isPreciseCutout: visionResult.isPreciseCutout,
+        boundingBox: visionResult.boundingBox,
+        featureVector: visionResult.featureVector,
+      };
+      setProcessedPhoto(nextProcessedPhoto);
+      setStoredResult(await onProcessPhoto(nextProcessedPhoto));
+      setStep('match');
+    } catch (error) {
+      console.warn('[capture] photo process failed', error);
+      setErrorMessage(getUserFacingError(error, 'capture.process').message);
+      setStep('noCat');
+    }
+  };
+
+  if (step === 'processing') {
+    return (
+      <View style={styles.centerScreen}>
+        <Card style={styles.processingCard}>
+          <View style={styles.processingIcon}>
+            <Scissors color={theme.colors.primaryDark} size={26} />
+          </View>
+          <ActivityIndicator color={theme.colors.primaryDark} size="large" />
+          <Text style={styles.processingTitle}>고양이만 잘라내는 중</Text>
+          <Text style={styles.processingText}>사진은 기기에서 먼저 분석하고, 누끼 이미지는 안전하게 저장해 후보 비교에 써요.</Text>
+        </Card>
+      </View>
+    );
+  }
+
+  if (step === 'noCat') {
     return (
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.detailHeader}>
-          <Pressable onPress={() => setStep('capture')} style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}>
-            <Text style={styles.backButtonText}>촬영</Text>
-          </Pressable>
-          <View style={styles.detailTitleWrap}>
-            <Text style={styles.title}>기록 설정</Text>
-            <Text style={styles.subtitle}>촬영한 사진을 도감에 등록하거나 기존 고양이 재발견으로 남겨요.</Text>
+        <Card style={styles.resultCard}>
+          {capturedImageUri ? <Image source={{ uri: capturedImageUri }} style={styles.resultImage} /> : null}
+          <View style={styles.resultMessage}>
+            <AlertCircle color={theme.colors.primary} size={24} />
+            <Text style={styles.resultTitle}>고양이를 찾지 못했어요</Text>
+            <Text style={styles.resultText}>{errorMessage ?? '고양이가 더 크게 보이도록 다시 찍어주세요.'}</Text>
           </View>
+          <Button onPress={resetCapture}>
+            <RotateCcw color="#FFF8F0" size={18} />
+            <Text style={styles.primaryButtonText}>다시 촬영하기</Text>
+          </Button>
+        </Card>
+      </ScrollView>
+    );
+  }
+
+  if (step === 'match' && processedPhoto) {
+    return (
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <View style={styles.header}>
+          <Text style={styles.kicker}>자동 누끼 저장 완료</Text>
+          <Text style={styles.title}>사용자가 같은 고양이인지 골라요</Text>
+          <Text style={styles.subtitle}>앱은 후보만 제안하고, 최종 연결은 직접 선택해요.</Text>
         </View>
 
-        <Card style={styles.rediscoveryCard}>
-          <View style={styles.rediscoveryHeader}>
-            <View style={styles.rediscoveryIcon}>
-              <RotateCcw color={theme.colors.primaryDark} size={18} />
-            </View>
-            <View style={styles.rediscoveryText}>
-              <Text style={styles.rediscoveryTitle}>기존 고양이 재발견</Text>
-              <Text style={styles.rediscoverySubtitle}>이미 도감에 있는 고양이라면 재발견으로 기록해요.</Text>
-            </View>
+        <Card style={styles.cutoutCard}>
+          <View style={styles.cutoutFrame}>
+            <Image resizeMode="contain" source={{ uri: processedPhoto.cutoutImageUri }} style={styles.cutoutImage} />
           </View>
-
-          {candidateCats.length > 0 ? (
-            <View style={styles.candidateRow}>
-              {candidateCats.map((cat) => (
-                <Pressable
-                  disabled={isSubmitting}
-                  key={cat.id}
-                  onPress={() => onRecordExisting(cat.id)}
-                  style={({ pressed }) => [styles.candidate, pressed && styles.pressed]}
-                >
-                  <Image resizeMode="cover" source={imageForCat(cat)} style={styles.candidateImage} />
-                  <Text numberOfLines={1} style={styles.candidateName}>
-                    {cat.name}
-                  </Text>
-                </Pressable>
-              ))}
+          <View style={styles.cutoutMeta}>
+            <View style={styles.cutoutBadge}>
+              <Sparkles color={theme.colors.accent} size={16} />
+              <Text style={styles.cutoutBadgeText}>{processedPhoto.isPreciseCutout ? '누끼 완료' : '고양이 영역 추출'}</Text>
             </View>
-          ) : (
-            <View style={styles.emptyCandidate}>
-              <Sparkles color={theme.colors.accent} size={18} />
-              <Text style={styles.emptyCandidateText}>아직 재발견할 내 도감 고양이가 없어요.</Text>
-            </View>
-          )}
+            <Text style={styles.cutoutConfidence}>감지 신뢰도 {Math.round(processedPhoto.confidence * 100)}%</Text>
+          </View>
         </Card>
 
-        <View style={styles.formHeader}>
-          <Camera color={theme.colors.primaryDark} size={18} />
-          <Text style={styles.formTitle}>촬영 기록 작성</Text>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>비슷한 후보</Text>
+          <Text style={styles.sectionCaption}>아니면 새 고양이로 등록하세요.</Text>
+        </View>
+
+        <View style={styles.candidateList}>
+          {candidates.map((candidate) => (
+            <Pressable
+              disabled={isSubmitting}
+              key={candidate.cat.id}
+              onPress={() =>
+                onRecordExisting(candidate.cat.id, {
+                  observationId: storedResult?.observationId,
+                  imageUrl: currentImageUrl,
+                })
+              }
+              style={({ pressed }) => [styles.candidateCard, pressed && styles.pressed]}
+            >
+              <Image resizeMode="cover" source={imageForCat(candidate.cat)} style={styles.candidateImage} />
+              <View style={styles.candidateText}>
+                <Text numberOfLines={1} style={styles.candidateName}>
+                  {candidate.cat.name}
+                </Text>
+                <Text numberOfLines={1} style={styles.candidateReason}>
+                  {candidate.reason}
+                </Text>
+              </View>
+              <View style={styles.choosePill}>
+                <Check color="#FFF8F0" size={15} />
+                <Text style={styles.chooseText}>기록</Text>
+              </View>
+            </Pressable>
+          ))}
+        </View>
+
+        <View style={styles.actions}>
+          <Button onPress={() => setStep('register')} variant="secondary">
+            새 고양이로 등록
+          </Button>
+          <Button
+            onPress={() =>
+              onMarkUncertain({
+                observationId: storedResult?.observationId,
+                cutoutImageUrl: currentImageUrl,
+                processedPhoto,
+              })
+            }
+            variant="ghost"
+          >
+            잘 모르겠어요
+          </Button>
+        </View>
+      </ScrollView>
+    );
+  }
+
+  if (step === 'register' && processedPhoto) {
+    return (
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <View style={styles.header}>
+          <Text style={styles.kicker}>새 고양이 등록</Text>
+          <Text style={styles.title}>누끼 이미지를 대표 사진으로 써요</Text>
+          <Text style={styles.subtitle}>이름과 동네만 입력하면 새 도감 카드가 만들어져요.</Text>
         </View>
 
         <CatRegisterForm
-          capturedImageUri={capturedImageUri}
+          capturedImageUri={processedPhoto.cutoutImageUri}
           coatOptions={coatOptions}
+          defaultRegionName={neighborhoodName}
+          imageUrlOverride={storedResult?.cutoutImageUrl}
           isSubmitting={isSubmitting}
-          onSubmit={onSave}
-          onSubmitSighting={onSaveSighting}
+          onSubmit={(draft) =>
+            onSave({
+              ...draft,
+              observationId: storedResult?.observationId,
+              cutoutImageUrl: storedResult?.cutoutImageUrl ?? processedPhoto.cutoutImageUri,
+            })
+          }
+          onSubmitSighting={(draft) =>
+            onSaveSighting({
+              ...draft,
+              observationId: storedResult?.observationId,
+              cutoutImageUrl: storedResult?.cutoutImageUrl ?? processedPhoto.cutoutImageUri,
+            })
+          }
           personalityOptions={personalityOptions}
         />
       </ScrollView>
@@ -135,187 +259,314 @@ export function CaptureScreen({
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-      <View style={styles.header}>
-        <View style={styles.titleRow}>
-          <Text style={styles.title}>새 고양이 등록</Text>
-          <PawPrint color={theme.colors.primary} size={18} />
+    <View style={styles.cameraScreen}>
+      <View style={styles.cameraHeader}>
+        <View style={styles.cameraHeaderMain}>
+          <Pressable
+            accessibilityLabel="촬영 화면 닫기"
+            accessibilityRole="button"
+            hitSlop={10}
+            onPress={onBack}
+            style={({ pressed }) => [styles.backButton, pressed && styles.backButtonPressed]}
+          >
+            <ArrowLeft color="#FFF8F0" size={22} />
+          </Pressable>
+          <View style={styles.cameraTitleBlock}>
+            <Text style={styles.cameraKicker}>{neighborhoodName}</Text>
+            <Text style={styles.cameraTitle}>고양이를 촬영하세요</Text>
+          </View>
         </View>
-        <Text style={styles.subtitle}>카메라로 고양이를 촬영하고 도감에 기록해요.</Text>
+        <View style={styles.cameraBadge}>
+          <Camera color="#FFF8F0" size={17} />
+          <Text style={styles.cameraBadgeText}>자동 누끼</Text>
+        </View>
       </View>
 
       <View style={styles.cameraFrame}>
         <CameraPlaceholder
-          capturedImageUri={capturedImageUri}
+          capturedImageUri={null}
           height={cameraHeight}
           onPhotoCaptured={handlePhotoCaptured}
-          onRetake={handleRetake}
+          onRetake={resetCapture}
         />
       </View>
-
-      <View style={styles.captureActions}>
-        {capturedImageUri ? (
-          <Button onPress={() => setStep('details')}>다음</Button>
-        ) : (
-          <Text style={styles.captureHint}>고양이가 프레임에 들어오면 셔터를 눌러주세요.</Text>
-        )}
-      </View>
-    </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  content: {
+  cameraScreen: {
+    flex: 1,
     paddingHorizontal: theme.spacing.lg,
-    paddingTop: theme.spacing.md,
-    paddingBottom: 132,
+    paddingTop: theme.spacing.lg,
+    paddingBottom: theme.spacing.lg,
+    backgroundColor: '#1F1A16',
   },
-  header: {
-    marginBottom: theme.spacing.md,
+  cameraHeader: {
+    minHeight: 76,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: theme.spacing.md,
   },
-  title: {
-    fontSize: 26,
-    fontWeight: theme.typography.titleWeight,
-    letterSpacing: theme.typography.letterSpacing,
-    color: theme.colors.text,
-  },
-  titleRow: {
+  cameraHeaderMain: {
+    flex: 1,
+    minWidth: 0,
     flexDirection: 'row',
     alignItems: 'center',
     gap: theme.spacing.sm,
   },
-  subtitle: {
-    marginTop: 6,
-    fontSize: 13,
-    color: theme.colors.mutedText,
-  },
-  detailHeader: {
-    marginBottom: theme.spacing.lg,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: theme.spacing.md,
-  },
-  detailTitleWrap: {
-    flex: 1,
-  },
   backButton: {
-    minHeight: 38,
-    borderRadius: 19,
-    paddingHorizontal: theme.spacing.md,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,253,246,0.82)',
+    backgroundColor: 'rgba(255,248,240,0.12)',
     borderWidth: 1,
-    borderColor: theme.colors.border,
+    borderColor: 'rgba(255,248,240,0.14)',
   },
-  backButtonText: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: theme.colors.primaryDark,
+  backButtonPressed: {
+    opacity: 0.72,
+  },
+  cameraTitleBlock: {
+    flex: 1,
+    minWidth: 0,
+  },
+  cameraKicker: {
+    color: '#D9C7AC',
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  cameraTitle: {
+    marginTop: 4,
+    color: '#FFF8F0',
+    fontSize: 25,
+    fontWeight: '900',
+    letterSpacing: 0,
+  },
+  cameraBadge: {
+    minHeight: 38,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderRadius: 19,
+    paddingHorizontal: theme.spacing.md,
+    backgroundColor: 'rgba(97,122,67,0.85)',
+  },
+  cameraBadgeText: {
+    color: '#FFF8F0',
+    fontSize: 12,
+    fontWeight: '900',
   },
   cameraFrame: {
+    flex: 1,
     borderRadius: theme.radius.xl,
     overflow: 'hidden',
     ...createShadow(10),
   },
-  captureActions: {
-    marginTop: theme.spacing.lg,
+  centerScreen: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingHorizontal: theme.spacing.xl,
   },
-  captureHint: {
-    borderRadius: theme.radius.lg,
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.md,
-    overflow: 'hidden',
-    textAlign: 'center',
-    fontSize: 13,
-    fontWeight: '700',
-    color: theme.colors.mutedText,
-    backgroundColor: 'rgba(255,253,246,0.82)',
-  },
-  rediscoveryCard: {
-    marginTop: theme.spacing.md,
-    backgroundColor: 'rgba(255,253,246,0.92)',
-    overflow: 'hidden',
-  },
-  rediscoveryHeader: {
-    flexDirection: 'row',
+  processingCard: {
+    minHeight: 280,
     alignItems: 'center',
-    gap: theme.spacing.md,
+    justifyContent: 'center',
+    gap: theme.spacing.lg,
+    backgroundColor: 'rgba(255,253,246,0.95)',
   },
-  rediscoveryIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+  processingIcon: {
+    width: 58,
+    height: 58,
+    borderRadius: 29,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: theme.colors.surfaceAlt,
   },
-  rediscoveryText: {
-    flex: 1,
-  },
-  rediscoveryTitle: {
-    fontSize: 16,
-    fontWeight: '800',
+  processingTitle: {
+    fontSize: 22,
+    fontWeight: '900',
     color: theme.colors.text,
   },
-  rediscoverySubtitle: {
-    marginTop: 4,
-    fontSize: 12,
-    lineHeight: 17,
+  processingText: {
+    maxWidth: 260,
+    textAlign: 'center',
+    fontSize: 13,
+    lineHeight: 20,
+    fontWeight: '700',
     color: theme.colors.mutedText,
   },
-  candidateRow: {
-    flexDirection: 'row',
+  content: {
+    gap: theme.spacing.lg,
+    paddingHorizontal: theme.spacing.lg,
+    paddingTop: theme.spacing.lg,
+    paddingBottom: theme.spacing.xxl,
+  },
+  header: {
+    gap: 5,
+  },
+  kicker: {
+    fontSize: 12,
+    fontWeight: '900',
+    color: theme.colors.primary,
+  },
+  title: {
+    fontSize: 26,
+    lineHeight: 33,
+    fontWeight: '900',
+    letterSpacing: 0,
+    color: theme.colors.text,
+  },
+  subtitle: {
+    fontSize: 13,
+    lineHeight: 20,
+    fontWeight: '700',
+    color: theme.colors.mutedText,
+  },
+  resultCard: {
+    gap: theme.spacing.lg,
+    backgroundColor: 'rgba(255,253,246,0.94)',
+  },
+  resultImage: {
+    width: '100%',
+    aspectRatio: 0.86,
+    borderRadius: theme.radius.lg,
+    backgroundColor: theme.colors.surfaceAlt,
+  },
+  resultMessage: {
+    alignItems: 'center',
     gap: theme.spacing.sm,
-    marginTop: theme.spacing.md,
   },
-  candidate: {
-    flex: 1,
-    minWidth: 0,
-    borderRadius: theme.radius.md,
-    padding: 6,
-    backgroundColor: 'rgba(248,234,210,0.76)',
+  resultTitle: {
+    fontSize: 21,
+    fontWeight: '900',
+    color: theme.colors.text,
+  },
+  resultText: {
+    textAlign: 'center',
+    fontSize: 13,
+    lineHeight: 20,
+    fontWeight: '700',
+    color: theme.colors.mutedText,
+  },
+  cutoutCard: {
+    gap: theme.spacing.md,
+    backgroundColor: 'rgba(255,253,246,0.94)',
+  },
+  cutoutFrame: {
+    height: 300,
+    borderRadius: theme.radius.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#E8E1D3',
+    overflow: 'hidden',
+  },
+  cutoutImage: {
+    width: '96%',
+    height: '96%',
+  },
+  cutoutMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: theme.spacing.md,
+  },
+  cutoutBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderRadius: 999,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: 8,
+    backgroundColor: 'rgba(221,232,200,0.58)',
+  },
+  cutoutBadgeText: {
+    fontSize: 12,
+    fontWeight: '900',
+    color: theme.colors.accent,
+  },
+  cutoutConfidence: {
+    flexShrink: 1,
+    textAlign: 'right',
+    fontSize: 12,
+    fontWeight: '800',
+    color: theme.colors.mutedText,
+  },
+  sectionHeader: {
+    gap: 3,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: '900',
+    color: theme.colors.text,
+  },
+  sectionCaption: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: theme.colors.mutedText,
+  },
+  candidateList: {
+    gap: theme.spacing.sm,
+  },
+  candidateCard: {
+    minHeight: 84,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.md,
+    borderRadius: theme.radius.lg,
+    padding: theme.spacing.sm,
+    backgroundColor: 'rgba(255,253,246,0.94)',
     borderWidth: 1,
-    borderColor: 'rgba(232,211,183,0.88)',
-  },
-  pressed: {
-    opacity: 0.82,
+    borderColor: 'rgba(139,112,83,0.14)',
+    ...createShadow(5),
   },
   candidateImage: {
-    width: '100%',
-    aspectRatio: 1,
-    borderRadius: theme.radius.sm,
+    width: 64,
+    height: 64,
+    borderRadius: theme.radius.md,
+    backgroundColor: theme.colors.surfaceAlt,
+  },
+  candidateText: {
+    flex: 1,
+    minWidth: 0,
   },
   candidateName: {
-    marginTop: 6,
-    fontSize: 11,
-    fontWeight: '800',
+    fontSize: 17,
+    fontWeight: '900',
     color: theme.colors.text,
   },
-  emptyCandidate: {
-    marginTop: theme.spacing.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.sm,
-    borderRadius: theme.radius.md,
-    padding: theme.spacing.md,
-    backgroundColor: 'rgba(221,229,200,0.52)',
-  },
-  emptyCandidateText: {
-    flex: 1,
-    fontSize: 13,
+  candidateReason: {
+    marginTop: 4,
+    fontSize: 12,
+    fontWeight: '700',
     color: theme.colors.mutedText,
   },
-  formHeader: {
-    marginTop: theme.spacing.xl,
-    marginBottom: theme.spacing.md,
+  choosePill: {
+    minHeight: 36,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    borderRadius: 18,
+    paddingHorizontal: theme.spacing.sm,
+    backgroundColor: theme.colors.accent,
+  },
+  chooseText: {
+    color: '#FFF8F0',
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  actions: {
     gap: theme.spacing.sm,
   },
-  formTitle: {
-    fontSize: 18,
+  primaryButtonText: {
+    color: '#FFF8F0',
+    fontSize: 16,
     fontWeight: '800',
-    color: theme.colors.text,
+  },
+  pressed: {
+    opacity: 0.84,
   },
 });

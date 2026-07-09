@@ -1,50 +1,32 @@
 import { useMemo, useState } from 'react';
-import { Filter, PawPrint, Search } from 'lucide-react-native';
+import { BookOpen, Filter, PawPrint, Search } from 'lucide-react-native';
 import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type ImageSourcePropType } from 'react-native';
-import { CollectionCoverHeader } from '@/features/cats/components/CollectionCoverHeader';
+import { catFilters } from '@/shared/constants/cat.constants';
 import { createShadow, theme } from '@/shared/styles/theme';
-import type { Cat, CatFilter, CatType, DexPlaceholder, DexProgress } from '@/shared/types/cat';
-import type { CollectionProfile, CollectionSummary, CollectionTheme } from '@/shared/types/collection';
+import type { Cat, CatFilter, CatType, DexPlaceholder } from '@/shared/types/cat';
+import { getCatIllustrationKey, type CatIllustrationKey } from '@/shared/utils/catPresentation';
 
 interface CatDexScreenProps {
   cats: Cat[];
-  collectionProfile: CollectionProfile;
-  collectionSummary: CollectionSummary;
-  collectionTheme?: CollectionTheme;
   placeholders: DexPlaceholder[];
-  progress: DexProgress;
-  onOpenCollectionRankings: () => void;
-  onOpenCollectionDrawer: () => void;
   onOpenCat: (catId: string) => void;
 }
 
-const filters: CatFilter[] = ['전체', '치즈냥', '삼색이', '턱시도', '흰냥'];
+const filters = catFilters;
 
 const illustrations = {
   orange: require('../../../assets/illustrations/cat-orange-clean.png'),
   dark: require('../../../assets/illustrations/cat-dark-clean.png'),
   tuxedo: require('../../../assets/illustrations/cat-tuxedo-clean.png'),
   gray: require('../../../assets/illustrations/cat-gray-clean.png'),
-} satisfies Record<string, ImageSourcePropType>;
+} satisfies Record<CatIllustrationKey, ImageSourcePropType>;
 
 function imageForType(type: CatType, imageUrl?: string): ImageSourcePropType {
   if (imageUrl) {
     return { uri: imageUrl };
   }
 
-  if (type === '턱시도') {
-    return illustrations.tuxedo;
-  }
-
-  if (type === '흰냥') {
-    return illustrations.gray;
-  }
-
-  if (type === '삼색이' || type === '검은냥') {
-    return illustrations.dark;
-  }
-
-  return illustrations.orange;
+  return illustrations[getCatIllustrationKey(type)];
 }
 
 function normalizeSearchText(value: string) {
@@ -87,15 +69,41 @@ function placeholderMatchesSearch(placeholder: DexPlaceholder, query: string) {
     .includes(query);
 }
 
+function getPlaceholderMeta(placeholder: DexPlaceholder) {
+  if (placeholder.reportCount && placeholder.reportCount > 0) {
+    return `${placeholder.regionHint} · ${placeholder.reportCount}건 제보`;
+  }
+
+  return `${placeholder.regionHint} · ${placeholder.timeHint ?? '관찰 대기'}`;
+}
+
+function matchesCatFilter(cat: Cat, selectedFilter: CatFilter) {
+  if (selectedFilter === '전체') {
+    return true;
+  }
+
+  if (selectedFilter === '희귀') {
+    return cat.rarity >= 4;
+  }
+
+  return cat.type === selectedFilter;
+}
+
+function matchesPlaceholderFilter(placeholder: DexPlaceholder, selectedFilter: CatFilter) {
+  if (selectedFilter === '전체') {
+    return true;
+  }
+
+  if (selectedFilter === '희귀') {
+    return placeholder.rarity >= 4;
+  }
+
+  return placeholder.type === selectedFilter;
+}
+
 export function CatDexScreen({
   cats,
-  collectionProfile,
-  collectionSummary,
-  collectionTheme,
   placeholders,
-  progress,
-  onOpenCollectionRankings,
-  onOpenCollectionDrawer,
   onOpenCat,
 }: CatDexScreenProps) {
   const [selectedFilter, setSelectedFilter] = useState<CatFilter>('전체');
@@ -104,7 +112,7 @@ export function CatDexScreen({
   const visibleCats = useMemo(
     () =>
       cats.filter((cat) => {
-        const matchesFilter = selectedFilter === '전체' || cat.type === selectedFilter;
+        const matchesFilter = matchesCatFilter(cat, selectedFilter);
 
         return matchesFilter && catMatchesSearch(cat, normalizedSearchQuery);
       }),
@@ -113,25 +121,27 @@ export function CatDexScreen({
   const visiblePlaceholders = useMemo(
     () =>
       placeholders.filter((placeholder) => {
-        const matchesFilter = selectedFilter === '전체' || placeholder.type === selectedFilter;
+        const matchesFilter = matchesPlaceholderFilter(placeholder, selectedFilter);
 
         return matchesFilter && placeholderMatchesSearch(placeholder, normalizedSearchQuery);
       }),
     [normalizedSearchQuery, placeholders, selectedFilter],
   );
-  const lockedCount = Math.max(0, Math.min(visiblePlaceholders.length, 1));
+  const lockedPlaceholders = visiblePlaceholders.slice(0, Math.min(visiblePlaceholders.length, 2));
   const hasSearchQuery = normalizedSearchQuery.length > 0;
 
   return (
     <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-      <CollectionCoverHeader
-        collectionTheme={collectionTheme}
-        onCustomize={onOpenCollectionDrawer}
-        onExplore={onOpenCollectionRankings}
-        profile={collectionProfile}
-        progress={progress}
-        summary={collectionSummary}
-      />
+      <View style={styles.bookHeader}>
+        <View>
+          <Text style={styles.bookKicker}>스티커북</Text>
+          <Text style={styles.bookTitle}>{hasSearchQuery ? '찾은 고양이' : '모아둔 고양이'}</Text>
+        </View>
+        <View style={styles.bookCountBadge}>
+          <BookOpen color={theme.colors.primaryDark} size={15} />
+          <Text style={styles.countText}>{visibleCats.length}마리</Text>
+        </View>
+      </View>
 
       <View style={styles.searchBar}>
         <Search color={theme.colors.mutedText} size={18} />
@@ -139,7 +149,7 @@ export function CatDexScreen({
           autoCapitalize="none"
           autoCorrect={false}
           onChangeText={setSearchQuery}
-          placeholder="고양이 이름, 특징으로 검색"
+          placeholder="이름이나 특징으로 찾기"
           placeholderTextColor={theme.colors.mutedText}
           returnKeyType="search"
           style={styles.searchInput}
@@ -160,20 +170,20 @@ export function CatDexScreen({
         })}
       </ScrollView>
 
-      <View style={styles.countRow}>
-        <Text style={styles.countText}>
-          {hasSearchQuery ? '검색 결과' : '전체'} {visibleCats.length}마리
-        </Text>
-      </View>
-
       <View style={styles.grid}>
-        {visibleCats.map((cat) => (
-          <Pressable key={cat.id} onPress={() => onOpenCat(cat.id)} style={({ pressed }) => [styles.tile, pressed && styles.pressed]}>
+        {visibleCats.map((cat, index) => (
+          <Pressable
+            key={cat.id}
+            onPress={() => onOpenCat(cat.id)}
+            style={({ pressed }) => [styles.tile, index % 2 === 0 ? styles.tileTiltLeft : styles.tileTiltRight, pressed && styles.pressed]}
+          >
             <View pointerEvents="none" style={styles.tileWash} />
             <View style={styles.tileImageFrame}>
-              <Image resizeMode="cover" source={imageForType(cat.type, cat.imageUrl)} style={styles.tileImage} />
+              <Image resizeMode="contain" source={imageForType(cat.type, cat.imageUrl)} style={styles.tileImage} />
             </View>
-            <Text style={styles.tileNumber}>No.{String(cat.number).padStart(3, '0')}</Text>
+            <View style={styles.tileNumberPill}>
+              <Text style={styles.tileNumber}>No.{String(cat.number).padStart(3, '0')}</Text>
+            </View>
             <Text numberOfLines={1} style={styles.tileName}>
               {cat.name}
             </Text>
@@ -183,20 +193,36 @@ export function CatDexScreen({
           </Pressable>
         ))}
 
-        {Array.from({ length: lockedCount }).map((_, index) => (
-          <View key={`locked-${index}`} style={[styles.tile, styles.lockedTile]}>
-            <PawPrint color="#D4B989" size={44} />
-            <Text style={styles.lockedText}>새로운 고양이 기다리는 중</Text>
+        {lockedPlaceholders.map((placeholder, index) => (
+          <View key={placeholder.id} style={[styles.tile, styles.lockedTile, index % 2 === 0 ? styles.tileTiltRight : styles.tileTiltLeft]}>
+            <View pointerEvents="none" style={styles.tileWash} />
+            <View style={[styles.tileImageFrame, styles.lockedImageFrame]}>
+              <Image resizeMode="contain" source={imageForType(placeholder.type, placeholder.imageUrl)} style={[styles.tileImage, styles.lockedImage]} />
+              <View style={styles.lockedImageOverlay}>
+                <View style={styles.lockedPawBadge}>
+                  <PawPrint color="#C9A66A" size={28} />
+                </View>
+              </View>
+            </View>
+            <View style={styles.tileNumberPill}>
+              <Text style={styles.tileNumber}>No.{String(placeholder.number).padStart(3, '0')}</Text>
+            </View>
+            <Text numberOfLines={1} style={styles.tileName}>
+              비어있는 페이지
+            </Text>
+            <Text numberOfLines={1} style={styles.tileMeta}>
+              {getPlaceholderMeta(placeholder)}
+            </Text>
           </View>
         ))}
       </View>
 
-      {visibleCats.length === 0 && lockedCount === 0 ? (
+      {visibleCats.length === 0 && lockedPlaceholders.length === 0 ? (
         <View style={styles.emptyState}>
           <PawPrint color="#D4B989" size={38} />
           <Text style={styles.emptyTitle}>{hasSearchQuery ? '검색 결과가 없어요' : '아직 수집한 고양이가 없어요'}</Text>
           <Text style={styles.emptyText}>
-            {hasSearchQuery ? '다른 이름, 특징, 태그로 다시 찾아보세요.' : '첫 고양이를 등록하면 도감 카드가 여기에 채워져요.'}
+            {hasSearchQuery ? '다른 이름, 특징, 태그로 다시 찾아보세요.' : '첫 고양이를 등록하면 도감 페이지가 여기에 채워져요.'}
           </Text>
         </View>
       ) : null}
@@ -210,17 +236,50 @@ const styles = StyleSheet.create({
     paddingTop: theme.spacing.md,
     paddingBottom: 132,
   },
+  bookHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    gap: theme.spacing.md,
+  },
+  bookKicker: {
+    color: theme.colors.primary,
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  bookTitle: {
+    marginTop: 3,
+    color: theme.colors.text,
+    fontSize: 23,
+    fontWeight: '900',
+  },
+  bookCountBadge: {
+    minHeight: 34,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    borderRadius: 17,
+    paddingHorizontal: theme.spacing.md,
+    backgroundColor: 'rgba(255,253,246,0.62)',
+    borderWidth: 1,
+    borderColor: 'rgba(139,112,83,0.13)',
+  },
+  countText: {
+    fontSize: 12,
+    fontWeight: '900',
+    color: theme.colors.primaryDark,
+  },
   searchBar: {
-    height: 46,
-    marginTop: theme.spacing.lg,
+    height: 48,
+    marginTop: theme.spacing.md,
     flexDirection: 'row',
     alignItems: 'center',
     gap: theme.spacing.sm,
-    borderRadius: 23,
+    borderRadius: 24,
     paddingHorizontal: theme.spacing.md,
-    backgroundColor: 'rgba(255,253,246,0.92)',
+    backgroundColor: 'rgba(255,253,246,0.7)',
     borderWidth: 1,
-    borderColor: 'rgba(232,211,183,0.86)',
+    borderColor: 'rgba(139,112,83,0.13)',
   },
   searchInput: {
     flex: 1,
@@ -233,15 +292,15 @@ const styles = StyleSheet.create({
   filterRow: {
     gap: theme.spacing.sm,
     paddingTop: theme.spacing.md,
-    paddingBottom: theme.spacing.md,
+    paddingBottom: theme.spacing.lg,
   },
   filterChip: {
     borderRadius: 999,
     paddingHorizontal: theme.spacing.md,
     paddingVertical: 9,
-    backgroundColor: 'rgba(255,253,246,0.82)',
+    backgroundColor: 'rgba(255,253,246,0.58)',
     borderWidth: 1,
-    borderColor: 'rgba(232,211,183,0.86)',
+    borderColor: 'rgba(139,112,83,0.12)',
   },
   filterChipActive: {
     backgroundColor: theme.colors.primaryDark,
@@ -249,23 +308,11 @@ const styles = StyleSheet.create({
   },
   filterText: {
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '800',
     color: theme.colors.mutedText,
   },
   filterTextActive: {
     color: '#FFF8F0',
-  },
-  countRow: {
-    marginBottom: theme.spacing.sm,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: theme.spacing.md,
-  },
-  countText: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: theme.colors.text,
   },
   grid: {
     flexDirection: 'row',
@@ -277,22 +324,28 @@ const styles = StyleSheet.create({
     flexBasis: '48%',
     flexGrow: 0,
     maxWidth: '48%',
-    borderRadius: theme.radius.md,
+    borderRadius: theme.radius.xl,
     padding: 10,
-    backgroundColor: 'rgba(255,253,246,0.9)',
+    backgroundColor: 'rgba(255,253,246,0.76)',
     borderWidth: 1,
-    borderColor: 'rgba(232,211,183,0.88)',
+    borderColor: 'rgba(139,112,83,0.12)',
     overflow: 'hidden',
-    ...createShadow(5),
+    ...createShadow(4),
+  },
+  tileTiltLeft: {
+    transform: [{ rotate: '-0.8deg' }],
+  },
+  tileTiltRight: {
+    transform: [{ rotate: '0.7deg' }],
   },
   tileWash: {
     position: 'absolute',
     right: -34,
     bottom: 46,
-    width: 78,
-    height: 50,
-    borderRadius: 40,
-    backgroundColor: 'rgba(221, 232, 200, 0.34)',
+    width: 84,
+    height: 56,
+    borderRadius: 42,
+    backgroundColor: 'rgba(221,232,200,0.34)',
     transform: [{ rotate: '-18deg' }],
   },
   pressed: {
@@ -301,26 +354,35 @@ const styles = StyleSheet.create({
   tileImageFrame: {
     width: '100%',
     aspectRatio: 1,
-    borderRadius: theme.radius.sm,
-    backgroundColor: theme.colors.surfaceAlt,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: theme.radius.lg,
+    backgroundColor: 'rgba(248,234,210,0.56)',
     overflow: 'hidden',
   },
   tileImage: {
-    width: '100%',
-    height: '100%',
+    width: '92%',
+    height: '92%',
+  },
+  tileNumberPill: {
+    alignSelf: 'flex-start',
+    marginTop: 10,
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    backgroundColor: 'rgba(245,227,191,0.68)',
   },
   tileNumber: {
-    marginTop: 10,
     color: '#9B734D',
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '900',
-    lineHeight: 15,
+    lineHeight: 14,
   },
   tileName: {
-    marginTop: 2,
-    fontSize: 15,
+    marginTop: 6,
+    fontSize: 16,
     fontWeight: '900',
-    lineHeight: 20,
+    lineHeight: 21,
     color: theme.colors.text,
   },
   tileMeta: {
@@ -330,28 +392,42 @@ const styles = StyleSheet.create({
     color: theme.colors.mutedText,
   },
   lockedTile: {
+    backgroundColor: 'rgba(255,253,246,0.58)',
+  },
+  lockedImageFrame: {
+    borderWidth: 1,
+    borderColor: 'rgba(212,185,137,0.4)',
+    backgroundColor: 'rgba(248,234,210,0.66)',
+  },
+  lockedImage: {
+    opacity: 0.18,
+  },
+  lockedImageOverlay: {
+    ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(244,231,209,0.8)',
+    backgroundColor: 'rgba(248,234,210,0.36)',
   },
-  lockedText: {
-    marginTop: theme.spacing.sm,
-    fontSize: 11,
-    lineHeight: 16,
-    fontWeight: '700',
-    textAlign: 'center',
-    color: '#A88C78',
+  lockedPawBadge: {
+    width: 54,
+    height: 54,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 27,
+    backgroundColor: 'rgba(255,253,246,0.68)',
+    borderWidth: 1,
+    borderColor: 'rgba(212,185,137,0.45)',
   },
   emptyState: {
     marginTop: theme.spacing.lg,
     minHeight: 180,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: theme.radius.lg,
+    borderRadius: theme.radius.xl,
     padding: theme.spacing.lg,
-    backgroundColor: 'rgba(255,253,246,0.78)',
+    backgroundColor: 'rgba(255,253,246,0.62)',
     borderWidth: 1,
-    borderColor: 'rgba(232,211,183,0.88)',
+    borderColor: 'rgba(139,112,83,0.12)',
   },
   emptyTitle: {
     marginTop: theme.spacing.sm,

@@ -13,18 +13,23 @@
    - 사용자가 선택한 시간에 "오늘 동네 고양이를 기록해보세요" 로컬 알림을 보낸다.
    - 서버 없이 앱 단독으로 구현 가능하므로 1차 구현 범위에 포함한다.
 
-2. **새 공유 고양이 알림**
-   - 사용자가 저장한 동네 단위 지역에 새 공유 고양이가 등록되면 알린다.
+2. **동네 발견 알림**
+   - 사용자가 활동한 동네에 희귀하거나 첫 고양이 기록/제보가 등록되면 알린다.
    - 정확한 좌표는 저장하지 않고 지역명/지역 id 기준으로만 발송한다.
-   - Supabase Edge Function 또는 DB 트리거 기반 서버 푸시가 필요하다.
+   - 모든 새 기록을 즉시 보내지 않고, 희귀/첫 발견 조건으로 푸시 피로도를 낮춘다.
 
-3. **재발견/배지/레벨 알림**
-   - 재발견 기록, 첫 등록, 배지 획득, 레벨업 같은 즉시 피드백을 알린다.
-   - 앱 실행 중에는 로컬 알림으로 처리할 수 있고, 백그라운드 발송은 서버 이벤트 큐가 필요하다.
+3. **내 고양이 소식**
+   - 내가 처음 기록한 고양이를 다른 사용자가 다시 만나면 알린다.
+   - 같은 고양이의 사진/기록 보강 이벤트로 확장할 수 있다.
 
-4. **소셜 알림**
-   - 내 공개 도감 좋아요, 팔로우, 랭킹 변화 알림을 보낸다.
-   - Supabase social 테이블의 변경 이벤트를 기반으로 서버 푸시가 필요하다.
+4. **배지/직급 알림**
+   - 배지 획득, 직급 상승, 재발견 기록 같은 성취를 알린다.
+
+5. **도감 반응 알림**
+   - 공개 냥도감 좋아요와 팔로우를 알린다.
+
+6. **주간 냥도감 리포트**
+   - 한 주 동안 쌓인 기록과 배지를 묶어 한 번만 알린다.
 
 ## 1차 구현 범위
 
@@ -33,12 +38,12 @@
 - 알림 설정 화면 추가
 - 탐험 리마인더 on/off 및 시간 저장
 - 로컬 알림 스케줄링/취소
-- 새 공유 고양이, 배지/레벨, 소셜 알림은 설정 항목으로 먼저 노출하되 서버 푸시 발송은 후속 단계로 남긴다.
+- 서버 이벤트 큐와 자동 발송 경로를 연결해 앱이 꺼져 있어도 푸시가 발송되도록 한다.
 
 ## 후속 Supabase 범위
 
 - `notification_settings`
-  - `user_id`, `daily_reminder_enabled`, `daily_reminder_time`, `shared_cat_enabled`, `achievement_enabled`, `social_enabled`
+  - `user_id`, `daily_reminder_enabled`, `daily_reminder_time`, `shared_cat_enabled`, `cat_update_enabled`, `achievement_enabled`, `social_enabled`, `weekly_summary_enabled`
 - `notification_devices`
   - `user_id`, `expo_push_token`, `platform`, `last_seen_at`
 - `notification_events`
@@ -54,10 +59,14 @@
   - 사용자는 자신의 알림 설정과 기기 토큰만 조회/생성/수정/삭제할 수 있다.
   - 사용자는 자신에게 발송된 알림 이벤트만 조회할 수 있고, 이벤트 생성/상태 변경은 DB 트리거와 service role 기반 Edge Function이 담당한다.
 - DB 트리거
-  - `cat_sightings` insert: 같은 지역을 기록한 사용자 중 공유 고양이 알림을 끄지 않은 사용자에게 `shared_cat` 이벤트를 만든다. 현재 원격 프로젝트에는 `cat_sightings` 테이블이 없어 트리거 설치를 조건부로 처리한다.
+  - `cat_encounters` insert: 다른 사용자가 내가 만든 고양이를 다시 기록하면 `cat_rediscovery` 이벤트를 만든다.
+  - `cat_encounters` insert: 내 활동 동네에 희귀/첫 고양이가 기록되면 `rare_neighborhood_cat` 이벤트를 만든다.
+  - `cat_sightings` insert: 같은 지역을 기록한 사용자 중 동네 발견 알림을 끄지 않은 사용자에게 `shared_cat` 이벤트를 만든다. 일반 제보는 묶고, 희귀/첫 신호 중심으로 제한한다.
   - `user_badges` insert: 배지 알림을 끄지 않은 사용자에게 `achievement` 이벤트를 만든다.
-  - `collection_likes` insert: 도감 주인에게 `collection_like` 이벤트를 만든다.
-  - `collection_follows` insert: 도감 주인에게 `collection_follow` 이벤트를 만든다.
+  - `collection_likes`, `collection_follows` insert: 도감 반응 알림을 끄지 않은 사용자에게 `collection_like`, `collection_follow` 이벤트를 만든다.
+- DB cron
+  - `catdex-notification-dispatch`: 1분마다 pending 이벤트를 Expo Push API로 발송한다.
+  - `catdex-weekly-notification-summary`: 매주 월요일 09:00 KST에 주간 리포트 이벤트를 만든다.
 - `supabase/functions/notification-dispatch/index.ts`
   - `pending` 이벤트를 가져와 Expo Push API로 발송한다.
   - 기기 토큰이 없으면 `skipped`, 발송 성공은 `sent`, 실패는 `failed`로 상태를 갱신한다.
@@ -76,10 +85,11 @@
    - `NOTIFICATION_DISPATCH_SECRET`: dispatch 호출용 임의의 긴 secret.
    - `SUPABASE_SERVICE_ROLE_KEY`: `notification_events` 상태 갱신과 큐 조회용 service role key.
    - `SUPABASE_URL`: Supabase 함수 런타임 기본 환경 변수로 제공되는지 확인한다.
-4. dispatch 호출
+4. dispatch 호출 또는 DB cron 확인
    - `POST https://wqiqdybzhbmsvccpklli.supabase.co/functions/v1/notification-dispatch`
    - Header: `Authorization: Bearer $NOTIFICATION_DISPATCH_SECRET`
    - pending 이벤트가 없으면 `processed: 0`이어야 한다.
+   - DB cron을 사용하는 경우 `cron.job`에 `catdex-notification-dispatch`와 `catdex-weekly-notification-summary`가 있어야 한다.
 
 ## 클라이언트 구현 내용
 

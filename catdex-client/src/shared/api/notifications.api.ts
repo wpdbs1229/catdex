@@ -8,8 +8,10 @@ interface NotificationSettingsRow {
   daily_reminder_enabled: boolean;
   daily_reminder_time: string;
   shared_cat_enabled: boolean;
+  cat_update_enabled?: boolean;
   achievement_enabled: boolean;
-  social_enabled: boolean;
+  social_enabled?: boolean;
+  weekly_summary_enabled?: boolean;
 }
 
 function normalizeReminderTime(value: string | null | undefined) {
@@ -34,7 +36,7 @@ export async function fetchRemoteNotificationSettings(): Promise<Partial<Notific
 
   const { data, error } = await supabase
     .from('notification_settings')
-    .select('daily_reminder_enabled, daily_reminder_time, shared_cat_enabled, achievement_enabled, social_enabled')
+    .select('daily_reminder_enabled, daily_reminder_time, shared_cat_enabled, cat_update_enabled, achievement_enabled, social_enabled, weekly_summary_enabled')
     .eq('user_id', userId)
     .maybeSingle();
 
@@ -50,8 +52,10 @@ export async function fetchRemoteNotificationSettings(): Promise<Partial<Notific
     dailyReminderEnabled: row.daily_reminder_enabled,
     dailyReminderTime: normalizeReminderTime(row.daily_reminder_time),
     sharedCatEnabled: row.shared_cat_enabled,
+    catUpdateEnabled: row.cat_update_enabled ?? true,
     achievementEnabled: row.achievement_enabled,
-    socialEnabled: row.social_enabled,
+    socialEnabled: row.social_enabled ?? true,
+    weeklySummaryEnabled: row.weekly_summary_enabled ?? true,
   };
 }
 
@@ -68,8 +72,10 @@ export async function saveRemoteNotificationSettings(settings: NotificationSetti
       daily_reminder_enabled: settings.dailyReminderEnabled,
       daily_reminder_time: settings.dailyReminderTime,
       shared_cat_enabled: settings.sharedCatEnabled,
+      cat_update_enabled: settings.catUpdateEnabled,
       achievement_enabled: settings.achievementEnabled,
       social_enabled: settings.socialEnabled,
+      weekly_summary_enabled: settings.weeklySummaryEnabled,
     },
     {
       onConflict: 'user_id',

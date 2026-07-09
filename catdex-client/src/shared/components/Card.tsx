@@ -15,9 +15,9 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: theme.radius.xl,
     padding: theme.spacing.lg,
-    backgroundColor: theme.colors.surface,
+    backgroundColor: 'rgba(255, 253, 246, 0.9)',
     borderWidth: 1,
-    borderColor: 'rgba(139, 112, 83, 0.16)',
-    ...createShadow(9),
+    borderColor: 'rgba(139, 112, 83, 0.14)',
+    ...createShadow(5),
   },
 });

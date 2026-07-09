@@ -9,14 +9,17 @@ interface ButtonProps {
   onPress?: () => void;
   variant?: ButtonVariant;
   disabled?: boolean;
+  accessibilityLabel?: string;
 }
 
-export function Button({ children, onPress, variant = 'primary', disabled = false }: ButtonProps) {
+export function Button({ children, onPress, variant = 'primary', disabled = false, accessibilityLabel }: ButtonProps) {
   const variantStyle = variant === 'primary' ? styles.primary : variant === 'secondary' ? styles.secondary : styles.ghost;
   const labelStyle = variant === 'primary' ? styles.label : [styles.label, styles.secondaryLabel];
 
   return (
     <Pressable
+      accessibilityLabel={accessibilityLabel ?? (typeof children === 'string' ? children : undefined)}
+      accessibilityRole="button"
       disabled={disabled}
       onPress={onPress}
       style={({ pressed }) => [
@@ -43,18 +46,18 @@ const styles = StyleSheet.create({
     maxWidth: '100%',
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: theme.radius.xl,
+    borderRadius: 27,
     paddingHorizontal: theme.spacing.lg,
     borderWidth: 1,
-    ...createShadow(8),
+    ...createShadow(5),
   },
   primary: {
     backgroundColor: theme.colors.primaryDark,
-    borderColor: '#765640',
+    borderColor: 'rgba(78, 52, 37, 0.26)',
   },
   secondary: {
-    backgroundColor: 'rgba(255, 253, 246, 0.92)',
-    borderColor: theme.colors.border,
+    backgroundColor: 'rgba(255, 253, 246, 0.78)',
+    borderColor: 'rgba(139, 112, 83, 0.16)',
   },
   ghost: {
     backgroundColor: 'transparent',
@@ -73,7 +76,7 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     color: '#FFF8F0',
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: '800',
     lineHeight: 22,
     textAlign: 'center',
   },

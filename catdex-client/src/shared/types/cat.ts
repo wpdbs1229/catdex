@@ -1,4 +1,17 @@
-export type CatType = '치즈냥' | '삼색이' | '턱시도' | '검은냥' | '흰냥';
+export type CatType =
+  | '치즈냥'
+  | '고등어냥'
+  | '갈색태비'
+  | '삼색이'
+  | '카오스냥'
+  | '턱시도'
+  | '젖소냥'
+  | '검은냥'
+  | '흰냥'
+  | '회색냥'
+  | '포인트냥'
+  | '얼룩냥'
+  | '기타냥';
 
 export type CatRarity = 1 | 2 | 3 | 4 | 5;
 
@@ -12,6 +25,7 @@ export interface Cat {
   name: string;
   type: CatType;
   rarity: CatRarity;
+  rarityReasons: string[];
   encounterCount: number;
   firstSeenAt: string;
   lastSeenAt: string;
@@ -37,6 +51,37 @@ export interface CaptureCatDraft {
   regionName: string;
   memo: string;
   imageUrl?: string;
+  cutoutImageUrl?: string;
+  observationId?: string;
+}
+
+export interface ProcessedCatPhoto {
+  originalImageUri: string;
+  cutoutImageUri: string;
+  confidence: number;
+  isPreciseCutout: boolean;
+  boundingBox: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  } | null;
+  featureVector: number[];
+}
+
+export interface CatObservation {
+  id: string;
+  originalImageUrl: string;
+  cutoutImageUrl: string;
+  regionName: string;
+  detectionConfidence: number;
+  matchedCatId?: string;
+}
+
+export interface CatMatchCandidate {
+  cat: Cat;
+  score: number;
+  reason: string;
 }
 
 export type CatReportReason = 'duplicate_cat' | 'inappropriate_photo' | 'location_risk' | 'incorrect_info' | 'other';

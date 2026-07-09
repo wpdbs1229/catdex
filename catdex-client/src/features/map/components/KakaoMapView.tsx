@@ -1,15 +1,19 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 import type { Region } from '@/shared/types/region';
+import { formatMapRegionName } from '@/features/map/map-region-label';
 import { theme } from '@/shared/styles/theme';
 
-const fallbackMessage = '지도를 불러오지 못했어요. Kakao Map API Key 설정을 확인해주세요.';
+const fallbackMessage = '지도를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.';
 
 type KakaoMapBridgeMessage =
   | {
       type: 'REGION_SELECTED';
       regionId: string;
+    }
+  | {
+      type: 'MAP_READY';
     }
   | {
       type: 'MAP_LOAD_ERROR';
@@ -47,6 +51,12 @@ function parseBridgeMessage(data: string): KakaoMapBridgeMessage | null {
       };
     }
 
+    if (payload.type === 'MAP_READY') {
+      return {
+        type: 'MAP_READY',
+      };
+    }
+
     return null;
   } catch {
     return null;
@@ -57,7 +67,7 @@ function serializeRegions(regions: Region[]) {
   return JSON.stringify(
     regions.map(({ id, name, lat, lng, radius, cats }) => ({
       id,
-      name,
+      name: formatMapRegionName(name),
       lat,
       lng,
       radius,
@@ -71,8 +81,8 @@ function createMapHtml(appKey: string, regions: Region[], selectedRegionId: stri
   const serializedRegions = serializeRegions(regions);
   const serializedSelectedRegionId = JSON.stringify(selectedRegionId);
   const selectedRegion = regions.find((region) => region.id === selectedRegionId) ?? regions[0];
-  const centerLat = selectedRegion?.lat ?? 37.5035;
-  const centerLng = selectedRegion?.lng ?? 126.766;
+  const centerLat = selectedRegion?.lat ?? 0;
+  const centerLng = selectedRegion?.lng ?? 0;
 
   return `<!DOCTYPE html>
 <html lang="ko">
@@ -87,7 +97,7 @@ function createMapHtml(appKey: string, regions: Region[], selectedRegionId: stri
         height: 100%;
         margin: 0;
         padding: 0;
-        background: #e7dec9;
+        background: #e9dfc9;
       }
 
       .fallback {
@@ -113,15 +123,15 @@ function createMapHtml(appKey: string, regions: Region[], selectedRegionId: stri
         border: 1px solid rgba(91, 62, 48, 0.18);
         border-radius: 999px;
         padding: 7px 10px;
-        background: rgba(255, 253, 246, 0.92);
-        box-shadow: 0 8px 20px rgba(91, 62, 48, 0.14);
+        background: rgba(255, 253, 246, 0.86);
+        box-shadow: 0 6px 16px rgba(91, 62, 48, 0.1);
         color: #4A3428;
-        font: 700 12px -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+        font: 800 12px -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
         white-space: nowrap;
       }
 
       .map-label-selected {
-        background: rgba(246, 226, 190, 0.96);
+        background: rgba(248, 234, 210, 0.9);
         border-color: rgba(191, 120, 72, 0.48);
       }
 
@@ -139,6 +149,10 @@ function createMapHtml(appKey: string, regions: Region[], selectedRegionId: stri
       (function () {
         var regions = ${serializedRegions};
         var selectedRegionId = ${serializedSelectedRegionId};
+        var didFinish = false;
+        var readyTimeoutId = window.setTimeout(function () {
+          fail('KAKAO_MAP_READY_TIMEOUT');
+        }, 8000);
 
         function postMessage(payload) {
           if (window.ReactNativeWebView) {
@@ -147,6 +161,12 @@ function createMapHtml(appKey: string, regions: Region[], selectedRegionId: stri
         }
 
         function fail(message) {
+          if (didFinish) {
+            return;
+          }
+
+          didFinish = true;
+          window.clearTimeout(readyTimeoutId);
           postMessage({ type: 'MAP_LOAD_ERROR', message: message });
           document.body.innerHTML = '<div class="fallback">${fallbackMessage}</div>';
         }
@@ -172,10 +192,10 @@ function createMapHtml(appKey: string, regions: Region[], selectedRegionId: stri
                   center: new kakao.maps.LatLng(region.lat, region.lng),
                   radius: region.radius,
                   strokeWeight: 2,
-                  strokeColor: isSelected ? '#5B3E30' : '#8BA070',
+                  strokeColor: isSelected ? '#B9794B' : '#8BA070',
                   strokeOpacity: 0.7,
                   strokeStyle: 'solid',
-                  fillColor: isSelected ? '#C97949' : '#8BA070',
+                  fillColor: isSelected ? '#F2C69F' : '#8BA070',
                   fillOpacity: 0.2
                 });
 
@@ -200,6 +220,10 @@ function createMapHtml(appKey: string, regions: Region[], selectedRegionId: stri
 
                 overlay.setMap(map);
               });
+
+              didFinish = true;
+              window.clearTimeout(readyTimeoutId);
+              postMessage({ type: 'MAP_READY' });
             });
           } catch (error) {
             fail('KAKAO_MAP_INIT_FAILED');
@@ -220,12 +244,21 @@ function createMapHtml(appKey: string, regions: Region[], selectedRegionId: stri
 </html>`;
 }
 
+function normalizeBaseUrl(origin: string) {
+  return origin.endsWith('/') ? origin : `${origin}/`;
+}
+
 export function KakaoMapView({ regions, selectedRegionId, onSelectRegion, style }: KakaoMapViewProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [hasLoadFailed, setHasLoadFailed] = useState(false);
   const appKey = process.env.EXPO_PUBLIC_KAKAO_MAP_APP_KEY?.trim();
-  const kakaoMapWebOrigin = process.env.EXPO_PUBLIC_KAKAO_MAP_WEB_ORIGIN?.trim() || 'https://catdex.local';
-  const html = useMemo(() => (appKey ? createMapHtml(appKey, regions, selectedRegionId) : ''), [appKey, regions, selectedRegionId]);
+  const kakaoMapWebOrigin = process.env.EXPO_PUBLIC_KAKAO_MAP_WEB_ORIGIN?.trim() ?? '';
+  const kakaoMapWebBaseUrl = kakaoMapWebOrigin ? normalizeBaseUrl(kakaoMapWebOrigin) : undefined;
+  const html = useMemo(() => (appKey && regions.length > 0 ? createMapHtml(appKey, regions, selectedRegionId) : ''), [appKey, regions, selectedRegionId]);
+
+  useEffect(() => {
+    setHasLoadFailed(false);
+  }, [appKey, kakaoMapWebBaseUrl]);
 
   const handleMessage = (event: WebViewMessageEvent) => {
     const message = parseBridgeMessage(event.nativeEvent.data);
@@ -235,7 +268,14 @@ export function KakaoMapView({ regions, selectedRegionId, onSelectRegion, style 
     }
 
     if (message.type === 'MAP_LOAD_ERROR') {
+      console.warn('[kakao-map] map load failed', message.message ?? 'UNKNOWN');
       setHasLoadFailed(true);
+      return;
+    }
+
+    if (message.type === 'MAP_READY') {
+      setIsLoading(false);
+      setHasLoadFailed(false);
       return;
     }
 
@@ -246,27 +286,26 @@ export function KakaoMapView({ regions, selectedRegionId, onSelectRegion, style 
     }
   };
 
-  if (!appKey || hasLoadFailed) {
+  if (!appKey || regions.length === 0 || hasLoadFailed) {
     return (
       <View style={[styles.fallbackContainer, style]}>
-        <View style={styles.paperRoad} />
-        <View style={styles.paperPark} />
-        {regions.map((region, index) => {
+        <Text style={styles.fallbackTitle}>지도를 불러오지 못했어요</Text>
+        <Text style={styles.fallbackText}>지도 대신 동네 냥이 구역 목록을 보여드릴게요.</Text>
+        <View style={styles.fallbackRegionList}>
+        {regions.map((region) => {
           const isSelected = region.id === selectedRegionId;
-          const position = fallbackRegionPositions[index % fallbackRegionPositions.length];
 
           return (
             <Pressable
               key={region.id}
               onPress={() => onSelectRegion(region)}
               style={[
-                styles.regionCircle,
-                position,
+                styles.regionFallbackItem,
                 isSelected ? styles.regionCircleSelected : null,
               ]}
             >
               <Text numberOfLines={1} style={[styles.regionCircleText, isSelected ? styles.regionCircleTextSelected : null]}>
-                {region.name.replace('부천시 ', '').replace(' 근처', '')}
+                {formatMapRegionName(region.name)}
               </Text>
               <Text style={[styles.regionCircleCount, isSelected ? styles.regionCircleTextSelected : null]}>
                 {region.cats.length}마리
@@ -274,7 +313,7 @@ export function KakaoMapView({ regions, selectedRegionId, onSelectRegion, style 
             </Pressable>
           );
         })}
-        <Text style={styles.fallbackText}>Kakao 지도를 불러오지 못해 지역 단위 지도로 표시 중이에요.</Text>
+        </View>
       </View>
     );
   }
@@ -291,14 +330,19 @@ export function KakaoMapView({ regions, selectedRegionId, onSelectRegion, style 
         domStorageEnabled
         javaScriptEnabled
         mixedContentMode="always"
-        onError={() => setHasLoadFailed(true)}
-        onHttpError={() => setHasLoadFailed(true)}
+        onError={(event) => {
+          console.warn('[kakao-map] webview error', event.nativeEvent);
+          setHasLoadFailed(true);
+        }}
+        onHttpError={(event) => {
+          console.warn('[kakao-map] webview http error', event.nativeEvent);
+        }}
         onLoadEnd={() => setIsLoading(false)}
         onLoadStart={() => setIsLoading(true)}
         onMessage={handleMessage}
         originWhitelist={['*']}
         scrollEnabled={false}
-        source={{ html, baseUrl: kakaoMapWebOrigin }}
+        source={kakaoMapWebBaseUrl ? { html, baseUrl: kakaoMapWebBaseUrl } : { html }}
         style={styles.webView}
         thirdPartyCookiesEnabled
       />
@@ -326,36 +370,33 @@ const styles = StyleSheet.create({
   fallbackContainer: {
     flex: 1,
     overflow: 'hidden',
-    paddingHorizontal: theme.spacing.xl,
+    justifyContent: 'center',
+    gap: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.lg,
     backgroundColor: theme.colors.mapBase,
     borderWidth: 1,
     borderColor: theme.colors.border,
   },
-  paperRoad: {
-    position: 'absolute',
-    top: 80,
-    left: -40,
-    width: 520,
-    height: 110,
-    borderRadius: 80,
-    backgroundColor: 'rgba(255,253,246,0.38)',
-    transform: [{ rotate: '-14deg' }],
+  fallbackTitle: {
+    color: theme.colors.text,
+    fontSize: 16,
+    fontWeight: '900',
+    textAlign: 'center',
   },
-  paperPark: {
-    position: 'absolute',
-    right: -70,
-    bottom: 82,
-    left: -70,
-    height: 190,
-    borderTopLeftRadius: 180,
-    borderTopRightRadius: 180,
-    backgroundColor: 'rgba(221,229,200,0.64)',
+  fallbackText: {
+    color: theme.colors.mutedText,
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: '700',
+    textAlign: 'center',
   },
-  regionCircle: {
-    position: 'absolute',
-    width: 118,
-    height: 118,
-    borderRadius: 59,
+  fallbackRegionList: {
+    gap: theme.spacing.sm,
+    marginTop: theme.spacing.sm,
+  },
+  regionFallbackItem: {
+    minHeight: 46,
+    borderRadius: theme.radius.lg,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: theme.spacing.md,
@@ -382,26 +423,4 @@ const styles = StyleSheet.create({
   regionCircleTextSelected: {
     color: theme.colors.text,
   },
-  fallbackText: {
-    position: 'absolute',
-    right: theme.spacing.xl,
-    bottom: 260,
-    left: theme.spacing.xl,
-    color: theme.colors.mutedText,
-    fontSize: 13,
-    fontWeight: '600',
-    lineHeight: 20,
-    textAlign: 'center',
-  },
 });
-
-const fallbackRegionPositions: Array<{
-  top?: number;
-  right?: number;
-  bottom?: number;
-  left?: number;
-}> = [
-  { top: 190, left: 42 },
-  { top: 300, right: 52 },
-  { bottom: 260, left: 92 },
-];

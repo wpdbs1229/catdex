@@ -1,7 +1,21 @@
 import { throwIfSupabaseError } from '@/shared/api/client';
 import { assertSupabaseConfigured, supabase } from '@/shared/supabase/client';
 import { catFilters, coatOptions, personalityOptions, totalDexCount } from '@/shared/constants/cat.constants';
-import type { Cat, CatEncounter, CatFilter, CatReportDraft, CatRarity, CatType, CaptureCatDraft, DexPlaceholder, DexProgress, HomeSummary, PersonalityTag } from '@/shared/types/cat';
+import type {
+  Cat,
+  CatEncounter,
+  CatFilter,
+  CatMatchCandidate,
+  CatObservation,
+  CatReportDraft,
+  CatRarity,
+  CatType,
+  CaptureCatDraft,
+  DexPlaceholder,
+  DexProgress,
+  HomeSummary,
+  PersonalityTag,
+} from '@/shared/types/cat';
 
 export interface CatOptionsResponse {
   filters: CatFilter[];
@@ -15,6 +29,7 @@ interface CatRow {
   name: string;
   type: CatType;
   rarity: CatRarity;
+  rarity_reasons: string[] | null;
   encounter_count: number;
   first_seen_at: string;
   last_seen_at: string;
@@ -47,6 +62,22 @@ interface CatSightingRow {
   behavior_hint: string;
   image_url: string | null;
   sighted_at: string;
+}
+
+interface CatObservationRow {
+  id: string;
+  original_image_url: string;
+  cutout_image_url: string;
+  region_name: string;
+  detection_confidence: number;
+  resolved_cat_id: string | null;
+}
+
+interface CatMatchCandidateRow {
+  cat_id: string;
+  score: number;
+  reason: string;
+  cats: CatRow | CatRow[] | null;
 }
 
 function formatDate(value: string) {
@@ -91,6 +122,7 @@ async function mapCat(row: CatRow): Promise<Cat> {
     name: row.name,
     type: row.type,
     rarity: row.rarity,
+    rarityReasons: row.rarity_reasons ?? [],
     encounterCount: row.encounter_count,
     firstSeenAt: formatDate(row.first_seen_at),
     lastSeenAt: formatDate(row.last_seen_at),
@@ -222,6 +254,17 @@ async function mapSightingPlaceholder(row: CatSightingRow, index: number): Promi
   };
 }
 
+function mapObservation(row: CatObservationRow): CatObservation {
+  return {
+    id: row.id,
+    originalImageUrl: row.original_image_url,
+    cutoutImageUrl: row.cutout_image_url,
+    regionName: row.region_name,
+    detectionConfidence: Number(row.detection_confidence),
+    matchedCatId: row.resolved_cat_id ?? undefined,
+  };
+}
+
 export async function fetchDexPlaceholders(): Promise<DexPlaceholder[]> {
   assertSupabaseConfigured();
 
@@ -274,6 +317,106 @@ export async function createCat(draft: CaptureCatDraft) {
   throwIfSupabaseError(error);
 
   return mapCat(data as CatRow);
+}
+
+export async function createCatObservation(draft: {
+  originalImageUrl: string;
+  cutoutImageUrl: string;
+  regionName: string;
+  detectionConfidence: number;
+  boundingBox: Record<string, number> | null;
+  featureVector: number[];
+  isPreciseCutout: boolean;
+}) {
+  assertSupabaseConfigured();
+
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  throwIfSupabaseError(userError);
+
+  if (!user) {
+    throw new Error('촬영 관찰 저장에는 로그인이 필요합니다.');
+  }
+
+  const { data, error } = await supabase
+    .from('cat_observations')
+    .insert({
+      user_id: user.id,
+      original_image_url: draft.originalImageUrl,
+      cutout_image_url: draft.cutoutImageUrl,
+      region_name: draft.regionName,
+      detection_confidence: draft.detectionConfidence,
+      detection_box: draft.boundingBox,
+      feature_vector: draft.featureVector,
+      is_precise_cutout: draft.isPreciseCutout,
+      status: 'pending',
+    })
+    .select('id, original_image_url, cutout_image_url, region_name, detection_confidence, resolved_cat_id')
+    .single();
+
+  throwIfSupabaseError(error);
+
+  return mapObservation(data as CatObservationRow);
+}
+
+export async function fetchCatMatchCandidates(payload: {
+  observationId?: string;
+  regionName: string;
+  featureVector: number[];
+  limit?: number;
+}) {
+  if (!payload.observationId) {
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from('cat_match_candidates')
+    .select('cat_id, score, reason, cats(*)')
+    .eq('observation_id', payload.observationId)
+    .order('rank', { ascending: true })
+    .limit(payload.limit ?? 5);
+  throwIfSupabaseError(error);
+
+  return Promise.all(
+    ((data ?? []) as CatMatchCandidateRow[])
+      .map((row) => {
+        const cat = Array.isArray(row.cats) ? row.cats[0] : row.cats;
+
+        if (!cat) {
+          return null;
+        }
+
+        return {
+          cat,
+          score: row.score,
+          reason: row.reason,
+        };
+      })
+      .filter((candidate): candidate is { cat: CatRow; score: number; reason: string } => candidate !== null)
+      .map(async (candidate) => ({
+        cat: await mapCat(candidate.cat),
+        score: candidate.score,
+        reason: candidate.reason,
+      })),
+  );
+}
+
+export async function resolveCatObservation(observationId: string, catId: string | null, status: 'linked' | 'new_cat' | 'uncertain') {
+  assertSupabaseConfigured();
+
+  const { error } = await supabase
+    .from('cat_observations')
+    .update({
+      resolved_cat_id: catId,
+      status,
+      resolved_at: new Date().toISOString(),
+    })
+    .eq('id', observationId);
+
+  throwIfSupabaseError(error);
 }
 
 export async function createCatSighting(draft: Pick<CaptureCatDraft, 'type' | 'regionName' | 'memo'> & { imageUrl?: string }) {

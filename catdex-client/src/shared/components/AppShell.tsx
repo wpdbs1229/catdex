@@ -5,7 +5,7 @@ import { theme } from '@/shared/styles/theme';
 
 interface AppShellProps {
   children: ReactNode;
-  bottomBar: ReactNode;
+  bottomBar?: ReactNode;
 }
 
 export function AppShell({ children, bottomBar }: AppShellProps) {
@@ -16,15 +16,18 @@ export function AppShell({ children, bottomBar }: AppShellProps) {
       <View style={styles.container}>
         <View pointerEvents="none" style={styles.backgroundLayer}>
           <View style={styles.paperWashTop} />
+          <View style={styles.paperGlow} />
           <View style={styles.paperTextureOne} />
           <View style={styles.paperTextureTwo} />
           <View style={styles.distantHill} />
           <View style={styles.nearHill} />
         </View>
         <View style={styles.content}>{children}</View>
-        <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, theme.spacing.md) }]}>
-          {bottomBar}
-        </View>
+        {bottomBar ? (
+          <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, theme.spacing.md) }]}>
+            {bottomBar}
+          </View>
+        ) : null}
       </View>
     </SafeAreaView>
   );
@@ -45,53 +48,63 @@ const styles = StyleSheet.create({
   },
   paperWashTop: {
     position: 'absolute',
-    top: -72,
-    right: -60,
-    left: -60,
-    height: 190,
-    borderBottomLeftRadius: 140,
-    borderBottomRightRadius: 140,
-    backgroundColor: 'rgba(255, 244, 220, 0.78)',
+    top: -96,
+    right: -80,
+    left: -80,
+    height: 260,
+    borderBottomLeftRadius: 190,
+    borderBottomRightRadius: 190,
+    backgroundColor: 'rgba(255, 244, 220, 0.82)',
+  },
+  paperGlow: {
+    position: 'absolute',
+    top: 116,
+    right: -34,
+    left: -34,
+    height: 210,
+    borderRadius: 120,
+    backgroundColor: 'rgba(255, 253, 246, 0.34)',
+    transform: [{ rotate: '-8deg' }],
   },
   paperTextureOne: {
     position: 'absolute',
-    top: 146,
-    right: -28,
-    width: 88,
-    height: 520,
-    borderRadius: 28,
-    backgroundColor: 'rgba(211, 164, 103, 0.08)',
-    transform: [{ rotate: '-9deg' }],
+    top: 170,
+    right: -30,
+    width: 98,
+    height: 500,
+    borderRadius: 34,
+    backgroundColor: 'rgba(211, 164, 103, 0.06)',
+    transform: [{ rotate: '-10deg' }],
   },
   paperTextureTwo: {
     position: 'absolute',
-    top: 294,
-    left: -32,
-    width: 74,
-    height: 440,
-    borderRadius: 26,
-    backgroundColor: 'rgba(139, 160, 112, 0.08)',
+    top: 316,
+    left: -34,
+    width: 84,
+    height: 430,
+    borderRadius: 30,
+    backgroundColor: 'rgba(139, 160, 112, 0.07)',
     transform: [{ rotate: '8deg' }],
   },
   distantHill: {
     position: 'absolute',
-    right: -80,
-    bottom: 104,
-    left: -80,
-    height: 172,
-    borderTopLeftRadius: 160,
-    borderTopRightRadius: 160,
-    backgroundColor: 'rgba(221, 229, 200, 0.48)',
+    right: -92,
+    bottom: 100,
+    left: -92,
+    height: 188,
+    borderTopLeftRadius: 180,
+    borderTopRightRadius: 180,
+    backgroundColor: 'rgba(221, 229, 200, 0.46)',
   },
   nearHill: {
     position: 'absolute',
-    right: -72,
-    bottom: 64,
-    left: -72,
-    height: 122,
-    borderTopLeftRadius: 120,
-    borderTopRightRadius: 120,
-    backgroundColor: 'rgba(248, 234, 210, 0.7)',
+    right: -86,
+    bottom: 54,
+    left: -86,
+    height: 136,
+    borderTopLeftRadius: 142,
+    borderTopRightRadius: 142,
+    backgroundColor: 'rgba(248, 234, 210, 0.74)',
   },
   content: {
     flex: 1,

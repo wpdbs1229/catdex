@@ -1,12 +1,16 @@
 import type { LucideIcon } from 'lucide-react-native';
-import { Bell, BookOpen, ChevronRight, Cloud, Heart, LogOut, Palette, Settings, Sparkles, Trophy } from 'lucide-react-native';
-import { Image, Pressable, ScrollView, StyleSheet, Text, View, type ImageSourcePropType } from 'react-native';
+import { Bell, BookOpen, ChevronRight, IdCard, Info, LogOut, Settings, ShieldCheck, Trash2, X } from 'lucide-react-native';
+import { useState } from 'react';
+import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View, type ImageSourcePropType } from 'react-native';
 import { ProgressBar } from '@/shared/components/ProgressBar';
+import { DEFAULT_BADGE_CATALOG } from '@/shared/constants/badge.constants';
+import { NYANGNYANGDAN_RANK_RULES } from '@/shared/profile/nyangnyangdan-rank';
 import { createShadow, theme } from '@/shared/styles/theme';
 import type { Badge, ExplorerProfile } from '@/shared/types/badge';
 import type { AuthUser } from '@/shared/types/auth';
 import type { Cat } from '@/shared/types/cat';
 import type { CollectionSummary } from '@/shared/types/collection';
+import { getCatIllustrationKey, type CatIllustrationKey } from '@/shared/utils/catPresentation';
 
 interface MyPageScreenProps {
   profile: ExplorerProfile;
@@ -14,42 +18,53 @@ interface MyPageScreenProps {
   myCats: Cat[];
   user: AuthUser;
   collectionSummary: CollectionSummary;
+  neighborhoodName: string;
   isSigningOut: boolean;
+  isWithdrawing: boolean;
   onLogout: () => void;
+  onWithdrawAccount: () => Promise<void> | void;
   onOpenCat: (catId: string) => void;
-  onOpenCollectionDrawer: () => void;
-  onOpenCollectionRankings: () => void;
+  onOpenBadges: () => void;
   onOpenExplorationHistory: () => void;
-  onOpenSharedCollections: () => void;
-  onOpenLikedCollections: () => void;
   onOpenNotifications: () => void;
   onOpenProfileEdit: () => void;
 }
 
 const illustrations = {
-  profile: require('../../../assets/illustrations/profile-cat.png'),
-  bottom: require('../../../assets/illustrations/my-bottom-cat.png'),
+  profile: require('../../../assets/illustrations/default-profile-avatar.png'),
   orange: require('../../../assets/illustrations/cat-orange-clean.png'),
   dark: require('../../../assets/illustrations/cat-dark-clean.png'),
   tuxedo: require('../../../assets/illustrations/cat-tuxedo-clean.png'),
-} satisfies Record<string, ImageSourcePropType>;
+  gray: require('../../../assets/illustrations/cat-gray-clean.png'),
+} satisfies Record<'profile' | CatIllustrationKey, ImageSourcePropType>;
 
 const badgeIcons = ['🐾', '🌿', '🦉', '💙'];
+
+function getEmployeeNumber(user: AuthUser) {
+  const source = `${user.provider}:${user.id}:${user.nickname}`;
+  let hash = 0;
+
+  for (let index = 0; index < source.length; index += 1) {
+    hash = (hash * 31 + source.charCodeAt(index)) % 10000;
+  }
+
+  return `NN-${String(hash).padStart(4, '0')}`;
+}
 
 function catImage(cat: Cat): ImageSourcePropType {
   if (cat.imageUrl) {
     return { uri: cat.imageUrl };
   }
 
-  if (cat.type === '턱시도') {
-    return illustrations.tuxedo;
-  }
+  return illustrations[getCatIllustrationKey(cat.type)];
+}
 
-  if (cat.type === '삼색이' || cat.type === '검은냥') {
-    return illustrations.dark;
-  }
+function formatNeighborhoodRank(neighborhoodName: string, rankTitle: string) {
+  return `${neighborhoodName} ${rankTitle}`;
+}
 
-  return illustrations.orange;
+function formatNeighborhoodGoal(goalLabel: string, neighborhoodName: string) {
+  return goalLabel.replaceAll('냥냥단', `${neighborhoodName} 냥냥단`);
 }
 
 export function MyPageScreen({
@@ -58,65 +73,131 @@ export function MyPageScreen({
   myCats,
   user,
   collectionSummary,
+  neighborhoodName,
   isSigningOut,
+  isWithdrawing,
   onLogout,
+  onWithdrawAccount,
   onOpenCat,
-  onOpenCollectionDrawer,
-  onOpenCollectionRankings,
+  onOpenBadges,
   onOpenExplorationHistory,
-  onOpenSharedCollections,
-  onOpenLikedCollections,
   onOpenNotifications,
   onOpenProfileEdit,
 }: MyPageScreenProps) {
-  const achievedBadges = badges.filter((badge) => badge.achieved);
-  const displayBadges = achievedBadges.length > 0 ? achievedBadges.slice(0, 4) : badges.slice(0, 4);
+  const [isRankGuideOpen, setIsRankGuideOpen] = useState(false);
+  const [isWithdrawalOpen, setIsWithdrawalOpen] = useState(false);
+  const badgeCatalog = badges.length > 0 ? badges : DEFAULT_BADGE_CATALOG.map((badge) => ({ ...badge, achieved: false }));
+  const achievedBadges = badgeCatalog.filter((badge) => badge.achieved);
+  const displayBadges = achievedBadges.length > 0 ? achievedBadges.slice(0, 4) : badgeCatalog.slice(0, 4);
   const featuredCats = collectionSummary.featuredCats.length > 0 ? collectionSummary.featuredCats.slice(0, 3) : myCats.slice(0, 3);
+  const employeeRank = profile.title;
+  const localizedEmployeeRank = formatNeighborhoodRank(neighborhoodName, employeeRank);
+  const localizedNextLevelLabel = formatNeighborhoodGoal(profile.nextLevelLabel, neighborhoodName);
+  const employeeNumber = getEmployeeNumber(user);
+  const isAccountActionDisabled = isSigningOut || isWithdrawing;
+
+  const handleConfirmWithdrawal = async () => {
+    try {
+      await onWithdrawAccount();
+      setIsWithdrawalOpen(false);
+    } catch {
+      // The app-level handler shows the user-facing error.
+    }
+  };
 
   return (
     <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-      <View style={styles.topRow}>
-        <View style={styles.profileRow}>
-          <Image resizeMode="cover" source={user.profileImageUrl ? { uri: user.profileImageUrl } : illustrations.profile} style={styles.avatar} />
-          <View style={styles.profileCopy}>
-            <View style={styles.nameRow}>
-              <Text numberOfLines={1} style={styles.nickname}>
-                {user.nickname}
-              </Text>
-            </View>
-            {collectionSummary.hasNyangkkureomi ? <Text style={styles.planPill}>{collectionSummary.planName}</Text> : null}
-            <Text style={styles.levelText}>레벨 {profile.level}</Text>
-            <ProgressBar value={profile.nextLevelProgress} />
-          </View>
+      <View style={styles.idHeaderRow}>
+        <View style={styles.idHeaderCopy}>
+          <Text style={styles.idHeaderKicker}>NYANGNYANGDAN OFFICE</Text>
+          <Text style={styles.idHeaderTitle}>냥냥단 사원증</Text>
         </View>
         <Pressable onPress={onOpenProfileEdit} style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}>
           <Settings color={theme.colors.primaryDark} size={20} />
         </Pressable>
       </View>
 
-      <View style={styles.statPanel}>
-        <View style={styles.statItem}>
-          <Text style={styles.statLabel}>도감 수집</Text>
-          <Text style={styles.statValue}>{profile.totalDiscoveries}</Text>
+      <View style={styles.employeeCard}>
+        <View style={styles.idCardTop}>
+          <View style={styles.idBadge}>
+            <IdCard color={theme.colors.primaryDark} size={16} />
+            <Text style={styles.idBadgeText}>OFFICIAL ID</Text>
+          </View>
+          <View style={styles.securityMark}>
+            <ShieldCheck color={theme.colors.accent} size={16} />
+            <Text style={styles.securityText}>위치 보호</Text>
+          </View>
         </View>
-        <View style={styles.statItem}>
-          <Text style={styles.statLabel}>재발견 횟수</Text>
-          <Text style={styles.statValue}>{profile.rediscoveries}</Text>
+
+        <View style={styles.idProfileRow}>
+          <View style={styles.idPhotoFrame}>
+            <Image resizeMode="cover" source={user.profileImageUrl ? { uri: user.profileImageUrl } : illustrations.profile} style={styles.idPhoto} />
+          </View>
+          <View style={styles.idInfo}>
+            <Text style={styles.idLabel}>냥냥단</Text>
+            <Text numberOfLines={1} style={styles.idName}>
+              {user.nickname}
+            </Text>
+            <Text adjustsFontSizeToFit minimumFontScale={0.78} numberOfLines={1} style={styles.idRank}>
+              {localizedEmployeeRank}
+            </Text>
+          </View>
         </View>
-        <View style={styles.statItem}>
-          <Text style={styles.statLabel}>공유 수</Text>
-          <Text style={styles.statValue}>{collectionSummary.featuredCats.length}</Text>
+
+        <View style={styles.idMetaGrid}>
+          <View style={styles.idMeta}>
+            <Text style={styles.idMetaLabel}>사원번호</Text>
+            <Text selectable style={styles.idMetaValue}>{employeeNumber}</Text>
+          </View>
+          <View style={styles.idMeta}>
+            <Text style={styles.idMetaLabel}>담당 동네</Text>
+            <Text numberOfLines={1} style={styles.idMetaValue}>{neighborhoodName}</Text>
+          </View>
         </View>
-        <View style={styles.statItem}>
-          <Text style={styles.statLabel}>연속 탐험</Text>
-          <Text style={styles.statValue}>{collectionSummary.achievedStampCount}일</Text>
+
+        <Pressable onPress={() => setIsRankGuideOpen(true)} style={({ pressed }) => [styles.idProgressBlock, pressed && styles.pressed]}>
+          <View style={styles.idProgressRow}>
+            <View style={styles.idProgressLabelRow}>
+              <Text style={styles.idProgressLabel}>다음 직급까지</Text>
+              <Info color={theme.colors.primaryDark} size={14} />
+            </View>
+            <Text style={styles.idProgressValue}>{Math.round(profile.nextLevelProgress)}%</Text>
+          </View>
+          <ProgressBar value={profile.nextLevelProgress} />
+          <Text numberOfLines={1} style={styles.idProgressCopy}>{localizedNextLevelLabel}</Text>
+        </Pressable>
+
+        <View style={styles.idPolicyStrip}>
+          <Text style={styles.idPolicyText}>고양이 방해 금지 · 정확한 위치 보호 · 조용히 기록</Text>
         </View>
       </View>
 
-      <View style={styles.badgePanel}>
+      <View style={styles.statPanel}>
+        <View style={styles.statItem}>
+          <Text style={styles.statLabel}>수집 임무</Text>
+          <Text style={styles.statValue}>{profile.totalDiscoveries}</Text>
+        </View>
+        <View style={styles.statItem}>
+          <Text style={styles.statLabel}>재발견</Text>
+          <Text style={styles.statValue}>{profile.rediscoveries}</Text>
+        </View>
+        <View style={styles.statItem}>
+          <Text style={styles.statLabel}>등록 고양이</Text>
+          <Text style={styles.statValue}>{myCats.length}</Text>
+        </View>
+        <View style={styles.statItem}>
+          <Text style={styles.statLabel}>획득 배지</Text>
+          <Text style={styles.statValue}>{collectionSummary.achievedBadgeCount}개</Text>
+        </View>
+      </View>
+
+      <Pressable accessibilityLabel="전체 배지북 보기" accessibilityRole="button" onPress={onOpenBadges} style={({ pressed }) => [styles.badgePanel, pressed && styles.pressed]}>
         <View style={styles.panelHeader}>
-          <Text style={styles.panelTitle}>획득한 배지</Text>
-          <Text style={styles.panelCount}>{collectionSummary.achievedBadgeCount} / {badges.length || 24}</Text>
+          <Text style={styles.panelTitle}>획득 배지</Text>
+          <View style={styles.panelAction}>
+            <Text style={styles.panelCount}>{collectionSummary.achievedBadgeCount} / {badgeCatalog.length}</Text>
+            <ChevronRight color={theme.colors.accent} size={15} />
+          </View>
         </View>
         <View style={styles.badgeRow}>
           {displayBadges.map((badge, index) => (
@@ -130,7 +211,7 @@ export function MyPageScreen({
             </View>
           ))}
         </View>
-      </View>
+      </Pressable>
 
       {featuredCats.length > 0 ? (
         <View style={styles.featuredRow}>
@@ -145,32 +226,98 @@ export function MyPageScreen({
         </View>
       ) : null}
 
-      <Pressable onPress={onOpenCollectionDrawer} style={({ pressed }) => [styles.drawerButton, pressed && styles.pressed]}>
-        <View style={styles.drawerIcon}>
-          <Sparkles color={theme.colors.primaryDark} size={18} />
-        </View>
-        <View style={styles.drawerCopy}>
-          <Text style={styles.drawerTitle}>고양이 서랍</Text>
-          <Text numberOfLines={2} style={styles.drawerText}>
-            표지, 우리 도감 주인공, 골목 배지와 냥발 도장을 꾸며요.
-          </Text>
-        </View>
-        <ChevronRight color={theme.colors.primaryDark} size={19} />
-      </Pressable>
-
       <View style={styles.menuPanel}>
-        <MenuItem icon={Palette} label="고양이 서랍" onPress={onOpenCollectionDrawer} />
-        <MenuItem icon={Trophy} label="동네 도감 랭킹" onPress={onOpenCollectionRankings} />
-        <MenuItem icon={BookOpen} label="탐험 기록" onPress={onOpenExplorationHistory} />
-        <MenuItem icon={Cloud} label="내가 공유한 도감" onPress={onOpenSharedCollections} />
-        <MenuItem icon={Heart} label="좋아요한 도감" onPress={onOpenLikedCollections} />
+        <MenuItem icon={BookOpen} label="근무 기록" onPress={onOpenExplorationHistory} />
         <MenuItem icon={Bell} label="알림 설정" onPress={onOpenNotifications} />
-        <MenuItem disabled={isSigningOut} icon={LogOut} label={isSigningOut ? '로그아웃 중...' : '로그아웃'} onPress={onLogout} />
+        <MenuItem disabled={isAccountActionDisabled} icon={LogOut} label={isSigningOut ? '로그아웃 중...' : '로그아웃'} onPress={onLogout} />
+        <MenuItem
+          disabled={isAccountActionDisabled}
+          icon={Trash2}
+          label={isWithdrawing ? '탈퇴 처리 중...' : '회원탈퇴'}
+          onPress={() => setIsWithdrawalOpen(true)}
+          tone="danger"
+        />
       </View>
 
-      <View pointerEvents="none">
-        <Image resizeMode="contain" source={illustrations.bottom} style={styles.bottomCat} />
-      </View>
+      <Modal animationType="fade" onRequestClose={() => setIsRankGuideOpen(false)} transparent visible={isRankGuideOpen}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.rankModal}>
+            <View style={styles.rankModalHeader}>
+              <View>
+                <Text style={styles.rankModalKicker}>냥냥단 인사팀</Text>
+                <Text style={styles.rankModalTitle}>직급 기준</Text>
+              </View>
+              <Pressable accessibilityLabel="직급 기준 닫기" onPress={() => setIsRankGuideOpen(false)} style={styles.modalCloseButton}>
+                <X color={theme.colors.primaryDark} size={20} />
+              </Pressable>
+            </View>
+
+            <View style={styles.currentRankCard}>
+              <Text style={styles.currentRankLabel}>현재 직급</Text>
+              <Text adjustsFontSizeToFit minimumFontScale={0.82} numberOfLines={1} style={styles.currentRankTitle}>
+                {localizedEmployeeRank}
+              </Text>
+              <Text style={styles.currentRankGoal}>{localizedNextLevelLabel}</Text>
+              <ProgressBar value={profile.nextLevelProgress} />
+            </View>
+
+            <ScrollView contentContainerStyle={styles.rankList} showsVerticalScrollIndicator={false}>
+              {NYANGNYANGDAN_RANK_RULES.map((rule) => {
+                const isCurrent = rule.level === profile.level;
+                const isAchieved = rule.level < profile.level;
+
+                return (
+                  <View key={rule.level} style={[styles.rankRuleRow, isCurrent && styles.rankRuleRowCurrent]}>
+                    <View style={[styles.rankRuleMarker, (isCurrent || isAchieved) && styles.rankRuleMarkerActive]}>
+                      <Text style={styles.rankRuleMarkerText}>{isAchieved ? '✓' : isCurrent ? '●' : ''}</Text>
+                    </View>
+                    <View style={styles.rankRuleCopy}>
+                      <Text style={[styles.rankRuleTitle, isCurrent && styles.rankRuleTitleCurrent]}>
+                        {formatNeighborhoodRank(neighborhoodName, rule.title)}
+                      </Text>
+                      <Text style={styles.rankRuleSummary}>{rule.summary}</Text>
+                    </View>
+                  </View>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal animationType="fade" onRequestClose={() => setIsWithdrawalOpen(false)} transparent visible={isWithdrawalOpen}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.withdrawalModal}>
+            <View style={styles.rankModalHeader}>
+              <View style={styles.withdrawalHeaderCopy}>
+                <Text style={styles.withdrawalKicker}>ACCOUNT WITHDRAWAL</Text>
+                <Text style={styles.rankModalTitle}>회원탈퇴</Text>
+              </View>
+              <Pressable accessibilityLabel="회원탈퇴 닫기" disabled={isWithdrawing} onPress={() => setIsWithdrawalOpen(false)} style={styles.modalCloseButton}>
+                <X color={theme.colors.primaryDark} size={20} />
+              </Pressable>
+            </View>
+
+            <Text style={styles.withdrawalLead}>탈퇴하면 계정 복구가 어렵고, 냥도감 활동 내역이 삭제돼요.</Text>
+
+            <View style={styles.withdrawalNotice}>
+              <Text style={styles.withdrawalNoticeItem}>프로필, 이메일, 푸시토큰, 사원증 정보가 삭제됩니다.</Text>
+              <Text style={styles.withdrawalNoticeItem}>내 도감, 관찰 기록, 배지, 알림 설정, 업로드한 이미지를 정리합니다.</Text>
+              <Text style={styles.withdrawalNoticeItem}>작성한 동네 이야기와 댓글도 계정과 함께 삭제됩니다.</Text>
+              <Text style={styles.withdrawalNoticeItem}>법령상 보존 의무가 있는 기록은 해당 기간 동안 분리 보관될 수 있습니다.</Text>
+            </View>
+
+            <View style={styles.withdrawalActions}>
+              <Pressable disabled={isWithdrawing} onPress={() => setIsWithdrawalOpen(false)} style={({ pressed }) => [styles.withdrawalCancelButton, pressed && styles.pressed]}>
+                <Text style={styles.withdrawalCancelText}>취소</Text>
+              </Pressable>
+              <Pressable disabled={isWithdrawing} onPress={handleConfirmWithdrawal} style={({ pressed }) => [styles.withdrawalConfirmButton, pressed && styles.pressed, isWithdrawing && styles.disabled]}>
+                <Text style={styles.withdrawalConfirmText}>{isWithdrawing ? '처리 중...' : '회원탈퇴'}</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
@@ -180,13 +327,16 @@ interface MenuItemProps {
   icon: LucideIcon;
   label: string;
   onPress?: () => void;
+  tone?: 'default' | 'danger';
 }
 
-function MenuItem({ disabled = false, icon: Icon, label, onPress }: MenuItemProps) {
+function MenuItem({ disabled = false, icon: Icon, label, onPress, tone = 'default' }: MenuItemProps) {
+  const color = tone === 'danger' ? '#B55345' : theme.colors.primaryDark;
+
   return (
     <Pressable disabled={disabled} onPress={onPress} style={({ pressed }) => [styles.menuItem, pressed && styles.pressed, disabled && styles.disabled]}>
-      <Icon color={theme.colors.primaryDark} size={18} />
-      <Text style={styles.menuLabel}>{label}</Text>
+      <Icon color={color} size={18} />
+      <Text style={[styles.menuLabel, tone === 'danger' && styles.menuLabelDanger]}>{label}</Text>
       <ChevronRight color={theme.colors.mutedText} size={18} />
     </Pressable>
   );
@@ -197,6 +347,190 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.lg,
     paddingTop: theme.spacing.md,
     paddingBottom: 132,
+  },
+  idHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: theme.spacing.md,
+    marginBottom: theme.spacing.md,
+  },
+  idHeaderCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  idHeaderKicker: {
+    color: theme.colors.accent,
+    fontSize: 11,
+    fontWeight: '900',
+  },
+  idHeaderTitle: {
+    marginTop: 3,
+    color: theme.colors.text,
+    fontSize: 25,
+    lineHeight: 31,
+    fontWeight: '900',
+  },
+  employeeCard: {
+    overflow: 'hidden',
+    borderRadius: theme.radius.xl,
+    padding: theme.spacing.lg,
+    backgroundColor: '#FFF6E8',
+    borderWidth: 1,
+    borderColor: 'rgba(201,121,73,0.24)',
+    ...createShadow(9),
+  },
+  idCardTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: theme.spacing.sm,
+  },
+  idBadge: {
+    minHeight: 30,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderRadius: 999,
+    paddingHorizontal: theme.spacing.sm,
+    backgroundColor: 'rgba(255,253,246,0.72)',
+    borderWidth: 1,
+    borderColor: 'rgba(139,112,83,0.14)',
+  },
+  idBadgeText: {
+    color: theme.colors.primaryDark,
+    fontSize: 10,
+    fontWeight: '900',
+  },
+  securityMark: {
+    minHeight: 30,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    borderRadius: 999,
+    paddingHorizontal: theme.spacing.sm,
+    backgroundColor: 'rgba(221,232,200,0.68)',
+  },
+  securityText: {
+    color: theme.colors.inkSoft,
+    fontSize: 10,
+    fontWeight: '900',
+  },
+  idProfileRow: {
+    marginTop: theme.spacing.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.md,
+  },
+  idPhotoFrame: {
+    width: 94,
+    height: 112,
+    borderRadius: 18,
+    padding: 6,
+    backgroundColor: 'rgba(255,253,246,0.92)',
+    borderWidth: 1,
+    borderColor: 'rgba(139,112,83,0.16)',
+  },
+  idPhoto: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 13,
+    backgroundColor: theme.colors.surfaceAlt,
+  },
+  idInfo: {
+    flex: 1,
+    minWidth: 0,
+  },
+  idLabel: {
+    color: theme.colors.accent,
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  idName: {
+    marginTop: 4,
+    color: theme.colors.text,
+    fontSize: 26,
+    lineHeight: 32,
+    fontWeight: '900',
+  },
+  idRank: {
+    marginTop: 5,
+    color: theme.colors.primaryDark,
+    fontSize: 14,
+    fontWeight: '900',
+  },
+  idMetaGrid: {
+    marginTop: theme.spacing.lg,
+    flexDirection: 'row',
+    gap: theme.spacing.sm,
+  },
+  idMeta: {
+    flex: 1,
+    minWidth: 0,
+    borderRadius: theme.radius.md,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    backgroundColor: 'rgba(255,253,246,0.72)',
+    borderWidth: 1,
+    borderColor: 'rgba(232,211,183,0.72)',
+  },
+  idMetaLabel: {
+    color: theme.colors.mutedText,
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  idMetaValue: {
+    marginTop: 4,
+    color: theme.colors.text,
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  idProgressBlock: {
+    marginTop: theme.spacing.md,
+    gap: 7,
+    borderRadius: theme.radius.md,
+  },
+  idProgressRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: theme.spacing.sm,
+  },
+  idProgressLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  idProgressLabel: {
+    color: theme.colors.primaryDark,
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  idProgressValue: {
+    color: theme.colors.accent,
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  idProgressCopy: {
+    color: theme.colors.mutedText,
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  idPolicyStrip: {
+    marginTop: theme.spacing.md,
+    minHeight: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: theme.radius.md,
+    paddingHorizontal: theme.spacing.sm,
+    backgroundColor: 'rgba(221,232,200,0.5)',
+  },
+  idPolicyText: {
+    color: theme.colors.inkSoft,
+    fontSize: 11,
+    lineHeight: 16,
+    fontWeight: '900',
+    textAlign: 'center',
   },
   topRow: {
     flexDirection: 'row',
@@ -231,64 +565,6 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '800',
     color: theme.colors.text,
-  },
-  planPill: {
-    alignSelf: 'flex-start',
-    marginTop: 4,
-    borderRadius: 999,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    overflow: 'hidden',
-    fontSize: 10,
-    fontWeight: '800',
-    color: theme.colors.primary,
-    backgroundColor: '#FFF0DC',
-  },
-  drawerButton: {
-    minHeight: 92,
-    marginTop: theme.spacing.lg,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.md,
-    borderRadius: theme.radius.lg,
-    padding: theme.spacing.md,
-    backgroundColor: '#FFF0DC',
-    borderWidth: 1,
-    borderColor: 'rgba(201,121,73,0.25)',
-    ...createShadow(6),
-  },
-  drawerIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255,253,246,0.74)',
-    borderWidth: 1,
-    borderColor: 'rgba(201,121,73,0.18)',
-  },
-  drawerCopy: {
-    flex: 1,
-    minWidth: 0,
-  },
-  drawerTitle: {
-    color: theme.colors.text,
-    fontSize: 17,
-    fontWeight: '900',
-  },
-  drawerText: {
-    marginTop: 5,
-    color: theme.colors.mutedText,
-    fontSize: 12,
-    fontWeight: '700',
-    lineHeight: 18,
-  },
-  levelText: {
-    marginTop: theme.spacing.sm,
-    marginBottom: 6,
-    fontSize: 12,
-    fontWeight: '800',
-    color: theme.colors.primaryDark,
   },
   iconButton: {
     width: 38,
@@ -343,6 +619,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  panelAction: {
+    minHeight: 34,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    borderRadius: 17,
+    paddingLeft: theme.spacing.md,
+    paddingRight: theme.spacing.sm,
+    backgroundColor: 'rgba(221,232,200,0.62)',
+    borderWidth: 1,
+    borderColor: 'rgba(111,131,77,0.18)',
   },
   panelTitle: {
     fontSize: 16,
@@ -434,12 +722,204 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: theme.colors.primaryDark,
   },
-  bottomCat: {
-    width: 150,
-    height: 130,
-    alignSelf: 'flex-end',
-    marginTop: -22,
-    marginRight: -6,
+  menuLabelDanger: {
+    color: '#B55345',
+  },
+  modalBackdrop: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(47,36,29,0.36)',
+  },
+  rankModal: {
+    maxHeight: '82%',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingHorizontal: theme.spacing.lg,
+    paddingTop: theme.spacing.lg,
+    paddingBottom: 34,
+    backgroundColor: '#FFF8EC',
+  },
+  withdrawalModal: {
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingHorizontal: theme.spacing.lg,
+    paddingTop: theme.spacing.lg,
+    paddingBottom: 34,
+    backgroundColor: '#FFF8EC',
+  },
+  rankModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: theme.spacing.md,
+  },
+  rankModalKicker: {
+    color: theme.colors.accent,
+    fontSize: 11,
+    fontWeight: '900',
+  },
+  rankModalTitle: {
+    marginTop: 3,
+    color: theme.colors.text,
+    fontSize: 24,
+    fontWeight: '900',
+  },
+  withdrawalHeaderCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  withdrawalKicker: {
+    color: '#B55345',
+    fontSize: 11,
+    fontWeight: '900',
+  },
+  withdrawalLead: {
+    marginTop: theme.spacing.lg,
+    color: theme.colors.text,
+    fontSize: 15,
+    lineHeight: 22,
+    fontWeight: '900',
+  },
+  withdrawalNotice: {
+    marginTop: theme.spacing.md,
+    gap: theme.spacing.sm,
+    borderRadius: theme.radius.lg,
+    padding: theme.spacing.md,
+    backgroundColor: '#FFF0EA',
+    borderWidth: 1,
+    borderColor: 'rgba(181,83,69,0.2)',
+  },
+  withdrawalNoticeItem: {
+    color: theme.colors.inkSoft,
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: '800',
+  },
+  withdrawalActions: {
+    marginTop: theme.spacing.lg,
+    flexDirection: 'row',
+    gap: theme.spacing.sm,
+  },
+  withdrawalCancelButton: {
+    flex: 1,
+    minHeight: 50,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: theme.radius.md,
+    backgroundColor: 'rgba(255,253,246,0.9)',
+    borderWidth: 1,
+    borderColor: 'rgba(139,112,83,0.16)',
+  },
+  withdrawalCancelText: {
+    color: theme.colors.primaryDark,
+    fontSize: 14,
+    fontWeight: '900',
+  },
+  withdrawalConfirmButton: {
+    flex: 1,
+    minHeight: 50,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: theme.radius.md,
+    backgroundColor: '#B55345',
+  },
+  withdrawalConfirmText: {
+    color: '#FFF8F0',
+    fontSize: 14,
+    fontWeight: '900',
+  },
+  modalCloseButton: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,253,246,0.82)',
+    borderWidth: 1,
+    borderColor: 'rgba(139,112,83,0.14)',
+  },
+  currentRankCard: {
+    marginTop: theme.spacing.lg,
+    gap: theme.spacing.sm,
+    borderRadius: theme.radius.lg,
+    padding: theme.spacing.lg,
+    backgroundColor: '#FFF0DC',
+    borderWidth: 1,
+    borderColor: 'rgba(201,121,73,0.22)',
+  },
+  currentRankLabel: {
+    color: theme.colors.mutedText,
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  currentRankTitle: {
+    color: theme.colors.text,
+    fontSize: 24,
+    fontWeight: '900',
+  },
+  currentRankGoal: {
+    color: theme.colors.primaryDark,
+    fontSize: 13,
+    lineHeight: 19,
+    fontWeight: '800',
+  },
+  rankList: {
+    gap: theme.spacing.sm,
+    paddingTop: theme.spacing.lg,
+    paddingBottom: theme.spacing.sm,
+  },
+  rankRuleRow: {
+    minHeight: 58,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.md,
+    borderRadius: theme.radius.md,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    backgroundColor: 'rgba(255,253,246,0.76)',
+    borderWidth: 1,
+    borderColor: 'rgba(232,211,183,0.72)',
+  },
+  rankRuleRowCurrent: {
+    backgroundColor: 'rgba(221,232,200,0.66)',
+    borderColor: 'rgba(97,122,67,0.22)',
+  },
+  rankRuleMarker: {
+    width: 28,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 14,
+    backgroundColor: 'rgba(248,234,210,0.72)',
+    borderWidth: 1,
+    borderColor: 'rgba(139,112,83,0.12)',
+  },
+  rankRuleMarkerActive: {
+    backgroundColor: theme.colors.primaryDark,
+  },
+  rankRuleMarkerText: {
+    color: '#FFF8F0',
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  rankRuleCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  rankRuleTitle: {
+    color: theme.colors.text,
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  rankRuleTitleCurrent: {
+    color: theme.colors.primaryDark,
+  },
+  rankRuleSummary: {
+    marginTop: 3,
+    color: theme.colors.mutedText,
+    fontSize: 12,
+    fontWeight: '700',
+    lineHeight: 17,
   },
   pressed: {
     opacity: 0.82,

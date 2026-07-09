@@ -4,7 +4,6 @@ create table if not exists public.notification_settings (
   daily_reminder_time time not null default time '20:00',
   shared_cat_enabled boolean not null default true,
   achievement_enabled boolean not null default true,
-  social_enabled boolean not null default true,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -25,7 +24,7 @@ create table if not exists public.notification_events (
   id uuid primary key default gen_random_uuid(),
   recipient_id uuid not null references auth.users(id) on delete cascade,
   actor_id uuid references auth.users(id) on delete set null,
-  type text not null check (type in ('shared_cat', 'achievement', 'collection_like', 'collection_follow')),
+  type text not null check (type in ('shared_cat', 'achievement')),
   title text not null,
   body text not null,
   data jsonb not null default '{}'::jsonb,
@@ -236,72 +235,6 @@ begin
 end;
 $$;
 
-create or replace function private.notify_collection_like()
-returns trigger
-language plpgsql
-security definer
-set search_path = ''
-as $$
-begin
-  if not coalesce((
-    select settings.social_enabled
-    from public.notification_settings settings
-    where settings.user_id = new.owner_id
-  ), true) then
-    return new;
-  end if;
-
-  perform private.enqueue_notification_event(
-    new.owner_id,
-    new.liked_by,
-    'collection_like',
-    '내 도감에 좋아요가 도착했어요',
-    '공개 냥도감에 새로운 좋아요가 생겼어요.',
-    jsonb_build_object(
-      'screen', 'my',
-      'notificationType', 'collectionLike',
-      'ownerId', new.owner_id,
-      'actorId', new.liked_by
-    )
-  );
-
-  return new;
-end;
-$$;
-
-create or replace function private.notify_collection_follow()
-returns trigger
-language plpgsql
-security definer
-set search_path = ''
-as $$
-begin
-  if not coalesce((
-    select settings.social_enabled
-    from public.notification_settings settings
-    where settings.user_id = new.followed_id
-  ), true) then
-    return new;
-  end if;
-
-  perform private.enqueue_notification_event(
-    new.followed_id,
-    new.follower_id,
-    'collection_follow',
-    '새 팔로워가 생겼어요',
-    '누군가 내 공개 냥도감을 팔로우했어요.',
-    jsonb_build_object(
-      'screen', 'my',
-      'notificationType', 'collectionFollow',
-      'ownerId', new.followed_id,
-      'actorId', new.follower_id
-    )
-  );
-
-  return new;
-end;
-$$;
-
 do $$
 begin
   if to_regclass('public.cat_sightings') is not null then
@@ -317,16 +250,6 @@ drop trigger if exists user_badges_enqueue_notification on public.user_badges;
 create trigger user_badges_enqueue_notification
   after insert on public.user_badges
   for each row execute function private.notify_user_badge();
-
-drop trigger if exists collection_likes_enqueue_notification on public.collection_likes;
-create trigger collection_likes_enqueue_notification
-  after insert on public.collection_likes
-  for each row execute function private.notify_collection_like();
-
-drop trigger if exists collection_follows_enqueue_notification on public.collection_follows;
-create trigger collection_follows_enqueue_notification
-  after insert on public.collection_follows
-  for each row execute function private.notify_collection_follow();
 
 grant select, insert, update on public.notification_settings to authenticated;
 grant select, insert, update, delete on public.notification_devices to authenticated;

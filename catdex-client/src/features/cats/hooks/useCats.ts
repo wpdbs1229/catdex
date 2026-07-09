@@ -134,7 +134,7 @@ export function useCats(selectedCatId: string | null, enabled = true) {
     await reloadCats();
   };
 
-  const addEncounter = async (catId: string, regionName?: string) => {
+  const addEncounter = async (catId: string, regionName?: string, imageUrl?: string) => {
     const lastRegionName =
       regionName ??
       selectedCatEncounters[selectedCatEncounters.length - 1]?.regionName ??
@@ -143,6 +143,7 @@ export function useCats(selectedCatId: string | null, enabled = true) {
     await recordCatEncounter(catId, {
       regionName: lastRegionName,
       memo: '다시 만남 기록',
+      imageUrl,
     });
 
     await reloadCats();

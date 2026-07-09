@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react-native';
-import { Bell, ChevronLeft, Clock, PawPrint, Share2, Sparkles, Trophy } from 'lucide-react-native';
+import { Bell, BookOpen, ChevronLeft, Clock, Footprints, PawPrint, Share2, Trophy } from 'lucide-react-native';
 import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { Button } from '@/shared/components/Button';
 import { createShadow, theme } from '@/shared/styles/theme';
@@ -97,28 +97,44 @@ export function NotificationSettingsScreen({
         </View>
 
         <NotificationToggle
-          description="내 동네에 새 공유 고양이가 등록되면 알려줘요. 서버 푸시 연동 후 발송돼요."
+          description="내가 활동한 동네에 희귀하거나 첫 고양이 기록이 생기면 알려줘요."
           disabled={isSaving}
           icon={Share2}
-          label="새 공유 고양이"
+          label="동네 발견"
           onValueChange={(value) => updateSetting({ sharedCatEnabled: value })}
           value={settings.sharedCatEnabled}
         />
         <NotificationToggle
-          description="배지 획득, 레벨업, 재발견 기록 같은 성취를 알려줘요."
+          description="내가 남긴 고양이 기록에 다시 만남이나 사진이 추가되면 알려줘요."
+          disabled={isSaving}
+          icon={PawPrint}
+          label="내 고양이 소식"
+          onValueChange={(value) => updateSetting({ catUpdateEnabled: value })}
+          value={settings.catUpdateEnabled}
+        />
+        <NotificationToggle
+          description="배지 획득과 냥냥단 직급 상승 같은 성취를 알려줘요."
           disabled={isSaving}
           icon={Trophy}
-          label="배지와 레벨"
+          label="배지와 직급"
           onValueChange={(value) => updateSetting({ achievementEnabled: value })}
           value={settings.achievementEnabled}
         />
         <NotificationToggle
-          description="내 공개 도감 좋아요, 팔로우, 랭킹 변화를 알려줘요."
+          description="공개 냥도감의 좋아요와 팔로우 같은 반응을 알려줘요."
           disabled={isSaving}
-          icon={Sparkles}
-          label="도감 소셜 활동"
+          icon={Footprints}
+          label="도감 반응"
           onValueChange={(value) => updateSetting({ socialEnabled: value })}
           value={settings.socialEnabled}
+        />
+        <NotificationToggle
+          description="한 주 동안 쌓인 기록과 배지를 묶어서 알려줘요."
+          disabled={isSaving}
+          icon={BookOpen}
+          label="주간 리포트"
+          onValueChange={(value) => updateSetting({ weeklySummaryEnabled: value })}
+          value={settings.weeklySummaryEnabled}
         />
       </View>
 

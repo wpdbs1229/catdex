@@ -11,11 +11,11 @@ interface UserLevelCardProps {
 export function UserLevelCard({ profile }: UserLevelCardProps) {
   return (
     <Card style={styles.card}>
-      <Text style={styles.kicker}>탐험 레벨</Text>
+      <Text style={styles.kicker}>냥냥단 직급</Text>
       <View style={styles.header}>
         <View>
           <Text style={styles.title}>{profile.title}</Text>
-          <Text style={styles.level}>Lv.{profile.level}</Text>
+          <Text style={styles.rankLabel}>냥냥단 직급</Text>
         </View>
         <View style={styles.rediscoveryCard}>
           <Text style={styles.rediscoveryLabel}>이번 달 재발견</Text>
@@ -49,7 +49,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#FFF7EF',
   },
-  level: {
+  rankLabel: {
     marginTop: 4,
     fontSize: 16,
     color: '#F6E7DA',
