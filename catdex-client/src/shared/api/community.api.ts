@@ -61,6 +61,7 @@ export interface FetchCommunityThreadsOptions {
   postId?: string;
   regionName?: string;
   topic?: CommunityFilter;
+  mine?: boolean;
   limit?: number;
 }
 
@@ -183,7 +184,7 @@ async function getOptionalCurrentUserId() {
 export async function fetchCommunityPosts(options: FetchCommunityThreadsOptions = {}): Promise<CommunityPost[]> {
   assertSupabaseConfigured();
 
-  const userId = await getOptionalCurrentUserId();
+  const userId = options.mine ? await getCurrentUserId() : await getOptionalCurrentUserId();
   const limit = options.limit ?? 30;
   let postsQuery = supabase
     .from('community_posts')
@@ -203,6 +204,10 @@ export async function fetchCommunityPosts(options: FetchCommunityThreadsOptions 
 
   if (options.topic && options.topic !== 'ALL') {
     postsQuery = postsQuery.eq('topic', toStoredTopic(options.topic));
+  }
+
+  if (options.mine) {
+    postsQuery = postsQuery.eq('author_id', userId);
   }
 
   const postsResponse = await postsQuery;

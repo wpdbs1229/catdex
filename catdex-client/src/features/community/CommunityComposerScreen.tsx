@@ -124,7 +124,7 @@ export function CommunityComposerScreen({ cats, initialCatId, neighborhoodName, 
         <View style={styles.header}>
           <Text style={styles.kicker}>동네 게시판</Text>
           <Text style={styles.title}>{neighborhoodName}에 글 쓰기</Text>
-          <Text style={styles.description}>도감에 등록한 고양이를 연결하면 이웃이 어떤 아이 이야기인지 바로 이해할 수 있어요.</Text>
+          <Text style={styles.description}>내 도감의 고양이를 연결하면 이웃이 어떤 아이 이야기인지 바로 이해할 수 있어요.</Text>
         </View>
 
         <View style={styles.section}>
@@ -252,7 +252,7 @@ export function CommunityComposerScreen({ cats, initialCatId, neighborhoodName, 
 
         <View style={styles.safetyStrip}>
           <ShieldCheck color={theme.colors.accent} size={17} />
-          <Text style={styles.safetyText}>급식소, 정확한 좌표, 은신처처럼 고양이 안전에 민감한 정보는 쓰지 마세요.</Text>
+          <Text style={styles.safetyText}>게시글과 연결한 고양이 기록은 동네 게시판과 동네 도감에서 보일 수 있어요. 급식소, 정확한 좌표, 은신처는 쓰지 마세요.</Text>
         </View>
 
         <Pressable

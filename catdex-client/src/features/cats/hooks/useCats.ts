@@ -134,16 +134,19 @@ export function useCats(selectedCatId: string | null, enabled = true) {
     await reloadCats();
   };
 
-  const addEncounter = async (catId: string, regionName?: string, imageUrl?: string) => {
+  const addEncounter = async (catId: string, regionName?: string, imageUrl?: string, memo = '다시 만남 기록') => {
     const lastRegionName =
       regionName ??
       selectedCatEncounters[selectedCatEncounters.length - 1]?.regionName ??
       '동네 미지정';
+    const uploadedImage = imageUrl?.startsWith('file:')
+      ? await uploadCatImage(imageUrl)
+      : null;
 
     await recordCatEncounter(catId, {
       regionName: lastRegionName,
-      memo: '다시 만남 기록',
-      imageUrl,
+      memo,
+      imageUrl: uploadedImage?.imageUrl ?? imageUrl,
     });
 
     await reloadCats();

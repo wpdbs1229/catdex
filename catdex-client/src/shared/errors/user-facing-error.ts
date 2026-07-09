@@ -5,6 +5,7 @@ type ErrorContext =
   | 'community.save'
   | 'community.comment'
   | 'community.like'
+  | 'leaderboard.load'
   | 'capture.process'
   | 'profile.save'
   | 'notification.save'
@@ -40,6 +41,10 @@ const contextFallbacks: Record<ErrorContext, UserFacingError> = {
   'community.like': {
     title: '공감을 반영하지 못했어요',
     message: '화면을 다시 불러와 최신 상태로 맞춰볼게요.',
+  },
+  'leaderboard.load': {
+    title: '랭킹을 불러오지 못했어요',
+    message: '잠시 후 다시 시도해 주세요. 기록은 그대로 남아 있어요.',
   },
   'capture.process': {
     title: '사진을 처리하지 못했어요',

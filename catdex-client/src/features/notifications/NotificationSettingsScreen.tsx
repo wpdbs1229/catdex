@@ -121,10 +121,10 @@ export function NotificationSettingsScreen({
           value={settings.achievementEnabled}
         />
         <NotificationToggle
-          description="공개 냥도감의 좋아요와 팔로우 같은 반응을 알려줘요."
+          description="내가 남긴 고양이 기록이나 게시글에 반응이 생기면 알려줘요."
           disabled={isSaving}
           icon={Footprints}
-          label="도감 반응"
+          label="기록 반응"
           onValueChange={(value) => updateSetting({ socialEnabled: value })}
           value={settings.socialEnabled}
         />

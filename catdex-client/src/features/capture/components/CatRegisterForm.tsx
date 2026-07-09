@@ -57,6 +57,9 @@ export function CatRegisterForm({
         <View style={styles.photoStatus}>
           <Text style={styles.photoStatusText}>{capturedImageUri ? '사진이 등록 폼에 첨부됐어요.' : '사진을 찍으면 도감 기록에 첨부돼요.'}</Text>
         </View>
+        <View style={styles.shareNotice}>
+          <Text style={styles.shareNoticeText}>새 고양이 정보는 내 도감에 저장되고, 이웃이 함께 보는 동네 도감에도 동네 단위로 쌓여요.</Text>
+        </View>
       </View>
 
       <View style={styles.section}>
@@ -174,6 +177,21 @@ const styles = StyleSheet.create({
     color: theme.colors.mutedText,
     fontSize: 13,
     fontWeight: '600',
+  },
+  shareNotice: {
+    marginTop: theme.spacing.sm,
+    borderRadius: theme.radius.md,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    backgroundColor: 'rgba(221,232,200,0.58)',
+    borderWidth: 1,
+    borderColor: 'rgba(113,138,91,0.16)',
+  },
+  shareNoticeText: {
+    color: theme.colors.inkSoft,
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: '800',
   },
   textarea: {
     marginTop: theme.spacing.sm,

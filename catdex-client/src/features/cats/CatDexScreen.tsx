@@ -134,8 +134,9 @@ export function CatDexScreen({
     <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
       <View style={styles.bookHeader}>
         <View>
-          <Text style={styles.bookKicker}>스티커북</Text>
-          <Text style={styles.bookTitle}>{hasSearchQuery ? '찾은 고양이' : '모아둔 고양이'}</Text>
+          <Text style={styles.bookKicker}>내 도감</Text>
+          <Text style={styles.bookTitle}>{hasSearchQuery ? '내 도감 검색' : '내가 모은 고양이'}</Text>
+          <Text style={styles.bookDescription}>내가 등록하거나 다시 만난 고양이만 모아보는 개인 기록이에요.</Text>
         </View>
         <View style={styles.bookCountBadge}>
           <BookOpen color={theme.colors.primaryDark} size={15} />
@@ -149,7 +150,7 @@ export function CatDexScreen({
           autoCapitalize="none"
           autoCorrect={false}
           onChangeText={setSearchQuery}
-          placeholder="이름이나 특징으로 찾기"
+          placeholder="내 도감에서 이름이나 특징 찾기"
           placeholderTextColor={theme.colors.mutedText}
           returnKeyType="search"
           style={styles.searchInput}
@@ -222,7 +223,7 @@ export function CatDexScreen({
           <PawPrint color="#D4B989" size={38} />
           <Text style={styles.emptyTitle}>{hasSearchQuery ? '검색 결과가 없어요' : '아직 수집한 고양이가 없어요'}</Text>
           <Text style={styles.emptyText}>
-            {hasSearchQuery ? '다른 이름, 특징, 태그로 다시 찾아보세요.' : '첫 고양이를 등록하면 도감 페이지가 여기에 채워져요.'}
+            {hasSearchQuery ? '다른 이름, 특징, 태그로 다시 찾아보세요.' : '첫 고양이를 등록하면 내 도감 페이지가 여기에 채워져요.'}
           </Text>
         </View>
       ) : null}
@@ -252,6 +253,14 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
     fontSize: 23,
     fontWeight: '900',
+  },
+  bookDescription: {
+    marginTop: 6,
+    maxWidth: 230,
+    color: theme.colors.mutedText,
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: '700',
   },
   bookCountBadge: {
     minHeight: 34,

@@ -21,6 +21,7 @@ import { CatDexScreen } from '@/features/cats/CatDexScreen';
 import { useCats } from '@/features/cats/hooks/useCats';
 import { CommunityBoardScreen } from '@/features/community/CommunityBoardScreen';
 import { CommunityComposerScreen } from '@/features/community/CommunityComposerScreen';
+import { MyCommunityPostsScreen } from '@/features/community/MyCommunityPostsScreen';
 import { CommunityPostDetailScreen } from '@/features/community/CommunityPostDetailScreen';
 import { HomeScreen } from '@/features/home/HomeScreen';
 import { NeighborhoodMapScreen } from '@/features/map/NeighborhoodMapScreen';
@@ -73,6 +74,7 @@ const emptyCustomization: CollectionCustomizationState = {
 const UNSET_NEIGHBORHOOD_NAME = '동네 설정 전';
 
 type NeighborhoodView = 'map' | 'board';
+type CommunityReturnScreen = 'board' | 'myCommunityPosts';
 
 function isSameNeighborhood(left: SavedNeighborhood, right: SavedNeighborhood) {
   return (
@@ -138,6 +140,7 @@ export default function App() {
   const [notificationPermissionState, setNotificationPermissionState] = useState<NotificationPermissionState>('undetermined');
   const [isNotificationSaving, setIsNotificationSaving] = useState(false);
   const [notificationReturnScreen, setNotificationReturnScreen] = useState<TabScreen>('my');
+  const [communityReturnScreen, setCommunityReturnScreen] = useState<CommunityReturnScreen>('board');
   const [isProfileSaving, setIsProfileSaving] = useState(false);
   const {
     addEncounter,
@@ -178,8 +181,11 @@ export default function App() {
       case 'detail':
         return 'dex';
       case 'communityPostDetail':
+        return communityReturnScreen === 'myCommunityPosts' ? 'my' : 'map';
       case 'communityCompose':
         return 'map';
+      case 'myCommunityPosts':
+        return 'my';
       case 'explorationHistory':
       case 'badgeBook':
       case 'profileEdit':
@@ -330,7 +336,8 @@ export default function App() {
     });
   };
 
-  const handleOpenCommunityPost = (postId: string) => {
+  const handleOpenCommunityPost = (postId: string, returnScreen: CommunityReturnScreen = 'board') => {
+    setCommunityReturnScreen(returnScreen);
     setNeighborhoodView('board');
     setNavigation({
       screen: 'communityPostDetail',
@@ -341,7 +348,8 @@ export default function App() {
     });
   };
 
-  const handleOpenCommunityCompose = (catId?: string) => {
+  const handleOpenCommunityCompose = (catId?: string, returnScreen: CommunityReturnScreen = 'board') => {
+    setCommunityReturnScreen(returnScreen);
     setNeighborhoodView('board');
     setNavigation({
       screen: 'communityCompose',
@@ -498,15 +506,6 @@ export default function App() {
     }
   };
 
-  const handleRecordEncounter = async () => {
-    if (!visibleSelectedCat) {
-      return;
-    }
-
-    await addEncounter(visibleSelectedCat.id);
-    await reloadAppResources();
-  };
-
   const handleRecordExistingCat = async (catId: string, payload?: { observationId?: string; imageUrl?: string }) => {
     if (!hasActiveNeighborhood) {
       const alert = getNeighborhoodRequiredAlert();
@@ -550,6 +549,16 @@ export default function App() {
       screen: 'explorationHistory',
       selectedCatId: null,
       selectedOwnerId: null,
+    });
+  };
+
+  const handleOpenMyCommunityPosts = () => {
+    setNavigation({
+      screen: 'myCommunityPosts',
+      selectedCatId: null,
+      selectedOwnerId: null,
+      selectedCommunityCatId: null,
+      selectedCommunityPostId: null,
     });
   };
 
@@ -717,7 +726,6 @@ export default function App() {
             onOpenBadges={handleOpenBadgeBook}
             onOpenCat={handleOpenCat}
             onOpenNotifications={() => handleOpenNotifications('home')}
-            onRecordExisting={handleRecordExistingCat}
             onRemoveNeighborhood={handleRemoveNeighborhood}
             onSelectNeighborhood={handleSelectNeighborhood}
             profile={profile}
@@ -730,7 +738,7 @@ export default function App() {
       case 'dex':
         return (
           <CatDexScreen
-            cats={cats}
+            cats={myCats}
             onOpenCat={handleOpenCat}
             placeholders={undiscoveredDexSlots}
           />
@@ -742,12 +750,11 @@ export default function App() {
             encounters={selectedCatEncounters}
             onBack={() => handleTabChange('dex')}
             onComposePost={() => handleOpenCommunityCompose(visibleSelectedCat.id)}
-            onRecordEncounter={handleRecordEncounter}
             onReportCat={handleReportSelectedCat}
           />
         ) : (
           <CatDexScreen
-            cats={cats}
+            cats={myCats}
             onOpenCat={handleOpenCat}
             placeholders={undiscoveredDexSlots}
           />
@@ -780,6 +787,7 @@ export default function App() {
             cats={cats}
             neighborhoodName={activeNeighborhoodName}
             onGoCapture={() => handleTabChange('capture')}
+            onOpenCat={handleOpenCat}
             onOpenCommunityBoard={handleOpenCommunityBoard}
             onOpenCommunityPost={handleOpenCommunityPost}
             regions={visibleRegions}
@@ -788,7 +796,7 @@ export default function App() {
       case 'communityPostDetail':
         return navigation.selectedCommunityPostId ? (
           <CommunityPostDetailScreen
-            onBack={handleOpenCommunityBoard}
+            onBack={communityReturnScreen === 'myCommunityPosts' ? handleOpenMyCommunityPosts : handleOpenCommunityBoard}
             onOpenCat={handleOpenCat}
             postId={navigation.selectedCommunityPostId}
           />
@@ -806,8 +814,8 @@ export default function App() {
             cats={myCats}
             initialCatId={navigation.selectedCommunityCatId}
             neighborhoodName={activeNeighborhoodName}
-            onBack={handleOpenCommunityBoard}
-            onCreated={handleOpenCommunityPost}
+            onBack={communityReturnScreen === 'myCommunityPosts' ? handleOpenMyCommunityPosts : handleOpenCommunityBoard}
+            onCreated={(postId) => handleOpenCommunityPost(postId, communityReturnScreen)}
           />
         );
       case 'my':
@@ -821,6 +829,7 @@ export default function App() {
             neighborhoodName={activeNeighborhoodName}
             onOpenExplorationHistory={handleOpenExplorationHistory}
             onOpenBadges={handleOpenBadgeBook}
+            onOpenCommunityPosts={handleOpenMyCommunityPosts}
             onOpenNotifications={() => handleOpenNotifications('my')}
             onOpenProfileEdit={handleOpenProfileEdit}
             onOpenCat={handleOpenCat}
@@ -830,6 +839,14 @@ export default function App() {
             user={currentUser}
           />
         ) : null;
+      case 'myCommunityPosts':
+        return (
+          <MyCommunityPostsScreen
+            onBack={() => handleTabChange('my')}
+            onComposePost={() => handleOpenCommunityCompose(undefined, 'myCommunityPosts')}
+            onOpenPost={(postId) => handleOpenCommunityPost(postId, 'myCommunityPosts')}
+          />
+        );
       case 'badgeBook':
         return (
           <BadgeBookScreen

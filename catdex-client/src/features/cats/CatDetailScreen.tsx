@@ -22,12 +22,12 @@ interface CatDetailScreenProps {
   encounters: CatEncounter[];
   onBack: () => void;
   onComposePost: () => void;
-  onRecordEncounter: () => void;
   onReportCat: () => void;
 }
 
-export function CatDetailScreen({ cat, encounters, onBack, onComposePost, onRecordEncounter, onReportCat }: CatDetailScreenProps) {
+export function CatDetailScreen({ cat, encounters, onBack, onComposePost, onReportCat }: CatDetailScreenProps) {
   const [isRarityGuideOpen, setIsRarityGuideOpen] = useState(false);
+  const [isRelationshipGuideOpen, setIsRelationshipGuideOpen] = useState(false);
   const visual = getCatVisual(cat.type);
   const rarityGuide = getRarityGuide(cat);
 
@@ -69,7 +69,16 @@ export function CatDetailScreen({ cat, encounters, onBack, onComposePost, onReco
             <Text style={styles.infoValue}>{cat.encounterCount}회</Text>
           </Card>
           <Card style={styles.infoCard}>
-            <Text style={styles.infoLabel}>관계 레벨</Text>
+            <View style={styles.infoLabelRow}>
+              <Text style={styles.infoLabel}>관계 레벨</Text>
+              <Pressable
+                accessibilityLabel="관계 레벨 기준 보기"
+                onPress={() => setIsRelationshipGuideOpen(true)}
+                style={styles.infoIconButton}
+              >
+                <Info color={theme.colors.primaryDark} size={14} />
+              </Pressable>
+            </View>
             <Text style={styles.infoValueSmall}>{cat.relationshipLevel}</Text>
           </Card>
         </View>
@@ -102,7 +111,6 @@ export function CatDetailScreen({ cat, encounters, onBack, onComposePost, onReco
         <EncounterTimeline encounters={encounters} />
 
         <View style={styles.buttonWrap}>
-          <Button onPress={onRecordEncounter}>나도 봤어요</Button>
           <Button onPress={onComposePost} variant="secondary">
             이 고양이로 글쓰기
           </Button>
@@ -142,6 +150,50 @@ export function CatDetailScreen({ cat, encounters, onBack, onComposePost, onReco
 
             <Text style={styles.rarityNote}>
               희귀도는 처음 등록될 때 털색과 동네/전체 도감 분포로 정해져요. 다시 만난 횟수는 관계 레벨에만 반영돼요.
+            </Text>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal animationType="fade" onRequestClose={() => setIsRelationshipGuideOpen(false)} transparent visible={isRelationshipGuideOpen}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.rarityModal}>
+            <View style={styles.modalHeader}>
+              <View style={styles.modalTitleGroup}>
+                <Text style={styles.modalKicker}>친밀도 기준</Text>
+                <Text style={styles.modalTitle}>{cat.relationshipLevel}</Text>
+              </View>
+              <Pressable accessibilityLabel="관계 레벨 기준 닫기" onPress={() => setIsRelationshipGuideOpen(false)} style={styles.modalCloseButton}>
+                <X color={theme.colors.primaryDark} size={20} />
+              </Pressable>
+            </View>
+
+            <View style={styles.rarityScoreCard}>
+              <Text style={styles.rarityScoreLabel}>현재 발견 횟수</Text>
+              <Text style={styles.relationshipScoreText}>{cat.encounterCount}회</Text>
+              <Text style={styles.rarityScoreText}>촬영 후 같은 고양이로 확인된 기록만 반영돼요.</Text>
+            </View>
+
+            <View style={styles.relationshipGuideList}>
+              {[
+                { count: '1회', label: '첫 만남' },
+                { count: '2-3회', label: '살짝 경계 중' },
+                { count: '4-6회', label: '동네 친구' },
+                { count: '7회 이상', label: '골목 대장' },
+              ].map((level) => {
+                const isCurrent = cat.relationshipLevel === level.label;
+
+                return (
+                  <View key={level.label} style={[styles.relationshipGuideRow, isCurrent && styles.relationshipGuideRowActive]}>
+                    <Text style={[styles.relationshipGuideCount, isCurrent && styles.relationshipGuideTextActive]}>{level.count}</Text>
+                    <Text style={[styles.relationshipGuideLabel, isCurrent && styles.relationshipGuideTextActive]}>{level.label}</Text>
+                  </View>
+                );
+              })}
+            </View>
+
+            <Text style={styles.rarityNote}>
+              친밀도는 버튼으로 직접 올릴 수 없어요. 촬영 화면에서 후보를 보고 사용자가 같은 고양이라고 확인한 다시 발견 기록만 누적돼요.
             </Text>
           </View>
         </View>
@@ -245,6 +297,22 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#8B6956',
+  },
+  infoLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: theme.spacing.sm,
+  },
+  infoIconButton: {
+    width: 28,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,248,236,0.86)',
+    borderWidth: 1,
+    borderColor: 'rgba(139,112,83,0.14)',
   },
   infoValue: {
     marginTop: theme.spacing.md,
@@ -360,6 +428,47 @@ const styles = StyleSheet.create({
     color: theme.colors.primaryDark,
     fontSize: 13,
     fontWeight: '800',
+  },
+  relationshipScoreText: {
+    marginTop: theme.spacing.sm,
+    color: theme.colors.text,
+    fontSize: 28,
+    fontWeight: '900',
+  },
+  relationshipGuideList: {
+    gap: theme.spacing.sm,
+    paddingTop: theme.spacing.lg,
+  },
+  relationshipGuideRow: {
+    minHeight: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: theme.spacing.md,
+    borderRadius: theme.radius.lg,
+    paddingHorizontal: theme.spacing.md,
+    backgroundColor: 'rgba(255,253,246,0.68)',
+    borderWidth: 1,
+    borderColor: 'rgba(139,112,83,0.1)',
+  },
+  relationshipGuideRowActive: {
+    backgroundColor: theme.colors.primaryDark,
+    borderColor: 'rgba(78,52,37,0.22)',
+  },
+  relationshipGuideCount: {
+    color: theme.colors.mutedText,
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  relationshipGuideLabel: {
+    flex: 1,
+    color: theme.colors.text,
+    fontSize: 15,
+    fontWeight: '900',
+    textAlign: 'right',
+  },
+  relationshipGuideTextActive: {
+    color: '#FFF8F0',
   },
   reasonList: {
     gap: theme.spacing.sm,

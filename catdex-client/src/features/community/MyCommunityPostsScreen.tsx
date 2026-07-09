@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { AlertCircle, Edit3, Map, MessageCircle, ShieldCheck } from 'lucide-react-native';
+import { AlertCircle, ChevronLeft, Edit3, MessageCircle, ShieldCheck } from 'lucide-react-native';
 import { CommunityPostCard } from '@/features/community/components/CommunityPostCard';
 import { communityFilterOptions } from '@/features/community/community.constants';
 import { fetchCommunityPosts } from '@/shared/api/community.api';
@@ -8,19 +8,17 @@ import { getUserFacingError, type UserFacingError } from '@/shared/errors/user-f
 import { createShadow, theme } from '@/shared/styles/theme';
 import type { CommunityFilter, CommunityPost } from '@/shared/types/community';
 
-interface CommunityBoardScreenProps {
-  neighborhoodName: string;
+interface MyCommunityPostsScreenProps {
+  onBack: () => void;
   onComposePost: () => void;
-  onOpenMap: () => void;
   onOpenPost: (postId: string) => void;
 }
 
-export function CommunityBoardScreen({ neighborhoodName, onComposePost, onOpenMap, onOpenPost }: CommunityBoardScreenProps) {
+export function MyCommunityPostsScreen({ onBack, onComposePost, onOpenPost }: MyCommunityPostsScreenProps) {
   const [activeFilter, setActiveFilter] = useState<CommunityFilter>('ALL');
   const [posts, setPosts] = useState<CommunityPost[]>([]);
   const [error, setError] = useState<UserFacingError | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-
   const commentCount = useMemo(() => posts.reduce((total, post) => total + post.commentCount, 0), [posts]);
 
   const refreshPosts = useCallback(
@@ -30,20 +28,20 @@ export function CommunityBoardScreen({ neighborhoodName, onComposePost, onOpenMa
 
       try {
         const nextPosts = await fetchCommunityPosts({
-          regionName: neighborhoodName,
+          mine: true,
           topic: nextFilter,
           limit: 50,
         });
         setPosts(nextPosts);
       } catch (nextError) {
-        console.warn('[community] board load failed', nextError);
+        console.warn('[community] my posts load failed', nextError);
         setPosts([]);
         setError(getUserFacingError(nextError, 'community.load'));
       } finally {
         setIsLoading(false);
       }
     },
-    [activeFilter, neighborhoodName],
+    [activeFilter],
   );
 
   useEffect(() => {
@@ -57,36 +55,35 @@ export function CommunityBoardScreen({ neighborhoodName, onComposePost, onOpenMa
 
   return (
     <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-      <View style={styles.segmentWrap}>
-        <Pressable accessibilityLabel="지도 보기" accessibilityRole="button" onPress={onOpenMap} style={({ pressed }) => [styles.segmentButton, pressed && styles.pressed]}>
-          <Map color={theme.colors.primaryDark} size={15} />
-          <Text style={styles.segmentText}>지도</Text>
+      <View style={styles.topBar}>
+        <Pressable accessibilityLabel="마이페이지로 돌아가기" accessibilityRole="button" onPress={onBack} style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}>
+          <ChevronLeft color={theme.colors.primaryDark} size={22} />
         </Pressable>
-        <View style={[styles.segmentButton, styles.segmentButtonActive]}>
-          <MessageCircle color="#FFF8F0" size={15} />
-          <Text style={[styles.segmentText, styles.segmentTextActive]}>게시판</Text>
+        <View style={styles.topCopy}>
+          <Text style={styles.kicker}>내 활동</Text>
+          <Text style={styles.title}>내 게시글</Text>
+          <Text style={styles.description}>동네 게시판에 올린 글과 도감에 연결한 이야기를 모아봐요.</Text>
         </View>
       </View>
 
-      <View style={styles.header}>
-        <View style={styles.headerCopy}>
-          <Text style={styles.kicker}>동네 게시판</Text>
-          <Text style={styles.title}>{neighborhoodName} 게시판</Text>
-          <Text style={styles.description}>목격담, 근황, 질문을 이웃과 나눠요. 필요한 글은 동네 도감 고양이와 연결할 수 있어요.</Text>
+      <View style={styles.actionRow}>
+        <View style={styles.metaPill}>
+          {isLoading ? <ActivityIndicator color={theme.colors.primaryDark} size="small" /> : <MessageCircle color={theme.colors.accent} size={15} />}
+          <Text style={styles.metaText}>{isLoading ? '불러오는 중' : `게시글 ${posts.length}개 · 댓글 ${commentCount}개`}</Text>
         </View>
         <Pressable accessibilityLabel="게시글 작성" accessibilityRole="button" onPress={onComposePost} style={({ pressed }) => [styles.writeButton, pressed && styles.pressed]}>
-          <Edit3 color="#FFF8F0" size={16} />
+          <Edit3 color="#FFF8F0" size={15} />
           <Text style={styles.writeButtonText}>글쓰기</Text>
         </Pressable>
       </View>
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
+      <ScrollView contentContainerStyle={styles.filterRow} horizontal showsHorizontalScrollIndicator={false}>
         {communityFilterOptions.map((filter) => {
           const isActive = activeFilter === filter.id;
 
           return (
             <Pressable
-              accessibilityLabel={`게시판 필터 ${filter.label}`}
+              accessibilityLabel={`내 게시글 필터 ${filter.label}`}
               accessibilityRole="button"
               key={filter.id}
               onPress={() => handleChangeFilter(filter.id)}
@@ -98,13 +95,6 @@ export function CommunityBoardScreen({ neighborhoodName, onComposePost, onOpenMa
         })}
       </ScrollView>
 
-      <View style={styles.metaStrip}>
-        {isLoading ? <ActivityIndicator color={theme.colors.primaryDark} size="small" /> : <MessageCircle color={theme.colors.accent} size={15} />}
-        <Text style={styles.metaText}>
-          {isLoading ? '동네 이야기를 불러오는 중' : `게시글 ${posts.length}개 · 댓글 ${commentCount}개`}
-        </Text>
-      </View>
-
       {error ? (
         <View style={styles.errorCard}>
           <AlertCircle color={theme.colors.primary} size={18} />
@@ -112,7 +102,7 @@ export function CommunityBoardScreen({ neighborhoodName, onComposePost, onOpenMa
             <Text style={styles.errorTitle}>{error.title}</Text>
             <Text style={styles.errorText}>{error.message}</Text>
           </View>
-          <Pressable accessibilityLabel="게시판 다시 불러오기" accessibilityRole="button" onPress={() => refreshPosts()} style={({ pressed }) => [styles.retryButton, pressed && styles.pressed]}>
+          <Pressable accessibilityLabel="내 게시글 다시 불러오기" accessibilityRole="button" onPress={() => refreshPosts()} style={({ pressed }) => [styles.retryButton, pressed && styles.pressed]}>
             <Text style={styles.retryText}>다시</Text>
           </Pressable>
         </View>
@@ -126,9 +116,9 @@ export function CommunityBoardScreen({ neighborhoodName, onComposePost, onOpenMa
 
       {!isLoading && posts.length === 0 ? (
         <View style={styles.emptyCard}>
-          <MessageCircle color="#CDB58F" size={28} />
-          <Text style={styles.emptyTitle}>아직 이 주제의 글이 없어요</Text>
-          <Text style={styles.emptyText}>첫 이야기를 남기면 이웃들이 이어서 댓글을 달 수 있어요.</Text>
+          <MessageCircle color="#CDB58F" size={30} />
+          <Text style={styles.emptyTitle}>아직 내가 쓴 글이 없어요</Text>
+          <Text style={styles.emptyText}>동네 게시판에 목격담이나 근황을 남기면 여기에서 다시 확인할 수 있어요.</Text>
           <Pressable accessibilityLabel="첫 게시글 작성" accessibilityRole="button" onPress={onComposePost} style={({ pressed }) => [styles.emptyWriteButton, pressed && styles.pressed]}>
             <Text style={styles.emptyWriteText}>글쓰기</Text>
           </Pressable>
@@ -137,7 +127,7 @@ export function CommunityBoardScreen({ neighborhoodName, onComposePost, onOpenMa
 
       <View style={styles.safetyStrip}>
         <ShieldCheck color={theme.colors.accent} size={17} />
-        <Text style={styles.safetyText}>글과 연결된 도감 기록은 정확한 좌표 없이 동네와 구역 단위로만 공유해요.</Text>
+        <Text style={styles.safetyText}>게시글에 연결한 고양이 기록은 동네 도감과 게시판에서 함께 보일 수 있어요.</Text>
       </View>
     </ScrollView>
   );
@@ -150,44 +140,22 @@ const styles = StyleSheet.create({
     paddingTop: theme.spacing.md,
     paddingBottom: 132,
   },
-  segmentWrap: {
-    minHeight: 44,
-    flexDirection: 'row',
-    gap: theme.spacing.sm,
-    borderRadius: 22,
-    padding: 4,
-    backgroundColor: 'rgba(255,253,246,0.68)',
-    borderWidth: 1,
-    borderColor: 'rgba(139,112,83,0.1)',
-  },
-  segmentButton: {
-    flex: 1,
-    minHeight: 36,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 5,
-    borderRadius: 18,
-  },
-  segmentButtonActive: {
-    backgroundColor: theme.colors.primaryDark,
-  },
-  segmentText: {
-    color: theme.colors.primaryDark,
-    fontSize: 13,
-    fontWeight: '900',
-  },
-  segmentTextActive: {
-    color: '#FFF8F0',
-  },
-  header: {
-    minHeight: 94,
+  topBar: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    justifyContent: 'space-between',
     gap: theme.spacing.md,
   },
-  headerCopy: {
+  backButton: {
+    width: 42,
+    height: 42,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 21,
+    backgroundColor: 'rgba(255,253,246,0.86)',
+    borderWidth: 1,
+    borderColor: 'rgba(139,112,83,0.12)',
+  },
+  topCopy: {
     flex: 1,
     minWidth: 0,
   },
@@ -199,8 +167,8 @@ const styles = StyleSheet.create({
   title: {
     marginTop: 4,
     color: theme.colors.text,
-    fontSize: 27,
-    lineHeight: 34,
+    fontSize: 26,
+    lineHeight: 33,
     fontWeight: '900',
   },
   description: {
@@ -209,6 +177,29 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 20,
     fontWeight: '700',
+  },
+  actionRow: {
+    minHeight: 40,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+  },
+  metaPill: {
+    flex: 1,
+    minHeight: 40,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+    borderRadius: 20,
+    paddingHorizontal: theme.spacing.md,
+    backgroundColor: 'rgba(255,253,246,0.6)',
+    borderWidth: 1,
+    borderColor: 'rgba(139,112,83,0.1)',
+  },
+  metaText: {
+    color: theme.colors.primaryDark,
+    fontSize: 12,
+    fontWeight: '900',
   },
   writeButton: {
     minHeight: 40,
@@ -251,22 +242,6 @@ const styles = StyleSheet.create({
   },
   filterTextActive: {
     color: '#FFF8F0',
-  },
-  metaStrip: {
-    minHeight: 38,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.sm,
-    borderRadius: 19,
-    paddingHorizontal: theme.spacing.md,
-    backgroundColor: 'rgba(255,253,246,0.56)',
-    borderWidth: 1,
-    borderColor: 'rgba(139,112,83,0.1)',
-  },
-  metaText: {
-    color: theme.colors.primaryDark,
-    fontSize: 12,
-    fontWeight: '900',
   },
   errorCard: {
     minHeight: 62,
@@ -313,7 +288,7 @@ const styles = StyleSheet.create({
     gap: theme.spacing.md,
   },
   emptyCard: {
-    minHeight: 176,
+    minHeight: 178,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: theme.radius.xl,
@@ -325,11 +300,11 @@ const styles = StyleSheet.create({
   emptyTitle: {
     marginTop: theme.spacing.sm,
     color: theme.colors.text,
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '900',
   },
   emptyText: {
-    marginTop: 5,
+    marginTop: 6,
     color: theme.colors.mutedText,
     fontSize: 12,
     lineHeight: 18,
@@ -337,12 +312,12 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   emptyWriteButton: {
+    marginTop: theme.spacing.md,
     minHeight: 36,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 18,
     paddingHorizontal: theme.spacing.lg,
-    marginTop: theme.spacing.md,
     backgroundColor: theme.colors.primaryDark,
   },
   emptyWriteText: {
@@ -351,19 +326,19 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   safetyStrip: {
-    minHeight: 54,
+    minHeight: 46,
     flexDirection: 'row',
     alignItems: 'center',
     gap: theme.spacing.sm,
-    borderRadius: theme.radius.xl,
+    borderRadius: theme.radius.lg,
     paddingHorizontal: theme.spacing.md,
-    backgroundColor: 'rgba(221,232,200,0.45)',
+    backgroundColor: 'rgba(221,232,200,0.56)',
     borderWidth: 1,
-    borderColor: 'rgba(111,131,77,0.12)',
+    borderColor: 'rgba(113,138,91,0.18)',
   },
   safetyText: {
     flex: 1,
-    color: theme.colors.primaryDark,
+    color: theme.colors.inkSoft,
     fontSize: 12,
     lineHeight: 18,
     fontWeight: '800',

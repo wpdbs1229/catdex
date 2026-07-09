@@ -6,7 +6,6 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronRight,
-  Footprints,
   Heart,
   IdCard,
   LocateFixed,
@@ -47,7 +46,6 @@ interface HomeScreenProps {
   onGoCapture: () => void;
   onGoDex: () => void;
   onOpenNotifications: () => void;
-  onRecordExisting: (catId: string) => void;
   onDetectNeighborhood: () => void;
   onSelectNeighborhood: (neighborhoodId: string) => void;
   onRemoveNeighborhood: (neighborhoodId: string) => void;
@@ -93,7 +91,6 @@ export function HomeScreen({
   onOpenNotifications,
   onGoCapture,
   onGoDex,
-  onRecordExisting,
   onDetectNeighborhood,
   onSelectNeighborhood,
   onRemoveNeighborhood,
@@ -360,16 +357,6 @@ export function HomeScreen({
                   {cat.relationshipLevel} · 최근 {cat.lastSeenAt}
                 </Text>
               </View>
-              <Pressable
-                onPress={(event) => {
-                  event.stopPropagation();
-                  onRecordExisting(cat.id);
-                }}
-                style={({ pressed }) => [styles.sightingButton, pressed && styles.pressed]}
-              >
-                <Footprints color="#FFF8F0" size={16} />
-                <Text style={styles.sightingButtonText}>봤어요</Text>
-              </Pressable>
             </Pressable>
           ))
         ) : (
@@ -945,22 +932,6 @@ const styles = StyleSheet.create({
     color: theme.colors.mutedText,
     fontSize: 12,
     fontWeight: '700',
-  },
-  sightingButton: {
-    minWidth: 78,
-    minHeight: 38,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 5,
-    borderRadius: 19,
-    paddingHorizontal: theme.spacing.sm,
-    backgroundColor: theme.colors.accent,
-  },
-  sightingButtonText: {
-    color: '#FFFDF6',
-    fontSize: 12,
-    fontWeight: '900',
   },
   emptyRecent: {
     minHeight: 128,

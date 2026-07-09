@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react-native';
-import { Bell, BookOpen, ChevronRight, IdCard, Info, LogOut, Settings, ShieldCheck, Trash2, X } from 'lucide-react-native';
+import { Bell, BookOpen, ChevronRight, IdCard, Info, LogOut, MessageCircle, Settings, ShieldCheck, Trash2, X } from 'lucide-react-native';
 import { useState } from 'react';
 import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View, type ImageSourcePropType } from 'react-native';
 import { ProgressBar } from '@/shared/components/ProgressBar';
@@ -25,6 +25,7 @@ interface MyPageScreenProps {
   onWithdrawAccount: () => Promise<void> | void;
   onOpenCat: (catId: string) => void;
   onOpenBadges: () => void;
+  onOpenCommunityPosts: () => void;
   onOpenExplorationHistory: () => void;
   onOpenNotifications: () => void;
   onOpenProfileEdit: () => void;
@@ -80,6 +81,7 @@ export function MyPageScreen({
   onWithdrawAccount,
   onOpenCat,
   onOpenBadges,
+  onOpenCommunityPosts,
   onOpenExplorationHistory,
   onOpenNotifications,
   onOpenProfileEdit,
@@ -228,6 +230,7 @@ export function MyPageScreen({
 
       <View style={styles.menuPanel}>
         <MenuItem icon={BookOpen} label="근무 기록" onPress={onOpenExplorationHistory} />
+        <MenuItem icon={MessageCircle} label="내 게시글" onPress={onOpenCommunityPosts} />
         <MenuItem icon={Bell} label="알림 설정" onPress={onOpenNotifications} />
         <MenuItem disabled={isAccountActionDisabled} icon={LogOut} label={isSigningOut ? '로그아웃 중...' : '로그아웃'} onPress={onLogout} />
         <MenuItem
