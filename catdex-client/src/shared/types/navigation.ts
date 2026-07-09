@@ -27,5 +27,6 @@ export interface NavigationState {
   screen: Screen;
   selectedCatId: string | null;
   selectedOwnerId: string | null;
+  selectedCommunityCatId?: string | null;
   selectedCommunityPostId?: string | null;
 }

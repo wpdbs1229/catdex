@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { AlertCircle, ArrowLeft, Heart, MessageCircle, PawPrint, Send, ShieldCheck } from 'lucide-react-native';
+import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { AlertCircle, ArrowLeft, Heart, Images, MessageCircle, PawPrint, Send, ShieldCheck } from 'lucide-react-native';
 import { communityTopicLabel } from '@/features/community/community.constants';
 import {
   createCommunityComment,
@@ -10,6 +10,7 @@ import {
 import { getUserFacingError, type UserFacingError } from '@/shared/errors/user-facing-error';
 import { createShadow, theme } from '@/shared/styles/theme';
 import type { CommunityPost } from '@/shared/types/community';
+import { getRarityLabel } from '@/shared/utils/catPresentation';
 
 interface CommunityPostDetailScreenProps {
   postId: string;
@@ -142,6 +143,29 @@ export function CommunityPostDetailScreen({ postId, onBack, onOpenCat }: Communi
               <Text style={styles.authorText}>{post.author.nickname} · {post.regionName ?? '동네'}</Text>
               <Text style={styles.body}>{post.body}</Text>
 
+              {post.imageUrls.length > 0 ? (
+                <View style={styles.photoStack}>
+                  <View style={styles.mainPhotoWrap}>
+                    <Image source={{ uri: post.imageUrls[0] }} style={styles.mainPhoto} />
+                    {post.imageUrls.length > 1 ? (
+                      <View style={styles.imageCountBadge}>
+                        <Images color="#FFF8F0" size={14} />
+                        <Text style={styles.imageCountText}>{post.imageUrls.length}</Text>
+                      </View>
+                    ) : null}
+                  </View>
+                  {post.imageUrls.length > 1 ? (
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.thumbnailRow}>
+                      {post.imageUrls.slice(1).map((imageUrl, index) => (
+                        <View key={`${imageUrl}-${index}`} style={styles.thumbnailWrap}>
+                          <Image source={{ uri: imageUrl }} style={styles.thumbnailImage} />
+                        </View>
+                      ))}
+                    </ScrollView>
+                  ) : null}
+                </View>
+              ) : null}
+
               {post.catId ? (
                 <Pressable
                   accessibilityLabel={`${post.catName ?? '관련 고양이'} 도감 보기`}
@@ -150,14 +174,18 @@ export function CommunityPostDetailScreen({ postId, onBack, onOpenCat }: Communi
                   style={({ pressed }) => [styles.catLinkCard, pressed && styles.pressed]}
                 >
                   <View style={styles.catLinkIcon}>
-                    <PawPrint color={theme.colors.primary} size={18} />
+                    {post.catImageUrl ? <Image source={{ uri: post.catImageUrl }} style={styles.catLinkImage} /> : <PawPrint color={theme.colors.primary} size={18} />}
                   </View>
                   <View style={styles.catLinkCopy}>
-                    <Text style={styles.catLinkLabel}>관련 고양이</Text>
+                    <Text style={styles.catLinkLabel}>연결된 도감</Text>
                     <Text numberOfLines={1} style={styles.catLinkName}>
                       {post.catName ?? '도감 고양이'}
                     </Text>
+                    <Text numberOfLines={1} style={styles.catLinkMeta}>
+                      {[post.catType, post.catRarity ? getRarityLabel(post.catRarity as 1 | 2 | 3 | 4 | 5) : undefined, post.regionName].filter(Boolean).join(' · ')}
+                    </Text>
                   </View>
+                  <Text style={styles.catLinkAction}>보기</Text>
                 </Pressable>
               ) : null}
 
@@ -380,8 +408,54 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     fontWeight: '700',
   },
+  photoStack: {
+    gap: theme.spacing.sm,
+    marginTop: theme.spacing.lg,
+  },
+  mainPhotoWrap: {
+    height: 236,
+    borderRadius: theme.radius.xl,
+    overflow: 'hidden',
+    backgroundColor: '#FFF0DC',
+  },
+  mainPhoto: {
+    width: '100%',
+    height: '100%',
+  },
+  imageCountBadge: {
+    position: 'absolute',
+    right: 10,
+    bottom: 10,
+    minHeight: 28,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderRadius: 14,
+    paddingHorizontal: theme.spacing.sm,
+    backgroundColor: 'rgba(47,36,29,0.72)',
+  },
+  imageCountText: {
+    color: '#FFF8F0',
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  thumbnailRow: {
+    gap: theme.spacing.sm,
+    paddingRight: theme.spacing.lg,
+  },
+  thumbnailWrap: {
+    width: 74,
+    height: 74,
+    borderRadius: theme.radius.md,
+    overflow: 'hidden',
+    backgroundColor: '#FFF0DC',
+  },
+  thumbnailImage: {
+    width: '100%',
+    height: '100%',
+  },
   catLinkCard: {
-    minHeight: 68,
+    minHeight: 76,
     flexDirection: 'row',
     alignItems: 'center',
     gap: theme.spacing.md,
@@ -393,12 +467,17 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(139,112,83,0.1)',
   },
   catLinkIcon: {
-    width: 40,
-    height: 40,
+    width: 48,
+    height: 48,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 20,
+    borderRadius: 16,
+    overflow: 'hidden',
     backgroundColor: 'rgba(255,253,246,0.78)',
+  },
+  catLinkImage: {
+    width: '100%',
+    height: '100%',
   },
   catLinkCopy: {
     flex: 1,
@@ -413,6 +492,17 @@ const styles = StyleSheet.create({
     marginTop: 3,
     color: theme.colors.text,
     fontSize: 15,
+    fontWeight: '900',
+  },
+  catLinkMeta: {
+    marginTop: 4,
+    color: theme.colors.mutedText,
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  catLinkAction: {
+    color: theme.colors.primaryDark,
+    fontSize: 12,
     fontWeight: '900',
   },
   actionRow: {

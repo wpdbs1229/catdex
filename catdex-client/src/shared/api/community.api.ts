@@ -1,5 +1,7 @@
+import { File } from 'expo-file-system';
 import { throwIfSupabaseError } from '@/shared/api/client';
 import { assertSupabaseConfigured, supabase } from '@/shared/supabase/client';
+import type { CatRarity, CatType } from '@/shared/types/cat';
 import type {
   CommunityAuthor,
   CommunityComment,
@@ -43,6 +45,16 @@ interface ProfileRow {
 interface CatSummaryRow {
   id: string;
   name: string;
+  type: CatType;
+  rarity: CatRarity;
+  image_url: string | null;
+  representative_photo_url: string | null;
+}
+
+interface CommunityPostImageRow {
+  post_id: string;
+  image_url: string;
+  sort_order: number;
 }
 
 export interface FetchCommunityThreadsOptions {
@@ -96,6 +108,48 @@ function toStoredTopic(topic: CommunityTopic): CommunityStoredTopic {
 
 function toDisplayTopic(topic: CommunityStoredTopic): CommunityTopic {
   return topic === 'VERIFY' ? 'QUESTION' : topic;
+}
+
+function getImageExtension(mimeType?: string) {
+  if (mimeType === 'image/png') {
+    return 'png';
+  }
+
+  if (mimeType === 'image/webp') {
+    return 'webp';
+  }
+
+  return 'jpg';
+}
+
+function getImageContentType(mimeType?: string) {
+  if (mimeType === 'image/png' || mimeType === 'image/webp' || mimeType === 'image/jpeg') {
+    return mimeType;
+  }
+
+  return 'image/jpeg';
+}
+
+async function getCommunityPostImageUrl(imageUrl: string | null) {
+  if (!imageUrl || imageUrl.startsWith('http') || imageUrl.startsWith('file:')) {
+    return imageUrl ?? undefined;
+  }
+
+  const { data, error } = await supabase.storage.from('community-post-images').createSignedUrl(imageUrl, 60 * 60);
+  throwIfSupabaseError(error);
+
+  return data.signedUrl;
+}
+
+async function getCatDisplayImageUrl(imageUrl: string | null) {
+  if (!imageUrl || imageUrl.startsWith('http') || imageUrl.startsWith('file:')) {
+    return imageUrl ?? undefined;
+  }
+
+  const { data, error } = await supabase.storage.from('cat-images').createSignedUrl(imageUrl, 60 * 60);
+  throwIfSupabaseError(error);
+
+  return data.signedUrl;
 }
 
 async function getCurrentUserId() {
@@ -163,10 +217,10 @@ export async function fetchCommunityPosts(options: FetchCommunityThreadsOptions 
     return [];
   }
 
-  const [profilesResponse, catsResponse, commentsResponse, likesResponse] = await Promise.all([
+  const [profilesResponse, catsResponse, commentsResponse, likesResponse, imagesResponse] = await Promise.all([
     supabase.from('profiles').select('id, nickname, profile_image_url').in('id', authorIds),
     catIds.length > 0
-      ? supabase.from('cats').select('id, name').in('id', catIds)
+      ? supabase.from('cats').select('id, name, type, rarity, image_url, representative_photo_url').in('id', catIds)
       : Promise.resolve({ data: [] as CatSummaryRow[], error: null }),
     supabase
       .from('community_comments')
@@ -175,12 +229,18 @@ export async function fetchCommunityPosts(options: FetchCommunityThreadsOptions 
       .in('post_id', postIds)
       .order('created_at', { ascending: false }),
     supabase.from('community_post_likes').select('post_id, user_id').in('post_id', postIds),
+    supabase
+      .from('community_post_images')
+      .select('post_id, image_url, sort_order')
+      .in('post_id', postIds)
+      .order('sort_order', { ascending: true }),
   ]);
 
   throwIfSupabaseError(profilesResponse.error);
   throwIfSupabaseError(catsResponse.error);
   throwIfSupabaseError(commentsResponse.error);
   throwIfSupabaseError(likesResponse.error);
+  throwIfSupabaseError(imagesResponse.error);
 
   const comments = (commentsResponse.data ?? []) as CommunityCommentRow[];
   const commentAuthorIds = uniq(comments.map((comment) => comment.author_id));
@@ -199,6 +259,35 @@ export async function fetchCommunityPosts(options: FetchCommunityThreadsOptions 
     ]),
   );
   const catsById = new Map(((catsResponse.data ?? []) as CatSummaryRow[]).map((cat) => [cat.id, cat]));
+  const rawImagesByPostId = ((imagesResponse.data ?? []) as CommunityPostImageRow[]).reduce<Record<string, CommunityPostImageRow[]>>(
+    (acc, image) => {
+      acc[image.post_id] = [...(acc[image.post_id] ?? []), image];
+      return acc;
+    },
+    {},
+  );
+  const imageUrlsByPostId = new Map(
+    await Promise.all(
+      Object.entries(rawImagesByPostId).map(async ([postId, images]) => [
+        postId,
+        (
+          await Promise.all(
+            images
+              .sort((left, right) => left.sort_order - right.sort_order)
+              .map((image) => getCommunityPostImageUrl(image.image_url)),
+          )
+        ).filter((imageUrl): imageUrl is string => Boolean(imageUrl)),
+      ] as const),
+    ),
+  );
+  const catImageUrlsById = new Map(
+    await Promise.all(
+      ((catsResponse.data ?? []) as CatSummaryRow[]).map(async (cat) => [
+        cat.id,
+        await getCatDisplayImageUrl(cat.representative_photo_url ?? cat.image_url),
+      ] as const),
+    ),
+  );
   const commentsByPostId = comments.reduce<Record<string, CommunityComment[]>>((acc, comment) => {
     acc[comment.post_id] = [
       ...(acc[comment.post_id] ?? []),
@@ -221,6 +310,7 @@ export async function fetchCommunityPosts(options: FetchCommunityThreadsOptions 
 
   return posts.map((post) => {
     const postLikes = likesByPostId[post.id] ?? [];
+    const linkedCat = post.cat_id ? catsById.get(post.cat_id) : undefined;
 
     return {
       id: post.id,
@@ -229,7 +319,11 @@ export async function fetchCommunityPosts(options: FetchCommunityThreadsOptions 
       body: post.content,
       regionName: post.region_name ?? undefined,
       catId: post.cat_id ?? undefined,
-      catName: post.cat_id ? catsById.get(post.cat_id)?.name : undefined,
+      catName: linkedCat?.name,
+      catType: linkedCat?.type,
+      catRarity: linkedCat?.rarity,
+      catImageUrl: linkedCat ? catImageUrlsById.get(linkedCat.id) : undefined,
+      imageUrls: imageUrlsByPostId.get(post.id) ?? [],
       author: mapAuthor(profilesById.get(post.author_id), post.author_id),
       createdAt: formatRelativeTime(post.created_at),
       likeCount: postLikes.length,
@@ -277,7 +371,38 @@ export async function createCommunityPost(draft: CommunityPostDraft) {
 
   throwIfSupabaseError(error);
 
-  return data.id as string;
+  const postId = data.id as string;
+  const images = draft.images ?? [];
+
+  if (images.length > 0) {
+    const imageRows = await Promise.all(
+      images.slice(0, 5).map(async (image, index) => {
+        const file = new File(image.uri);
+        const bytes = await file.arrayBuffer();
+        const extension = getImageExtension(image.mimeType);
+        const contentType = getImageContentType(image.mimeType);
+        const path = `${userId}/posts/${postId}/image-${Date.now()}-${index}.${extension}`;
+        const { data: uploadData, error: uploadError } = await supabase.storage.from('community-post-images').upload(path, bytes, {
+          contentType,
+          upsert: false,
+        });
+
+        throwIfSupabaseError(uploadError);
+
+        return {
+          post_id: postId,
+          author_id: userId,
+          image_url: uploadData.path,
+          sort_order: index,
+        };
+      }),
+    );
+
+    const { error: imageInsertError } = await supabase.from('community_post_images').insert(imageRows);
+    throwIfSupabaseError(imageInsertError);
+  }
+
+  return postId;
 }
 
 export async function createCommunityComment(postId: string, body: string) {

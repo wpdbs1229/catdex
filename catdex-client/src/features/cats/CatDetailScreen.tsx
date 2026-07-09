@@ -21,11 +21,12 @@ interface CatDetailScreenProps {
   cat: Cat;
   encounters: CatEncounter[];
   onBack: () => void;
+  onComposePost: () => void;
   onRecordEncounter: () => void;
   onReportCat: () => void;
 }
 
-export function CatDetailScreen({ cat, encounters, onBack, onRecordEncounter, onReportCat }: CatDetailScreenProps) {
+export function CatDetailScreen({ cat, encounters, onBack, onComposePost, onRecordEncounter, onReportCat }: CatDetailScreenProps) {
   const [isRarityGuideOpen, setIsRarityGuideOpen] = useState(false);
   const visual = getCatVisual(cat.type);
   const rarityGuide = getRarityGuide(cat);
@@ -102,6 +103,9 @@ export function CatDetailScreen({ cat, encounters, onBack, onRecordEncounter, on
 
         <View style={styles.buttonWrap}>
           <Button onPress={onRecordEncounter}>나도 봤어요</Button>
+          <Button onPress={onComposePost} variant="secondary">
+            이 고양이로 글쓰기
+          </Button>
           <Button onPress={onReportCat} variant="secondary">
             신고하기
           </Button>

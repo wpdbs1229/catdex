@@ -118,6 +118,7 @@ export default function App() {
     screen: 'home',
     selectedCatId: null,
     selectedOwnerId: null,
+    selectedCommunityCatId: null,
     selectedCommunityPostId: null,
   });
   const [neighborhoodView, setNeighborhoodView] = useState<NeighborhoodView>('map');
@@ -335,16 +336,18 @@ export default function App() {
       screen: 'communityPostDetail',
       selectedCatId: null,
       selectedOwnerId: null,
+      selectedCommunityCatId: null,
       selectedCommunityPostId: postId,
     });
   };
 
-  const handleOpenCommunityCompose = () => {
+  const handleOpenCommunityCompose = (catId?: string) => {
     setNeighborhoodView('board');
     setNavigation({
       screen: 'communityCompose',
       selectedCatId: null,
       selectedOwnerId: null,
+      selectedCommunityCatId: catId ?? null,
       selectedCommunityPostId: null,
     });
   };
@@ -738,6 +741,7 @@ export default function App() {
             cat={visibleSelectedCat}
             encounters={selectedCatEncounters}
             onBack={() => handleTabChange('dex')}
+            onComposePost={() => handleOpenCommunityCompose(visibleSelectedCat.id)}
             onRecordEncounter={handleRecordEncounter}
             onReportCat={handleReportSelectedCat}
           />
@@ -767,7 +771,7 @@ export default function App() {
         return neighborhoodView === 'board' ? (
           <CommunityBoardScreen
             neighborhoodName={activeNeighborhoodName}
-            onComposePost={handleOpenCommunityCompose}
+            onComposePost={() => handleOpenCommunityCompose()}
             onOpenMap={handleOpenNeighborhoodMap}
             onOpenPost={handleOpenCommunityPost}
           />
@@ -791,7 +795,7 @@ export default function App() {
         ) : (
           <CommunityBoardScreen
             neighborhoodName={activeNeighborhoodName}
-            onComposePost={handleOpenCommunityCompose}
+            onComposePost={() => handleOpenCommunityCompose()}
             onOpenMap={handleOpenNeighborhoodMap}
             onOpenPost={handleOpenCommunityPost}
           />
@@ -799,7 +803,8 @@ export default function App() {
       case 'communityCompose':
         return (
           <CommunityComposerScreen
-            cats={cats}
+            cats={myCats}
+            initialCatId={navigation.selectedCommunityCatId}
             neighborhoodName={activeNeighborhoodName}
             onBack={handleOpenCommunityBoard}
             onCreated={handleOpenCommunityPost}

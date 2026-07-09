@@ -24,6 +24,10 @@ export interface CommunityPost {
   regionName?: string;
   catId?: string;
   catName?: string;
+  catType?: string;
+  catRarity?: number;
+  catImageUrl?: string;
+  imageUrls: string[];
   author: CommunityAuthor;
   createdAt: string;
   likeCount: number;
@@ -38,4 +42,10 @@ export interface CommunityPostDraft {
   body: string;
   regionName: string;
   catId?: string;
+  images?: CommunityPostImageDraft[];
+}
+
+export interface CommunityPostImageDraft {
+  uri: string;
+  mimeType?: string;
 }
