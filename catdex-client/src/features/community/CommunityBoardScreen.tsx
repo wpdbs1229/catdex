@@ -1,31 +1,27 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { AlertCircle, Edit3, Map, MessageCircle, ShieldCheck } from 'lucide-react-native';
+import { AlertCircle, Edit3, MessageCircle, ShieldCheck } from 'lucide-react-native';
 import { CommunityPostCard } from '@/features/community/components/CommunityPostCard';
 import { communityFilterOptions } from '@/features/community/community.constants';
-import { NeighborhoodLeaderboardCard } from '@/features/map/components/NeighborhoodLeaderboardCard';
+import { NeighborhoodTopTabs } from '@/features/map/components/NeighborhoodTopTabs';
 import { fetchCommunityPosts } from '@/shared/api/community.api';
-import { fetchNeighborhoodLeaderboard } from '@/shared/api/leaderboard.api';
 import { getUserFacingError, type UserFacingError } from '@/shared/errors/user-facing-error';
 import { createShadow, theme } from '@/shared/styles/theme';
 import type { CommunityFilter, CommunityPost } from '@/shared/types/community';
-import type { NeighborhoodLeaderboardEntry } from '@/shared/types/leaderboard';
 
 interface CommunityBoardScreenProps {
   neighborhoodName: string;
   onComposePost: () => void;
+  onOpenDex: () => void;
   onOpenMap: () => void;
   onOpenPost: (postId: string) => void;
 }
 
-export function CommunityBoardScreen({ neighborhoodName, onComposePost, onOpenMap, onOpenPost }: CommunityBoardScreenProps) {
+export function CommunityBoardScreen({ neighborhoodName, onComposePost, onOpenDex, onOpenMap, onOpenPost }: CommunityBoardScreenProps) {
   const [activeFilter, setActiveFilter] = useState<CommunityFilter>('ALL');
   const [posts, setPosts] = useState<CommunityPost[]>([]);
   const [error, setError] = useState<UserFacingError | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [leaderboard, setLeaderboard] = useState<NeighborhoodLeaderboardEntry[]>([]);
-  const [leaderboardError, setLeaderboardError] = useState<UserFacingError | null>(null);
-  const [isLeaderboardLoading, setIsLeaderboardLoading] = useState(false);
 
   const commentCount = useMemo(() => posts.reduce((total, post) => total + post.commentCount, 0), [posts]);
 
@@ -52,29 +48,9 @@ export function CommunityBoardScreen({ neighborhoodName, onComposePost, onOpenMa
     [activeFilter, neighborhoodName],
   );
 
-  const refreshLeaderboard = useCallback(async () => {
-    setIsLeaderboardLoading(true);
-    setLeaderboardError(null);
-
-    try {
-      const nextLeaderboard = await fetchNeighborhoodLeaderboard(neighborhoodName, 30, 5);
-      setLeaderboard(nextLeaderboard);
-    } catch (nextError) {
-      console.warn('[leaderboard] board load failed', nextError);
-      setLeaderboard([]);
-      setLeaderboardError(getUserFacingError(nextError, 'leaderboard.load'));
-    } finally {
-      setIsLeaderboardLoading(false);
-    }
-  }, [neighborhoodName]);
-
   useEffect(() => {
     void refreshPosts();
   }, [refreshPosts]);
-
-  useEffect(() => {
-    void refreshLeaderboard();
-  }, [refreshLeaderboard]);
 
   const handleChangeFilter = (filter: CommunityFilter) => {
     setActiveFilter(filter);
@@ -83,16 +59,12 @@ export function CommunityBoardScreen({ neighborhoodName, onComposePost, onOpenMa
 
   return (
     <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-      <View style={styles.segmentWrap}>
-        <Pressable accessibilityLabel="지도 보기" accessibilityRole="button" onPress={onOpenMap} style={({ pressed }) => [styles.segmentButton, pressed && styles.pressed]}>
-          <Map color={theme.colors.primaryDark} size={15} />
-          <Text style={styles.segmentText}>지도</Text>
-        </Pressable>
-        <View style={[styles.segmentButton, styles.segmentButtonActive]}>
-          <MessageCircle color="#FFF8F0" size={15} />
-          <Text style={[styles.segmentText, styles.segmentTextActive]}>게시판</Text>
-        </View>
-      </View>
+      <NeighborhoodTopTabs
+        activeTab="board"
+        onOpenBoard={() => undefined}
+        onOpenDex={onOpenDex}
+        onOpenMap={onOpenMap}
+      />
 
       <View style={styles.header}>
         <View style={styles.headerCopy}>
@@ -105,13 +77,6 @@ export function CommunityBoardScreen({ neighborhoodName, onComposePost, onOpenMa
           <Text style={styles.writeButtonText}>글쓰기</Text>
         </Pressable>
       </View>
-
-      <NeighborhoodLeaderboardCard
-        entries={leaderboard}
-        errorMessage={leaderboardError?.message}
-        isLoading={isLeaderboardLoading}
-        onRetry={refreshLeaderboard}
-      />
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
         {communityFilterOptions.map((filter) => {
@@ -182,36 +147,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.lg,
     paddingTop: theme.spacing.md,
     paddingBottom: 132,
-  },
-  segmentWrap: {
-    minHeight: 44,
-    flexDirection: 'row',
-    gap: theme.spacing.sm,
-    borderRadius: 22,
-    padding: 4,
-    backgroundColor: 'rgba(255,253,246,0.68)',
-    borderWidth: 1,
-    borderColor: 'rgba(139,112,83,0.1)',
-  },
-  segmentButton: {
-    flex: 1,
-    minHeight: 36,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 5,
-    borderRadius: 18,
-  },
-  segmentButtonActive: {
-    backgroundColor: theme.colors.primaryDark,
-  },
-  segmentText: {
-    color: theme.colors.primaryDark,
-    fontSize: 13,
-    fontWeight: '900',
-  },
-  segmentTextActive: {
-    color: '#FFF8F0',
   },
   header: {
     minHeight: 94,
