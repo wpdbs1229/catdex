@@ -51,6 +51,10 @@ export function NeighborhoodMapScreen({
     }
   }, [displayRegions, selectedRegion]);
 
+  useEffect(() => {
+    setIsSheetExpanded(false);
+  }, [selectedRegion?.id]);
+
   const selectedRegionCats = useMemo(() => getRegionCats(selectedRegion, catByName), [catByName, selectedRegion]);
   const activeRegions = displayRegions.filter((region) => region.cats.length > 0).length;
   const totalRegionCats = useMemo(() => new Set(displayRegions.flatMap((region) => region.cats)).size, [displayRegions]);
