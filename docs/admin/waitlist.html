@@ -348,7 +348,7 @@
       <section class="page-head">
         <div>
           <h1>출시 알림 신청자</h1>
-          <p class="subtitle">Supabase Auth로 로그인한 뒤 관리자 권한이 확인된 계정만 이메일 목록을 조회할 수 있습니다.</p>
+          <p class="subtitle">관리자 이메일과 비밀번호로 로그인한 뒤 권한이 확인된 계정만 이메일 목록을 조회할 수 있습니다.</p>
         </div>
       </section>
 
@@ -364,7 +364,6 @@
             <input class="input" name="password" type="password" autocomplete="current-password" required />
           </label>
           <button class="button" type="submit">로그인</button>
-          <button class="button secondary" type="button" data-kakao-login>카카오로 로그인</button>
           <button class="button ghost" type="button" data-reset-password>비밀번호 재설정 메일 받기</button>
           <p class="status" data-login-status role="status" aria-live="polite"></p>
         </form>
@@ -464,7 +463,6 @@
       const filterForm = document.querySelector("[data-filter-form]");
       const loginStatus = document.querySelector("[data-login-status]");
       const passwordStatus = document.querySelector("[data-password-status]");
-      const kakaoLoginButton = document.querySelector("[data-kakao-login]");
       const resetPasswordButton = document.querySelector("[data-reset-password]");
       const logoutButton = document.querySelector("[data-logout]");
       const refreshButton = document.querySelector("[data-refresh]");
@@ -656,21 +654,6 @@
           await loadEntries();
         } catch (error) {
           setLoginStatus(error instanceof Error ? error.message : "로그인에 실패했습니다.", "error");
-        }
-      });
-
-      kakaoLoginButton.addEventListener("click", async () => {
-        setLoginStatus("카카오 로그인으로 이동합니다.");
-
-        const { error } = await supabase.auth.signInWithOAuth({
-          provider: "kakao",
-          options: {
-            redirectTo: window.location.href.split("#")[0],
-          },
-        });
-
-        if (error) {
-          setLoginStatus(error.message, "error");
         }
       });
 
