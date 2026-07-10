@@ -301,6 +301,10 @@ export default function App() {
       return;
     }
 
+    if (screen === 'map') {
+      setNeighborhoodView('map');
+    }
+
     setNavigation({
       screen,
       selectedCatId: null,

@@ -3,10 +3,13 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from
 import { AlertCircle, Edit3, Map, MessageCircle, ShieldCheck } from 'lucide-react-native';
 import { CommunityPostCard } from '@/features/community/components/CommunityPostCard';
 import { communityFilterOptions } from '@/features/community/community.constants';
+import { NeighborhoodLeaderboardCard } from '@/features/map/components/NeighborhoodLeaderboardCard';
 import { fetchCommunityPosts } from '@/shared/api/community.api';
+import { fetchNeighborhoodLeaderboard } from '@/shared/api/leaderboard.api';
 import { getUserFacingError, type UserFacingError } from '@/shared/errors/user-facing-error';
 import { createShadow, theme } from '@/shared/styles/theme';
 import type { CommunityFilter, CommunityPost } from '@/shared/types/community';
+import type { NeighborhoodLeaderboardEntry } from '@/shared/types/leaderboard';
 
 interface CommunityBoardScreenProps {
   neighborhoodName: string;
@@ -20,6 +23,9 @@ export function CommunityBoardScreen({ neighborhoodName, onComposePost, onOpenMa
   const [posts, setPosts] = useState<CommunityPost[]>([]);
   const [error, setError] = useState<UserFacingError | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [leaderboard, setLeaderboard] = useState<NeighborhoodLeaderboardEntry[]>([]);
+  const [leaderboardError, setLeaderboardError] = useState<UserFacingError | null>(null);
+  const [isLeaderboardLoading, setIsLeaderboardLoading] = useState(false);
 
   const commentCount = useMemo(() => posts.reduce((total, post) => total + post.commentCount, 0), [posts]);
 
@@ -46,9 +52,29 @@ export function CommunityBoardScreen({ neighborhoodName, onComposePost, onOpenMa
     [activeFilter, neighborhoodName],
   );
 
+  const refreshLeaderboard = useCallback(async () => {
+    setIsLeaderboardLoading(true);
+    setLeaderboardError(null);
+
+    try {
+      const nextLeaderboard = await fetchNeighborhoodLeaderboard(neighborhoodName, 30, 5);
+      setLeaderboard(nextLeaderboard);
+    } catch (nextError) {
+      console.warn('[leaderboard] board load failed', nextError);
+      setLeaderboard([]);
+      setLeaderboardError(getUserFacingError(nextError, 'leaderboard.load'));
+    } finally {
+      setIsLeaderboardLoading(false);
+    }
+  }, [neighborhoodName]);
+
   useEffect(() => {
     void refreshPosts();
   }, [refreshPosts]);
+
+  useEffect(() => {
+    void refreshLeaderboard();
+  }, [refreshLeaderboard]);
 
   const handleChangeFilter = (filter: CommunityFilter) => {
     setActiveFilter(filter);
@@ -79,6 +105,13 @@ export function CommunityBoardScreen({ neighborhoodName, onComposePost, onOpenMa
           <Text style={styles.writeButtonText}>글쓰기</Text>
         </Pressable>
       </View>
+
+      <NeighborhoodLeaderboardCard
+        entries={leaderboard}
+        errorMessage={leaderboardError?.message}
+        isLoading={isLeaderboardLoading}
+        onRetry={refreshLeaderboard}
+      />
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
         {communityFilterOptions.map((filter) => {
