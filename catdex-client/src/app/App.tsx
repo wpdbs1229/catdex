@@ -24,6 +24,7 @@ import { CommunityComposerScreen } from '@/features/community/CommunityComposerS
 import { MyCommunityPostsScreen } from '@/features/community/MyCommunityPostsScreen';
 import { CommunityPostDetailScreen } from '@/features/community/CommunityPostDetailScreen';
 import { HomeScreen } from '@/features/home/HomeScreen';
+import { NeighborhoodDexScreen } from '@/features/map/NeighborhoodDexScreen';
 import { NeighborhoodMapScreen } from '@/features/map/NeighborhoodMapScreen';
 import { ExplorationHistoryScreen } from '@/features/my/MyLinkedCollectionScreens';
 import { BadgeBookScreen } from '@/features/my/BadgeBookScreen';
@@ -73,8 +74,8 @@ const emptyCustomization: CollectionCustomizationState = {
 
 const UNSET_NEIGHBORHOOD_NAME = '동네 설정 전';
 
-type NeighborhoodView = 'map' | 'board';
-type CommunityReturnScreen = 'board' | 'myCommunityPosts';
+type NeighborhoodView = 'dex' | 'map' | 'board';
+type CommunityReturnScreen = 'dex' | 'map' | 'board' | 'myCommunityPosts';
 
 function isSameNeighborhood(left: SavedNeighborhood, right: SavedNeighborhood) {
   return (
@@ -123,7 +124,7 @@ export default function App() {
     selectedCommunityCatId: null,
     selectedCommunityPostId: null,
   });
-  const [neighborhoodView, setNeighborhoodView] = useState<NeighborhoodView>('map');
+  const [neighborhoodView, setNeighborhoodView] = useState<NeighborhoodView>('dex');
   const [savedNeighborhoods, setSavedNeighborhoods] = useState<SavedNeighborhood[]>([]);
   const [activeNeighborhoodId, setActiveNeighborhoodId] = useState('');
   const [hasLoadedNeighborhoodState, setHasLoadedNeighborhoodState] = useState(false);
@@ -302,7 +303,7 @@ export default function App() {
     }
 
     if (screen === 'map') {
-      setNeighborhoodView('map');
+      setNeighborhoodView('dex');
     }
 
     setNavigation({
@@ -317,6 +318,16 @@ export default function App() {
       screen: 'detail',
       selectedCatId: catId,
       selectedOwnerId: null,
+    });
+  };
+
+  const handleOpenNeighborhoodDex = () => {
+    setNeighborhoodView('dex');
+    setNavigation({
+      screen: 'map',
+      selectedCatId: null,
+      selectedOwnerId: null,
+      selectedCommunityPostId: null,
     });
   };
 
@@ -783,24 +794,45 @@ export default function App() {
           <CommunityBoardScreen
             neighborhoodName={activeNeighborhoodName}
             onComposePost={() => handleOpenCommunityCompose()}
+            onOpenDex={handleOpenNeighborhoodDex}
             onOpenMap={handleOpenNeighborhoodMap}
             onOpenPost={handleOpenCommunityPost}
           />
-        ) : (
+        ) : neighborhoodView === 'map' ? (
           <NeighborhoodMapScreen
             cats={cats}
             neighborhoodName={activeNeighborhoodName}
             onGoCapture={() => handleTabChange('capture')}
             onOpenCat={handleOpenCat}
             onOpenCommunityBoard={handleOpenCommunityBoard}
-            onOpenCommunityPost={handleOpenCommunityPost}
+            onOpenCommunityPost={(postId) => handleOpenCommunityPost(postId, 'map')}
+            onOpenDex={handleOpenNeighborhoodDex}
+            regions={visibleRegions}
+          />
+        ) : (
+          <NeighborhoodDexScreen
+            cats={cats}
+            neighborhoodName={activeNeighborhoodName}
+            onGoCapture={() => handleTabChange('capture')}
+            onOpenCat={handleOpenCat}
+            onOpenCommunityBoard={handleOpenCommunityBoard}
+            onOpenCommunityPost={(postId) => handleOpenCommunityPost(postId, 'dex')}
+            onOpenMap={handleOpenNeighborhoodMap}
             regions={visibleRegions}
           />
         );
       case 'communityPostDetail':
         return navigation.selectedCommunityPostId ? (
           <CommunityPostDetailScreen
-            onBack={communityReturnScreen === 'myCommunityPosts' ? handleOpenMyCommunityPosts : handleOpenCommunityBoard}
+            onBack={
+              communityReturnScreen === 'myCommunityPosts'
+                ? handleOpenMyCommunityPosts
+                : communityReturnScreen === 'dex'
+                  ? handleOpenNeighborhoodDex
+                  : communityReturnScreen === 'map'
+                    ? handleOpenNeighborhoodMap
+                  : handleOpenCommunityBoard
+            }
             onOpenCat={handleOpenCat}
             postId={navigation.selectedCommunityPostId}
           />
@@ -808,6 +840,7 @@ export default function App() {
           <CommunityBoardScreen
             neighborhoodName={activeNeighborhoodName}
             onComposePost={() => handleOpenCommunityCompose()}
+            onOpenDex={handleOpenNeighborhoodDex}
             onOpenMap={handleOpenNeighborhoodMap}
             onOpenPost={handleOpenCommunityPost}
           />
@@ -818,7 +851,15 @@ export default function App() {
             cats={myCats}
             initialCatId={navigation.selectedCommunityCatId}
             neighborhoodName={activeNeighborhoodName}
-            onBack={communityReturnScreen === 'myCommunityPosts' ? handleOpenMyCommunityPosts : handleOpenCommunityBoard}
+            onBack={
+              communityReturnScreen === 'myCommunityPosts'
+                ? handleOpenMyCommunityPosts
+                : communityReturnScreen === 'dex'
+                  ? handleOpenNeighborhoodDex
+                  : communityReturnScreen === 'map'
+                    ? handleOpenNeighborhoodMap
+                  : handleOpenCommunityBoard
+            }
             onCreated={(postId) => handleOpenCommunityPost(postId, communityReturnScreen)}
           />
         );

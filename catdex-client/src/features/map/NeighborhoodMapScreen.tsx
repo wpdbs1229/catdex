@@ -1,14 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { AlertCircle, Camera, ChevronLeft, ChevronRight, Map as MapIcon, MapPin, MessageCircle, PawPrint, ShieldCheck } from 'lucide-react-native';
+import { AlertCircle, Camera, ChevronLeft, ChevronRight, MapPin, MessageCircle, PawPrint, ShieldCheck } from 'lucide-react-native';
 import { CommunityPostCard } from '@/features/community/components/CommunityPostCard';
-import { NeighborhoodLeaderboardCard } from '@/features/map/components/NeighborhoodLeaderboardCard';
+import { NeighborhoodTopTabs } from '@/features/map/components/NeighborhoodTopTabs';
 import { fetchCommunityPosts } from '@/shared/api/community.api';
-import { fetchNeighborhoodLeaderboard } from '@/shared/api/leaderboard.api';
 import { getUserFacingError, type UserFacingError } from '@/shared/errors/user-facing-error';
 import type { Cat } from '@/shared/types/cat';
 import type { CommunityPost } from '@/shared/types/community';
-import type { NeighborhoodLeaderboardEntry } from '@/shared/types/leaderboard';
 import type { Region } from '@/shared/types/region';
 import { createShadow, theme } from '@/shared/styles/theme';
 import { KakaoMapView } from '@/features/map/components/KakaoMapView';
@@ -22,6 +20,7 @@ interface NeighborhoodMapScreenProps {
   onOpenCat: (catId: string) => void;
   onOpenCommunityBoard: () => void;
   onOpenCommunityPost: (postId: string) => void;
+  onOpenDex: () => void;
 }
 
 function getRegionCats(region: Region | null, catByName: Map<string, Cat>) {
@@ -44,6 +43,7 @@ export function NeighborhoodMapScreen({
   onOpenCat,
   onOpenCommunityBoard,
   onOpenCommunityPost,
+  onOpenDex,
 }: NeighborhoodMapScreenProps) {
   const displayRegions = useMemo(() => regions, [regions]);
   const catByName = useMemo(() => new Map(cats.map((cat) => [cat.name, cat])), [cats]);
@@ -52,9 +52,6 @@ export function NeighborhoodMapScreen({
   const [previewPosts, setPreviewPosts] = useState<CommunityPost[]>([]);
   const [previewError, setPreviewError] = useState<UserFacingError | null>(null);
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
-  const [leaderboard, setLeaderboard] = useState<NeighborhoodLeaderboardEntry[]>([]);
-  const [leaderboardError, setLeaderboardError] = useState<UserFacingError | null>(null);
-  const [isLeaderboardLoading, setIsLeaderboardLoading] = useState(false);
 
   useEffect(() => {
     if (!selectedRegion && displayRegions[0]) {
@@ -87,29 +84,9 @@ export function NeighborhoodMapScreen({
     }
   }, [neighborhoodName]);
 
-  const refreshLeaderboard = useCallback(async () => {
-    setIsLeaderboardLoading(true);
-    setLeaderboardError(null);
-
-    try {
-      const nextLeaderboard = await fetchNeighborhoodLeaderboard(neighborhoodName, 30, 5);
-      setLeaderboard(nextLeaderboard);
-    } catch (error) {
-      console.warn('[leaderboard] neighborhood load failed', error);
-      setLeaderboard([]);
-      setLeaderboardError(getUserFacingError(error, 'leaderboard.load'));
-    } finally {
-      setIsLeaderboardLoading(false);
-    }
-  }, [neighborhoodName]);
-
   useEffect(() => {
     void refreshPreviewPosts();
   }, [refreshPreviewPosts]);
-
-  useEffect(() => {
-    void refreshLeaderboard();
-  }, [refreshLeaderboard]);
 
   const totalRegionCats = useMemo(() => new Set(displayRegions.flatMap((region) => region.cats)).size, [displayRegions]);
   const activeRegions = displayRegions.filter((region) => region.cats.length > 0).length;
@@ -174,16 +151,12 @@ export function NeighborhoodMapScreen({
 
   return (
     <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-      <View style={styles.segmentWrap}>
-        <View style={[styles.segmentButton, styles.segmentButtonActive]}>
-          <MapIcon color="#FFF8F0" size={15} />
-          <Text style={[styles.segmentText, styles.segmentTextActive]}>지도</Text>
-        </View>
-        <Pressable accessibilityLabel="게시판 보기" accessibilityRole="button" onPress={onOpenCommunityBoard} style={({ pressed }) => [styles.segmentButton, pressed && styles.pressed]}>
-          <MessageCircle color={theme.colors.primaryDark} size={15} />
-          <Text style={styles.segmentText}>게시판</Text>
-        </Pressable>
-      </View>
+      <NeighborhoodTopTabs
+        activeTab="map"
+        onOpenBoard={onOpenCommunityBoard}
+        onOpenDex={onOpenDex}
+        onOpenMap={() => undefined}
+      />
 
       <View style={styles.header}>
         <View style={styles.headerCopy}>
@@ -219,13 +192,6 @@ export function NeighborhoodMapScreen({
           </Text>
         </View>
       </View>
-
-      <NeighborhoodLeaderboardCard
-        entries={leaderboard}
-        errorMessage={leaderboardError?.message}
-        isLoading={isLeaderboardLoading}
-        onRetry={refreshLeaderboard}
-      />
 
       <View style={styles.mapPreviewCard}>
         <View style={styles.mapPreviewHeader}>
@@ -458,36 +424,6 @@ const styles = StyleSheet.create({
     color: theme.colors.mutedText,
     fontSize: 12,
     fontWeight: '800',
-  },
-  segmentWrap: {
-    minHeight: 44,
-    flexDirection: 'row',
-    gap: theme.spacing.sm,
-    borderRadius: 22,
-    padding: 4,
-    backgroundColor: 'rgba(255,253,246,0.68)',
-    borderWidth: 1,
-    borderColor: 'rgba(139,112,83,0.1)',
-  },
-  segmentButton: {
-    flex: 1,
-    minHeight: 36,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 5,
-    borderRadius: 18,
-  },
-  segmentButtonActive: {
-    backgroundColor: theme.colors.primaryDark,
-  },
-  segmentText: {
-    color: theme.colors.primaryDark,
-    fontSize: 13,
-    fontWeight: '900',
-  },
-  segmentTextActive: {
-    color: '#FFF8F0',
   },
   header: {
     minHeight: 72,
