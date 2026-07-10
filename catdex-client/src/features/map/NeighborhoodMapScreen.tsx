@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { Camera, ChevronRight, MapPin, PawPrint } from 'lucide-react-native';
+import { Camera, ChevronDown, ChevronRight, ChevronUp, MapPin, PawPrint } from 'lucide-react-native';
 import { NeighborhoodTopTabs } from '@/features/map/components/NeighborhoodTopTabs';
 import { KakaoMapView } from '@/features/map/components/KakaoMapView';
 import { formatMapRegionName } from '@/features/map/map-region-label';
@@ -38,6 +38,7 @@ export function NeighborhoodMapScreen({
   const displayRegions = useMemo(() => regions, [regions]);
   const catByName = useMemo(() => new Map(cats.map((cat) => [cat.name, cat])), [cats]);
   const [selectedRegion, setSelectedRegion] = useState<Region | null>(displayRegions[0] ?? null);
+  const [isSheetExpanded, setIsSheetExpanded] = useState(false);
 
   useEffect(() => {
     if (!selectedRegion && displayRegions[0]) {
@@ -90,66 +91,87 @@ export function NeighborhoodMapScreen({
         </View>
       </View>
 
-      <View style={styles.mapInfoPanel}>
+      <View style={[styles.mapInfoPanel, !isSheetExpanded && styles.mapInfoPanelCollapsed]}>
         <View style={styles.sheetHandle} />
-        <View style={styles.mapInfoHeader}>
-          <View style={styles.mapInfoCopy}>
-            <Text style={styles.mapInfoKicker}>선택 구역</Text>
-            <Text numberOfLines={1} style={styles.mapInfoTitle}>
-              {selectedRegion ? formatMapRegionName(selectedRegion.name) : '구역 없음'}
-            </Text>
-          </View>
-          <View style={styles.regionCountBadge}>
-            <Text style={styles.regionCountText}>{selectedRegion?.cats.length ?? 0}마리</Text>
-          </View>
-        </View>
-
-        <Text style={styles.mapInfoText}>
-          {selectedRegion
-            ? '정확한 좌표 대신 자주 보이는 구역만 흐리게 보여줘요.'
-            : '지도에서 냥이 구역을 선택하면 이곳에 고양이 목록이 떠요.'}
-        </Text>
-
-        <View style={styles.regionCatList}>
-          {visibleRegionCats.length > 0 ? (
-            visibleRegionCats.map((cat) => (
-              <Pressable
-                accessibilityLabel={`${cat.name} 도감 보기`}
-                accessibilityRole="button"
-                key={cat.id}
-                onPress={() => onOpenCat(cat.id)}
-                style={({ pressed }) => [styles.regionCatChip, pressed && styles.pressed]}
-              >
-                <View style={styles.regionCatIcon}>
-                  <PawPrint color={theme.colors.primaryDark} size={14} />
-                </View>
-                <View style={styles.regionCatCopy}>
-                  <Text numberOfLines={1} style={styles.regionCatName}>
-                    {cat.name}
-                  </Text>
-                  <Text numberOfLines={1} style={styles.regionCatMeta}>
-                    {cat.relationshipLevel} · 최근 {cat.lastSeenAt}
-                  </Text>
-                </View>
-                <ChevronRight color={theme.colors.primaryDark} size={14} />
-              </Pressable>
-            ))
-          ) : (
-            <View style={styles.emptyRegionChip}>
-              <PawPrint color="#CDB58F" size={14} />
-              <Text style={styles.emptyRegionChipText}>아직 확인된 고양이가 없어요</Text>
+        <Pressable
+          accessibilityLabel={isSheetExpanded ? '선택 구역 접기' : '선택 구역 펼치기'}
+          accessibilityRole="button"
+          accessibilityState={{ expanded: isSheetExpanded }}
+          onPress={() => setIsSheetExpanded((current) => !current)}
+          style={({ pressed }) => [styles.mapInfoHeaderButton, pressed && styles.pressed]}
+        >
+          <View style={styles.mapInfoHeader}>
+            <View style={styles.mapInfoCopy}>
+              <Text style={styles.mapInfoKicker}>선택 구역</Text>
+              <Text numberOfLines={1} style={styles.mapInfoTitle}>
+                {selectedRegion ? formatMapRegionName(selectedRegion.name) : '구역 없음'}
+              </Text>
             </View>
-          )}
-
-          {hiddenRegionCatCount > 0 ? (
-            <Text style={styles.moreCatsText}>외 {hiddenRegionCatCount}마리는 동네 도감에서 이어서 확인할 수 있어요.</Text>
-          ) : null}
-        </View>
-
-        <Pressable accessibilityLabel="고양이 기록하기" accessibilityRole="button" onPress={onGoCapture} style={({ pressed }) => [styles.captureButton, pressed && styles.pressed]}>
-          <Camera color="#FFF8F0" size={17} />
-          <Text style={styles.captureButtonText}>고양이 기록하기</Text>
+            <View style={styles.regionHeaderActions}>
+              <View style={styles.regionCountBadge}>
+                <Text style={styles.regionCountText}>{selectedRegion?.cats.length ?? 0}마리</Text>
+              </View>
+              <View style={styles.sheetToggleIcon}>
+                {isSheetExpanded ? (
+                  <ChevronDown color={theme.colors.primaryDark} size={17} />
+                ) : (
+                  <ChevronUp color={theme.colors.primaryDark} size={17} />
+                )}
+              </View>
+            </View>
+          </View>
         </Pressable>
+
+        {isSheetExpanded ? (
+          <>
+            <Text style={styles.mapInfoText}>
+              {selectedRegion
+                ? '정확한 좌표 대신 자주 보이는 구역만 흐리게 보여줘요.'
+                : '지도에서 냥이 구역을 선택하면 이곳에 고양이 목록이 떠요.'}
+            </Text>
+
+            <View style={styles.regionCatList}>
+              {visibleRegionCats.length > 0 ? (
+                visibleRegionCats.map((cat) => (
+                  <Pressable
+                    accessibilityLabel={`${cat.name} 도감 보기`}
+                    accessibilityRole="button"
+                    key={cat.id}
+                    onPress={() => onOpenCat(cat.id)}
+                    style={({ pressed }) => [styles.regionCatChip, pressed && styles.pressed]}
+                  >
+                    <View style={styles.regionCatIcon}>
+                      <PawPrint color={theme.colors.primaryDark} size={14} />
+                    </View>
+                    <View style={styles.regionCatCopy}>
+                      <Text numberOfLines={1} style={styles.regionCatName}>
+                        {cat.name}
+                      </Text>
+                      <Text numberOfLines={1} style={styles.regionCatMeta}>
+                        {cat.relationshipLevel} · 최근 {cat.lastSeenAt}
+                      </Text>
+                    </View>
+                    <ChevronRight color={theme.colors.primaryDark} size={14} />
+                  </Pressable>
+                ))
+              ) : (
+                <View style={styles.emptyRegionChip}>
+                  <PawPrint color="#CDB58F" size={14} />
+                  <Text style={styles.emptyRegionChipText}>아직 확인된 고양이가 없어요</Text>
+                </View>
+              )}
+
+              {hiddenRegionCatCount > 0 ? (
+                <Text style={styles.moreCatsText}>외 {hiddenRegionCatCount}마리는 동네 도감에서 이어서 확인할 수 있어요.</Text>
+              ) : null}
+            </View>
+
+            <Pressable accessibilityLabel="고양이 기록하기" accessibilityRole="button" onPress={onGoCapture} style={({ pressed }) => [styles.captureButton, pressed && styles.pressed]}>
+              <Camera color="#FFF8F0" size={17} />
+              <Text style={styles.captureButtonText}>고양이 기록하기</Text>
+            </Pressable>
+          </>
+        ) : null}
       </View>
     </View>
   );
@@ -235,6 +257,10 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(139,112,83,0.12)',
     ...createShadow(9),
   },
+  mapInfoPanelCollapsed: {
+    paddingTop: theme.spacing.md,
+    paddingBottom: theme.spacing.md,
+  },
   sheetHandle: {
     alignSelf: 'center',
     width: 42,
@@ -242,6 +268,9 @@ const styles = StyleSheet.create({
     borderRadius: 2,
     marginBottom: theme.spacing.md,
     backgroundColor: 'rgba(139,112,83,0.24)',
+  },
+  mapInfoHeaderButton: {
+    borderRadius: theme.radius.lg,
   },
   mapInfoHeader: {
     minHeight: 42,
@@ -266,6 +295,11 @@ const styles = StyleSheet.create({
     lineHeight: 26,
     fontWeight: '900',
   },
+  regionHeaderActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+  },
   regionCountBadge: {
     minHeight: 34,
     alignItems: 'center',
@@ -278,6 +312,16 @@ const styles = StyleSheet.create({
     color: theme.colors.primaryDark,
     fontSize: 12,
     fontWeight: '900',
+  },
+  sheetToggleIcon: {
+    width: 34,
+    height: 34,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 17,
+    backgroundColor: 'rgba(248,234,210,0.72)',
+    borderWidth: 1,
+    borderColor: 'rgba(139,112,83,0.1)',
   },
   mapInfoText: {
     marginTop: theme.spacing.sm,
