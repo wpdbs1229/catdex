@@ -805,7 +805,6 @@ export default function App() {
             onGoCapture={() => handleTabChange('capture')}
             onOpenCat={handleOpenCat}
             onOpenCommunityBoard={handleOpenCommunityBoard}
-            onOpenCommunityPost={(postId) => handleOpenCommunityPost(postId, 'map')}
             onOpenDex={handleOpenNeighborhoodDex}
             regions={visibleRegions}
           />
