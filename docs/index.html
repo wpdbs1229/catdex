@@ -197,6 +197,172 @@
         color: var(--ink);
       }
 
+      .waitlist-section {
+        background:
+          linear-gradient(135deg, rgba(232, 240, 214, 0.72), rgba(255, 247, 234, 0.92)),
+          var(--paper);
+      }
+
+      .waitlist-panel {
+        display: grid;
+        grid-template-columns: minmax(0, 0.92fr) minmax(320px, 0.72fr);
+        gap: clamp(28px, 5vw, 54px);
+        align-items: start;
+        border: 1px solid rgba(234, 220, 205, 0.92);
+        border-radius: 8px;
+        padding: clamp(24px, 4vw, 42px);
+        background: rgba(255, 255, 255, 0.78);
+        box-shadow: var(--shadow);
+      }
+
+      .waitlist-copy {
+        display: grid;
+        gap: 18px;
+      }
+
+      .waitlist-copy p,
+      .waitlist-note,
+      .form-help,
+      .consent-copy {
+        color: var(--muted);
+        font-size: 15px;
+        line-height: 1.68;
+        font-weight: 750;
+      }
+
+      .waitlist-form {
+        display: grid;
+        gap: 16px;
+        border: 1px solid rgba(234, 220, 205, 0.9);
+        border-radius: 8px;
+        padding: 20px;
+        background: rgba(255, 247, 234, 0.86);
+      }
+
+      .waitlist-form fieldset {
+        min-width: 0;
+        margin: 0;
+        border: 0;
+        padding: 0;
+      }
+
+      .form-field {
+        display: grid;
+        gap: 8px;
+      }
+
+      .form-label,
+      .platform-label {
+        color: var(--brown);
+        font-size: 13px;
+        font-weight: 950;
+      }
+
+      .waitlist-input {
+        width: 100%;
+        min-height: 50px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 0 14px;
+        background: #fff;
+        color: var(--ink);
+        font: inherit;
+        font-size: 15px;
+        font-weight: 800;
+      }
+
+      .waitlist-input:focus {
+        outline: 3px solid rgba(110, 138, 84, 0.22);
+        border-color: rgba(110, 138, 84, 0.54);
+      }
+
+      .platform-options {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 8px;
+      }
+
+      .platform-option {
+        position: relative;
+      }
+
+      .platform-option input {
+        position: absolute;
+        inset: 0;
+        opacity: 0;
+      }
+
+      .platform-option span {
+        display: grid;
+        min-height: 42px;
+        place-items: center;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.84);
+        color: var(--muted);
+        font-size: 13px;
+        font-weight: 950;
+      }
+
+      .platform-option input:checked + span {
+        border-color: var(--brown);
+        background: var(--brown);
+        color: #fff;
+      }
+
+      .consent-list {
+        display: grid;
+        gap: 10px;
+      }
+
+      .consent-item {
+        display: grid;
+        grid-template-columns: 18px minmax(0, 1fr);
+        gap: 10px;
+        align-items: start;
+      }
+
+      .consent-item input {
+        width: 18px;
+        height: 18px;
+        margin: 2px 0 0;
+        accent-color: var(--brown);
+      }
+
+      .waitlist-submit {
+        width: 100%;
+        cursor: pointer;
+      }
+
+      .waitlist-submit:disabled {
+        cursor: not-allowed;
+        opacity: 0.64;
+      }
+
+      .waitlist-status {
+        min-height: 22px;
+        color: var(--muted);
+        font-size: 14px;
+        font-weight: 850;
+        line-height: 1.5;
+      }
+
+      .waitlist-status[data-state="success"] {
+        color: var(--green);
+      }
+
+      .waitlist-status[data-state="error"] {
+        color: #9f3a21;
+      }
+
+      .honeypot {
+        position: absolute;
+        left: -10000px;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+      }
+
       .proof-strip {
         display: grid;
         grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -612,7 +778,8 @@
         .hero-inner,
         .feature,
         .feature.reverse,
-        .closing {
+        .closing,
+        .waitlist-panel {
           grid-template-columns: 1fr;
         }
 
@@ -665,6 +832,10 @@
         .business-info dl {
           justify-content: flex-start;
         }
+
+        .platform-options {
+          grid-template-columns: 1fr;
+        }
       }
 
       @media (max-width: 560px) {
@@ -704,9 +875,10 @@
         <a href="#dex">도감</a>
         <a href="#neighborhood">동네</a>
         <a href="#safety">안전</a>
+        <a href="#waitlist">출시 알림</a>
         <a href="./contact.html">문의하기</a>
         <a href="./delete-account.html">회원탈퇴</a>
-        <a class="nav-cta" href="#top">시작하기</a>
+        <a class="nav-cta" href="#waitlist">출시 알림 받기</a>
       </nav>
     </header>
 
@@ -721,7 +893,8 @@
               정확한 좌표보다 안전한 구역 공유를 우선하고, 다시 만난 기록을 쌓아 동네 고양이의 이야기를 남겨요.
             </p>
             <div class="hero-actions">
-              <a class="button" href="#how">기록 방식 보기</a>
+              <a class="button" href="#waitlist">출시 알림 받기</a>
+              <a class="button secondary" href="#how">기록 방식 보기</a>
               <a class="button secondary" href="#neighborhood">동네 지도 보기</a>
             </div>
             <div class="proof-strip" aria-label="냥도감 핵심 지표">
@@ -772,6 +945,84 @@
           <span>동네 구역으로 보기</span>
           <span>이웃과 확인하기</span>
           <span>다시 만난 기록 이어가기</span>
+        </div>
+      </section>
+
+      <section id="waitlist" class="section waitlist-section" aria-label="냥도감 출시 알림 신청">
+        <div class="section-inner waitlist-panel">
+          <div class="waitlist-copy">
+            <div class="section-kicker">LAUNCH NOTICE</div>
+            <h2>냥도감이 출시되면 이메일로 알려드릴게요.</h2>
+            <p>
+              App Store와 Google Play 배포가 열리면 다운로드 링크를 한 번 보내드립니다.
+              출시 알림만 받고 싶다면 필수 동의만 체크하면 됩니다.
+            </p>
+            <p class="waitlist-note">
+              수집 항목은 이메일과 관심 플랫폼이며, 출시 안내 발송 후 90일 안에 정리합니다.
+              주요 업데이트 소식 수신은 선택 사항입니다.
+            </p>
+          </div>
+
+          <form
+            id="launch-waitlist-form"
+            class="waitlist-form"
+            data-endpoint="https://wqiqdybzhbmsvccpklli.supabase.co/functions/v1/launch-waitlist-signup"
+            novalidate
+          >
+            <div class="form-field">
+              <label class="form-label" for="waitlist-email">이메일</label>
+              <input
+                id="waitlist-email"
+                class="waitlist-input"
+                name="email"
+                type="email"
+                autocomplete="email"
+                inputmode="email"
+                placeholder="catdex@example.com"
+                required
+              />
+              <p class="form-help">출시 안내 메일 발송 외에는 사용하지 않습니다.</p>
+            </div>
+
+            <fieldset class="form-field">
+              <legend class="platform-label">관심 플랫폼</legend>
+              <div class="platform-options">
+                <label class="platform-option">
+                  <input type="radio" name="platform" value="ios" />
+                  <span>iOS</span>
+                </label>
+                <label class="platform-option">
+                  <input type="radio" name="platform" value="android" />
+                  <span>Android</span>
+                </label>
+                <label class="platform-option">
+                  <input type="radio" name="platform" value="both" checked />
+                  <span>둘 다</span>
+                </label>
+              </div>
+            </fieldset>
+
+            <div class="consent-list">
+              <label class="consent-item">
+                <input id="waitlist-consent" name="launchNoticeConsent" type="checkbox" required />
+                <span class="consent-copy">
+                  출시 알림 발송을 위해 이메일을 수집·이용하는 데 동의합니다.
+                </span>
+              </label>
+              <label class="consent-item">
+                <input name="updateNewsConsent" type="checkbox" />
+                <span class="consent-copy">출시 후 주요 업데이트 소식도 받을래요.</span>
+              </label>
+            </div>
+
+            <label class="honeypot" aria-hidden="true">
+              웹사이트
+              <input name="website" type="text" tabindex="-1" autocomplete="off" />
+            </label>
+
+            <button class="button waitlist-submit" type="submit">출시 알림 받기</button>
+            <p class="waitlist-status" data-waitlist-status role="status" aria-live="polite"></p>
+          </form>
         </div>
       </section>
 
@@ -941,7 +1192,8 @@
               오늘 만난 고양이를 남기고, 다음 만남을 이어가세요. 냥도감은 동네 길고양이의 흔적을 안전하게 모으는 작은 도감입니다.
             </p>
             <div class="hero-actions">
-              <a class="button" href="#top">맨 위로</a>
+              <a class="button" href="#waitlist">출시 알림 받기</a>
+              <a class="button secondary" href="#top">맨 위로</a>
               <a class="button secondary" href="#how">사용 흐름 다시 보기</a>
             </div>
           </div>
@@ -960,6 +1212,7 @@
           <a href="#how">사용 흐름</a>
           <a href="#neighborhood">동네 지도</a>
           <a href="#safety">안전 원칙</a>
+          <a href="#waitlist">출시 알림</a>
           <a href="./contact.html">문의하기</a>
           <a href="./delete-account.html">회원탈퇴 및 데이터 삭제 요청</a>
         </nav>
@@ -997,5 +1250,91 @@
         </dl>
       </section>
     </footer>
+    <script>
+      (() => {
+        const form = document.querySelector("#launch-waitlist-form");
+
+        if (!form) {
+          return;
+        }
+
+        const emailInput = form.querySelector("#waitlist-email");
+        const consentInput = form.querySelector("#waitlist-consent");
+        const submitButton = form.querySelector("button[type='submit']");
+        const statusNode = form.querySelector("[data-waitlist-status]");
+        const endpoint = form.dataset.endpoint;
+
+        function setStatus(message, state = "") {
+          statusNode.textContent = message;
+          statusNode.dataset.state = state;
+        }
+
+        function isValidEmail(value) {
+          return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+        }
+
+        form.addEventListener("submit", async (event) => {
+          event.preventDefault();
+
+          const formData = new FormData(form);
+          const email = String(formData.get("email") ?? "").trim().toLowerCase();
+          const platform = String(formData.get("platform") ?? "unknown");
+          const launchNoticeConsent = consentInput.checked;
+          const updateNewsConsent = formData.get("updateNewsConsent") === "on";
+          const website = String(formData.get("website") ?? "");
+
+          if (!isValidEmail(email)) {
+            setStatus("이메일 주소를 다시 확인해 주세요.", "error");
+            emailInput.focus();
+            return;
+          }
+
+          if (!launchNoticeConsent) {
+            setStatus("출시 알림 발송을 위한 필수 동의가 필요합니다.", "error");
+            consentInput.focus();
+            return;
+          }
+
+          submitButton.disabled = true;
+          setStatus("등록 중입니다...");
+
+          try {
+            const response = await fetch(endpoint, {
+              method: "POST",
+              headers: {
+                "content-type": "application/json",
+              },
+              body: JSON.stringify({
+                email,
+                platform,
+                launchNoticeConsent,
+                updateNewsConsent,
+                source: "docs_index",
+                consentVersion: "launch_waitlist_2026_07_10",
+                website,
+              }),
+            });
+            const payload = await response.json().catch(() => ({}));
+
+            if (!response.ok) {
+              throw new Error(payload.error ?? "출시 알림 등록에 실패했습니다.");
+            }
+
+            setStatus(
+              payload.alreadySubscribed
+                ? "이미 등록된 이메일입니다. 출시 소식이 준비되면 알려드릴게요."
+                : "등록됐습니다. 냥도감이 출시되면 이메일로 알려드릴게요.",
+              "success",
+            );
+            form.reset();
+            form.querySelector("input[name='platform'][value='both']").checked = true;
+          } catch (error) {
+            setStatus(error instanceof Error ? error.message : "잠시 후 다시 시도해 주세요.", "error");
+          } finally {
+            submitButton.disabled = false;
+          }
+        });
+      })();
+    </script>
   </body>
 </html>
