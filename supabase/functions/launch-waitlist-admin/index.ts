@@ -17,6 +17,10 @@ interface WaitlistRow {
   updated_at: string;
 }
 
+interface AdminContextRow {
+  admin_role: 'owner' | 'admin';
+}
+
 const allowedOrigins = new Set([
   'https://wpdbs1229.github.io',
   'http://localhost:8080',
@@ -169,22 +173,6 @@ Deno.serve(async (request) => {
     return jsonResponse(request, { error: userError?.message ?? 'Unauthorized' }, 401);
   }
 
-  const { data: adminUser, error: adminError } = await supabase
-    .schema('private')
-    .from('admin_users')
-    .select('user_id, role')
-    .eq('user_id', user.id)
-    .is('revoked_at', null)
-    .maybeSingle();
-
-  if (adminError) {
-    return jsonResponse(request, { error: adminError.message }, 500);
-  }
-
-  if (!adminUser) {
-    return jsonResponse(request, { error: 'Forbidden' }, 403);
-  }
-
   const url = new URL(request.url);
   const limit = clampLimit(url.searchParams.get('limit'));
   const offset = clampOffset(url.searchParams.get('offset'));
@@ -200,20 +188,21 @@ Deno.serve(async (request) => {
     hasSearch: Boolean(search),
   };
 
-  const { error: auditError } = await supabase
-    .schema('private')
-    .from('admin_audit_logs')
-    .insert({
-      actor_user_id: user.id,
-      action: 'launch_waitlist.list',
-      target: 'launch_waitlist',
-      metadata: auditMetadata,
-      ip_address: getClientIp(request),
-      user_agent: request.headers.get('user-agent'),
-    });
+  const { data: adminContext, error: adminError } = await supabase
+    .rpc('get_launch_waitlist_admin_context', {
+      p_actor_user_id: user.id,
+      p_metadata: auditMetadata,
+      p_ip_address: getClientIp(request),
+      p_user_agent: request.headers.get('user-agent'),
+    })
+    .maybeSingle<AdminContextRow>();
 
-  if (auditError) {
-    return jsonResponse(request, { error: auditError.message }, 500);
+  if (adminError) {
+    return jsonResponse(request, { error: adminError.message }, 500);
+  }
+
+  if (!adminContext) {
+    return jsonResponse(request, { error: 'Forbidden' }, 403);
   }
 
   let waitlistQuery = supabase
@@ -245,7 +234,7 @@ Deno.serve(async (request) => {
 
   return jsonResponse(request, {
     ok: true,
-    role: adminUser.role,
+    role: adminContext.admin_role,
     total: count ?? 0,
     limit,
     offset,
