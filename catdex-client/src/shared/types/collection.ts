@@ -6,8 +6,12 @@ export interface FeaturedCatSlot {
   caption: string;
 }
 
+export type CollectionEntitlementTier = 'free' | 'nyangkkureomi';
+
 export interface CollectionCustomizationState {
   featuredCatSlots: FeaturedCatSlot[];
+  entitlementTier: CollectionEntitlementTier;
+  maxFeaturedCats: number;
 }
 
 export interface CollectionSummary {

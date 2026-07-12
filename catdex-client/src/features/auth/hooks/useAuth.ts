@@ -148,7 +148,7 @@ export function useAuth() {
     } catch (error) {
       console.warn('[auth] login failed', error);
       setAuthErrorMessage(getUserFacingErrorMessage(error, 'auth.login'));
-      throw error;
+      return null;
     } finally {
       setPendingProvider(null);
     }

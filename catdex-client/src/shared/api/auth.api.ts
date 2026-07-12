@@ -183,22 +183,42 @@ async function uploadProfileImage(userId: string, imageUri: string, mimeType?: s
     data: { publicUrl },
   } = supabase.storage.from('profile-images').getPublicUrl(data.path);
 
-  return publicUrl;
+  return {
+    path: data.path,
+    publicUrl,
+  };
 }
 
-async function upsertProfile(user: User, provider: AuthProvider, nickname: string, profileImageUrl?: string) {
-  const { error } = await supabase.from('profiles').upsert(
-    {
-      id: user.id,
-      nickname,
-      email: user.email ?? null,
-      provider,
-      profile_image_url: profileImageUrl ?? null,
-    },
-    {
-      onConflict: 'id',
-    },
-  );
+function getOwnedProfileImagePath(userId: string, imageUrl?: string) {
+  if (!imageUrl) {
+    return null;
+  }
+
+  const marker = '/storage/v1/object/public/profile-images/';
+  const markerIndex = imageUrl.indexOf(marker);
+
+  if (markerIndex < 0) {
+    return null;
+  }
+
+  try {
+    const path = decodeURIComponent(imageUrl.slice(markerIndex + marker.length));
+    return path.startsWith(`${userId}/`) ? path : null;
+  } catch {
+    return null;
+  }
+}
+
+async function removeProfileImage(path: string) {
+  const { error } = await supabase.storage.from('profile-images').remove([path]);
+  throwIfSupabaseError(error);
+}
+
+async function upsertProfile(nickname: string, profileImageUrl?: string) {
+  const { error } = await supabase.rpc('upsert_own_profile', {
+    p_nickname: nickname,
+    p_profile_image_url: profileImageUrl ?? null,
+  });
 
   throwIfSupabaseError(error);
 }
@@ -207,7 +227,7 @@ async function syncOAuthProfile(session: Session, provider: AuthProvider): Promi
   const nickname = getNickname(session.user);
   const profileImageUrl = getProfileImageUrl(session.user);
 
-  await upsertProfile(session.user, provider, nickname, profileImageUrl);
+  await upsertProfile(nickname, profileImageUrl);
 
   return {
     accessToken: session.access_token,
@@ -356,10 +376,13 @@ export async function updateMyProfile(draft: ProfileUpdateDraft, fallbackProvide
   const providerNickname = getProviderNickname(user);
   const providerProfileImageUrl = getProviderProfileImageUrl(user);
   const currentProfileImageUrl = getProfileImageUrl(user);
+  const uploadedProfileImage = draft.profileImageUri
+    ? await uploadProfileImage(user.id, draft.profileImageUri, draft.profileImageMimeType)
+    : null;
   const profileImageUrl = draft.useDefaultProfileImage
     ? undefined
-    : draft.profileImageUri
-      ? await uploadProfileImage(user.id, draft.profileImageUri, draft.profileImageMimeType)
+    : uploadedProfileImage
+      ? uploadedProfileImage.publicUrl
       : (draft.profileImageUrl ?? currentProfileImageUrl);
 
   const { data: updatedAuth, error: updateAuthError } = await supabase.auth.updateUser({
@@ -375,10 +398,53 @@ export async function updateMyProfile(draft: ProfileUpdateDraft, fallbackProvide
     },
   });
 
-  throwIfSupabaseError(updateAuthError);
+  if (updateAuthError) {
+    if (uploadedProfileImage) {
+      await removeProfileImage(uploadedProfileImage.path).catch((cleanupError) => {
+        console.warn('[profile] failed auth update image cleanup failed', cleanupError);
+      });
+    }
+
+    throwIfSupabaseError(updateAuthError);
+  }
 
   const nextUser = updatedAuth.user ?? user;
-  await upsertProfile(nextUser, provider, nickname, profileImageUrl);
+
+  try {
+    await upsertProfile(nickname, profileImageUrl);
+  } catch (error) {
+    const previousMetadata = user.user_metadata;
+    const { error: rollbackError } = await supabase.auth.updateUser({
+      data: {
+        nickname: previousMetadata.nickname ?? null,
+        name: previousMetadata.name ?? null,
+        full_name: previousMetadata.full_name ?? null,
+        avatar_url: previousMetadata.avatar_url ?? null,
+        picture: previousMetadata.picture ?? null,
+        catdex_profile_setup_completed: previousMetadata.catdex_profile_setup_completed ?? false,
+        catdex_oauth_nickname: previousMetadata.catdex_oauth_nickname ?? null,
+        catdex_oauth_profile_image_url: previousMetadata.catdex_oauth_profile_image_url ?? null,
+      },
+    });
+
+    if (rollbackError) {
+      console.warn('[profile] auth metadata rollback failed', rollbackError);
+    } else if (uploadedProfileImage) {
+      await removeProfileImage(uploadedProfileImage.path).catch((cleanupError) => {
+        console.warn('[profile] failed profile save image cleanup failed', cleanupError);
+      });
+    }
+
+    throw error;
+  }
+
+  const previousOwnedImagePath = getOwnedProfileImagePath(user.id, currentProfileImageUrl);
+
+  if (previousOwnedImagePath && currentProfileImageUrl !== profileImageUrl) {
+    await removeProfileImage(previousOwnedImagePath).catch((cleanupError) => {
+      console.warn('[profile] previous image cleanup failed', cleanupError);
+    });
+  }
 
   return {
     ...toAuthUser(nextUser, provider),
