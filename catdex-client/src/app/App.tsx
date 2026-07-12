@@ -541,8 +541,7 @@ export default function App() {
     });
     const candidates = await fetchCatMatchCandidates({
       observationId: observation.id,
-      regionName: activeNeighborhoodName,
-      featureVector: processedPhoto.featureVector,
+      regionNames: activeNeighborhoodRegionNames,
       limit: 5,
     });
 

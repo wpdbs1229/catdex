@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import * as ImagePicker from 'expo-image-picker';
-import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions, type ImageSourcePropType } from 'react-native';
-import { AlertCircle, ArrowLeft, Camera, Check, ImagePlus, RotateCcw, Scissors, Sparkles } from 'lucide-react-native';
+import { ActivityIndicator, Alert, Image, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions, type ImageSourcePropType } from 'react-native';
+import { AlertCircle, ArrowLeft, Camera, Check, ImagePlus, RotateCcw, Scissors, SearchX, Sparkles } from 'lucide-react-native';
 import { CameraPlaceholder } from '@/features/capture/components/CameraPlaceholder';
 import { CatRegisterForm } from '@/features/capture/components/CatRegisterForm';
 import { Button } from '@/shared/components/Button';
@@ -73,6 +73,24 @@ export function CaptureScreen({
   const candidates = storedResult?.candidates ?? [];
   const currentImageUrl = storedResult?.cutoutImageUrl ?? processedPhoto?.cutoutImageUri;
   const canUseCatVision = isCatVisionAvailable();
+
+  const confirmExistingCandidate = (candidate: CatMatchCandidate) => {
+    Alert.alert(
+      `${candidate.cat.name}와 같은 고양이인가요?`,
+      '같은 고양이로 확인하면 이번 사진이 기존 동네 도감 기록에 추가돼요.',
+      [
+        { text: '다시 볼게요', style: 'cancel' },
+        {
+          text: '같은 고양이 맞아요',
+          onPress: () =>
+            void onRecordExisting(candidate.cat.id, {
+              observationId: storedResult?.observationId,
+              imageUrl: currentImageUrl,
+            }),
+        },
+      ],
+    );
+  };
 
   const resetCapture = () => {
     setCapturedImageUri(null);
@@ -174,7 +192,7 @@ export function CaptureScreen({
     try {
       setProcessedPhoto(fallbackPhoto);
       setStoredResult(await onProcessPhoto(fallbackPhoto));
-      setStep('register');
+      setStep('match');
     } catch (error) {
       console.warn('[capture] original fallback failed', error);
       setErrorMessage(getUserFacingError(error, 'capture.process').message);
@@ -239,12 +257,15 @@ export function CaptureScreen({
   }
 
   if (step === 'match' && processedPhoto) {
+    const isOriginalOnlyPhoto =
+      processedPhoto.confidence === 0 && processedPhoto.boundingBox === null && processedPhoto.featureVector.length === 0;
+
     return (
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <Text style={styles.kicker}>자동 누끼 저장 완료</Text>
-          <Text style={styles.title}>사용자가 같은 고양이인지 골라요</Text>
-          <Text style={styles.subtitle}>앱은 후보만 제안하고, 최종 연결은 직접 선택해요.</Text>
+          <Text style={styles.kicker}>동네 기록 후보</Text>
+          <Text style={styles.title}>같은 고양이인지 확인해요</Text>
+          <Text style={styles.subtitle}>현재 동네의 기존 사진과 최근 기록을 보고 같은 고양이인지 직접 확인해 주세요.</Text>
         </View>
 
         <Card style={styles.cutoutCard}>
@@ -253,51 +274,62 @@ export function CaptureScreen({
           </View>
           <View style={styles.cutoutMeta}>
             <View style={styles.cutoutBadge}>
-              <Sparkles color={theme.colors.accent} size={16} />
-              <Text style={styles.cutoutBadgeText}>{processedPhoto.isPreciseCutout ? '누끼 완료' : '고양이 영역 추출'}</Text>
+              {isOriginalOnlyPhoto ? <ImagePlus color={theme.colors.accent} size={16} /> : <Sparkles color={theme.colors.accent} size={16} />}
+              <Text style={styles.cutoutBadgeText}>
+                {isOriginalOnlyPhoto ? '원본 사진 사용' : processedPhoto.isPreciseCutout ? '누끼 완료' : '고양이 영역 추출'}
+              </Text>
             </View>
-            <Text style={styles.cutoutConfidence}>감지 신뢰도 {Math.round(processedPhoto.confidence * 100)}%</Text>
+            <Text style={styles.cutoutConfidence}>
+              {isOriginalOnlyPhoto ? '자동 분석 건너뜀' : `감지 신뢰도 ${Math.round(processedPhoto.confidence * 100)}%`}
+            </Text>
           </View>
         </Card>
 
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>비슷한 후보</Text>
-          <Text style={styles.sectionCaption}>아니면 새 고양이로 등록하세요.</Text>
+          <Text style={styles.sectionTitle}>기존 고양이 후보</Text>
+          <Text style={styles.sectionCaption}>{candidates.length > 0 ? `${candidates.length}마리의 사진과 동네 기록을 비교해 보세요.` : '현재 동네에서 비교할 기존 기록을 찾지 못했어요.'}</Text>
         </View>
 
-        <View style={styles.candidateList}>
-          {candidates.map((candidate) => (
-            <Pressable
-              disabled={isSubmitting}
-              key={candidate.cat.id}
-              onPress={() =>
-                onRecordExisting(candidate.cat.id, {
-                  observationId: storedResult?.observationId,
-                  imageUrl: currentImageUrl,
-                })
-              }
-              style={({ pressed }) => [styles.candidateCard, pressed && styles.pressed]}
-            >
-              <Image resizeMode="cover" source={imageForCat(candidate.cat)} style={styles.candidateImage} />
-              <View style={styles.candidateText}>
-                <Text numberOfLines={1} style={styles.candidateName}>
-                  {candidate.cat.name}
-                </Text>
-                <Text numberOfLines={1} style={styles.candidateReason}>
-                  {candidate.reason}
-                </Text>
-              </View>
-              <View style={styles.choosePill}>
-                <Check color="#FFF8F0" size={15} />
-                <Text style={styles.chooseText}>기록</Text>
-              </View>
-            </Pressable>
-          ))}
-        </View>
+        {candidates.length > 0 ? (
+          <View style={styles.candidateList}>
+            {candidates.map((candidate) => (
+              <Pressable
+                accessibilityLabel={`${candidate.cat.name} 후보 확인`}
+                accessibilityRole="button"
+                disabled={isSubmitting}
+                key={candidate.cat.id}
+                onPress={() => confirmExistingCandidate(candidate)}
+                style={({ pressed }) => [styles.candidateCard, pressed && styles.pressed]}
+              >
+                <Image resizeMode="cover" source={imageForCat(candidate.cat)} style={styles.candidateImage} />
+                <View style={styles.candidateText}>
+                  <Text numberOfLines={1} style={styles.candidateName}>
+                    {candidate.cat.name}
+                  </Text>
+                  <Text numberOfLines={2} style={styles.candidateReason}>
+                    {candidate.reason}
+                  </Text>
+                </View>
+                <View style={styles.choosePill}>
+                  <Check color="#FFF8F0" size={15} />
+                  <Text style={styles.chooseText}>확인</Text>
+                </View>
+              </Pressable>
+            ))}
+          </View>
+        ) : (
+          <View style={styles.emptyCandidateState}>
+            <SearchX color={theme.colors.primary} size={28} />
+            <View style={styles.emptyCandidateCopy}>
+              <Text style={styles.emptyCandidateTitle}>기존 후보가 없어요</Text>
+              <Text style={styles.emptyCandidateText}>새 고양이로 등록하거나 확실하지 않다면 목격 기록으로 남겨주세요.</Text>
+            </View>
+          </View>
+        )}
 
         <View style={styles.actions}>
           <Button onPress={() => setStep('register')} variant="secondary">
-            새 고양이로 등록
+            {candidates.length > 0 ? '후보에 없어요 · 새로 등록' : '새 고양이로 등록'}
           </Button>
           <Button
             onPress={() =>
@@ -692,8 +724,36 @@ const styles = StyleSheet.create({
   candidateReason: {
     marginTop: 4,
     fontSize: 12,
+    lineHeight: 17,
     fontWeight: '700',
     color: theme.colors.mutedText,
+  },
+  emptyCandidateState: {
+    minHeight: 92,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.md,
+    borderRadius: theme.radius.lg,
+    padding: theme.spacing.md,
+    backgroundColor: 'rgba(255,253,246,0.72)',
+    borderWidth: 1,
+    borderColor: 'rgba(139,112,83,0.14)',
+  },
+  emptyCandidateCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  emptyCandidateTitle: {
+    color: theme.colors.text,
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  emptyCandidateText: {
+    marginTop: 4,
+    color: theme.colors.mutedText,
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: '700',
   },
   choosePill: {
     minHeight: 36,

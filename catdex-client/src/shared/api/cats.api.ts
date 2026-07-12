@@ -6,6 +6,7 @@ import type {
   CatEncounter,
   CatFilter,
   CatMatchCandidate,
+  CatMatchMethod,
   CatObservation,
   CatReportDraft,
   CatRarity,
@@ -78,6 +79,8 @@ interface CatMatchCandidateRow {
   cat_id: string;
   score: number;
   reason: string;
+  match_method: CatMatchMethod;
+  model_version: string | null;
   cats: CatRow | CatRow[] | null;
 }
 
@@ -405,20 +408,29 @@ export async function createCatObservation(draft: {
 
 export async function fetchCatMatchCandidates(payload: {
   observationId?: string;
-  regionName: string;
-  featureVector: number[];
+  regionNames: string[];
   limit?: number;
 }) {
   if (!payload.observationId) {
     return [];
   }
 
+  assertSupabaseConfigured();
+
+  const limit = Math.min(Math.max(payload.limit ?? 5, 1), 10);
+  const { error: generationError } = await supabase.rpc('generate_cat_match_candidates', {
+    p_observation_id: payload.observationId,
+    p_region_names: payload.regionNames,
+    p_limit: limit,
+  });
+  throwIfSupabaseError(generationError);
+
   const { data, error } = await supabase
     .from('cat_match_candidates')
-    .select('cat_id, score, reason, cats(*)')
+    .select('cat_id, score, reason, match_method, model_version, cats(*)')
     .eq('observation_id', payload.observationId)
     .order('rank', { ascending: true })
-    .limit(payload.limit ?? 5);
+    .limit(limit);
   throwIfSupabaseError(error);
 
   return Promise.all(
@@ -434,13 +446,25 @@ export async function fetchCatMatchCandidates(payload: {
           cat,
           score: row.score,
           reason: row.reason,
+          method: row.match_method,
+          modelVersion: row.model_version ?? undefined,
         };
       })
-      .filter((candidate): candidate is { cat: CatRow; score: number; reason: string } => candidate !== null)
+      .filter(
+        (candidate): candidate is {
+          cat: CatRow;
+          score: number;
+          reason: string;
+          method: CatMatchMethod;
+          modelVersion: string | undefined;
+        } => candidate !== null,
+      )
       .map(async (candidate) => ({
         cat: await mapCat(candidate.cat),
         score: candidate.score,
         reason: candidate.reason,
+        method: candidate.method,
+        modelVersion: candidate.modelVersion,
       })),
   );
 }
