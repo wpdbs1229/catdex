@@ -6,9 +6,10 @@ import { theme } from '@/shared/styles/theme';
 interface AppShellProps {
   children: ReactNode;
   bottomBar?: ReactNode;
+  statusBanner?: ReactNode;
 }
 
-export function AppShell({ children, bottomBar }: AppShellProps) {
+export function AppShell({ children, bottomBar, statusBanner }: AppShellProps) {
   const insets = useSafeAreaInsets();
 
   return (
@@ -22,7 +23,10 @@ export function AppShell({ children, bottomBar }: AppShellProps) {
           <View style={styles.distantHill} />
           <View style={styles.nearHill} />
         </View>
-        <View style={styles.content}>{children}</View>
+        <View style={styles.content}>
+          {statusBanner}
+          <View style={styles.screenContent}>{children}</View>
+        </View>
         {bottomBar ? (
           <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, theme.spacing.md) }]}>
             {bottomBar}
@@ -109,6 +113,9 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     zIndex: 1,
+  },
+  screenContent: {
+    flex: 1,
   },
   bottomBar: {
     position: 'absolute',

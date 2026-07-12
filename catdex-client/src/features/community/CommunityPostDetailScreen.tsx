@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import * as ImagePicker from 'expo-image-picker';
-import { ActivityIndicator, Alert, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { AlertCircle, ArrowLeft, Edit3, Heart, ImagePlus, Images, MessageCircle, PawPrint, Send, ShieldCheck, Trash2 } from 'lucide-react-native';
 import { communityComposerTopicOptions, communityTopicLabel } from '@/features/community/community.constants';
 import {
@@ -51,6 +51,22 @@ export function CommunityPostDetailScreen({ postId, currentUserId, initiallyEdit
   const trimmedEditTitle = editTitle.trim();
   const trimmedEditBody = editBody.trim();
   const canSaveEdit = trimmedEditBody.length >= 2 && !isEditSubmitting;
+  const postImagePaths = post?.images.map((image) => image.storagePath ?? image.uri) ?? [];
+  const editImagePaths = editImages.map((image) => image.storagePath ?? image.uri);
+  const hasUnsavedPostEdit = Boolean(
+    post &&
+      isEditing &&
+      (editTopic !== post.topic ||
+        trimmedEditTitle !== post.title.trim() ||
+        trimmedEditBody !== post.body.trim() ||
+        editImagePaths.length !== postImagePaths.length ||
+        editImagePaths.some((path, index) => path !== postImagePaths[index])),
+  );
+  const hasUnsavedReply = replyDraft.trim().length > 0;
+  const hasUnsavedCommentEdit = Boolean(
+    editingCommentId &&
+      commentEditDraft.trim() !== post?.comments.find((comment) => comment.id === editingCommentId)?.body.trim(),
+  );
 
   const refreshPost = useCallback(async () => {
     setIsLoading(true);
@@ -58,6 +74,16 @@ export function CommunityPostDetailScreen({ postId, currentUserId, initiallyEdit
 
     try {
       const nextPost = await fetchCommunityPost(postId);
+
+      if (!nextPost) {
+        setPost(null);
+        setError({
+          title: '게시글을 찾을 수 없어요',
+          message: '삭제되었거나 지금은 볼 수 없는 게시글이에요.',
+        });
+        return;
+      }
+
       setPost(nextPost);
     } catch (nextError) {
       console.warn('[community] detail load failed', nextError);
@@ -114,7 +140,7 @@ export function CommunityPostDetailScreen({ postId, currentUserId, initiallyEdit
     setIsEditing(true);
   };
 
-  const handleCancelEditing = () => {
+  const resetPostEdit = () => {
     if (post) {
       setEditTopic(post.topic);
       setEditTitle(post.title);
@@ -126,37 +152,68 @@ export function CommunityPostDetailScreen({ postId, currentUserId, initiallyEdit
     setIsEditing(false);
   };
 
+  const handleCancelEditing = () => {
+    if (!hasUnsavedPostEdit) {
+      resetPostEdit();
+      return;
+    }
+
+    Alert.alert('게시글 수정을 취소할까요?', '저장하지 않은 내용과 사진 변경이 사라져요.', [
+      { text: '계속 수정', style: 'cancel' },
+      { text: '수정 취소', style: 'destructive', onPress: resetPostEdit },
+    ]);
+  };
+
   const handlePickEditImages = async () => {
     if (editImages.length >= MAX_POST_IMAGES) {
       Alert.alert('사진은 5장까지', '게시글 사진은 최대 5장까지 첨부할 수 있어요.');
       return;
     }
 
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
-    if (!permission.granted) {
-      Alert.alert('사진 접근 권한 필요', '게시글 사진을 바꾸려면 사진 접근을 허용해 주세요.');
-      return;
+      if (!permission.granted) {
+        Alert.alert(
+          '사진 접근 권한 필요',
+          '게시글 사진을 바꾸려면 사진 접근을 허용해 주세요.',
+          permission.canAskAgain
+            ? undefined
+            : [
+                { text: '나중에', style: 'cancel' },
+                {
+                  text: '설정 열기',
+                  onPress: () => {
+                    void Linking.openSettings().catch((error) => console.warn('[community] open photo settings failed', error));
+                  },
+                },
+              ],
+        );
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        allowsMultipleSelection: true,
+        mediaTypes: ['images'],
+        quality: 0.84,
+        selectionLimit: MAX_POST_IMAGES - editImages.length,
+      });
+
+      if (result.canceled) {
+        return;
+      }
+
+      const nextImages = result.assets.map((asset) => ({
+        uri: asset.uri,
+        mimeType: asset.mimeType,
+      }));
+
+      setError(null);
+      setEditImages((current) => [...current, ...nextImages].slice(0, MAX_POST_IMAGES));
+    } catch (nextError) {
+      console.warn('[community] edit image picker failed', nextError);
+      setError(getUserFacingError(nextError, 'community.update'));
     }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      allowsMultipleSelection: true,
-      mediaTypes: ['images'],
-      quality: 0.84,
-      selectionLimit: MAX_POST_IMAGES - editImages.length,
-    });
-
-    if (result.canceled) {
-      return;
-    }
-
-    const nextImages = result.assets.map((asset) => ({
-      uri: asset.uri,
-      mimeType: asset.mimeType,
-    }));
-
-    setError(null);
-    setEditImages((current) => [...current, ...nextImages].slice(0, MAX_POST_IMAGES));
   };
 
   const handleRemoveEditImage = (index: number) => {
@@ -281,8 +338,47 @@ export function CommunityPostDetailScreen({ postId, currentUserId, initiallyEdit
   };
 
   const handleCancelCommentEdit = () => {
+    if (hasUnsavedCommentEdit) {
+      Alert.alert('댓글 수정을 취소할까요?', '저장하지 않은 댓글 내용이 사라져요.', [
+        { text: '계속 수정', style: 'cancel' },
+        {
+          text: '수정 취소',
+          style: 'destructive',
+          onPress: () => {
+            setEditingCommentId(null);
+            setCommentEditDraft('');
+          },
+        },
+      ]);
+      return;
+    }
+
     setEditingCommentId(null);
     setCommentEditDraft('');
+  };
+
+  const handleBack = () => {
+    if (!hasUnsavedPostEdit && !hasUnsavedReply && !hasUnsavedCommentEdit) {
+      onBack();
+      return;
+    }
+
+    Alert.alert('작성 중인 내용을 버릴까요?', '저장하지 않은 게시글 수정이나 댓글 내용이 사라져요.', [
+      { text: '계속 작성', style: 'cancel' },
+      { text: '나가기', style: 'destructive', onPress: onBack },
+    ]);
+  };
+
+  const handleOpenLinkedCat = (catId: string) => {
+    if (!hasUnsavedPostEdit && !hasUnsavedReply && !hasUnsavedCommentEdit) {
+      onOpenCat(catId);
+      return;
+    }
+
+    Alert.alert('작성 중인 내용을 버리고 이동할까요?', '저장하지 않은 게시글 수정이나 댓글 내용이 사라져요.', [
+      { text: '계속 작성', style: 'cancel' },
+      { text: '이동', style: 'destructive', onPress: () => onOpenCat(catId) },
+    ]);
   };
 
   const handleSaveCommentEdit = async (commentId: string) => {
@@ -342,9 +438,9 @@ export function CommunityPostDetailScreen({ postId, currentUserId, initiallyEdit
 
   return (
     <View style={styles.screen}>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={styles.content} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         <View style={styles.topBar}>
-          <Pressable accessibilityLabel="게시판으로 돌아가기" accessibilityRole="button" onPress={onBack} style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}>
+          <Pressable accessibilityLabel="게시판으로 돌아가기" accessibilityRole="button" disabled={isEditSubmitting || isReplySubmitting || Boolean(submittingCommentId) || Boolean(deletingCommentId) || isDeleting} onPress={handleBack} style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}>
             <ArrowLeft color={theme.colors.text} size={20} />
           </Pressable>
           <Text style={styles.topTitle}>게시글</Text>
@@ -435,6 +531,7 @@ export function CommunityPostDetailScreen({ postId, currentUserId, initiallyEdit
                   <Text style={styles.editLabel}>제목</Text>
                   <TextInput
                     accessibilityLabel="게시글 제목 수정"
+                    maxLength={80}
                     onChangeText={setEditTitle}
                     placeholder="제목"
                     placeholderTextColor="#A99178"
@@ -445,6 +542,7 @@ export function CommunityPostDetailScreen({ postId, currentUserId, initiallyEdit
                   <Text style={styles.editLabel}>내용</Text>
                   <TextInput
                     accessibilityLabel="게시글 내용 수정"
+                    maxLength={2000}
                     multiline
                     onChangeText={setEditBody}
                     placeholder="내용"
@@ -530,7 +628,7 @@ export function CommunityPostDetailScreen({ postId, currentUserId, initiallyEdit
                 <Pressable
                   accessibilityLabel={`${post.catName ?? '관련 고양이'} 도감 보기`}
                   accessibilityRole="button"
-                  onPress={() => onOpenCat(post.catId as string)}
+                  onPress={() => handleOpenLinkedCat(post.catId as string)}
                   style={({ pressed }) => [styles.catLinkCard, pressed && styles.pressed]}
                 >
                   <View style={styles.catLinkIcon}>
@@ -592,6 +690,7 @@ export function CommunityPostDetailScreen({ postId, currentUserId, initiallyEdit
                       <View style={styles.commentEditPanel}>
                         <TextInput
                           accessibilityLabel="댓글 내용 수정"
+                          maxLength={500}
                           multiline
                           onChangeText={setCommentEditDraft}
                           placeholder="댓글을 입력해 주세요"
@@ -619,7 +718,7 @@ export function CommunityPostDetailScreen({ postId, currentUserId, initiallyEdit
                       <Text style={styles.commentBody}>{comment.body}</Text>
                     )}
 
-                    {canManageComment && !isCommentEditing ? (
+                    {canManageComment && !isCommentEditing && !editingCommentId ? (
                       <View style={styles.commentActionRow}>
                         <Pressable accessibilityLabel="댓글 수정" accessibilityRole="button" onPress={() => handleStartCommentEdit(comment)} style={({ pressed }) => [styles.commentActionButton, pressed && styles.pressed]}>
                           <Edit3 color={theme.colors.primaryDark} size={13} />
@@ -661,6 +760,7 @@ export function CommunityPostDetailScreen({ postId, currentUserId, initiallyEdit
         <View style={styles.replyDock}>
           <TextInput
             accessibilityLabel="댓글 입력"
+            maxLength={500}
             onChangeText={setReplyDraft}
             placeholder="댓글을 남겨보세요"
             placeholderTextColor="#A99178"

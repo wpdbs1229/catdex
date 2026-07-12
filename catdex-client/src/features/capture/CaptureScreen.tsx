@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import * as ImagePicker from 'expo-image-picker';
-import { ActivityIndicator, Alert, Image, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions, type ImageSourcePropType } from 'react-native';
+import { File, Paths } from 'expo-file-system';
+import { ActivityIndicator, Alert, Image, Linking, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions, type ImageSourcePropType } from 'react-native';
 import { AlertCircle, ArrowLeft, Camera, Check, ImagePlus, RotateCcw, Scissors, SearchX, Sparkles } from 'lucide-react-native';
 import { CameraPlaceholder } from '@/features/capture/components/CameraPlaceholder';
 import { CatRegisterForm } from '@/features/capture/components/CatRegisterForm';
@@ -18,6 +19,7 @@ type CaptureFailureKind = 'noCat' | 'visionUnavailable' | 'processError';
 interface StoredCaptureResult {
   observationId?: string;
   cutoutImageUrl?: string;
+  uploadedImagePaths?: string[];
   candidates: CatMatchCandidate[];
 }
 
@@ -26,6 +28,7 @@ interface CaptureScreenProps {
   personalityOptions: PersonalityTag[];
   neighborhoodName: string;
   isSubmitting?: boolean;
+  onDiscard: (payload: { observationId?: string; uploadedImagePaths?: string[] }) => Promise<void> | void;
   onMarkUncertain: (payload: { observationId?: string; cutoutImageUrl?: string; processedPhoto: ProcessedCatPhoto }) => Promise<void> | void;
   onBack: () => void;
   onProcessPhoto: (processedPhoto: ProcessedCatPhoto) => Promise<StoredCaptureResult>;
@@ -54,6 +57,7 @@ export function CaptureScreen({
   personalityOptions,
   neighborhoodName,
   isSubmitting = false,
+  onDiscard,
   onMarkUncertain,
   onBack,
   onProcessPhoto,
@@ -68,6 +72,8 @@ export function CaptureScreen({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [failureKind, setFailureKind] = useState<CaptureFailureKind | null>(null);
   const [isUsingOriginalFallback, setIsUsingOriginalFallback] = useState(false);
+  const [isDiscarding, setIsDiscarding] = useState(false);
+  const [isLoadingSamplePhoto, setIsLoadingSamplePhoto] = useState(false);
   const { height: windowHeight } = useWindowDimensions();
   const cameraHeight = Math.min(680, Math.max(500, windowHeight - 190));
   const candidates = storedResult?.candidates ?? [];
@@ -100,6 +106,47 @@ export function CaptureScreen({
     setFailureKind(null);
     setIsUsingOriginalFallback(false);
     setStep('camera');
+  };
+
+  const discardStoredCapture = async () => {
+    if (!storedResult) {
+      resetCapture();
+      return;
+    }
+
+    setIsDiscarding(true);
+
+    try {
+      await onDiscard({
+        observationId: storedResult.observationId,
+        uploadedImagePaths: storedResult.uploadedImagePaths,
+      });
+      resetCapture();
+    } catch (error) {
+      console.warn('[capture] discard failed', error);
+      const friendlyError = getUserFacingError(error, 'capture.discard');
+      Alert.alert(friendlyError.title, '촬영 기록을 정리하지 못했어요. 잠시 후 다시 시도해 주세요.');
+    } finally {
+      setIsDiscarding(false);
+    }
+  };
+
+  const handleMatchBack = () => {
+    if (!storedResult) {
+      resetCapture();
+      return;
+    }
+
+    Alert.alert('이 촬영을 다시 할까요?', '후보 확인을 끝내면 임시 사진과 관찰 기록을 정리해요.', [
+      { text: '계속 확인', style: 'cancel' },
+      {
+        text: '다시 촬영',
+        style: 'destructive',
+        onPress: () => {
+          void discardStoredCapture();
+        },
+      },
+    ]);
   };
 
   const handlePhotoCaptured = async (uri: string) => {
@@ -149,25 +196,74 @@ export function CaptureScreen({
   };
 
   const handlePickTestPhoto = async () => {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
-    if (!permission.granted) {
-      setErrorMessage('앨범 사진을 테스트하려면 사진 접근 권한이 필요해요.');
+      if (!permission.granted) {
+        setErrorMessage('앨범 사진을 테스트하려면 사진 접근 권한이 필요해요.');
+        setFailureKind('processError');
+        setStep('noCat');
+
+        if (!permission.canAskAgain) {
+          Alert.alert('사진 접근 권한 필요', '기기 설정에서 냥도감의 사진 접근을 허용해 주세요.', [
+            { text: '나중에', style: 'cancel' },
+            {
+              text: '설정 열기',
+              onPress: () => {
+                void Linking.openSettings().catch((error) => console.warn('[capture] open photo settings failed', error));
+              },
+            },
+          ]);
+        }
+
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        quality: 0.84,
+      });
+
+      if (result.canceled || !result.assets[0]?.uri) {
+        return;
+      }
+
+      await handlePhotoCaptured(result.assets[0].uri);
+    } catch (error) {
+      console.warn('[capture] album photo picker failed', error);
+      setErrorMessage(getUserFacingError(error, 'capture.process').message);
       setFailureKind('processError');
       setStep('noCat');
-      return;
     }
+  };
 
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      quality: 0.84,
-    });
+  const handleUseSamplePhoto = async () => {
+    setIsLoadingSamplePhoto(true);
 
-    if (result.canceled || !result.assets[0]?.uri) {
-      return;
+    try {
+      const sampleAsset = Image.resolveAssetSource(catImages.orange);
+
+      if (!sampleAsset?.uri) {
+        throw new Error('샘플 이미지를 찾지 못했어요.');
+      }
+
+      const sampleUri = sampleAsset.uri.startsWith('http')
+        ? (await File.downloadFileAsync(
+            sampleAsset.uri,
+            new File(Paths.cache, 'catdex-capture-sample.png'),
+            { idempotent: true },
+          )).uri
+        : sampleAsset.uri;
+
+      await handlePhotoCaptured(sampleUri);
+    } catch (error) {
+      console.warn('[capture] sample photo load failed', error);
+      setErrorMessage(getUserFacingError(error, 'capture.process').message);
+      setFailureKind('processError');
+      setStep('noCat');
+    } finally {
+      setIsLoadingSamplePhoto(false);
     }
-
-    await handlePhotoCaptured(result.assets[0].uri);
   };
 
   const handleContinueWithOriginalPhoto = async () => {
@@ -229,7 +325,7 @@ export function CaptureScreen({
           : '고양이를 찾지 못했어요';
 
     return (
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={styles.content} key="capture-failure" showsVerticalScrollIndicator={false}>
         <Card style={styles.resultCard}>
           {capturedImageUri ? <Image source={{ uri: capturedImageUri }} style={styles.resultImage} /> : null}
           <View style={styles.resultMessage}>
@@ -261,7 +357,14 @@ export function CaptureScreen({
       processedPhoto.confidence === 0 && processedPhoto.boundingBox === null && processedPhoto.featureVector.length === 0;
 
     return (
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={styles.content} key="capture-match" showsVerticalScrollIndicator={false}>
+        <View style={styles.flowTopBar}>
+          <Pressable accessibilityLabel="후보 확인을 취소하고 다시 촬영" accessibilityRole="button" disabled={isDiscarding || isSubmitting} onPress={handleMatchBack} style={({ pressed }) => [styles.flowBackButton, pressed && styles.pressed]}>
+            <ArrowLeft color={theme.colors.primaryDark} size={20} />
+          </Pressable>
+          <Text style={styles.flowTopTitle}>{isDiscarding ? '촬영 기록 정리 중' : '후보 확인'}</Text>
+          <View style={styles.flowBackPlaceholder} />
+        </View>
         <View style={styles.header}>
           <Text style={styles.kicker}>동네 기록 후보</Text>
           <Text style={styles.title}>같은 고양이인지 확인해요</Text>
@@ -296,7 +399,7 @@ export function CaptureScreen({
               <Pressable
                 accessibilityLabel={`${candidate.cat.name} 후보 확인`}
                 accessibilityRole="button"
-                disabled={isSubmitting}
+                disabled={isSubmitting || isDiscarding}
                 key={candidate.cat.id}
                 onPress={() => confirmExistingCandidate(candidate)}
                 style={({ pressed }) => [styles.candidateCard, pressed && styles.pressed]}
@@ -328,10 +431,11 @@ export function CaptureScreen({
         )}
 
         <View style={styles.actions}>
-          <Button onPress={() => setStep('register')} variant="secondary">
+          <Button disabled={isSubmitting || isDiscarding} onPress={() => setStep('register')} variant="secondary">
             {candidates.length > 0 ? '후보에 없어요 · 새로 등록' : '새 고양이로 등록'}
           </Button>
           <Button
+            disabled={isSubmitting || isDiscarding}
             onPress={() =>
               onMarkUncertain({
                 observationId: storedResult?.observationId,
@@ -350,7 +454,14 @@ export function CaptureScreen({
 
   if (step === 'register' && processedPhoto) {
     return (
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={styles.content} key="capture-register" keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+        <View style={styles.flowTopBar}>
+          <Pressable accessibilityLabel="후보 확인으로 돌아가기" accessibilityRole="button" disabled={isSubmitting} onPress={() => setStep('match')} style={({ pressed }) => [styles.flowBackButton, pressed && styles.pressed]}>
+            <ArrowLeft color={theme.colors.primaryDark} size={20} />
+          </Pressable>
+          <Text style={styles.flowTopTitle}>새 고양이 등록</Text>
+          <View style={styles.flowBackPlaceholder} />
+        </View>
         <View style={styles.header}>
           <Text style={styles.kicker}>새 고양이 등록</Text>
           <Text style={styles.title}>누끼 이미지를 대표 사진으로 써요</Text>
@@ -423,16 +534,52 @@ export function CaptureScreen({
             {canUseCatVision ? '기기 사진첩의 샘플 사진으로도 분석 흐름을 확인할 수 있어요.' : '이 환경에서는 원본 사진으로 등록할 수 있고, 자동 누끼는 실제 기기 개발 빌드에서 확인해요.'}
           </Text>
         </View>
-        <Pressable accessibilityLabel="앨범에서 테스트 사진 선택" accessibilityRole="button" onPress={handlePickTestPhoto} style={({ pressed }) => [styles.pickPhotoButton, pressed && styles.pressed]}>
-          <ImagePlus color="#FFF8F0" size={17} />
-          <Text style={styles.pickPhotoText}>앨범</Text>
-        </Pressable>
+        <View style={styles.fallbackActions}>
+          <Pressable
+            accessibilityLabel="고양이 샘플 이미지로 테스트"
+            accessibilityRole="button"
+            disabled={isLoadingSamplePhoto}
+            onPress={handleUseSamplePhoto}
+            style={({ pressed }) => [styles.pickPhotoButton, pressed && styles.pressed, isLoadingSamplePhoto && styles.disabled]}
+          >
+            {isLoadingSamplePhoto ? <ActivityIndicator color="#FFF8F0" size="small" /> : <Sparkles color="#FFF8F0" size={16} />}
+            <Text style={styles.pickPhotoText}>샘플</Text>
+          </Pressable>
+          <Pressable accessibilityLabel="앨범에서 테스트 사진 선택" accessibilityRole="button" disabled={isLoadingSamplePhoto} onPress={handlePickTestPhoto} style={({ pressed }) => [styles.pickPhotoButton, pressed && styles.pressed, isLoadingSamplePhoto && styles.disabled]}>
+            <ImagePlus color="#FFF8F0" size={17} />
+            <Text style={styles.pickPhotoText}>앨범</Text>
+          </Pressable>
+        </View>
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  flowTopBar: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  flowBackButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 22,
+    backgroundColor: 'rgba(255,253,246,0.86)',
+    borderWidth: 1,
+    borderColor: 'rgba(232,211,183,0.82)',
+  },
+  flowBackPlaceholder: {
+    width: 44,
+  },
+  flowTopTitle: {
+    color: theme.colors.text,
+    fontSize: 15,
+    fontWeight: '900',
+  },
   cameraScreen: {
     flex: 1,
     paddingHorizontal: theme.spacing.lg,
@@ -530,6 +677,11 @@ const styles = StyleSheet.create({
     fontSize: 11,
     lineHeight: 16,
     fontWeight: '700',
+  },
+  fallbackActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.xs,
   },
   pickPhotoButton: {
     minHeight: 40,
@@ -780,5 +932,8 @@ const styles = StyleSheet.create({
   },
   pressed: {
     opacity: 0.84,
+  },
+  disabled: {
+    opacity: 0.58,
   },
 });

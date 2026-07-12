@@ -32,14 +32,14 @@ export function NeighborhoodTopTabs({ activeTab, onOpenBoard, onOpenDex, onOpenM
   };
 
   return (
-    <View accessibilityRole="tablist" style={styles.segmentWrap}>
+    <View style={styles.segmentWrap}>
       {routes.map(({ id, label, icon: Icon }) => {
         const isActive = activeTab === id;
 
         return (
           <Pressable
             accessibilityLabel={`동네 ${label} 보기`}
-            accessibilityRole="tab"
+            accessibilityRole="button"
             accessibilityState={{ selected: isActive }}
             key={id}
             onPress={handlers[id]}

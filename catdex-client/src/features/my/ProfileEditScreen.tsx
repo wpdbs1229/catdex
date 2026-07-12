@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import * as ImagePicker from 'expo-image-picker';
 import { Camera, ChevronLeft, ImagePlus, RotateCcw, Sparkles } from 'lucide-react-native';
-import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type ImageSourcePropType } from 'react-native';
+import { Alert, Image, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type ImageSourcePropType } from 'react-native';
 import { Button } from '@/shared/components/Button';
 import { PROFILE_NICKNAME_SUGGESTIONS } from '@/shared/constants/profile.constants';
 import { createShadow, theme } from '@/shared/styles/theme';
@@ -27,30 +27,53 @@ export function ProfileEditScreen({ user, isSaving, onBack, onSave }: ProfileEdi
   const previewImage = useDefaultProfileImage ? undefined : (profileImageUri ?? profileImageUrl);
   const isNicknameValid = nickname.trim().length >= 2 && nickname.trim().length <= 20;
   const canUseProviderProfile = Boolean(user.providerProfile?.nickname || user.providerProfile?.profileImageUrl);
+  const hasUnsavedChanges =
+    nickname.trim() !== user.nickname.trim() ||
+    profileImageUri !== undefined ||
+    previewImage !== user.profileImageUrl;
 
   const handlePickImage = async () => {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
-    if (!permission.granted) {
-      Alert.alert('사진 접근 권한 필요', '프로필 이미지를 선택하려면 사진 접근을 허용해 주세요.');
-      return;
+      if (!permission.granted) {
+        Alert.alert(
+          '사진 접근 권한 필요',
+          '프로필 이미지를 선택하려면 사진 접근을 허용해 주세요.',
+          permission.canAskAgain
+            ? undefined
+            : [
+                { text: '나중에', style: 'cancel' },
+                {
+                  text: '설정 열기',
+                  onPress: () => {
+                    void Linking.openSettings().catch((error) => console.warn('[profile] open photo settings failed', error));
+                  },
+                },
+              ],
+        );
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        allowsEditing: true,
+        aspect: [1, 1],
+        mediaTypes: ['images'],
+        quality: 0.82,
+      });
+
+      if (result.canceled || !result.assets[0]) {
+        return;
+      }
+
+      setProfileImageUri(result.assets[0].uri);
+      setProfileImageMimeType(result.assets[0].mimeType);
+      setProfileImageUrl(undefined);
+      setUseDefaultProfileImage(false);
+    } catch (error) {
+      console.warn('[profile] image picker failed', error);
+      Alert.alert('사진을 불러오지 못했어요', '사진 접근 상태를 확인한 뒤 다시 시도해 주세요.');
     }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      allowsEditing: true,
-      aspect: [1, 1],
-      mediaTypes: ['images'],
-      quality: 0.82,
-    });
-
-    if (result.canceled || !result.assets[0]) {
-      return;
-    }
-
-    setProfileImageUri(result.assets[0].uri);
-    setProfileImageMimeType(result.assets[0].mimeType);
-    setProfileImageUrl(undefined);
-    setUseDefaultProfileImage(false);
   };
 
   const handleUseProviderProfile = () => {
@@ -88,10 +111,22 @@ export function ProfileEditScreen({ user, isSaving, onBack, onSave }: ProfileEdi
     });
   };
 
+  const handleBack = () => {
+    if (!hasUnsavedChanges) {
+      onBack();
+      return;
+    }
+
+    Alert.alert('프로필 수정을 나갈까요?', '저장하지 않은 닉네임과 이미지 변경이 사라져요.', [
+      { text: '계속 수정', style: 'cancel' },
+      { text: '나가기', style: 'destructive', onPress: onBack },
+    ]);
+  };
+
   return (
-    <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+    <ScrollView contentContainerStyle={styles.content} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
       <View style={styles.header}>
-        <Pressable disabled={isSaving} onPress={onBack} style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}>
+        <Pressable accessibilityLabel="마이페이지로 돌아가기" accessibilityRole="button" disabled={isSaving} onPress={handleBack} style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}>
           <ChevronLeft color={theme.colors.primaryDark} size={22} />
         </Pressable>
         <View style={styles.headerCopy}>
@@ -103,18 +138,18 @@ export function ProfileEditScreen({ user, isSaving, onBack, onSave }: ProfileEdi
       <View style={styles.profilePanel}>
         <View style={styles.avatarWrap}>
           <Image resizeMode="cover" source={previewImage ? { uri: previewImage } : illustrations.profile} style={styles.avatar} />
-          <Pressable disabled={isSaving} onPress={handlePickImage} style={({ pressed }) => [styles.imageButton, pressed && styles.pressed]}>
+          <Pressable accessibilityLabel="프로필 이미지 선택" accessibilityRole="button" disabled={isSaving} onPress={handlePickImage} style={({ pressed }) => [styles.imageButton, pressed && styles.pressed]}>
             <ImagePlus color="#FFF8F0" size={18} />
           </Pressable>
         </View>
         <Text style={styles.avatarHint}>정사각형으로 잘라서 프로필에 사용해요.</Text>
 
         <View style={styles.inlineActions}>
-          <Pressable disabled={isSaving || !canUseProviderProfile} onPress={handleUseProviderProfile} style={({ pressed }) => [styles.smallAction, !canUseProviderProfile && styles.disabledAction, pressed && styles.pressed]}>
+          <Pressable accessibilityLabel="계정 프로필 불러오기" accessibilityRole="button" disabled={isSaving || !canUseProviderProfile} onPress={handleUseProviderProfile} style={({ pressed }) => [styles.smallAction, !canUseProviderProfile && styles.disabledAction, pressed && styles.pressed]}>
             <Sparkles color={canUseProviderProfile ? theme.colors.primaryDark : '#BCA995'} size={15} />
             <Text style={[styles.smallActionText, !canUseProviderProfile && styles.disabledActionText]}>계정 프로필 불러오기</Text>
           </Pressable>
-          <Pressable disabled={isSaving} onPress={handleUseDefaultImage} style={({ pressed }) => [styles.smallAction, pressed && styles.pressed]}>
+          <Pressable accessibilityLabel="기본 프로필 이미지 사용" accessibilityRole="button" disabled={isSaving} onPress={handleUseDefaultImage} style={({ pressed }) => [styles.smallAction, pressed && styles.pressed]}>
             <RotateCcw color={theme.colors.primaryDark} size={15} />
             <Text style={styles.smallActionText}>기본 이미지</Text>
           </Pressable>
@@ -123,6 +158,7 @@ export function ProfileEditScreen({ user, isSaving, onBack, onSave }: ProfileEdi
         <View style={styles.field}>
           <Text style={styles.label}>닉네임</Text>
           <TextInput
+            accessibilityLabel="프로필 닉네임"
             editable={!isSaving}
             maxLength={20}
             onChangeText={setNickname}
@@ -142,6 +178,9 @@ export function ProfileEditScreen({ user, isSaving, onBack, onSave }: ProfileEdi
 
               return (
                 <Pressable
+                  accessibilityLabel={`추천 닉네임 ${suggestion}`}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: isActive }}
                   disabled={isSaving}
                   key={suggestion}
                   onPress={() => setNickname(suggestion)}

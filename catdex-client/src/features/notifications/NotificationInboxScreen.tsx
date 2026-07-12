@@ -14,6 +14,7 @@ interface NotificationInboxScreenProps {
   onBack: () => void;
   onOpenEvent: (event: NotificationEvent) => void;
   onOpenSettings: () => void;
+  onUnreadCountChange: (unreadCount: number) => void;
 }
 
 const notificationTypeLabel: Record<NotificationEventType, string> = {
@@ -92,11 +93,12 @@ function formatNotificationTime(value: string) {
   return `${date.getMonth() + 1}.${date.getDate()}`;
 }
 
-export function NotificationInboxScreen({ currentUserId, onBack, onOpenEvent, onOpenSettings }: NotificationInboxScreenProps) {
+export function NotificationInboxScreen({ currentUserId, onBack, onOpenEvent, onOpenSettings, onUnreadCountChange }: NotificationInboxScreenProps) {
   const [events, setEvents] = useState<NotificationEvent[]>([]);
   const [readEventIds, setReadEventIds] = useState<string[]>([]);
   const [error, setError] = useState<UserFacingError | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isMarkingRead, setIsMarkingRead] = useState(false);
   const readEventIdSet = useMemo(() => new Set(readEventIds), [readEventIds]);
   const unreadCount = events.filter((event) => !readEventIdSet.has(event.id)).length;
 
@@ -112,13 +114,15 @@ export function NotificationInboxScreen({ currentUserId, onBack, onOpenEvent, on
 
       setEvents(nextEvents);
       setReadEventIds(nextReadIds);
+      const nextReadEventIdSet = new Set(nextReadIds);
+      onUnreadCountChange(nextEvents.filter((event) => !nextReadEventIdSet.has(event.id)).length);
     } catch (nextError) {
       console.warn('[notifications] inbox load failed', nextError);
       setError(getUserFacingError(nextError, 'notification.load'));
     } finally {
       setIsLoading(false);
     }
-  }, [currentUserId]);
+  }, [currentUserId, onUnreadCountChange]);
 
   useEffect(() => {
     void refreshEvents();
@@ -126,10 +130,23 @@ export function NotificationInboxScreen({ currentUserId, onBack, onOpenEvent, on
 
   const handleOpenEvent = async (event: NotificationEvent) => {
     if (!readEventIdSet.has(event.id)) {
-      setReadEventIds((current) => Array.from(new Set([...current, event.id])));
-      markNotificationEventRead(currentUserId, event.id).catch((nextError) => {
+      const previousReadEventIds = readEventIds;
+      const nextReadEventIds = Array.from(new Set([...readEventIds, event.id]));
+
+      setReadEventIds(nextReadEventIds);
+      onUnreadCountChange(Math.max(unreadCount - 1, 0));
+
+      try {
+        await markNotificationEventRead(currentUserId, event.id);
+      } catch (nextError) {
         console.warn('[notifications] mark read failed', nextError);
-      });
+        setReadEventIds(previousReadEventIds);
+        onUnreadCountChange(unreadCount);
+        setError({
+          title: '읽음 상태를 저장하지 못했어요',
+          message: '알림은 열 수 있지만 다음에 다시 표시될 수 있어요.',
+        });
+      }
     }
 
     onOpenEvent(event);
@@ -137,13 +154,25 @@ export function NotificationInboxScreen({ currentUserId, onBack, onOpenEvent, on
 
   const handleMarkAllRead = async () => {
     const nextIds = events.map((event) => event.id);
+    const previousReadEventIds = readEventIds;
 
     setReadEventIds((current) => Array.from(new Set([...current, ...nextIds])));
+    setIsMarkingRead(true);
+    setError(null);
+    onUnreadCountChange(0);
 
     try {
       await markAllNotificationEventsRead(currentUserId, nextIds);
     } catch (nextError) {
       console.warn('[notifications] mark all read failed', nextError);
+      setReadEventIds(previousReadEventIds);
+      onUnreadCountChange(unreadCount);
+      setError({
+        title: '전체 읽음을 저장하지 못했어요',
+        message: '연결 상태를 확인한 뒤 다시 시도해 주세요.',
+      });
+    } finally {
+      setIsMarkingRead(false);
     }
   };
 
@@ -180,13 +209,13 @@ export function NotificationInboxScreen({ currentUserId, onBack, onOpenEvent, on
       </View>
 
       <View style={styles.actionRow}>
-        <Button disabled={unreadCount === 0 || isLoading} onPress={handleMarkAllRead} variant="secondary">
+        <Button disabled={unreadCount === 0 || isLoading || isMarkingRead} onPress={handleMarkAllRead} variant="secondary">
           <View style={styles.buttonContent}>
             <CheckCheck color={theme.colors.primaryDark} size={17} />
             <Text style={styles.secondaryButtonText}>전체 읽음</Text>
           </View>
         </Button>
-        <Button disabled={isLoading} onPress={refreshEvents} variant="secondary">
+        <Button disabled={isLoading || isMarkingRead} onPress={refreshEvents} variant="secondary">
           <View style={styles.buttonContent}>
             <RefreshCw color={theme.colors.primaryDark} size={16} />
             <Text style={styles.secondaryButtonText}>새로고침</Text>
@@ -218,7 +247,7 @@ export function NotificationInboxScreen({ currentUserId, onBack, onOpenEvent, on
 
           return (
             <Pressable
-              accessibilityLabel={`${event.title} 알림 열기`}
+              accessibilityLabel={`${isRead ? '' : '새 '}${event.title} 알림 열기`}
               accessibilityRole="button"
               key={event.id}
               onPress={() => handleOpenEvent(event)}

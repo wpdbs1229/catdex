@@ -1,6 +1,6 @@
 import type { LucideIcon } from 'lucide-react-native';
 import { Bell, BookOpen, ChevronLeft, Clock, Footprints, PawPrint, Share2, Trophy } from 'lucide-react-native';
-import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { Alert, Linking, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { Button } from '@/shared/components/Button';
 import { createShadow, theme } from '@/shared/styles/theme';
 import type { NotificationPermissionState, NotificationSettings } from '@/shared/types/notification';
@@ -10,9 +10,9 @@ interface NotificationSettingsScreenProps {
   settings: NotificationSettings;
   isSaving: boolean;
   onBack: () => void;
-  onChangeSettings: (settings: NotificationSettings) => void;
-  onRequestPermission: () => void;
-  onSendPreview: () => void;
+  onChangeSettings: (settings: NotificationSettings) => Promise<void> | void;
+  onRequestPermission: () => Promise<void> | void;
+  onSendPreview: () => Promise<void> | void;
 }
 
 const reminderTimes = ['18:00', '20:00', '21:30'];
@@ -27,12 +27,27 @@ export function NotificationSettingsScreen({
   onSendPreview,
 }: NotificationSettingsScreenProps) {
   const canUseNotifications = permissionState === 'granted';
+  const permissionButtonLabel = permissionState === 'denied' ? '설정 열기' : '허용';
 
   const updateSetting = (nextSettings: Partial<NotificationSettings>) => {
-    onChangeSettings({
+    void onChangeSettings({
       ...settings,
       ...nextSettings,
     });
+  };
+
+  const handlePermissionAction = async () => {
+    try {
+      if (permissionState === 'denied') {
+        await Linking.openSettings();
+        return;
+      }
+
+      await onRequestPermission();
+    } catch (error) {
+      console.warn('[notifications] open settings failed', error);
+      Alert.alert('기기 설정을 열지 못했어요', '설정 앱에서 냥도감 알림 권한을 직접 확인해 주세요.');
+    }
   };
 
   return (
@@ -61,13 +76,13 @@ export function NotificationSettingsScreen({
         </View>
         {!canUseNotifications ? (
           <Pressable
-            accessibilityLabel="알림 권한 허용"
+            accessibilityLabel={permissionState === 'denied' ? '기기 알림 설정 열기' : '알림 권한 허용'}
             accessibilityRole="button"
-            disabled={isSaving || permissionState === 'denied'}
-            onPress={onRequestPermission}
+            disabled={isSaving}
+            onPress={handlePermissionAction}
             style={styles.permissionButton}
           >
-            <Text style={styles.permissionButtonText}>허용</Text>
+            <Text style={styles.permissionButtonText}>{permissionButtonLabel}</Text>
           </Pressable>
         ) : null}
       </View>
@@ -149,7 +164,7 @@ export function NotificationSettingsScreen({
       <View style={styles.previewCard}>
         <PawPrint color={theme.colors.accent} size={20} />
         <Text style={styles.previewText}>미리보기는 즉시 로컬 알림을 보내 권한과 표시 동작을 확인해요.</Text>
-        <Button disabled={!canUseNotifications || isSaving} onPress={onSendPreview} variant="secondary">
+        <Button disabled={!canUseNotifications || isSaving} onPress={() => void onSendPreview()} variant="secondary">
           미리보기 보내기
         </Button>
       </View>
@@ -177,6 +192,8 @@ function NotificationToggle({ description, disabled = false, icon: Icon, label, 
         <Text style={styles.toggleDescription}>{description}</Text>
       </View>
       <Switch
+        accessibilityHint={description}
+        accessibilityLabel={label}
         disabled={disabled}
         ios_backgroundColor="#E8D3B7"
         onValueChange={onValueChange}

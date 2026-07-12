@@ -131,7 +131,7 @@ export function CatDexScreen({
   const hasSearchQuery = normalizedSearchQuery.length > 0;
 
   return (
-    <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+    <ScrollView contentContainerStyle={styles.content} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
       <View style={styles.bookHeader}>
         <View>
           <Text style={styles.bookKicker}>내 도감</Text>
@@ -147,6 +147,7 @@ export function CatDexScreen({
       <View style={styles.searchBar}>
         <Search color={theme.colors.mutedText} size={18} />
         <TextInput
+          accessibilityLabel="내 도감 검색"
           autoCapitalize="none"
           autoCorrect={false}
           onChangeText={setSearchQuery}
@@ -164,7 +165,14 @@ export function CatDexScreen({
           const isSelected = selectedFilter === filter;
 
           return (
-            <Pressable key={filter} onPress={() => setSelectedFilter(filter)} style={[styles.filterChip, isSelected && styles.filterChipActive]}>
+            <Pressable
+              accessibilityLabel={`내 도감 필터 ${filter}`}
+              accessibilityRole="button"
+              accessibilityState={{ selected: isSelected }}
+              key={filter}
+              onPress={() => setSelectedFilter(filter)}
+              style={[styles.filterChip, isSelected && styles.filterChipActive]}
+            >
               <Text style={[styles.filterText, isSelected && styles.filterTextActive]}>{filter}</Text>
             </Pressable>
           );
@@ -174,6 +182,8 @@ export function CatDexScreen({
       <View style={styles.grid}>
         {visibleCats.map((cat, index) => (
           <Pressable
+            accessibilityLabel={`${cat.name}, ${cat.type}, ${cat.relationshipLevel}, 도감 보기`}
+            accessibilityRole="button"
             key={cat.id}
             onPress={() => onOpenCat(cat.id)}
             style={({ pressed }) => [styles.tile, index % 2 === 0 ? styles.tileTiltLeft : styles.tileTiltRight, pressed && styles.pressed]}

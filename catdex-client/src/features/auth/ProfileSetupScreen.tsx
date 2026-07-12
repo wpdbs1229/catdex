@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import * as ImagePicker from 'expo-image-picker';
 import { IdCard, ImagePlus, RotateCcw, Sparkles } from 'lucide-react-native';
-import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type ImageSourcePropType } from 'react-native';
+import { Alert, Image, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type ImageSourcePropType } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '@/shared/components/Button';
 import { DEFAULT_PROFILE_NICKNAME, PROFILE_NICKNAME_SUGGESTIONS } from '@/shared/constants/profile.constants';
@@ -28,27 +28,46 @@ export function ProfileSetupScreen({ user, isSaving, onComplete }: ProfileSetupS
   const canUseProviderProfile = Boolean(user.providerProfile?.nickname || user.providerProfile?.profileImageUrl);
 
   const handlePickImage = async () => {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
-    if (!permission.granted) {
-      Alert.alert('사진 접근 권한 필요', '사원증 이미지를 선택하려면 사진 접근을 허용해 주세요.');
-      return;
+      if (!permission.granted) {
+        Alert.alert(
+          '사진 접근 권한 필요',
+          '사원증 이미지를 선택하려면 사진 접근을 허용해 주세요.',
+          permission.canAskAgain
+            ? undefined
+            : [
+                { text: '나중에', style: 'cancel' },
+                {
+                  text: '설정 열기',
+                  onPress: () => {
+                    void Linking.openSettings().catch((error) => console.warn('[profile] open setup photo settings failed', error));
+                  },
+                },
+              ],
+        );
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        allowsEditing: true,
+        aspect: [1, 1],
+        mediaTypes: ['images'],
+        quality: 0.82,
+      });
+
+      if (result.canceled || !result.assets[0]) {
+        return;
+      }
+
+      setProfileImageUri(result.assets[0].uri);
+      setProfileImageMimeType(result.assets[0].mimeType);
+      setProfileImageUrl(undefined);
+    } catch (error) {
+      console.warn('[profile] setup image picker failed', error);
+      Alert.alert('사진을 불러오지 못했어요', '사진 접근 상태를 확인한 뒤 다시 시도해 주세요.');
     }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      allowsEditing: true,
-      aspect: [1, 1],
-      mediaTypes: ['images'],
-      quality: 0.82,
-    });
-
-    if (result.canceled || !result.assets[0]) {
-      return;
-    }
-
-    setProfileImageUri(result.assets[0].uri);
-    setProfileImageMimeType(result.assets[0].mimeType);
-    setProfileImageUrl(undefined);
   };
 
   const handleUseProviderProfile = () => {
@@ -101,18 +120,18 @@ export function ProfileSetupScreen({ user, isSaving, onComplete }: ProfileSetupS
         <View style={styles.card}>
           <View style={styles.avatarWrap}>
             <Image resizeMode="cover" source={previewImage ? { uri: previewImage } : illustrations.profile} style={styles.avatar} />
-            <Pressable disabled={isSaving} onPress={handlePickImage} style={({ pressed }) => [styles.imageButton, pressed && styles.pressed]}>
+            <Pressable accessibilityLabel="사원증 이미지 선택" accessibilityRole="button" disabled={isSaving} onPress={handlePickImage} style={({ pressed }) => [styles.imageButton, pressed && styles.pressed]}>
               <ImagePlus color="#FFF8F0" size={18} />
             </Pressable>
           </View>
           <Text style={styles.avatarHint}>선택하지 않으면 기본 사원증 이미지로 시작해요.</Text>
 
           <View style={styles.inlineActions}>
-            <Pressable disabled={isSaving || !canUseProviderProfile} onPress={handleUseProviderProfile} style={({ pressed }) => [styles.smallAction, !canUseProviderProfile && styles.disabledAction, pressed && styles.pressed]}>
+            <Pressable accessibilityLabel="계정 프로필 불러오기" accessibilityRole="button" disabled={isSaving || !canUseProviderProfile} onPress={handleUseProviderProfile} style={({ pressed }) => [styles.smallAction, !canUseProviderProfile && styles.disabledAction, pressed && styles.pressed]}>
               <Sparkles color={canUseProviderProfile ? theme.colors.primaryDark : '#BCA995'} size={15} />
               <Text style={[styles.smallActionText, !canUseProviderProfile && styles.disabledActionText]}>계정 프로필 불러오기</Text>
             </Pressable>
-            <Pressable disabled={isSaving} onPress={handleUseDefaultImage} style={({ pressed }) => [styles.smallAction, pressed && styles.pressed]}>
+            <Pressable accessibilityLabel="기본 사원증 이미지 사용" accessibilityRole="button" disabled={isSaving} onPress={handleUseDefaultImage} style={({ pressed }) => [styles.smallAction, pressed && styles.pressed]}>
               <RotateCcw color={theme.colors.primaryDark} size={15} />
               <Text style={styles.smallActionText}>기본 이미지</Text>
             </Pressable>
@@ -121,6 +140,7 @@ export function ProfileSetupScreen({ user, isSaving, onComplete }: ProfileSetupS
           <View style={styles.field}>
             <Text style={styles.label}>닉네임</Text>
             <TextInput
+              accessibilityLabel="사원증 닉네임"
               editable={!isSaving}
               maxLength={20}
               onChangeText={setNickname}
@@ -140,6 +160,9 @@ export function ProfileSetupScreen({ user, isSaving, onComplete }: ProfileSetupS
 
                 return (
                   <Pressable
+                    accessibilityLabel={`추천 닉네임 ${suggestion}`}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: isActive }}
                     disabled={isSaving}
                     key={suggestion}
                     onPress={() => setNickname(suggestion)}
