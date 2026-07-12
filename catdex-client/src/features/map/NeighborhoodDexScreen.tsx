@@ -9,6 +9,7 @@ import { fetchCommunityPosts } from '@/shared/api/community.api';
 import { fetchNeighborhoodLeaderboard } from '@/shared/api/leaderboard.api';
 import { catFilters } from '@/shared/constants/cat.constants';
 import { getUserFacingError, type UserFacingError } from '@/shared/errors/user-facing-error';
+import { isMatchingNeighborhoodName, uniqueNeighborhoodRegionNames } from '@/shared/neighborhood/neighborhood-match';
 import { createShadow, theme } from '@/shared/styles/theme';
 import type { Cat, CatFilter, CatType, DexPlaceholder } from '@/shared/types/cat';
 import type { CommunityPost } from '@/shared/types/community';
@@ -26,6 +27,7 @@ interface NeighborhoodDexScreenProps {
   onOpenCommunityPost: (postId: string) => void;
   onOpenMap: () => void;
   regions: Region[];
+  regionNames: string[];
   sightings: DexPlaceholder[];
 }
 
@@ -130,8 +132,23 @@ function getRegionNamesByCatName(regions: Region[]) {
   }, {});
 }
 
-function getRegionLabel(cat: Cat, regionNamesByCatName: Record<string, string[]>, fallbackNeighborhoodName: string) {
-  const regionNames = regionNamesByCatName[cat.name] ?? [];
+function getRegionNamesByCatId(regions: Region[]) {
+  return regions.reduce<Record<string, string[]>>((acc, region) => {
+    region.catIds.forEach((catId) => {
+      acc[catId] = [...(acc[catId] ?? []), formatMapRegionName(region.name)];
+    });
+
+    return acc;
+  }, {});
+}
+
+function getRegionLabel(
+  cat: Cat,
+  regionNamesByCatId: Record<string, string[]>,
+  regionNamesByCatName: Record<string, string[]>,
+  fallbackNeighborhoodName: string,
+) {
+  const regionNames = regionNamesByCatId[cat.id] ?? regionNamesByCatName[cat.name] ?? [];
 
   if (regionNames.length === 0) {
     return fallbackNeighborhoodName;
@@ -154,6 +171,7 @@ export function NeighborhoodDexScreen({
   onOpenCommunityPost,
   onOpenMap,
   regions,
+  regionNames,
   sightings,
 }: NeighborhoodDexScreenProps) {
   const [selectedScope, setSelectedScope] = useState<NeighborhoodScope>('all');
@@ -168,11 +186,17 @@ export function NeighborhoodDexScreen({
 
   const normalizedSearchQuery = normalizeSearchText(searchQuery);
   const myCatIdSet = useMemo(() => new Set(myCatIds), [myCatIds]);
+  const neighborhoodRegionNames = useMemo(
+    () => uniqueNeighborhoodRegionNames(neighborhoodName, [...regionNames, ...regions.map((region) => region.name)]),
+    [neighborhoodName, regionNames, regions],
+  );
+  const regionNamesByCatId = useMemo(() => getRegionNamesByCatId(regions), [regions]);
   const regionNamesByCatName = useMemo(() => getRegionNamesByCatName(regions), [regions]);
+  const regionCatIds = useMemo(() => new Set(regions.flatMap((region) => region.catIds)), [regions]);
   const regionCatNames = useMemo(() => new Set(regions.flatMap((region) => region.cats)), [regions]);
   const neighborhoodCats = useMemo(
-    () => cats.filter((cat) => regionCatNames.size === 0 || regionCatNames.has(cat.name)),
-    [cats, regionCatNames],
+    () => cats.filter((cat) => regionCatIds.has(cat.id) || regionCatNames.has(cat.name)),
+    [cats, regionCatIds, regionCatNames],
   );
   const scopedNeighborhoodCats = useMemo(
     () => (selectedScope === 'mine' ? neighborhoodCats.filter((cat) => myCatIdSet.has(cat.id)) : neighborhoodCats),
@@ -181,21 +205,18 @@ export function NeighborhoodDexScreen({
   const visibleCats = useMemo(
     () =>
       scopedNeighborhoodCats.filter((cat) => {
-        const regionLabel = getRegionLabel(cat, regionNamesByCatName, neighborhoodName);
+        const regionLabel = getRegionLabel(cat, regionNamesByCatId, regionNamesByCatName, neighborhoodName);
 
         return matchesCatFilter(cat, selectedFilter) && catMatchesSearch(cat, normalizedSearchQuery, regionLabel);
       }),
-    [neighborhoodName, normalizedSearchQuery, regionNamesByCatName, scopedNeighborhoodCats, selectedFilter],
+    [neighborhoodName, normalizedSearchQuery, regionNamesByCatId, regionNamesByCatName, scopedNeighborhoodCats, selectedFilter],
   );
   const neighborhoodSightings = useMemo(
     () =>
-      sightings.filter(
-        (sighting) =>
-          sighting.regionHint === neighborhoodName ||
-          sighting.regionHint.includes(neighborhoodName) ||
-          neighborhoodName.includes(sighting.regionHint),
+      sightings.filter((sighting) =>
+        neighborhoodRegionNames.some((regionName) => isMatchingNeighborhoodName(sighting.regionHint, regionName)),
       ),
-    [neighborhoodName, sightings],
+    [neighborhoodRegionNames, sightings],
   );
   const visibleSightings = useMemo(
     () =>
@@ -204,10 +225,13 @@ export function NeighborhoodDexScreen({
       ),
     [neighborhoodSightings, normalizedSearchQuery, selectedFilter],
   );
-  const totalRegionCats = useMemo(() => new Set(regions.flatMap((region) => region.cats)).size, [regions]);
-  const activeRegions = regions.filter((region) => region.cats.length > 0).length;
+  const totalRegionCats = useMemo(
+    () => new Set(regions.flatMap((region) => (region.catIds.length > 0 ? region.catIds : region.cats))).size,
+    [regions],
+  );
+  const activeRegions = regions.filter((region) => region.catIds.length > 0 || region.cats.length > 0).length;
   const hasSearchQuery = normalizedSearchQuery.length > 0;
-  const neighborhoodCatCount = Math.max(totalRegionCats, neighborhoodCats.length);
+  const neighborhoodCatCount = totalRegionCats;
   const visibleRecordCount = selectedScope === 'sightings' ? visibleSightings.length : visibleCats.length;
 
   const refreshPreviewPosts = useCallback(async () => {
@@ -217,6 +241,7 @@ export function NeighborhoodDexScreen({
     try {
       const nextPosts = await fetchCommunityPosts({
         regionName: neighborhoodName,
+        regionNames: neighborhoodRegionNames,
         topic: 'ALL',
         limit: 3,
       });
@@ -228,7 +253,7 @@ export function NeighborhoodDexScreen({
     } finally {
       setIsPreviewLoading(false);
     }
-  }, [neighborhoodName]);
+  }, [neighborhoodName, neighborhoodRegionNames]);
 
   const refreshLeaderboard = useCallback(async () => {
     setIsLeaderboardLoading(true);
@@ -390,7 +415,7 @@ export function NeighborhoodDexScreen({
       ) : (
         <View style={styles.grid}>
           {visibleCats.map((cat, index) => {
-            const regionLabel = getRegionLabel(cat, regionNamesByCatName, neighborhoodName);
+            const regionLabel = getRegionLabel(cat, regionNamesByCatId, regionNamesByCatName, neighborhoodName);
 
             return (
               <Pressable

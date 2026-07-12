@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { Alert } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -39,6 +39,7 @@ import { BottomTabBar } from '@/shared/components/BottomTabBar';
 import { coatOptions, personalityOptions } from '@/shared/constants/cat.constants';
 import { getUserFacingError } from '@/shared/errors/user-facing-error';
 import { detectCurrentNeighborhood } from '@/shared/neighborhood/neighborhood-location';
+import { isMatchingNeighborhoodName, uniqueNeighborhoodRegionNames } from '@/shared/neighborhood/neighborhood-match';
 import { loadNeighborhoodState, saveNeighborhoodState } from '@/shared/neighborhood/neighborhood-storage';
 import {
   applyNotificationSettings,
@@ -86,15 +87,28 @@ function isSameNeighborhood(left: SavedNeighborhood, right: SavedNeighborhood) {
   );
 }
 
-function buildNeighborhoodRegions(neighborhoods: SavedNeighborhood[], regionCatsByNeighborhoodName: Record<string, string[]>) {
+function buildNeighborhoodRegions(neighborhoods: SavedNeighborhood[]) {
   return neighborhoods.map<Region>((neighborhood) => ({
     id: neighborhood.id,
     name: neighborhood.name,
     lat: neighborhood.lat,
     lng: neighborhood.lng,
     radius: neighborhood.radius,
-    cats: regionCatsByNeighborhoodName[neighborhood.name] ?? [],
+    catIds: [],
+    cats: neighborhood.cats,
   }));
+}
+
+function getNeighborhoodRegions(regions: Region[], neighborhoodName: string) {
+  return regions.filter((region) => isMatchingNeighborhoodName(region.name, neighborhoodName));
+}
+
+function getRegionCatKeys(region: Region) {
+  return region.catIds.length > 0 ? region.catIds : region.cats;
+}
+
+function getNeighborhoodCatCount(regions: Region[], neighborhoodName: string) {
+  return new Set(getNeighborhoodRegions(regions, neighborhoodName).flatMap(getRegionCatKeys)).size;
 }
 
 function getNeighborhoodRequiredAlert() {
@@ -168,20 +182,37 @@ export default function App() {
     null;
   const hasActiveNeighborhood = activeNeighborhood !== null;
   const activeNeighborhoodName = activeNeighborhood?.name ?? UNSET_NEIGHBORHOOD_NAME;
-  const regionCatsByNeighborhoodName = regions.reduce<Record<string, string[]>>((acc, region) => {
-    acc[region.name] = region.cats;
-    return acc;
-  }, {});
-  const neighborhoodCatCounts = savedNeighborhoods.reduce<Record<string, number>>((acc, neighborhood) => {
-    acc[neighborhood.id] = regionCatsByNeighborhoodName[neighborhood.name]?.length ?? 0;
-    return acc;
-  }, {});
-  const visibleRegions =
-    regions.length > 0
-      ? regions
-      : hasActiveNeighborhood
-        ? buildNeighborhoodRegions(savedNeighborhoods, regionCatsByNeighborhoodName)
-        : [];
+  const activeNeighborhoodRegions = useMemo(
+    () => (activeNeighborhood ? getNeighborhoodRegions(regions, activeNeighborhood.name) : []),
+    [activeNeighborhood, regions],
+  );
+  const neighborhoodCatCounts = useMemo(
+    () =>
+      savedNeighborhoods.reduce<Record<string, number>>((acc, neighborhood) => {
+        acc[neighborhood.id] = getNeighborhoodCatCount(regions, neighborhood.name);
+        return acc;
+      }, {}),
+    [regions, savedNeighborhoods],
+  );
+  const visibleRegions = useMemo(
+    () =>
+      activeNeighborhood
+        ? activeNeighborhoodRegions.length > 0
+          ? activeNeighborhoodRegions
+          : buildNeighborhoodRegions([activeNeighborhood])
+        : [],
+    [activeNeighborhood, activeNeighborhoodRegions],
+  );
+  const activeNeighborhoodRegionNames = useMemo(
+    () =>
+      activeNeighborhood
+        ? uniqueNeighborhoodRegionNames(
+            activeNeighborhoodName,
+            activeNeighborhoodRegions.map((region) => region.name),
+          )
+        : [],
+    [activeNeighborhood, activeNeighborhoodName, activeNeighborhoodRegions],
+  );
   const visibleSelectedCat = selectedCat;
   const activeTab: TabScreen = (() => {
     switch (navigation.screen) {
@@ -931,6 +962,7 @@ export default function App() {
         return neighborhoodView === 'board' ? (
           <CommunityBoardScreen
             neighborhoodName={activeNeighborhoodName}
+            regionNames={activeNeighborhoodRegionNames}
             onComposePost={() => handleOpenCommunityCompose()}
             onOpenDex={handleOpenNeighborhoodDex}
             onOpenMap={handleOpenNeighborhoodMap}
@@ -957,6 +989,7 @@ export default function App() {
             onOpenCommunityPost={(postId) => handleOpenCommunityPost(postId, 'dex')}
             onOpenMap={handleOpenNeighborhoodMap}
             regions={visibleRegions}
+            regionNames={activeNeighborhoodRegionNames}
             sightings={undiscoveredDexSlots}
           />
         );
@@ -973,6 +1006,7 @@ export default function App() {
         ) : (
           <CommunityBoardScreen
             neighborhoodName={activeNeighborhoodName}
+            regionNames={activeNeighborhoodRegionNames}
             onComposePost={() => handleOpenCommunityCompose()}
             onOpenDex={handleOpenNeighborhoodDex}
             onOpenMap={handleOpenNeighborhoodMap}

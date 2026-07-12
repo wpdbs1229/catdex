@@ -65,13 +65,14 @@ function parseBridgeMessage(data: string): KakaoMapBridgeMessage | null {
 
 function serializeRegions(regions: Region[]) {
   return JSON.stringify(
-    regions.map(({ id, name, lat, lng, radius, cats }) => ({
+    regions.map(({ id, name, lat, lng, radius, catIds, cats }) => ({
       id,
       name: formatMapRegionName(name),
       lat,
       lng,
       radius,
       cats,
+      catCount: catIds.length > 0 ? catIds.length : cats.length,
     })),
   ).replace(/</g, '\\u003c');
 }
@@ -207,7 +208,7 @@ function createMapHtml(appKey: string, regions: Region[], selectedRegionId: stri
                 var label = document.createElement('button');
                 label.type = 'button';
                 label.className = 'map-label' + (isSelected ? ' map-label-selected' : '');
-                label.innerHTML = '<span class="map-label-dot"></span><span>' + region.name.replace('부천시 ', '').replace(' 근처', '') + ' · ' + region.cats.length + '마리</span>';
+                label.innerHTML = '<span class="map-label-dot"></span><span>' + region.name.replace('부천시 ', '').replace(' 근처', '') + ' · ' + region.catCount + '마리</span>';
                 label.onclick = function () {
                   postMessage({ type: 'REGION_SELECTED', regionId: region.id });
                 };
@@ -308,7 +309,7 @@ export function KakaoMapView({ regions, selectedRegionId, onSelectRegion, style 
                 {formatMapRegionName(region.name)}
               </Text>
               <Text style={[styles.regionCircleCount, isSelected ? styles.regionCircleTextSelected : null]}>
-                {region.cats.length}마리
+                {(region.catIds.length > 0 ? region.catIds.length : region.cats.length)}마리
               </Text>
             </Pressable>
           );

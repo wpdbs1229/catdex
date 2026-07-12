@@ -18,9 +18,21 @@ interface NeighborhoodMapScreenProps {
   onOpenDex: () => void;
 }
 
-function getRegionCats(region: Region | null, catByName: Map<string, Cat>) {
+function getRegionCatCount(region: Region | null) {
+  return region ? (region.catIds.length > 0 ? region.catIds.length : region.cats.length) : 0;
+}
+
+function getRegionCatKeys(region: Region) {
+  return region.catIds.length > 0 ? region.catIds : region.cats;
+}
+
+function getRegionCats(region: Region | null, catById: Map<string, Cat>, catByName: Map<string, Cat>) {
   if (!region) {
     return [];
+  }
+
+  if (region.catIds.length > 0) {
+    return region.catIds.map((catId) => catById.get(catId)).filter((cat): cat is Cat => Boolean(cat));
   }
 
   return region.cats.map((catName) => catByName.get(catName)).filter((cat): cat is Cat => Boolean(cat));
@@ -36,6 +48,7 @@ export function NeighborhoodMapScreen({
   onOpenDex,
 }: NeighborhoodMapScreenProps) {
   const displayRegions = useMemo(() => regions, [regions]);
+  const catById = useMemo(() => new Map(cats.map((cat) => [cat.id, cat])), [cats]);
   const catByName = useMemo(() => new Map(cats.map((cat) => [cat.name, cat])), [cats]);
   const [selectedRegion, setSelectedRegion] = useState<Region | null>(displayRegions[0] ?? null);
   const [isSheetExpanded, setIsSheetExpanded] = useState(false);
@@ -55,9 +68,9 @@ export function NeighborhoodMapScreen({
     setIsSheetExpanded(false);
   }, [selectedRegion?.id]);
 
-  const selectedRegionCats = useMemo(() => getRegionCats(selectedRegion, catByName), [catByName, selectedRegion]);
-  const activeRegions = displayRegions.filter((region) => region.cats.length > 0).length;
-  const totalRegionCats = useMemo(() => new Set(displayRegions.flatMap((region) => region.cats)).size, [displayRegions]);
+  const selectedRegionCats = useMemo(() => getRegionCats(selectedRegion, catById, catByName), [catById, catByName, selectedRegion]);
+  const activeRegions = displayRegions.filter((region) => getRegionCatCount(region) > 0).length;
+  const totalRegionCats = useMemo(() => new Set(displayRegions.flatMap(getRegionCatKeys)).size, [displayRegions]);
   const visibleRegionCats = selectedRegionCats.slice(0, 3);
   const hiddenRegionCatCount = Math.max(selectedRegionCats.length - visibleRegionCats.length, 0);
 
@@ -90,7 +103,7 @@ export function NeighborhoodMapScreen({
           <View style={styles.mapCountBadge}>
             <Text style={styles.mapCountText}>{activeRegions}구역</Text>
             <Text style={styles.mapCountDot}>·</Text>
-            <Text style={styles.mapCountText}>{Math.max(totalRegionCats, cats.length)}마리</Text>
+            <Text style={styles.mapCountText}>{totalRegionCats}마리</Text>
           </View>
         </View>
       </View>
@@ -113,7 +126,7 @@ export function NeighborhoodMapScreen({
             </View>
             <View style={styles.regionHeaderActions}>
               <View style={styles.regionCountBadge}>
-                <Text style={styles.regionCountText}>{selectedRegion?.cats.length ?? 0}마리</Text>
+                <Text style={styles.regionCountText}>{getRegionCatCount(selectedRegion)}마리</Text>
               </View>
               <View style={styles.sheetToggleIcon}>
                 {isSheetExpanded ? (
