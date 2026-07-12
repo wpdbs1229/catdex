@@ -4,5 +4,6 @@ export interface Region {
   lat: number;
   lng: number;
   radius: number;
+  catIds: string[];
   cats: string[];
 }

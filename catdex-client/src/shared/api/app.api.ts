@@ -1,6 +1,6 @@
 import { File } from 'expo-file-system';
 import { throwIfSupabaseError } from '@/shared/api/client';
-import { fetchCats, fetchMyCats } from '@/shared/api/cats.api';
+import { fetchMyCats } from '@/shared/api/cats.api';
 import { DEFAULT_BADGE_CATALOG } from '@/shared/constants/badge.constants';
 import { getNyangnyangdanRankState } from '@/shared/profile/nyangnyangdan-rank';
 import { assertSupabaseConfigured, supabase } from '@/shared/supabase/client';
@@ -18,6 +18,11 @@ interface RegionRow {
 interface CatRegionRow {
   region_id: string;
   cat_id: string;
+}
+
+interface CatNameRow {
+  id: string;
+  name: string;
 }
 
 interface BadgeRow {
@@ -38,23 +43,23 @@ function formatDate(value: string) {
 export async function fetchRegions() {
   assertSupabaseConfigured();
 
-  const [regionsResponse, regionCatsResponse, cats] = await Promise.all([
+  const [regionsResponse, regionCatsResponse, catsResponse] = await Promise.all([
     supabase.from('regions').select('*').order('name', { ascending: true }),
     supabase.from('cat_regions').select('region_id, cat_id'),
-    fetchCats(),
+    supabase.from('cats').select('id, name'),
   ]);
 
   throwIfSupabaseError(regionsResponse.error);
   throwIfSupabaseError(regionCatsResponse.error);
+  throwIfSupabaseError(catsResponse.error);
 
-  const catNameById = new Map(cats.map((cat) => [cat.id, cat.name]));
-  const regionCats = ((regionCatsResponse.data ?? []) as CatRegionRow[]).reduce<Record<string, string[]>>((acc, row) => {
-    const catName = catNameById.get(row.cat_id);
-
-    if (catName) {
-      acc[row.region_id] = [...(acc[row.region_id] ?? []), catName];
-    }
-
+  const catNameById = new Map(((catsResponse.data ?? []) as CatNameRow[]).map((cat) => [cat.id, cat.name]));
+  const regionCatIds = ((regionCatsResponse.data ?? []) as CatRegionRow[]).reduce<Record<string, string[]>>((acc, row) => {
+    acc[row.region_id] = [...(acc[row.region_id] ?? []), row.cat_id];
+    return acc;
+  }, {});
+  const regionCats = Object.entries(regionCatIds).reduce<Record<string, string[]>>((acc, [regionId, catIds]) => {
+    acc[regionId] = catIds.map((catId) => catNameById.get(catId)).filter((catName): catName is string => Boolean(catName));
     return acc;
   }, {});
 
@@ -64,6 +69,7 @@ export async function fetchRegions() {
     lat: Number(region.lat.toFixed(3)),
     lng: Number(region.lng.toFixed(3)),
     radius: Math.max(region.radius, 300),
+    catIds: regionCatIds[region.id] ?? [],
     cats: regionCats[region.id] ?? [],
   }));
 }

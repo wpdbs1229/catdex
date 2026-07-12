@@ -11,13 +11,21 @@ import type { CommunityFilter, CommunityPost } from '@/shared/types/community';
 
 interface CommunityBoardScreenProps {
   neighborhoodName: string;
+  regionNames: string[];
   onComposePost: () => void;
   onOpenDex: () => void;
   onOpenMap: () => void;
   onOpenPost: (postId: string) => void;
 }
 
-export function CommunityBoardScreen({ neighborhoodName, onComposePost, onOpenDex, onOpenMap, onOpenPost }: CommunityBoardScreenProps) {
+export function CommunityBoardScreen({
+  neighborhoodName,
+  regionNames,
+  onComposePost,
+  onOpenDex,
+  onOpenMap,
+  onOpenPost,
+}: CommunityBoardScreenProps) {
   const [activeFilter, setActiveFilter] = useState<CommunityFilter>('ALL');
   const [posts, setPosts] = useState<CommunityPost[]>([]);
   const [error, setError] = useState<UserFacingError | null>(null);
@@ -33,6 +41,7 @@ export function CommunityBoardScreen({ neighborhoodName, onComposePost, onOpenDe
       try {
         const nextPosts = await fetchCommunityPosts({
           regionName: neighborhoodName,
+          regionNames,
           topic: nextFilter,
           limit: 50,
         });
@@ -45,7 +54,7 @@ export function CommunityBoardScreen({ neighborhoodName, onComposePost, onOpenDe
         setIsLoading(false);
       }
     },
-    [activeFilter, neighborhoodName],
+    [activeFilter, neighborhoodName, regionNames],
   );
 
   useEffect(() => {

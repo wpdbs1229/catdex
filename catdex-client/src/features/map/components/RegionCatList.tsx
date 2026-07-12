@@ -13,21 +13,25 @@ interface RegionCatListProps {
 export function RegionCatList({ regions, selectedRegionId, onSelectRegion }: RegionCatListProps) {
   return (
     <View>
-      {regions.map((region) => (
-        <Pressable key={region.id} onPress={() => onSelectRegion(region)} style={({ pressed }) => [styles.pressable, pressed && styles.pressed]}>
-          <Card style={selectedRegionId === region.id ? styles.selectedCard : undefined}>
-            <View style={styles.header}>
-              <Text style={styles.name}>{region.name}</Text>
-              <Text style={styles.count}>{region.cats.length}마리</Text>
-            </View>
-            <View style={styles.chips}>
-              {region.cats.map((cat) => (
-                <Chip key={`${region.id}-${cat}`}>{cat}</Chip>
-              ))}
-            </View>
-          </Card>
-        </Pressable>
-      ))}
+      {regions.map((region) => {
+        const catCount = region.catIds.length > 0 ? region.catIds.length : region.cats.length;
+
+        return (
+          <Pressable key={region.id} onPress={() => onSelectRegion(region)} style={({ pressed }) => [styles.pressable, pressed && styles.pressed]}>
+            <Card style={selectedRegionId === region.id ? styles.selectedCard : undefined}>
+              <View style={styles.header}>
+                <Text style={styles.name}>{region.name}</Text>
+                <Text style={styles.count}>{catCount}마리</Text>
+              </View>
+              <View style={styles.chips}>
+                {region.cats.map((cat) => (
+                  <Chip key={`${region.id}-${cat}`}>{cat}</Chip>
+                ))}
+              </View>
+            </Card>
+          </Pressable>
+        );
+      })}
     </View>
   );
 }

@@ -51,9 +51,21 @@ const communityTopicLabel: Record<CommunityTopic, string> = {
   INFO: '정보',
 };
 
-function getRegionCats(region: Region | null, catByName: Map<string, Cat>) {
+function getRegionCatCount(region: Region | null) {
+  return region ? (region.catIds.length > 0 ? region.catIds.length : region.cats.length) : 0;
+}
+
+function getRegionCatKeys(region: Region) {
+  return region.catIds.length > 0 ? region.catIds : region.cats;
+}
+
+function getRegionCats(region: Region | null, catById: Map<string, Cat>, catByName: Map<string, Cat>) {
   if (!region) {
     return [];
+  }
+
+  if (region.catIds.length > 0) {
+    return region.catIds.map((catId) => catById.get(catId)).filter((cat): cat is Cat => Boolean(cat));
   }
 
   return region.cats.map((catName) => catByName.get(catName)).filter((cat): cat is Cat => Boolean(cat));
@@ -65,6 +77,7 @@ function getLastSeenLabel(cats: Cat[]) {
 
 export function MapScreen({ regions, cats, neighborhoodName, onGoCapture, onOpenCat }: MapScreenProps) {
   const displayRegions = useMemo(() => regions, [regions]);
+  const catById = useMemo(() => new Map(cats.map((cat) => [cat.id, cat])), [cats]);
   const catByName = useMemo(() => new Map(cats.map((cat) => [cat.name, cat])), [cats]);
   const [selectedRegion, setSelectedRegion] = useState<Region | null>(displayRegions[0] ?? null);
   const [isDistributionOpen, setIsDistributionOpen] = useState(false);
@@ -88,7 +101,7 @@ export function MapScreen({ regions, cats, neighborhoodName, onGoCapture, onOpen
     }
   }, [displayRegions, selectedRegion]);
 
-  const selectedRegionCats = useMemo(() => getRegionCats(selectedRegion, catByName), [catByName, selectedRegion]);
+  const selectedRegionCats = useMemo(() => getRegionCats(selectedRegion, catById, catByName), [catById, catByName, selectedRegion]);
   const hasSelectedRegionCats = selectedRegionCats.length > 0;
   const refreshCommunityPosts = useCallback(
     async (nextFilter: CommunityFilter = activeCommunityFilter) => {
@@ -125,11 +138,11 @@ export function MapScreen({ regions, cats, neighborhoodName, onGoCapture, onOpen
         : communityPosts.filter((post) => post.topic === activeCommunityFilter),
     [activeCommunityFilter, communityPosts],
   );
-  const totalRegionCats = useMemo(() => new Set(displayRegions.flatMap((region) => region.cats)).size, [displayRegions]);
+  const totalRegionCats = useMemo(() => new Set(displayRegions.flatMap(getRegionCatKeys)).size, [displayRegions]);
   const verifiedCats = cats.filter((cat) => cat.encounterCount > 1).length;
-  const needsCheckCount = Math.max(1, Math.min(5, cats.length - verifiedCats + displayRegions.length));
-  const activeRegions = displayRegions.filter((region) => region.cats.length > 0).length;
-  const focusCats = cats.slice(0, 3);
+  const needsCheckCount = Math.max(1, Math.min(5, totalRegionCats - verifiedCats + displayRegions.length));
+  const activeRegions = displayRegions.filter((region) => getRegionCatCount(region) > 0).length;
+  const focusCats = selectedRegionCats.slice(0, 3);
   const communityReplyCount = communityPosts.reduce((total, post) => total + post.commentCount, 0);
 
   const handleCreateCommunityThread = async () => {
@@ -139,7 +152,7 @@ export function MapScreen({ regions, cats, neighborhoodName, onGoCapture, onOpen
       return;
     }
 
-    const targetCat = selectedRegionCats[0] ?? cats[0];
+    const targetCat = selectedRegionCats[0];
     setIsCommunitySubmitting(true);
     setCommunityError(null);
 
@@ -246,7 +259,7 @@ export function MapScreen({ regions, cats, neighborhoodName, onGoCapture, onOpen
               </Text>
             </View>
             <View style={styles.sheetCountBadge}>
-              <Text style={styles.sheetCountText}>{selectedRegion?.cats.length ?? 0}마리</Text>
+              <Text style={styles.sheetCountText}>{getRegionCatCount(selectedRegion)}마리</Text>
             </View>
           </View>
 
@@ -324,7 +337,7 @@ export function MapScreen({ regions, cats, neighborhoodName, onGoCapture, onOpen
       <View style={styles.statusGrid}>
         <View style={styles.statusCard}>
           <Text style={styles.statusLabel}>활동 고양이</Text>
-          <Text style={styles.statusValue}>{Math.max(totalRegionCats, cats.length)}마리</Text>
+          <Text style={styles.statusValue}>{totalRegionCats}마리</Text>
         </View>
         <View style={styles.statusCard}>
           <Text style={styles.statusLabel}>확인 필요</Text>
@@ -424,7 +437,7 @@ export function MapScreen({ regions, cats, neighborhoodName, onGoCapture, onOpen
               {selectedRegion ? formatMapRegionName(selectedRegion.name) : '구역 없음'}
             </Text>
           </View>
-          <Text style={styles.selectedRegionCount}>{selectedRegion?.cats.length ?? 0}마리</Text>
+          <Text style={styles.selectedRegionCount}>{getRegionCatCount(selectedRegion)}마리</Text>
         </View>
       </View>
 

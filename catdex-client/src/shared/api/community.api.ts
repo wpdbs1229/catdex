@@ -76,6 +76,7 @@ function isMissingCommunityPostImagesTable(error: { message: string } | null | u
 export interface FetchCommunityThreadsOptions {
   postId?: string;
   regionName?: string;
+  regionNames?: string[];
   topic?: CommunityFilter;
   mine?: boolean;
   limit?: number;
@@ -324,7 +325,11 @@ export async function fetchCommunityPosts(options: FetchCommunityThreadsOptions 
     postsQuery = postsQuery.eq('id', options.postId);
   }
 
-  if (options.regionName) {
+  const regionNames = uniq(options.regionNames?.map((regionName) => regionName.trim()).filter(Boolean) ?? []);
+
+  if (regionNames.length > 0) {
+    postsQuery = postsQuery.in('region_name', regionNames);
+  } else if (options.regionName) {
     postsQuery = postsQuery.eq('region_name', options.regionName);
   }
 
