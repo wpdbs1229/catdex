@@ -86,10 +86,14 @@ export interface CatObservation {
   matchedCatId?: string;
 }
 
+export type CatMatchMethod = 'neighborhood_recent' | 'visual_embedding' | 'manual';
+
 export interface CatMatchCandidate {
   cat: Cat;
   score: number;
   reason: string;
+  method: CatMatchMethod;
+  modelVersion?: string;
 }
 
 export type CatReportReason = 'duplicate_cat' | 'inappropriate_photo' | 'location_risk' | 'incorrect_info' | 'other';
