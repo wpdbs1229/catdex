@@ -140,7 +140,7 @@ export function HomeScreen({
             <ChevronDown color={theme.colors.primaryDark} size={14} />
           </Pressable>
           <Pressable
-            accessibilityLabel="알림 설정 열기"
+            accessibilityLabel="알림함 열기"
             accessibilityRole="button"
             onPress={onOpenNotifications}
             style={({ pressed }) => [styles.bellButton, pressed && styles.pressed]}

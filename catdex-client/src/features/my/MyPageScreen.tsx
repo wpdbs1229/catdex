@@ -1,7 +1,8 @@
 import type { LucideIcon } from 'lucide-react-native';
-import { Bell, BookOpen, ChevronRight, IdCard, Info, LogOut, MessageCircle, Settings, ShieldCheck, Trash2, X } from 'lucide-react-native';
+import { Bell, BookOpen, ChevronRight, IdCard, Info, LogOut, MessageCircle, Settings, ShieldCheck, Star, Trash2, X } from 'lucide-react-native';
 import { useState } from 'react';
 import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View, type ImageSourcePropType } from 'react-native';
+import { FeaturedCatManager } from '@/features/my/components/FeaturedCatManager';
 import { ProgressBar } from '@/shared/components/ProgressBar';
 import { DEFAULT_BADGE_CATALOG } from '@/shared/constants/badge.constants';
 import { NYANGNYANGDAN_RANK_RULES } from '@/shared/profile/nyangnyangdan-rank';
@@ -21,6 +22,7 @@ interface MyPageScreenProps {
   neighborhoodName: string;
   isSigningOut: boolean;
   isWithdrawing: boolean;
+  isSavingFeaturedCats?: boolean;
   onLogout: () => void;
   onWithdrawAccount: () => Promise<void> | void;
   onOpenCat: (catId: string) => void;
@@ -29,6 +31,7 @@ interface MyPageScreenProps {
   onOpenExplorationHistory: () => void;
   onOpenNotifications: () => void;
   onOpenProfileEdit: () => void;
+  onSaveFeaturedCats: (catIds: string[]) => Promise<void> | void;
 }
 
 const illustrations = {
@@ -77,6 +80,7 @@ export function MyPageScreen({
   neighborhoodName,
   isSigningOut,
   isWithdrawing,
+  isSavingFeaturedCats = false,
   onLogout,
   onWithdrawAccount,
   onOpenCat,
@@ -85,12 +89,15 @@ export function MyPageScreen({
   onOpenExplorationHistory,
   onOpenNotifications,
   onOpenProfileEdit,
+  onSaveFeaturedCats,
 }: MyPageScreenProps) {
   const [isRankGuideOpen, setIsRankGuideOpen] = useState(false);
   const [isWithdrawalOpen, setIsWithdrawalOpen] = useState(false);
+  const [isFeaturedManagerOpen, setIsFeaturedManagerOpen] = useState(false);
   const badgeCatalog = badges.length > 0 ? badges : DEFAULT_BADGE_CATALOG.map((badge) => ({ ...badge, achieved: false }));
   const achievedBadges = badgeCatalog.filter((badge) => badge.achieved);
   const displayBadges = achievedBadges.length > 0 ? achievedBadges.slice(0, 4) : badgeCatalog.slice(0, 4);
+  const selectedFeaturedCatIds = collectionSummary.featuredCats.map((cat) => cat.id);
   const featuredCats = collectionSummary.featuredCats.length > 0 ? collectionSummary.featuredCats.slice(0, 3) : myCats.slice(0, 3);
   const employeeRank = profile.title;
   const localizedEmployeeRank = formatNeighborhoodRank(neighborhoodName, employeeRank);
@@ -105,6 +112,11 @@ export function MyPageScreen({
     } catch {
       // The app-level handler shows the user-facing error.
     }
+  };
+
+  const handleSaveFeaturedCats = async (catIds: string[]) => {
+    await onSaveFeaturedCats(catIds);
+    setIsFeaturedManagerOpen(false);
   };
 
   return (
@@ -215,18 +227,40 @@ export function MyPageScreen({
         </View>
       </Pressable>
 
-      {featuredCats.length > 0 ? (
-        <View style={styles.featuredRow}>
-          {featuredCats.map((cat) => (
-            <Pressable key={cat.id} onPress={() => onOpenCat(cat.id)} style={({ pressed }) => [styles.featuredCat, pressed && styles.pressed]}>
-              <Image resizeMode="cover" source={catImage(cat)} style={styles.featuredImage} />
-              <Text numberOfLines={1} style={styles.featuredName}>
-                {cat.name}
-              </Text>
-            </Pressable>
-          ))}
+      <View style={styles.featuredPanel}>
+        <View style={styles.featuredPanelHeader}>
+          <View style={styles.featuredHeaderCopy}>
+            <View style={styles.featuredTitleRow}>
+              <Star color={theme.colors.accent} size={16} />
+              <Text style={styles.featuredPanelTitle}>우리 도감 주인공</Text>
+            </View>
+            <Text style={styles.featuredPanelText}>
+              {selectedFeaturedCatIds.length > 0 ? `${selectedFeaturedCatIds.length}마리를 대표로 설정했어요.` : '대표 고양이를 고르면 홈과 MY에 먼저 보여요.'}
+            </Text>
+          </View>
+          <Pressable accessibilityLabel="대표 고양이 관리" accessibilityRole="button" onPress={() => setIsFeaturedManagerOpen(true)} style={({ pressed }) => [styles.featuredManageButton, pressed && styles.pressed]}>
+            <Text style={styles.featuredManageText}>관리</Text>
+          </Pressable>
         </View>
-      ) : null}
+
+        {featuredCats.length > 0 ? (
+          <View style={styles.featuredRow}>
+            {featuredCats.map((cat) => (
+              <Pressable key={cat.id} onPress={() => onOpenCat(cat.id)} style={({ pressed }) => [styles.featuredCat, pressed && styles.pressed]}>
+                <Image resizeMode="cover" source={catImage(cat)} style={styles.featuredImage} />
+                <Text numberOfLines={1} style={styles.featuredName}>
+                  {cat.name}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        ) : (
+          <View style={styles.emptyFeaturedCard}>
+            <Text style={styles.emptyFeaturedTitle}>등록된 고양이가 없어요</Text>
+            <Text style={styles.emptyFeaturedText}>촬영 화면에서 첫 고양이를 등록하면 대표로 고를 수 있어요.</Text>
+          </View>
+        )}
+      </View>
 
       <View style={styles.menuPanel}>
         <MenuItem icon={BookOpen} label="근무 기록" onPress={onOpenExplorationHistory} />
@@ -241,6 +275,15 @@ export function MyPageScreen({
           tone="danger"
         />
       </View>
+
+      <FeaturedCatManager
+        cats={myCats}
+        isSaving={isSavingFeaturedCats}
+        onClose={() => setIsFeaturedManagerOpen(false)}
+        onSave={handleSaveFeaturedCats}
+        selectedCatIds={selectedFeaturedCatIds}
+        visible={isFeaturedManagerOpen}
+      />
 
       <Modal animationType="fade" onRequestClose={() => setIsRankGuideOpen(false)} transparent visible={isRankGuideOpen}>
         <View style={styles.modalBackdrop}>
@@ -678,6 +721,55 @@ const styles = StyleSheet.create({
     color: theme.colors.primaryDark,
     textAlign: 'center',
   },
+  featuredPanel: {
+    marginTop: theme.spacing.md,
+    borderRadius: theme.radius.lg,
+    padding: theme.spacing.lg,
+    backgroundColor: 'rgba(255,253,246,0.9)',
+    borderWidth: 1,
+    borderColor: 'rgba(232,211,183,0.88)',
+  },
+  featuredPanelHeader: {
+    minHeight: 38,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: theme.spacing.md,
+  },
+  featuredHeaderCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  featuredTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  featuredPanelTitle: {
+    color: theme.colors.text,
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  featuredPanelText: {
+    marginTop: 5,
+    color: theme.colors.mutedText,
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: '700',
+  },
+  featuredManageButton: {
+    minHeight: 34,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 17,
+    paddingHorizontal: theme.spacing.md,
+    backgroundColor: theme.colors.primaryDark,
+  },
+  featuredManageText: {
+    color: '#FFF8F0',
+    fontSize: 12,
+    fontWeight: '900',
+  },
   featuredRow: {
     marginTop: theme.spacing.md,
     flexDirection: 'row',
@@ -702,6 +794,30 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '800',
     color: theme.colors.text,
+  },
+  emptyFeaturedCard: {
+    marginTop: theme.spacing.md,
+    minHeight: 82,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: theme.radius.md,
+    paddingHorizontal: theme.spacing.md,
+    backgroundColor: 'rgba(255,248,236,0.72)',
+    borderWidth: 1,
+    borderColor: 'rgba(232,211,183,0.62)',
+  },
+  emptyFeaturedTitle: {
+    color: theme.colors.text,
+    fontSize: 14,
+    fontWeight: '900',
+  },
+  emptyFeaturedText: {
+    marginTop: 5,
+    color: theme.colors.mutedText,
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: '700',
+    textAlign: 'center',
   },
   menuPanel: {
     marginTop: theme.spacing.md,

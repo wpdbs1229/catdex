@@ -5,6 +5,7 @@ import { Platform } from 'react-native';
 import type { NotificationPermissionState, NotificationSettings } from '@/shared/types/notification';
 
 const notificationSettingsKey = 'catdex.notificationSettings.v1';
+const notificationReadIdsKeyPrefix = 'catdex.notificationReadIds.v1';
 const dailyReminderChannelId = 'catdex-daily-reminder';
 
 export const defaultNotificationSettings: NotificationSettings = {
@@ -70,6 +71,46 @@ export async function loadNotificationSettings(): Promise<NotificationSettings> 
 
 export async function saveNotificationSettings(settings: NotificationSettings) {
   await AsyncStorage.setItem(notificationSettingsKey, JSON.stringify(settings));
+}
+
+function getNotificationReadIdsKey(userId: string | null | undefined) {
+  return `${notificationReadIdsKeyPrefix}.${userId ?? 'anonymous'}`;
+}
+
+export async function loadNotificationReadIds(userId: string | null | undefined): Promise<string[]> {
+  const storedValue = await AsyncStorage.getItem(getNotificationReadIdsKey(userId));
+
+  if (!storedValue) {
+    return [];
+  }
+
+  try {
+    const parsedValue = JSON.parse(storedValue);
+
+    return Array.isArray(parsedValue) ? parsedValue.filter((value): value is string => typeof value === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+async function saveNotificationReadIds(userId: string | null | undefined, ids: string[]) {
+  await AsyncStorage.setItem(getNotificationReadIdsKey(userId), JSON.stringify(Array.from(new Set(ids))));
+}
+
+export async function markNotificationEventRead(userId: string | null | undefined, eventId: string) {
+  const currentIds = await loadNotificationReadIds(userId);
+  const nextIds = Array.from(new Set([...currentIds, eventId]));
+  await saveNotificationReadIds(userId, nextIds);
+
+  return nextIds;
+}
+
+export async function markAllNotificationEventsRead(userId: string | null | undefined, eventIds: string[]) {
+  const currentIds = await loadNotificationReadIds(userId);
+  const nextIds = Array.from(new Set([...currentIds, ...eventIds]));
+  await saveNotificationReadIds(userId, nextIds);
+
+  return nextIds;
 }
 
 export function mergeNotificationSettings(

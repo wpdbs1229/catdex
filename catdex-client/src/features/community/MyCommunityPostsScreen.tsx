@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { AlertCircle, ChevronLeft, Edit3, MessageCircle, ShieldCheck } from 'lucide-react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { AlertCircle, ChevronLeft, Edit3, MessageCircle, ShieldCheck, Trash2 } from 'lucide-react-native';
 import { CommunityPostCard } from '@/features/community/components/CommunityPostCard';
 import { communityFilterOptions } from '@/features/community/community.constants';
-import { fetchCommunityPosts } from '@/shared/api/community.api';
+import { deleteCommunityPost, fetchCommunityPosts } from '@/shared/api/community.api';
 import { getUserFacingError, type UserFacingError } from '@/shared/errors/user-facing-error';
 import { createShadow, theme } from '@/shared/styles/theme';
 import type { CommunityFilter, CommunityPost } from '@/shared/types/community';
@@ -11,14 +11,16 @@ import type { CommunityFilter, CommunityPost } from '@/shared/types/community';
 interface MyCommunityPostsScreenProps {
   onBack: () => void;
   onComposePost: () => void;
+  onEditPost: (postId: string) => void;
   onOpenPost: (postId: string) => void;
 }
 
-export function MyCommunityPostsScreen({ onBack, onComposePost, onOpenPost }: MyCommunityPostsScreenProps) {
+export function MyCommunityPostsScreen({ onBack, onComposePost, onEditPost, onOpenPost }: MyCommunityPostsScreenProps) {
   const [activeFilter, setActiveFilter] = useState<CommunityFilter>('ALL');
   const [posts, setPosts] = useState<CommunityPost[]>([]);
   const [error, setError] = useState<UserFacingError | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
   const commentCount = useMemo(() => posts.reduce((total, post) => total + post.commentCount, 0), [posts]);
 
   const refreshPosts = useCallback(
@@ -51,6 +53,38 @@ export function MyCommunityPostsScreen({ onBack, onComposePost, onOpenPost }: My
   const handleChangeFilter = (filter: CommunityFilter) => {
     setActiveFilter(filter);
     void refreshPosts(filter);
+  };
+
+  const deletePost = async (postId: string) => {
+    if (deletingPostId) {
+      return;
+    }
+
+    setDeletingPostId(postId);
+    setError(null);
+
+    try {
+      await deleteCommunityPost(postId);
+      setPosts((current) => current.filter((post) => post.id !== postId));
+    } catch (nextError) {
+      console.warn('[community] my post delete failed', nextError);
+      setError(getUserFacingError(nextError, 'community.delete'));
+    } finally {
+      setDeletingPostId(null);
+    }
+  };
+
+  const handleDeletePost = (post: CommunityPost) => {
+    Alert.alert('게시글 삭제', '삭제하면 게시글과 댓글, 공감 기록이 함께 사라져요. 계속할까요?', [
+      { text: '취소', style: 'cancel' },
+      {
+        text: '삭제',
+        style: 'destructive',
+        onPress: () => {
+          void deletePost(post.id);
+        },
+      },
+    ]);
   };
 
   return (
@@ -109,9 +143,31 @@ export function MyCommunityPostsScreen({ onBack, onComposePost, onOpenPost }: My
       ) : null}
 
       <View style={styles.postStack}>
-        {posts.map((post) => (
-          <CommunityPostCard key={post.id} onPress={onOpenPost} post={post} />
-        ))}
+        {posts.map((post) => {
+          const isDeletingPost = deletingPostId === post.id;
+
+          return (
+            <View key={post.id} style={styles.managedPostCard}>
+              <CommunityPostCard onPress={onOpenPost} post={post} />
+              <View style={styles.manageRow}>
+                <Pressable accessibilityLabel={`${post.title} 수정`} accessibilityRole="button" onPress={() => onEditPost(post.id)} style={({ pressed }) => [styles.manageButton, pressed && styles.pressed]}>
+                  <Edit3 color={theme.colors.primaryDark} size={14} />
+                  <Text style={styles.manageText}>수정</Text>
+                </Pressable>
+                <Pressable
+                  accessibilityLabel={`${post.title} 삭제`}
+                  accessibilityRole="button"
+                  disabled={isDeletingPost}
+                  onPress={() => handleDeletePost(post)}
+                  style={({ pressed }) => [styles.manageButton, styles.manageDeleteButton, isDeletingPost && styles.manageButtonDisabled, pressed && styles.pressed]}
+                >
+                  <Trash2 color={theme.colors.primary} size={14} />
+                  <Text style={styles.manageDeleteText}>{isDeletingPost ? '삭제 중' : '삭제'}</Text>
+                </Pressable>
+              </View>
+            </View>
+          );
+        })}
       </View>
 
       {!isLoading && posts.length === 0 ? (
@@ -286,6 +342,44 @@ const styles = StyleSheet.create({
   },
   postStack: {
     gap: theme.spacing.md,
+  },
+  managedPostCard: {
+    gap: theme.spacing.sm,
+  },
+  manageRow: {
+    minHeight: 36,
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: theme.spacing.sm,
+  },
+  manageButton: {
+    minHeight: 34,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    borderRadius: 17,
+    paddingHorizontal: theme.spacing.md,
+    backgroundColor: 'rgba(221,232,200,0.56)',
+    borderWidth: 1,
+    borderColor: 'rgba(111,131,77,0.12)',
+  },
+  manageDeleteButton: {
+    backgroundColor: 'rgba(255,239,221,0.72)',
+    borderColor: 'rgba(196,122,66,0.18)',
+  },
+  manageButtonDisabled: {
+    opacity: 0.5,
+  },
+  manageText: {
+    color: theme.colors.primaryDark,
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  manageDeleteText: {
+    color: theme.colors.primary,
+    fontSize: 12,
+    fontWeight: '900',
   },
   emptyCard: {
     minHeight: 178,

@@ -10,7 +10,7 @@ import { fetchNeighborhoodLeaderboard } from '@/shared/api/leaderboard.api';
 import { catFilters } from '@/shared/constants/cat.constants';
 import { getUserFacingError, type UserFacingError } from '@/shared/errors/user-facing-error';
 import { createShadow, theme } from '@/shared/styles/theme';
-import type { Cat, CatFilter, CatType } from '@/shared/types/cat';
+import type { Cat, CatFilter, CatType, DexPlaceholder } from '@/shared/types/cat';
 import type { CommunityPost } from '@/shared/types/community';
 import type { NeighborhoodLeaderboardEntry } from '@/shared/types/leaderboard';
 import type { Region } from '@/shared/types/region';
@@ -18,6 +18,7 @@ import { getCatIllustrationKey, type CatIllustrationKey } from '@/shared/utils/c
 
 interface NeighborhoodDexScreenProps {
   cats: Cat[];
+  myCatIds: string[];
   neighborhoodName: string;
   onGoCapture: () => void;
   onOpenCat: (catId: string) => void;
@@ -25,9 +26,17 @@ interface NeighborhoodDexScreenProps {
   onOpenCommunityPost: (postId: string) => void;
   onOpenMap: () => void;
   regions: Region[];
+  sightings: DexPlaceholder[];
 }
 
 const filters = catFilters;
+type NeighborhoodScope = 'all' | 'mine' | 'sightings';
+
+const scopeOptions: Array<{ id: NeighborhoodScope; label: string; helper: string }> = [
+  { id: 'all', label: '전체', helper: '동네 기록' },
+  { id: 'mine', label: '내 도감', helper: '내가 수집' },
+  { id: 'sightings', label: '확인 필요', helper: '목격 제보' },
+];
 
 const illustrations = {
   orange: require('../../../assets/illustrations/cat-orange-clean.png'),
@@ -80,6 +89,37 @@ function matchesCatFilter(cat: Cat, selectedFilter: CatFilter) {
   return cat.type === selectedFilter;
 }
 
+function matchesSightingFilter(sighting: DexPlaceholder, selectedFilter: CatFilter) {
+  if (selectedFilter === '전체') {
+    return true;
+  }
+
+  if (selectedFilter === '희귀') {
+    return sighting.rarity >= 4;
+  }
+
+  return sighting.type === selectedFilter;
+}
+
+function sightingMatchesSearch(sighting: DexPlaceholder, query: string) {
+  if (!query) {
+    return true;
+  }
+
+  return [
+    sighting.type,
+    sighting.regionHint,
+    sighting.timeHint ?? '',
+    sighting.unlockHint ?? '',
+    sighting.behaviorHint ?? '',
+    `no.${String(sighting.number).padStart(3, '0')}`,
+    String(sighting.number),
+  ]
+    .join(' ')
+    .toLowerCase()
+    .includes(query);
+}
+
 function getRegionNamesByCatName(regions: Region[]) {
   return regions.reduce<Record<string, string[]>>((acc, region) => {
     region.cats.forEach((catName) => {
@@ -106,6 +146,7 @@ function getLastSeenLabel(cats: Cat[]) {
 
 export function NeighborhoodDexScreen({
   cats,
+  myCatIds,
   neighborhoodName,
   onGoCapture,
   onOpenCat,
@@ -113,7 +154,9 @@ export function NeighborhoodDexScreen({
   onOpenCommunityPost,
   onOpenMap,
   regions,
+  sightings,
 }: NeighborhoodDexScreenProps) {
+  const [selectedScope, setSelectedScope] = useState<NeighborhoodScope>('all');
   const [selectedFilter, setSelectedFilter] = useState<CatFilter>('전체');
   const [searchQuery, setSearchQuery] = useState('');
   const [previewPosts, setPreviewPosts] = useState<CommunityPost[]>([]);
@@ -124,25 +167,48 @@ export function NeighborhoodDexScreen({
   const [isLeaderboardLoading, setIsLeaderboardLoading] = useState(false);
 
   const normalizedSearchQuery = normalizeSearchText(searchQuery);
+  const myCatIdSet = useMemo(() => new Set(myCatIds), [myCatIds]);
   const regionNamesByCatName = useMemo(() => getRegionNamesByCatName(regions), [regions]);
   const regionCatNames = useMemo(() => new Set(regions.flatMap((region) => region.cats)), [regions]);
   const neighborhoodCats = useMemo(
     () => cats.filter((cat) => regionCatNames.size === 0 || regionCatNames.has(cat.name)),
     [cats, regionCatNames],
   );
+  const scopedNeighborhoodCats = useMemo(
+    () => (selectedScope === 'mine' ? neighborhoodCats.filter((cat) => myCatIdSet.has(cat.id)) : neighborhoodCats),
+    [myCatIdSet, neighborhoodCats, selectedScope],
+  );
   const visibleCats = useMemo(
     () =>
-      neighborhoodCats.filter((cat) => {
+      scopedNeighborhoodCats.filter((cat) => {
         const regionLabel = getRegionLabel(cat, regionNamesByCatName, neighborhoodName);
 
         return matchesCatFilter(cat, selectedFilter) && catMatchesSearch(cat, normalizedSearchQuery, regionLabel);
       }),
-    [neighborhoodCats, neighborhoodName, normalizedSearchQuery, regionNamesByCatName, selectedFilter],
+    [neighborhoodName, normalizedSearchQuery, regionNamesByCatName, scopedNeighborhoodCats, selectedFilter],
+  );
+  const neighborhoodSightings = useMemo(
+    () =>
+      sightings.filter(
+        (sighting) =>
+          sighting.regionHint === neighborhoodName ||
+          sighting.regionHint.includes(neighborhoodName) ||
+          neighborhoodName.includes(sighting.regionHint),
+      ),
+    [neighborhoodName, sightings],
+  );
+  const visibleSightings = useMemo(
+    () =>
+      neighborhoodSightings.filter(
+        (sighting) => matchesSightingFilter(sighting, selectedFilter) && sightingMatchesSearch(sighting, normalizedSearchQuery),
+      ),
+    [neighborhoodSightings, normalizedSearchQuery, selectedFilter],
   );
   const totalRegionCats = useMemo(() => new Set(regions.flatMap((region) => region.cats)).size, [regions]);
   const activeRegions = regions.filter((region) => region.cats.length > 0).length;
   const hasSearchQuery = normalizedSearchQuery.length > 0;
   const neighborhoodCatCount = Math.max(totalRegionCats, neighborhoodCats.length);
+  const visibleRecordCount = selectedScope === 'sightings' ? visibleSightings.length : visibleCats.length;
 
   const refreshPreviewPosts = useCallback(async () => {
     setIsPreviewLoading(true);
@@ -205,7 +271,7 @@ export function NeighborhoodDexScreen({
         </View>
         <View style={styles.bookCountBadge}>
           <BookOpen color={theme.colors.primaryDark} size={15} />
-          <Text style={styles.countText}>{visibleCats.length}마리</Text>
+          <Text style={styles.countText}>{selectedScope === 'sightings' ? `${visibleRecordCount}건` : `${visibleRecordCount}마리`}</Text>
         </View>
       </View>
 
@@ -219,8 +285,8 @@ export function NeighborhoodDexScreen({
           <Text style={styles.statusValue}>{activeRegions}곳</Text>
         </View>
         <View style={styles.statusCard}>
-          <Text style={styles.statusLabel}>게시글</Text>
-          <Text style={styles.statusValue}>{previewPosts.length > 0 ? `${previewPosts.length}+` : '0'}</Text>
+          <Text style={styles.statusLabel}>확인 필요</Text>
+          <Text style={styles.statusValue}>{neighborhoodSightings.length}건</Text>
         </View>
         <View style={styles.statusCard}>
           <Text style={styles.statusLabel}>최근 기록</Text>
@@ -236,6 +302,25 @@ export function NeighborhoodDexScreen({
         isLoading={isLeaderboardLoading}
         onRetry={refreshLeaderboard}
       />
+
+      <View style={styles.scopeTabs}>
+        {scopeOptions.map((scope) => {
+          const isSelected = selectedScope === scope.id;
+
+          return (
+            <Pressable
+              accessibilityLabel={`동네 도감 범위 ${scope.label}`}
+              accessibilityRole="button"
+              key={scope.id}
+              onPress={() => setSelectedScope(scope.id)}
+              style={({ pressed }) => [styles.scopeTab, isSelected && styles.scopeTabActive, pressed && styles.pressed]}
+            >
+              <Text style={[styles.scopeLabel, isSelected && styles.scopeLabelActive]}>{scope.label}</Text>
+              <Text style={[styles.scopeHelper, isSelected && styles.scopeHelperActive]}>{scope.helper}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
 
       <View style={styles.searchBar}>
         <Search color={theme.colors.mutedText} size={18} />
@@ -270,53 +355,95 @@ export function NeighborhoodDexScreen({
         })}
       </ScrollView>
 
-      <View style={styles.grid}>
-        {visibleCats.map((cat, index) => {
-          const regionLabel = getRegionLabel(cat, regionNamesByCatName, neighborhoodName);
-
-          return (
+      {selectedScope === 'sightings' ? (
+        <View style={styles.grid}>
+          {visibleSightings.map((sighting, index) => (
             <Pressable
-              accessibilityLabel={`${cat.name} 도감 보기`}
+              accessibilityLabel={`${sighting.type} 목격 제보 기록하기`}
               accessibilityRole="button"
-              key={cat.id}
-              onPress={() => onOpenCat(cat.id)}
-              style={({ pressed }) => [styles.tile, index % 2 === 0 ? styles.tileTiltLeft : styles.tileTiltRight, pressed && styles.pressed]}
+              key={sighting.id}
+              onPress={onGoCapture}
+              style={({ pressed }) => [styles.sightingTile, index % 2 === 0 ? styles.tileTiltLeft : styles.tileTiltRight, pressed && styles.pressed]}
             >
-              <View pointerEvents="none" style={styles.tileWash} />
-              <View style={styles.tileImageFrame}>
-                <Image resizeMode="contain" source={imageForType(cat.type, cat.imageUrl)} style={styles.tileImage} />
+              <View style={styles.sightingImageFrame}>
+                <Image resizeMode="contain" source={imageForType(sighting.type, sighting.imageUrl)} style={styles.tileImage} />
               </View>
               <View style={styles.tileNumberPill}>
-                <Text style={styles.tileNumber}>No.{String(cat.number).padStart(3, '0')}</Text>
+                <Text style={styles.tileNumber}>제보 {sighting.reportCount ?? 1}건</Text>
               </View>
               <Text numberOfLines={1} style={styles.tileName}>
-                {cat.name}
+                {sighting.type}
               </Text>
               <Text numberOfLines={1} style={styles.tileMeta}>
-                {cat.relationshipLevel} · 최근 {cat.lastSeenAt}
+                {sighting.sightedAt ? `목격 ${sighting.sightedAt}` : '목격 시간 미상'}
               </Text>
-              <Text numberOfLines={1} style={styles.tileRegion}>
-                {regionLabel}
+              <Text numberOfLines={2} style={styles.tileRegion}>
+                {sighting.regionHint}
               </Text>
-              <View style={styles.tileFooter}>
-                <Text numberOfLines={1} style={styles.tileType}>
-                  {cat.type}
-                </Text>
-                <Text numberOfLines={1} style={styles.tileCount}>
-                  제보 {cat.encounterCount}회
-                </Text>
+              <View style={styles.sightingAction}>
+                <Camera color="#FFF8F0" size={14} />
+                <Text style={styles.sightingActionText}>기록으로 확인</Text>
               </View>
             </Pressable>
-          );
-        })}
-      </View>
+          ))}
+        </View>
+      ) : (
+        <View style={styles.grid}>
+          {visibleCats.map((cat, index) => {
+            const regionLabel = getRegionLabel(cat, regionNamesByCatName, neighborhoodName);
 
-      {visibleCats.length === 0 ? (
+            return (
+              <Pressable
+                accessibilityLabel={`${cat.name} 도감 보기`}
+                accessibilityRole="button"
+                key={cat.id}
+                onPress={() => onOpenCat(cat.id)}
+                style={({ pressed }) => [styles.tile, index % 2 === 0 ? styles.tileTiltLeft : styles.tileTiltRight, pressed && styles.pressed]}
+              >
+                <View pointerEvents="none" style={styles.tileWash} />
+                <View style={styles.tileImageFrame}>
+                  <Image resizeMode="contain" source={imageForType(cat.type, cat.imageUrl)} style={styles.tileImage} />
+                </View>
+                <View style={styles.tileNumberPill}>
+                  <Text style={styles.tileNumber}>No.{String(cat.number).padStart(3, '0')}</Text>
+                </View>
+                <Text numberOfLines={1} style={styles.tileName}>
+                  {cat.name}
+                </Text>
+                <Text numberOfLines={1} style={styles.tileMeta}>
+                  {cat.relationshipLevel} · 최근 {cat.lastSeenAt}
+                </Text>
+                <Text numberOfLines={1} style={styles.tileRegion}>
+                  {regionLabel}
+                </Text>
+                <View style={styles.tileFooter}>
+                  <Text numberOfLines={1} style={styles.tileType}>
+                    {cat.type}
+                  </Text>
+                  <Text numberOfLines={1} style={styles.tileCount}>
+                    제보 {cat.encounterCount}회
+                  </Text>
+                </View>
+              </Pressable>
+            );
+          })}
+        </View>
+      )}
+
+      {visibleRecordCount === 0 ? (
         <View style={styles.emptyState}>
           <PawPrint color="#D4B989" size={38} />
-          <Text style={styles.emptyTitle}>{hasSearchQuery ? '검색 결과가 없어요' : '아직 동네 도감이 비어 있어요'}</Text>
+          <Text style={styles.emptyTitle}>
+            {hasSearchQuery ? '검색 결과가 없어요' : selectedScope === 'mine' ? '내 도감 기록이 없어요' : selectedScope === 'sightings' ? '확인할 제보가 없어요' : '아직 동네 도감이 비어 있어요'}
+          </Text>
           <Text style={styles.emptyText}>
-            {hasSearchQuery ? '다른 이름, 특징, 구역으로 다시 찾아보세요.' : '첫 기록이 쌓이면 이곳에 동네 고양이 카드가 채워져요.'}
+            {hasSearchQuery
+              ? '다른 이름, 특징, 구역으로 다시 찾아보세요.'
+              : selectedScope === 'mine'
+                ? '촬영으로 수집한 고양이는 내 도감 범위에 따로 모여요.'
+                : selectedScope === 'sightings'
+                  ? '새로운 미확인 목격이 생기면 이곳에서 촬영 확인으로 이어갈 수 있어요.'
+                  : '첫 기록이 쌓이면 이곳에 동네 고양이 카드가 채워져요.'}
           </Text>
           {!hasSearchQuery ? (
             <Pressable accessibilityLabel="고양이 기록하기" accessibilityRole="button" onPress={onGoCapture} style={({ pressed }) => [styles.emptyCaptureButton, pressed && styles.pressed]}>
@@ -514,6 +641,46 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
   },
+  scopeTabs: {
+    minHeight: 74,
+    flexDirection: 'row',
+    gap: theme.spacing.sm,
+  },
+  scopeTab: {
+    flex: 1,
+    minWidth: 0,
+    justifyContent: 'center',
+    borderRadius: theme.radius.xl,
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: theme.spacing.sm,
+    backgroundColor: 'rgba(255,253,246,0.66)',
+    borderWidth: 1,
+    borderColor: 'rgba(139,112,83,0.12)',
+  },
+  scopeTabActive: {
+    backgroundColor: theme.colors.primaryDark,
+    borderColor: theme.colors.primaryDark,
+  },
+  scopeLabel: {
+    color: theme.colors.text,
+    fontSize: 13,
+    fontWeight: '900',
+    textAlign: 'center',
+  },
+  scopeLabelActive: {
+    color: '#FFF8F0',
+  },
+  scopeHelper: {
+    marginTop: 3,
+    color: theme.colors.mutedText,
+    fontSize: 10,
+    lineHeight: 14,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
+  scopeHelperActive: {
+    color: 'rgba(255,248,240,0.72)',
+  },
   filterRow: {
     gap: theme.spacing.sm,
     paddingRight: theme.spacing.lg,
@@ -645,6 +812,42 @@ const styles = StyleSheet.create({
     color: theme.colors.mutedText,
     fontSize: 11,
     fontWeight: '800',
+  },
+  sightingTile: {
+    flexBasis: '48%',
+    flexGrow: 0,
+    maxWidth: '48%',
+    overflow: 'hidden',
+    borderRadius: theme.radius.xl,
+    padding: 10,
+    backgroundColor: 'rgba(255,247,236,0.82)',
+    borderWidth: 1,
+    borderColor: 'rgba(196,122,66,0.16)',
+    ...createShadow(4),
+  },
+  sightingImageFrame: {
+    width: '100%',
+    aspectRatio: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+    borderRadius: theme.radius.lg,
+    backgroundColor: 'rgba(255,239,221,0.7)',
+  },
+  sightingAction: {
+    minHeight: 34,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    borderRadius: 17,
+    marginTop: theme.spacing.sm,
+    backgroundColor: theme.colors.primaryDark,
+  },
+  sightingActionText: {
+    color: '#FFF8F0',
+    fontSize: 11,
+    fontWeight: '900',
   },
   emptyState: {
     minHeight: 180,

@@ -16,6 +16,12 @@ export interface CommunityComment {
   createdAt: string;
 }
 
+export interface CommunityPostImage {
+  id: string;
+  uri: string;
+  storagePath: string;
+}
+
 export interface CommunityPost {
   id: string;
   topic: CommunityTopic;
@@ -28,6 +34,7 @@ export interface CommunityPost {
   catRarity?: number;
   catImageUrl?: string;
   imageUrls: string[];
+  images: CommunityPostImage[];
   author: CommunityAuthor;
   createdAt: string;
   likeCount: number;
@@ -45,7 +52,16 @@ export interface CommunityPostDraft {
   images?: CommunityPostImageDraft[];
 }
 
+export interface CommunityPostUpdateDraft {
+  topic: CommunityTopic;
+  title: string;
+  body: string;
+  images?: CommunityPostImageDraft[];
+}
+
 export interface CommunityPostImageDraft {
+  id?: string;
   uri: string;
   mimeType?: string;
+  storagePath?: string;
 }

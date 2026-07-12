@@ -55,7 +55,7 @@ export function CameraPlaceholder({ capturedImageUri, height, onPhotoCaptured, o
         <Image source={{ uri: capturedImageUri }} style={styles.capturedImage} />
         <View style={styles.capturedOverlay}>
           <Text style={styles.status}>촬영 완료</Text>
-          <Pressable onPress={onRetake} style={styles.iconButton}>
+          <Pressable accessibilityLabel="사진 다시 촬영" accessibilityRole="button" onPress={onRetake} style={styles.iconButton}>
             <RefreshCw color="#FFF7EA" size={18} />
           </Pressable>
         </View>
@@ -99,10 +99,16 @@ export function CameraPlaceholder({ capturedImageUri, height, onPhotoCaptured, o
           <Text style={styles.focusEmoji}>🐾</Text>
         </View>
         <View style={styles.controls}>
-          <Pressable onPress={handleFlipCamera} style={styles.iconButton}>
+          <Pressable accessibilityLabel="카메라 전환" accessibilityRole="button" onPress={handleFlipCamera} style={styles.iconButton}>
             <RotateCcw color="#FFF7EA" size={18} />
           </Pressable>
-          <Pressable disabled={!isCameraReady || isCapturing} onPress={handleTakePicture} style={styles.shutterButton}>
+          <Pressable
+            accessibilityLabel="고양이 사진 촬영"
+            accessibilityRole="button"
+            disabled={!isCameraReady || isCapturing}
+            onPress={handleTakePicture}
+            style={styles.shutterButton}
+          >
             <View style={styles.shutterInner}>
               <Camera color="#4A3428" size={24} />
             </View>

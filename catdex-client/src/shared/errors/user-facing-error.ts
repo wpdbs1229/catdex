@@ -3,12 +3,16 @@ type ErrorContext =
   | 'account.withdraw'
   | 'community.load'
   | 'community.save'
+  | 'community.update'
+  | 'community.delete'
   | 'community.comment'
   | 'community.like'
   | 'leaderboard.load'
   | 'capture.process'
+  | 'cat.update'
   | 'profile.save'
   | 'notification.save'
+  | 'notification.load'
   | 'neighborhood.detect'
   | 'generic';
 
@@ -34,6 +38,14 @@ const contextFallbacks: Record<ErrorContext, UserFacingError> = {
     title: '이야기를 올리지 못했어요',
     message: '내용은 그대로 두었어요. 연결 상태를 확인한 뒤 다시 올려 주세요.',
   },
+  'community.update': {
+    title: '게시글을 수정하지 못했어요',
+    message: '내용은 그대로 두었어요. 연결 상태를 확인한 뒤 다시 저장해 주세요.',
+  },
+  'community.delete': {
+    title: '게시글을 삭제하지 못했어요',
+    message: '권한과 연결 상태를 확인한 뒤 다시 시도해 주세요.',
+  },
   'community.comment': {
     title: '댓글을 남기지 못했어요',
     message: '내용은 그대로 두었어요. 잠시 후 다시 보내 주세요.',
@@ -50,6 +62,10 @@ const contextFallbacks: Record<ErrorContext, UserFacingError> = {
     title: '사진을 처리하지 못했어요',
     message: '사진은 아직 저장되지 않았어요. 고양이가 더 잘 보이게 다시 찍어 주세요.',
   },
+  'cat.update': {
+    title: '고양이 정보를 저장하지 못했어요',
+    message: '입력한 내용은 유지돼요. 잠시 후 다시 저장해 주세요.',
+  },
   'profile.save': {
     title: '프로필을 저장하지 못했어요',
     message: '입력한 내용은 유지돼요. 잠시 후 다시 저장해 주세요.',
@@ -57,6 +73,10 @@ const contextFallbacks: Record<ErrorContext, UserFacingError> = {
   'notification.save': {
     title: '알림 설정을 저장하지 못했어요',
     message: '지금 설정은 바뀌지 않았어요. 잠시 후 다시 시도해 주세요.',
+  },
+  'notification.load': {
+    title: '알림을 불러오지 못했어요',
+    message: '알림 내역을 불러오지 못했어요. 잠시 후 다시 확인해 주세요.',
   },
   'neighborhood.detect': {
     title: '현재 동네를 확인하지 못했어요',
@@ -123,7 +143,7 @@ export function getUserFacingError(error: unknown, context: ErrorContext = 'gene
     };
   }
 
-  if (matches(rawMessage, ['permission', 'policy', 'rls', '403', '401', 'unauthorized', 'forbidden'])) {
+  if (matches(rawMessage, ['permission', 'policy', 'rls', '403', '401', 'unauthorized', 'forbidden', '권한'])) {
     return {
       title: '권한 확인이 필요해요',
       message: '다시 로그인한 뒤 시도해 주세요.',

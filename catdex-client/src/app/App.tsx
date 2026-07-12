@@ -3,7 +3,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Alert } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { fetchAchievedBadges, fetchProfile, fetchRegions, uploadCatObservationImage } from '@/shared/api/app.api';
-import { fetchCollectionCustomization } from '@/shared/api/collection.api';
+import { fetchCollectionCustomization, saveFeaturedCats } from '@/shared/api/collection.api';
 import {
   createCatObservation,
   fetchCatMatchCandidates,
@@ -18,6 +18,7 @@ import { useAuth } from '@/features/auth/hooks/useAuth';
 import { CaptureScreen } from '@/features/capture/CaptureScreen';
 import { CatDetailScreen } from '@/features/cats/CatDetailScreen';
 import { CatDexScreen } from '@/features/cats/CatDexScreen';
+import { CatEditScreen } from '@/features/cats/CatEditScreen';
 import { useCats } from '@/features/cats/hooks/useCats';
 import { CommunityBoardScreen } from '@/features/community/CommunityBoardScreen';
 import { CommunityComposerScreen } from '@/features/community/CommunityComposerScreen';
@@ -30,6 +31,7 @@ import { ExplorationHistoryScreen } from '@/features/my/MyLinkedCollectionScreen
 import { BadgeBookScreen } from '@/features/my/BadgeBookScreen';
 import { MyPageScreen } from '@/features/my/MyPageScreen';
 import { ProfileEditScreen } from '@/features/my/ProfileEditScreen';
+import { NotificationInboxScreen } from '@/features/notifications/NotificationInboxScreen';
 import { NotificationSettingsScreen } from '@/features/notifications/NotificationSettingsScreen';
 import { SplashScreen } from '@/features/splash/SplashScreen';
 import { AppShell } from '@/shared/components/AppShell';
@@ -51,12 +53,12 @@ import {
 } from '@/shared/notifications/notification.service';
 import type { ProfileUpdateDraft } from '@/shared/types/auth';
 import type { Badge, ExplorerProfile } from '@/shared/types/badge';
-import type { CaptureCatDraft, ProcessedCatPhoto } from '@/shared/types/cat';
+import type { CatProfileUpdateDraft, CaptureCatDraft, ProcessedCatPhoto } from '@/shared/types/cat';
 import type { CatType, PersonalityTag } from '@/shared/types/cat';
 import type { CollectionCustomizationState, CollectionSummary } from '@/shared/types/collection';
 import type { NavigationState, TabScreen } from '@/shared/types/navigation';
 import { MAX_SAVED_NEIGHBORHOODS, type SavedNeighborhood } from '@/shared/types/neighborhood';
-import type { NotificationPermissionState, NotificationSettings } from '@/shared/types/notification';
+import type { NotificationEvent, NotificationPermissionState, NotificationSettings } from '@/shared/types/notification';
 import type { Region } from '@/shared/types/region';
 
 const emptyProfile: ExplorerProfile = {
@@ -142,7 +144,10 @@ export default function App() {
   const [isNotificationSaving, setIsNotificationSaving] = useState(false);
   const [notificationReturnScreen, setNotificationReturnScreen] = useState<TabScreen>('my');
   const [communityReturnScreen, setCommunityReturnScreen] = useState<CommunityReturnScreen>('board');
+  const [shouldEditCommunityPostOnOpen, setShouldEditCommunityPostOnOpen] = useState(false);
   const [isProfileSaving, setIsProfileSaving] = useState(false);
+  const [isFeaturedCatsSaving, setIsFeaturedCatsSaving] = useState(false);
+  const [isCatProfileSaving, setIsCatProfileSaving] = useState(false);
   const {
     addEncounter,
     cats,
@@ -155,6 +160,7 @@ export default function App() {
     selectedCat,
     selectedCatEncounters,
     undiscoveredDexSlots,
+    updateCatProfile,
   } = useCats(navigation.selectedCatId, isAuthenticated);
   const activeNeighborhood =
     savedNeighborhoods.find((neighborhood) => neighborhood.id === activeNeighborhoodId) ??
@@ -180,6 +186,7 @@ export default function App() {
   const activeTab: TabScreen = (() => {
     switch (navigation.screen) {
       case 'detail':
+      case 'catEdit':
         return 'dex';
       case 'communityPostDetail':
         return communityReturnScreen === 'myCommunityPosts' ? 'my' : 'map';
@@ -190,8 +197,9 @@ export default function App() {
       case 'explorationHistory':
       case 'badgeBook':
       case 'profileEdit':
+      case 'notificationInbox':
       case 'notifications':
-        return navigation.screen === 'notifications' ? notificationReturnScreen : 'my';
+        return navigation.screen === 'notifications' || navigation.screen === 'notificationInbox' ? notificationReturnScreen : 'my';
       default:
         return navigation.screen;
     }
@@ -321,6 +329,14 @@ export default function App() {
     });
   };
 
+  const handleOpenCatEdit = (catId: string) => {
+    setNavigation({
+      screen: 'catEdit',
+      selectedCatId: catId,
+      selectedOwnerId: null,
+    });
+  };
+
   const handleOpenNeighborhoodDex = () => {
     setNeighborhoodView('dex');
     setNavigation({
@@ -351,8 +367,9 @@ export default function App() {
     });
   };
 
-  const handleOpenCommunityPost = (postId: string, returnScreen: CommunityReturnScreen = 'board') => {
+  const handleOpenCommunityPost = (postId: string, returnScreen: CommunityReturnScreen = 'board', options?: { startEditing?: boolean }) => {
     setCommunityReturnScreen(returnScreen);
+    setShouldEditCommunityPostOnOpen(Boolean(options?.startEditing));
     setNeighborhoodView('board');
     setNavigation({
       screen: 'communityPostDetail',
@@ -365,6 +382,7 @@ export default function App() {
 
   const handleOpenCommunityCompose = (catId?: string, returnScreen: CommunityReturnScreen = 'board') => {
     setCommunityReturnScreen(returnScreen);
+    setShouldEditCommunityPostOnOpen(false);
     setNeighborhoodView('board');
     setNavigation({
       screen: 'communityCompose',
@@ -373,6 +391,27 @@ export default function App() {
       selectedCommunityCatId: catId ?? null,
       selectedCommunityPostId: null,
     });
+  };
+
+  const handleReturnFromCommunityPost = () => {
+    setShouldEditCommunityPostOnOpen(false);
+
+    if (communityReturnScreen === 'myCommunityPosts') {
+      handleOpenMyCommunityPosts();
+      return;
+    }
+
+    if (communityReturnScreen === 'dex') {
+      handleOpenNeighborhoodDex();
+      return;
+    }
+
+    if (communityReturnScreen === 'map') {
+      handleOpenNeighborhoodMap();
+      return;
+    }
+
+    handleOpenCommunityBoard();
   };
 
   const handleSelectNeighborhood = (neighborhoodId: string) => {
@@ -559,6 +598,29 @@ export default function App() {
     Alert.alert('신고 접수', '검토가 필요한 고양이 정보로 신고했어요.');
   };
 
+  const handleSaveCatProfile = async (draft: CatProfileUpdateDraft) => {
+    if (!visibleSelectedCat) {
+      return;
+    }
+
+    setIsCatProfileSaving(true);
+
+    try {
+      const nextCat = await updateCatProfile(visibleSelectedCat.id, draft);
+      setNavigation({
+        screen: 'detail',
+        selectedCatId: nextCat.id,
+        selectedOwnerId: null,
+      });
+    } catch (error) {
+      console.warn('[cats] profile update failed', error);
+      const friendlyError = getUserFacingError(error, 'cat.update');
+      Alert.alert(friendlyError.title, friendlyError.message);
+    } finally {
+      setIsCatProfileSaving(false);
+    }
+  };
+
   const handleOpenExplorationHistory = () => {
     setNavigation({
       screen: 'explorationHistory',
@@ -568,6 +630,7 @@ export default function App() {
   };
 
   const handleOpenMyCommunityPosts = () => {
+    setShouldEditCommunityPostOnOpen(false);
     setNavigation({
       screen: 'myCommunityPosts',
       selectedCatId: null,
@@ -594,6 +657,47 @@ export default function App() {
     });
   };
 
+  const handleOpenNotificationInbox = (returnScreen: TabScreen = 'home') => {
+    setNotificationReturnScreen(returnScreen);
+    setNavigation({
+      screen: 'notificationInbox',
+      selectedCatId: null,
+      selectedOwnerId: null,
+    });
+  };
+
+  const handleOpenNotificationEvent = (event: NotificationEvent) => {
+    const catId = typeof event.data.catId === 'string' ? event.data.catId : null;
+    const targetScreen = typeof event.data.screen === 'string' ? event.data.screen : null;
+
+    if (catId) {
+      handleOpenCat(catId);
+      return;
+    }
+
+    if (targetScreen === 'capture') {
+      handleTabChange('capture');
+      return;
+    }
+
+    if (targetScreen === 'dex') {
+      handleTabChange('dex');
+      return;
+    }
+
+    if (targetScreen === 'map') {
+      handleOpenNeighborhoodDex();
+      return;
+    }
+
+    if (targetScreen === 'my') {
+      handleTabChange('my');
+      return;
+    }
+
+    handleTabChange(notificationReturnScreen);
+  };
+
   const handleOpenProfileEdit = () => {
     setNavigation({
       screen: 'profileEdit',
@@ -618,6 +722,23 @@ export default function App() {
       Alert.alert(friendlyError.title, friendlyError.message);
     } finally {
       setIsProfileSaving(false);
+    }
+  };
+
+  const handleSaveFeaturedCats = async (catIds: string[]) => {
+    setIsFeaturedCatsSaving(true);
+
+    try {
+      const nextCustomization = await saveFeaturedCats(catIds);
+      setCustomization(nextCustomization);
+      Alert.alert('대표 고양이 저장', '우리 도감 주인공을 업데이트했어요.');
+    } catch (error) {
+      console.warn('[collection] featured cats save failed', error);
+      const friendlyError = getUserFacingError(error, 'generic');
+      Alert.alert(friendlyError.title, friendlyError.message);
+      throw error;
+    } finally {
+      setIsFeaturedCatsSaving(false);
     }
   };
 
@@ -740,7 +861,7 @@ export default function App() {
             onGoDex={() => handleTabChange('dex')}
             onOpenBadges={handleOpenBadgeBook}
             onOpenCat={handleOpenCat}
-            onOpenNotifications={() => handleOpenNotifications('home')}
+            onOpenNotifications={() => handleOpenNotificationInbox('home')}
             onRemoveNeighborhood={handleRemoveNeighborhood}
             onSelectNeighborhood={handleSelectNeighborhood}
             profile={profile}
@@ -765,7 +886,24 @@ export default function App() {
             encounters={selectedCatEncounters}
             onBack={() => handleTabChange('dex')}
             onComposePost={() => handleOpenCommunityCompose(visibleSelectedCat.id)}
+            onEditCat={() => handleOpenCatEdit(visibleSelectedCat.id)}
             onReportCat={handleReportSelectedCat}
+          />
+        ) : (
+          <CatDexScreen
+            cats={myCats}
+            onOpenCat={handleOpenCat}
+            placeholders={undiscoveredDexSlots}
+          />
+        );
+      case 'catEdit':
+        return visibleSelectedCat ? (
+          <CatEditScreen
+            cat={visibleSelectedCat}
+            isSaving={isCatProfileSaving}
+            onBack={() => handleOpenCat(visibleSelectedCat.id)}
+            onSave={handleSaveCatProfile}
+            personalityOptions={apiPersonalityOptions}
           />
         ) : (
           <CatDexScreen
@@ -811,6 +949,7 @@ export default function App() {
         ) : (
           <NeighborhoodDexScreen
             cats={cats}
+            myCatIds={myCats.map((cat) => cat.id)}
             neighborhoodName={activeNeighborhoodName}
             onGoCapture={() => handleTabChange('capture')}
             onOpenCat={handleOpenCat}
@@ -818,20 +957,16 @@ export default function App() {
             onOpenCommunityPost={(postId) => handleOpenCommunityPost(postId, 'dex')}
             onOpenMap={handleOpenNeighborhoodMap}
             regions={visibleRegions}
+            sightings={undiscoveredDexSlots}
           />
         );
       case 'communityPostDetail':
         return navigation.selectedCommunityPostId ? (
           <CommunityPostDetailScreen
-            onBack={
-              communityReturnScreen === 'myCommunityPosts'
-                ? handleOpenMyCommunityPosts
-                : communityReturnScreen === 'dex'
-                  ? handleOpenNeighborhoodDex
-                  : communityReturnScreen === 'map'
-                    ? handleOpenNeighborhoodMap
-                  : handleOpenCommunityBoard
-            }
+            currentUserId={currentUser?.id ?? null}
+            initiallyEditing={shouldEditCommunityPostOnOpen}
+            onBack={handleReturnFromCommunityPost}
+            onDeleted={handleReturnFromCommunityPost}
             onOpenCat={handleOpenCat}
             postId={navigation.selectedCommunityPostId}
           />
@@ -868,6 +1003,7 @@ export default function App() {
             badges={badges}
             collectionSummary={collectionSummary}
             isSigningOut={isSigningOut}
+            isSavingFeaturedCats={isFeaturedCatsSaving}
             isWithdrawing={isWithdrawing}
             myCats={myCats}
             neighborhoodName={activeNeighborhoodName}
@@ -876,6 +1012,7 @@ export default function App() {
             onOpenCommunityPosts={handleOpenMyCommunityPosts}
             onOpenNotifications={() => handleOpenNotifications('my')}
             onOpenProfileEdit={handleOpenProfileEdit}
+            onSaveFeaturedCats={handleSaveFeaturedCats}
             onOpenCat={handleOpenCat}
             onLogout={logout}
             onWithdrawAccount={handleWithdrawAccount}
@@ -888,6 +1025,7 @@ export default function App() {
           <MyCommunityPostsScreen
             onBack={() => handleTabChange('my')}
             onComposePost={() => handleOpenCommunityCompose(undefined, 'myCommunityPosts')}
+            onEditPost={(postId) => handleOpenCommunityPost(postId, 'myCommunityPosts', { startEditing: true })}
             onOpenPost={(postId) => handleOpenCommunityPost(postId, 'myCommunityPosts')}
           />
         );
@@ -931,6 +1069,15 @@ export default function App() {
             onSendPreview={handleSendNotificationPreview}
             permissionState={notificationPermissionState}
             settings={notificationSettings}
+          />
+        );
+      case 'notificationInbox':
+        return (
+          <NotificationInboxScreen
+            currentUserId={currentUser?.id ?? null}
+            onBack={() => handleTabChange(notificationReturnScreen)}
+            onOpenEvent={handleOpenNotificationEvent}
+            onOpenSettings={() => handleOpenNotifications(notificationReturnScreen)}
           />
         );
       default:

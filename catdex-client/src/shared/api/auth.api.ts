@@ -41,6 +41,7 @@ function getOAuthRedirectUri() {
     configuredRedirectUri?.startsWith('http://127.0.0.1') ||
     configuredRedirectUri?.startsWith('exp://localhost') ||
     configuredRedirectUri?.startsWith('exp://127.0.0.1');
+  const isAppSchemeRedirectUri = configuredRedirectUri?.startsWith(`${appScheme}://`);
 
   if (configuredRedirectUri) {
     if (Platform.OS === 'web') {
@@ -48,10 +49,10 @@ function getOAuthRedirectUri() {
     }
 
     if (isExpoGo) {
-      return configuredRedirectUri.startsWith(`${appScheme}://`) ? Linking.createURL('auth/callback') : configuredRedirectUri;
+      return isLocalDevelopmentRedirectUri ? configuredRedirectUri : Linking.createURL('auth/callback');
     }
 
-    if (!isLocalDevelopmentRedirectUri) {
+    if (!isLocalDevelopmentRedirectUri && isAppSchemeRedirectUri) {
       return configuredRedirectUri;
     }
   }

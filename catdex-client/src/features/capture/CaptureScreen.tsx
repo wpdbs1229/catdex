@@ -1,17 +1,19 @@
 import { useState } from 'react';
+import * as ImagePicker from 'expo-image-picker';
 import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions, type ImageSourcePropType } from 'react-native';
-import { AlertCircle, ArrowLeft, Camera, Check, RotateCcw, Scissors, Sparkles } from 'lucide-react-native';
+import { AlertCircle, ArrowLeft, Camera, Check, ImagePlus, RotateCcw, Scissors, Sparkles } from 'lucide-react-native';
 import { CameraPlaceholder } from '@/features/capture/components/CameraPlaceholder';
 import { CatRegisterForm } from '@/features/capture/components/CatRegisterForm';
 import { Button } from '@/shared/components/Button';
 import { Card } from '@/shared/components/Card';
 import { getUserFacingError } from '@/shared/errors/user-facing-error';
-import { processCatPhoto } from '@/shared/native/catVision';
+import { isCatVisionAvailable, processCatPhoto } from '@/shared/native/catVision';
 import { createShadow, theme } from '@/shared/styles/theme';
 import type { Cat, CatMatchCandidate, CatType, CaptureCatDraft, PersonalityTag, ProcessedCatPhoto } from '@/shared/types/cat';
 import { getCatIllustrationKey, type CatIllustrationKey } from '@/shared/utils/catPresentation';
 
 type CaptureStep = 'camera' | 'processing' | 'noCat' | 'match' | 'register';
+type CaptureFailureKind = 'noCat' | 'visionUnavailable' | 'processError';
 
 interface StoredCaptureResult {
   observationId?: string;
@@ -64,16 +66,21 @@ export function CaptureScreen({
   const [storedResult, setStoredResult] = useState<StoredCaptureResult | null>(null);
   const [step, setStep] = useState<CaptureStep>('camera');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [failureKind, setFailureKind] = useState<CaptureFailureKind | null>(null);
+  const [isUsingOriginalFallback, setIsUsingOriginalFallback] = useState(false);
   const { height: windowHeight } = useWindowDimensions();
   const cameraHeight = Math.min(680, Math.max(500, windowHeight - 190));
   const candidates = storedResult?.candidates ?? [];
   const currentImageUrl = storedResult?.cutoutImageUrl ?? processedPhoto?.cutoutImageUri;
+  const canUseCatVision = isCatVisionAvailable();
 
   const resetCapture = () => {
     setCapturedImageUri(null);
     setProcessedPhoto(null);
     setStoredResult(null);
     setErrorMessage(null);
+    setFailureKind(null);
+    setIsUsingOriginalFallback(false);
     setStep('camera');
   };
 
@@ -82,6 +89,16 @@ export function CaptureScreen({
     setProcessedPhoto(null);
     setStoredResult(null);
     setErrorMessage(null);
+    setFailureKind(null);
+    setIsUsingOriginalFallback(false);
+
+    if (!canUseCatVision) {
+      setErrorMessage('이 환경에서는 자동 누끼 분석을 사용할 수 없어요. 실제 기기 개발 빌드에서 자동 분석을 확인하거나, 원본 사진으로 계속 등록할 수 있어요.');
+      setFailureKind('visionUnavailable');
+      setStep('noCat');
+      return;
+    }
+
     setStep('processing');
 
     try {
@@ -89,6 +106,7 @@ export function CaptureScreen({
 
       if (!visionResult.hasCat || !visionResult.cutoutImageUri) {
         setErrorMessage('사진에서 고양이를 찾지 못했어요.');
+        setFailureKind('noCat');
         setStep('noCat');
         return;
       }
@@ -107,7 +125,63 @@ export function CaptureScreen({
     } catch (error) {
       console.warn('[capture] photo process failed', error);
       setErrorMessage(getUserFacingError(error, 'capture.process').message);
+      setFailureKind('processError');
       setStep('noCat');
+    }
+  };
+
+  const handlePickTestPhoto = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+    if (!permission.granted) {
+      setErrorMessage('앨범 사진을 테스트하려면 사진 접근 권한이 필요해요.');
+      setFailureKind('processError');
+      setStep('noCat');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      quality: 0.84,
+    });
+
+    if (result.canceled || !result.assets[0]?.uri) {
+      return;
+    }
+
+    await handlePhotoCaptured(result.assets[0].uri);
+  };
+
+  const handleContinueWithOriginalPhoto = async () => {
+    if (!capturedImageUri) {
+      return;
+    }
+
+    const fallbackPhoto: ProcessedCatPhoto = {
+      originalImageUri: capturedImageUri,
+      cutoutImageUri: capturedImageUri,
+      confidence: 0,
+      isPreciseCutout: false,
+      boundingBox: null,
+      featureVector: [],
+    };
+
+    setIsUsingOriginalFallback(true);
+    setErrorMessage(null);
+    setFailureKind(null);
+    setStep('processing');
+
+    try {
+      setProcessedPhoto(fallbackPhoto);
+      setStoredResult(await onProcessPhoto(fallbackPhoto));
+      setStep('register');
+    } catch (error) {
+      console.warn('[capture] original fallback failed', error);
+      setErrorMessage(getUserFacingError(error, 'capture.process').message);
+      setFailureKind('processError');
+      setStep('noCat');
+    } finally {
+      setIsUsingOriginalFallback(false);
     }
   };
 
@@ -119,27 +193,46 @@ export function CaptureScreen({
             <Scissors color={theme.colors.primaryDark} size={26} />
           </View>
           <ActivityIndicator color={theme.colors.primaryDark} size="large" />
-          <Text style={styles.processingTitle}>고양이만 잘라내는 중</Text>
-          <Text style={styles.processingText}>사진은 기기에서 먼저 분석하고, 누끼 이미지는 안전하게 저장해 후보 비교에 써요.</Text>
+          <Text style={styles.processingTitle}>{isUsingOriginalFallback ? '원본 사진 저장 준비 중' : '고양이만 잘라내는 중'}</Text>
+          <Text style={styles.processingText}>
+            {isUsingOriginalFallback ? '자동 누끼 없이 원본 사진을 대표 사진으로 등록할 수 있게 저장해요.' : '사진은 기기에서 먼저 분석하고, 누끼 이미지는 안전하게 저장해 후보 비교에 써요.'}
+          </Text>
         </Card>
       </View>
     );
   }
 
   if (step === 'noCat') {
+    const resultTitle =
+      failureKind === 'visionUnavailable'
+        ? '자동 분석을 사용할 수 없어요'
+        : failureKind === 'processError'
+          ? '사진을 처리하지 못했어요'
+          : '고양이를 찾지 못했어요';
+
     return (
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Card style={styles.resultCard}>
           {capturedImageUri ? <Image source={{ uri: capturedImageUri }} style={styles.resultImage} /> : null}
           <View style={styles.resultMessage}>
             <AlertCircle color={theme.colors.primary} size={24} />
-            <Text style={styles.resultTitle}>고양이를 찾지 못했어요</Text>
+            <Text style={styles.resultTitle}>{resultTitle}</Text>
             <Text style={styles.resultText}>{errorMessage ?? '고양이가 더 크게 보이도록 다시 찍어주세요.'}</Text>
           </View>
-          <Button onPress={resetCapture}>
-            <RotateCcw color="#FFF8F0" size={18} />
-            <Text style={styles.primaryButtonText}>다시 촬영하기</Text>
-          </Button>
+          <View style={styles.resultActions}>
+            <Button onPress={resetCapture}>
+              <RotateCcw color="#FFF8F0" size={18} />
+              <Text style={styles.primaryButtonText}>다시 촬영하기</Text>
+            </Button>
+            {capturedImageUri ? (
+              <Button onPress={handleContinueWithOriginalPhoto} variant="secondary">
+                원본 사진으로 계속
+              </Button>
+            ) : null}
+            <Button onPress={handlePickTestPhoto} variant="ghost">
+              앨범에서 테스트 사진 선택
+            </Button>
+          </View>
         </Card>
       </ScrollView>
     );
@@ -290,6 +383,19 @@ export function CaptureScreen({
           onRetake={resetCapture}
         />
       </View>
+
+      <View style={styles.fallbackStrip}>
+        <View style={styles.fallbackCopy}>
+          <Text style={styles.fallbackTitle}>{canUseCatVision ? '앨범 사진 테스트' : '자동 분석 대체 모드'}</Text>
+          <Text style={styles.fallbackText}>
+            {canUseCatVision ? '기기 사진첩의 샘플 사진으로도 분석 흐름을 확인할 수 있어요.' : '이 환경에서는 원본 사진으로 등록할 수 있고, 자동 누끼는 실제 기기 개발 빌드에서 확인해요.'}
+          </Text>
+        </View>
+        <Pressable accessibilityLabel="앨범에서 테스트 사진 선택" accessibilityRole="button" onPress={handlePickTestPhoto} style={({ pressed }) => [styles.pickPhotoButton, pressed && styles.pressed]}>
+          <ImagePlus color="#FFF8F0" size={17} />
+          <Text style={styles.pickPhotoText}>앨범</Text>
+        </Pressable>
+      </View>
     </View>
   );
 }
@@ -364,6 +470,49 @@ const styles = StyleSheet.create({
     borderRadius: theme.radius.xl,
     overflow: 'hidden',
     ...createShadow(10),
+  },
+  fallbackStrip: {
+    minHeight: 70,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.md,
+    borderRadius: theme.radius.lg,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    backgroundColor: 'rgba(255,248,240,0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,248,240,0.14)',
+  },
+  fallbackCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  fallbackTitle: {
+    color: '#FFF8F0',
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  fallbackText: {
+    marginTop: 4,
+    color: '#D9C7AC',
+    fontSize: 11,
+    lineHeight: 16,
+    fontWeight: '700',
+  },
+  pickPhotoButton: {
+    minHeight: 40,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    borderRadius: 20,
+    paddingHorizontal: theme.spacing.md,
+    backgroundColor: 'rgba(97,122,67,0.88)',
+  },
+  pickPhotoText: {
+    color: '#FFF8F0',
+    fontSize: 12,
+    fontWeight: '900',
   },
   centerScreen: {
     flex: 1,
@@ -450,6 +599,9 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     fontWeight: '700',
     color: theme.colors.mutedText,
+  },
+  resultActions: {
+    gap: theme.spacing.sm,
   },
   cutoutCard: {
     gap: theme.spacing.md,

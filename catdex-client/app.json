@@ -19,7 +19,11 @@
       "bundleIdentifier": "com.persimmontree.catdex",
       "icon": "./assets/icon.png",
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "현재 위치의 행정동을 확인해 냥도감 동네를 추가하거나 전환합니다."
+        "NSLocationWhenInUseUsageDescription": "현재 위치의 행정동을 확인해 냥도감 동네를 추가하거나 전환합니다.",
+        "UIBackgroundModes": [
+          "fetch",
+          "remote-notification"
+        ]
       },
       "splash": {
         "image": "./assets/backgrounds/login-neighborhood-cats-bg-v2.png",

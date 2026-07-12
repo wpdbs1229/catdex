@@ -10,6 +10,7 @@ import type {
   CatReportDraft,
   CatRarity,
   CatType,
+  CatProfileUpdateDraft,
   CaptureCatDraft,
   DexPlaceholder,
   DexProgress,
@@ -315,6 +316,46 @@ export async function createCat(draft: CaptureCatDraft) {
   });
 
   throwIfSupabaseError(error);
+
+  return mapCat(data as CatRow);
+}
+
+export async function updateCatProfile(catId: string, draft: CatProfileUpdateDraft & { imageUrl?: string | null }) {
+  assertSupabaseConfigured();
+
+  const name = draft.name.trim();
+
+  if (!name) {
+    throw new Error('고양이 이름을 입력해 주세요.');
+  }
+
+  const updatePayload: {
+    name: string;
+    tags: PersonalityTag[];
+    memo: string | null;
+    image_url?: string | null;
+  } = {
+    name,
+    tags: draft.tags,
+    memo: draft.memo.trim() || null,
+  };
+
+  if (draft.imageUrl !== undefined) {
+    updatePayload.image_url = draft.imageUrl;
+  }
+
+  const { data, error } = await supabase
+    .from('cats')
+    .update(updatePayload)
+    .eq('id', catId)
+    .select('*')
+    .maybeSingle();
+
+  throwIfSupabaseError(error);
+
+  if (!data) {
+    throw new Error('고양이 정보를 수정할 권한이 없어요.');
+  }
 
   return mapCat(data as CatRow);
 }

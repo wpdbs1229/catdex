@@ -34,6 +34,30 @@ function resolveAppVariant() {
   return 'development';
 }
 
+function isLocalDevelopmentRedirectUri(redirectUri) {
+  return (
+    redirectUri.startsWith('http://localhost') ||
+    redirectUri.startsWith('http://127.0.0.1') ||
+    redirectUri.startsWith('exp://localhost') ||
+    redirectUri.startsWith('exp://127.0.0.1')
+  );
+}
+
+function resolveOAuthRedirectUri(variantConfig) {
+  const configuredRedirectUri = process.env.EXPO_PUBLIC_OAUTH_REDIRECT_URI?.trim();
+  const defaultRedirectUri = `${variantConfig.scheme}://auth/callback`;
+
+  if (!configuredRedirectUri) {
+    return defaultRedirectUri;
+  }
+
+  if (configuredRedirectUri.startsWith(`${variantConfig.scheme}://`) || isLocalDevelopmentRedirectUri(configuredRedirectUri)) {
+    return configuredRedirectUri;
+  }
+
+  return defaultRedirectUri;
+}
+
 function withKakaoNativeAppKey(plugins = []) {
   return plugins.map((plugin) => {
     if (!Array.isArray(plugin) || plugin[0] !== '@react-native-kakao/core') {
@@ -50,12 +74,11 @@ function withKakaoNativeAppKey(plugins = []) {
   });
 }
 
-module.exports = () => {
-  const expo = baseConfig.expo;
+module.exports = ({ config } = {}) => {
+  const expo = config ?? baseConfig.expo;
   const appVariant = resolveAppVariant();
   const variantConfig = appVariants[appVariant];
-  const oauthRedirectUri =
-    process.env.EXPO_PUBLIC_OAUTH_REDIRECT_URI?.trim() || `${variantConfig.scheme}://auth/callback`;
+  const oauthRedirectUri = resolveOAuthRedirectUri(variantConfig);
 
   return {
     ...expo,
@@ -64,6 +87,16 @@ module.exports = () => {
     ios: {
       ...expo.ios,
       bundleIdentifier: variantConfig.iosBundleIdentifier,
+      infoPlist: {
+        ...expo.ios?.infoPlist,
+        UIBackgroundModes: [
+          ...new Set([
+            ...(expo.ios?.infoPlist?.UIBackgroundModes ?? []),
+            'fetch',
+            'remote-notification',
+          ]),
+        ],
+      },
     },
     android: {
       ...expo.android,

@@ -11,8 +11,9 @@ import {
   fetchMyCats,
   fetchRecentCats,
   recordCatEncounter,
+  updateCatProfile as updateCatProfileRequest,
 } from '@/shared/api/cats.api';
-import type { Cat, CatEncounter, CaptureCatDraft, DexPlaceholder, DexProgress, HomeSummary } from '@/shared/types/cat';
+import type { Cat, CatEncounter, CatProfileUpdateDraft, CaptureCatDraft, DexPlaceholder, DexProgress, HomeSummary } from '@/shared/types/cat';
 
 const emptyHomeSummary: HomeSummary = {
   myWeeklyCollected: 0,
@@ -134,6 +135,21 @@ export function useCats(selectedCatId: string | null, enabled = true) {
     await reloadCats();
   };
 
+  const updateCatProfile = async (catId: string, draft: CatProfileUpdateDraft) => {
+    const uploadedImage = draft.imageUri?.startsWith('file:')
+      ? await uploadCatImage(draft.imageUri)
+      : null;
+    const nextCat = await updateCatProfileRequest(catId, {
+      ...draft,
+      imageUrl: draft.clearImage ? null : (uploadedImage?.imageUrl ?? draft.imageUri),
+    });
+
+    await reloadCats();
+    setSelectedCatEncounters(await fetchCatEncounters(catId));
+
+    return nextCat;
+  };
+
   const addEncounter = async (catId: string, regionName?: string, imageUrl?: string, memo = '다시 만남 기록') => {
     const lastRegionName =
       regionName ??
@@ -167,5 +183,6 @@ export function useCats(selectedCatId: string | null, enabled = true) {
     selectedCat,
     selectedCatEncounters,
     undiscoveredDexSlots,
+    updateCatProfile,
   };
 }

@@ -36,6 +36,20 @@ export function CommunityComposerScreen({ cats, initialCatId, neighborhoodName, 
   const canSubmit = trimmedBody.length >= 2 && !isSubmitting;
 
   useEffect(() => {
+    if (!error) {
+      return;
+    }
+
+    const timerId = setTimeout(() => {
+      setError(null);
+    }, 4500);
+
+    return () => {
+      clearTimeout(timerId);
+    };
+  }, [error]);
+
+  useEffect(() => {
     setSelectedCatId(initialCatId ?? null);
   }, [initialCatId]);
 
@@ -77,10 +91,12 @@ export function CommunityComposerScreen({ cats, initialCatId, neighborhoodName, 
       mimeType: asset.mimeType,
     }));
 
+    setError(null);
     setSelectedImages((current) => [...current, ...nextImages].slice(0, MAX_POST_IMAGES));
   };
 
   const handleRemoveImage = (index: number) => {
+    setError(null);
     setSelectedImages((current) => current.filter((_, currentIndex) => currentIndex !== index));
   };
 
@@ -218,7 +234,10 @@ export function CommunityComposerScreen({ cats, initialCatId, neighborhoodName, 
         <View style={styles.section}>
           <Text style={styles.label}>제목</Text>
           <TextInput
-            onChangeText={setTitle}
+            onChangeText={(text) => {
+              setError(null);
+              setTitle(text);
+            }}
             placeholder={selectedCat ? `예: 오늘 만난 ${selectedCat.name} 소식` : '예: 오늘 저녁 놀이터 근처에서 본 아이'}
             placeholderTextColor="#A99178"
             style={styles.input}
@@ -230,7 +249,10 @@ export function CommunityComposerScreen({ cats, initialCatId, neighborhoodName, 
           <Text style={styles.label}>내용</Text>
           <TextInput
             multiline
-            onChangeText={setBody}
+            onChangeText={(text) => {
+              setError(null);
+              setBody(text);
+            }}
             placeholder="목격한 상황, 상태, 궁금한 점을 적어주세요"
             placeholderTextColor="#A99178"
             style={styles.textarea}

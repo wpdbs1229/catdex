@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowLeft, Info, X } from 'lucide-react-native';
+import { ArrowLeft, Edit3, Info, X } from 'lucide-react-native';
 import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { CatAffinityGauge } from '@/features/cats/components/CatAffinityGauge';
 import { EncounterTimeline } from '@/features/cats/components/EncounterTimeline';
@@ -22,10 +22,11 @@ interface CatDetailScreenProps {
   encounters: CatEncounter[];
   onBack: () => void;
   onComposePost: () => void;
+  onEditCat: () => void;
   onReportCat: () => void;
 }
 
-export function CatDetailScreen({ cat, encounters, onBack, onComposePost, onReportCat }: CatDetailScreenProps) {
+export function CatDetailScreen({ cat, encounters, onBack, onComposePost, onEditCat, onReportCat }: CatDetailScreenProps) {
   const [isRarityGuideOpen, setIsRarityGuideOpen] = useState(false);
   const [isRelationshipGuideOpen, setIsRelationshipGuideOpen] = useState(false);
   const visual = getCatVisual(cat.type);
@@ -111,6 +112,12 @@ export function CatDetailScreen({ cat, encounters, onBack, onComposePost, onRepo
         <EncounterTimeline encounters={encounters} />
 
         <View style={styles.buttonWrap}>
+          <Button onPress={onEditCat} variant="secondary">
+            <View style={styles.buttonContent}>
+              <Edit3 color={theme.colors.primaryDark} size={18} />
+              <Text style={styles.secondaryButtonText}>정보 수정</Text>
+            </View>
+          </Button>
           <Button onPress={onComposePost} variant="secondary">
             이 고양이로 글쓰기
           </Button>
@@ -360,6 +367,17 @@ const styles = StyleSheet.create({
   buttonWrap: {
     marginTop: theme.spacing.xl,
     gap: theme.spacing.md,
+  },
+  buttonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: theme.spacing.sm,
+  },
+  secondaryButtonText: {
+    color: theme.colors.primaryDark,
+    fontSize: 15,
+    fontWeight: '900',
   },
   modalBackdrop: {
     flex: 1,

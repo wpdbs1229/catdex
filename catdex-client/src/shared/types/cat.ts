@@ -55,6 +55,14 @@ export interface CaptureCatDraft {
   observationId?: string;
 }
 
+export interface CatProfileUpdateDraft {
+  name: string;
+  tags: PersonalityTag[];
+  memo: string;
+  imageUri?: string;
+  clearImage?: boolean;
+}
+
 export interface ProcessedCatPhoto {
   originalImageUri: string;
   cutoutImageUri: string;

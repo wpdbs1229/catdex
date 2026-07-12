@@ -28,16 +28,16 @@
     "@react-native-kakao/core": "^2.4.5",
     "@react-native-kakao/user": "^2.4.5",
     "@supabase/supabase-js": "^2.105.3",
-    "expo": "~54.0.34",
+    "expo": "~54.0.35",
     "expo-auth-session": "~7.0.11",
     "expo-build-properties": "~1.0.10",
     "expo-camera": "~17.0.10",
     "expo-constants": "~18.0.13",
     "expo-dev-client": "~6.0.21",
-    "expo-file-system": "~19.0.22",
+    "expo-file-system": "~19.0.23",
     "expo-image-picker": "~17.0.11",
     "expo-location": "~19.0.8",
-    "expo-notifications": "^55.0.23",
+    "expo-notifications": "~0.32.17",
     "expo-secure-store": "~15.0.8",
     "expo-status-bar": "~3.0.9",
     "expo-web-browser": "~15.0.11",
@@ -55,5 +55,30 @@
     "@types/react": "~19.1.10",
     "babel-preset-expo": "~54.0.10",
     "typescript": "~5.9.2"
+  },
+  "overrides": {
+    "@babel/core": "7.29.7",
+    "ajv": "8.20.0",
+    "postcss": "8.5.17",
+    "shell-quote": "1.10.0",
+    "@react-native/dev-middleware": {
+      "ws": "6.2.4"
+    },
+    "@supabase/realtime-js": {
+      "ws": "8.21.0"
+    },
+    "metro": {
+      "ws": "7.5.11"
+    },
+    "minimatch@10.2.5": {
+      "brace-expansion": "5.0.7"
+    },
+    "react-devtools-core": {
+      "shell-quote": "1.10.0",
+      "ws": "7.5.11"
+    },
+    "react-native": {
+      "ws": "6.2.4"
+    }
   }
 }

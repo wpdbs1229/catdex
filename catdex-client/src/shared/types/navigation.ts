@@ -2,6 +2,7 @@ export type Screen =
   | 'home'
   | 'dex'
   | 'detail'
+  | 'catEdit'
   | 'capture'
   | 'map'
   | 'communityPostDetail'
@@ -11,17 +12,20 @@ export type Screen =
   | 'badgeBook'
   | 'explorationHistory'
   | 'profileEdit'
+  | 'notificationInbox'
   | 'notifications';
 
 export type TabScreen = Exclude<
   Screen,
   | 'detail'
+  | 'catEdit'
   | 'communityPostDetail'
   | 'communityCompose'
   | 'myCommunityPosts'
   | 'badgeBook'
   | 'explorationHistory'
   | 'profileEdit'
+  | 'notificationInbox'
   | 'notifications'
 >;
 

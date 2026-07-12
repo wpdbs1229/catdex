@@ -6,8 +6,11 @@ import type {
   CommunityAuthor,
   CommunityComment,
   CommunityFilter,
+  CommunityPostImage,
   CommunityPost,
   CommunityPostDraft,
+  CommunityPostImageDraft,
+  CommunityPostUpdateDraft,
   CommunityStoredTopic,
   CommunityTopic,
 } from '@/shared/types/community';
@@ -52,9 +55,22 @@ interface CatSummaryRow {
 }
 
 interface CommunityPostImageRow {
+  id: string;
   post_id: string;
   image_url: string;
   sort_order: number;
+}
+
+let hasWarnedMissingCommunityPostImagesTable = false;
+
+function isMissingCommunityPostImagesTable(error: { message: string } | null | undefined) {
+  if (!error) {
+    return false;
+  }
+
+  const message = error.message.toLowerCase();
+
+  return message.includes('community_post_images') && (message.includes('could not find') || message.includes('schema cache') || message.includes('does not exist'));
 }
 
 export interface FetchCommunityThreadsOptions {
@@ -142,6 +158,15 @@ async function getCommunityPostImageUrl(imageUrl: string | null) {
   return data.signedUrl;
 }
 
+async function getOptionalCommunityPostImageUrl(imageUrl: string | null) {
+  try {
+    return await getCommunityPostImageUrl(imageUrl);
+  } catch (error) {
+    console.warn('[community] post image url failed', error);
+    return undefined;
+  }
+}
+
 async function getCatDisplayImageUrl(imageUrl: string | null) {
   if (!imageUrl || imageUrl.startsWith('http') || imageUrl.startsWith('file:')) {
     return imageUrl ?? undefined;
@@ -151,6 +176,15 @@ async function getCatDisplayImageUrl(imageUrl: string | null) {
   throwIfSupabaseError(error);
 
   return data.signedUrl;
+}
+
+async function getOptionalCatDisplayImageUrl(imageUrl: string | null) {
+  try {
+    return await getCatDisplayImageUrl(imageUrl);
+  } catch (error) {
+    console.warn('[community] cat image url failed', error);
+    return undefined;
+  }
 }
 
 async function getCurrentUserId() {
@@ -179,6 +213,98 @@ async function getOptionalCurrentUserId() {
   }
 
   return session?.user?.id ?? null;
+}
+
+async function uploadCommunityPostImage(userId: string, postId: string, image: CommunityPostImageDraft, index: number) {
+  const file = new File(image.uri);
+  const bytes = await file.arrayBuffer();
+  const extension = getImageExtension(image.mimeType);
+  const contentType = getImageContentType(image.mimeType);
+  const path = `${userId}/posts/${postId}/image-${Date.now()}-${index}.${extension}`;
+  const { data: uploadData, error: uploadError } = await supabase.storage.from('community-post-images').upload(path, bytes, {
+    contentType,
+    upsert: false,
+  });
+
+  throwIfSupabaseError(uploadError);
+
+  return uploadData.path;
+}
+
+async function buildCommunityPostImageRows(postId: string, userId: string, images: CommunityPostImageDraft[]) {
+  const uploadedPaths: string[] = [];
+  const rows = await Promise.all(
+    images.slice(0, 5).map(async (image, index) => {
+      const imagePath = image.storagePath ?? (await uploadCommunityPostImage(userId, postId, image, index));
+
+      if (!image.storagePath) {
+        uploadedPaths.push(imagePath);
+      }
+
+      return {
+        post_id: postId,
+        author_id: userId,
+        image_url: imagePath,
+        sort_order: index,
+      };
+    }),
+  );
+
+  return { rows, uploadedPaths };
+}
+
+async function insertCommunityPostImages(postId: string, userId: string, images: CommunityPostImageDraft[]) {
+  if (images.length === 0) {
+    return;
+  }
+
+  const { rows, uploadedPaths } = await buildCommunityPostImageRows(postId, userId, images);
+
+  try {
+    const { error: imageInsertError } = await supabase.from('community_post_images').insert(rows);
+    throwIfSupabaseError(imageInsertError);
+  } catch (error) {
+    if (uploadedPaths.length > 0) {
+      await supabase.storage.from('community-post-images').remove(uploadedPaths);
+    }
+
+    throw error;
+  }
+}
+
+async function replaceCommunityPostImages(postId: string, userId: string, images: CommunityPostImageDraft[]) {
+  const existingResponse = await supabase.from('community_post_images').select('image_url').eq('post_id', postId).eq('author_id', userId);
+  throwIfSupabaseError(existingResponse.error);
+
+  const existingPaths = ((existingResponse.data ?? []) as Pick<CommunityPostImageRow, 'image_url'>[]).map((image) => image.image_url);
+  const normalizedImages = images.slice(0, 5);
+  const keptPaths = new Set(normalizedImages.map((image) => image.storagePath).filter((path): path is string => Boolean(path)));
+  const removedPaths = existingPaths.filter((path) => !keptPaths.has(path));
+  const { rows, uploadedPaths } = await buildCommunityPostImageRows(postId, userId, normalizedImages);
+
+  try {
+    const { error: deleteError } = await supabase.from('community_post_images').delete().eq('post_id', postId).eq('author_id', userId);
+    throwIfSupabaseError(deleteError);
+
+    if (rows.length > 0) {
+      const { error: imageInsertError } = await supabase.from('community_post_images').insert(rows);
+      throwIfSupabaseError(imageInsertError);
+    }
+  } catch (error) {
+    if (uploadedPaths.length > 0) {
+      await supabase.storage.from('community-post-images').remove(uploadedPaths);
+    }
+
+    throw error;
+  }
+
+  if (removedPaths.length > 0) {
+    const { error: removeError } = await supabase.storage.from('community-post-images').remove(removedPaths);
+
+    if (removeError) {
+      console.warn('[community] removed post image rows but storage cleanup failed', removeError);
+    }
+  }
 }
 
 export async function fetchCommunityPosts(options: FetchCommunityThreadsOptions = {}): Promise<CommunityPost[]> {
@@ -236,7 +362,7 @@ export async function fetchCommunityPosts(options: FetchCommunityThreadsOptions 
     supabase.from('community_post_likes').select('post_id, user_id').in('post_id', postIds),
     supabase
       .from('community_post_images')
-      .select('post_id, image_url, sort_order')
+      .select('id, post_id, image_url, sort_order')
       .in('post_id', postIds)
       .order('sort_order', { ascending: true }),
   ]);
@@ -245,7 +371,14 @@ export async function fetchCommunityPosts(options: FetchCommunityThreadsOptions 
   throwIfSupabaseError(catsResponse.error);
   throwIfSupabaseError(commentsResponse.error);
   throwIfSupabaseError(likesResponse.error);
-  throwIfSupabaseError(imagesResponse.error);
+  if (isMissingCommunityPostImagesTable(imagesResponse.error)) {
+    if (!hasWarnedMissingCommunityPostImagesTable) {
+      console.warn('[community] post images table is unavailable; continuing without post images');
+      hasWarnedMissingCommunityPostImagesTable = true;
+    }
+  } else {
+    throwIfSupabaseError(imagesResponse.error);
+  }
 
   const comments = (commentsResponse.data ?? []) as CommunityCommentRow[];
   const commentAuthorIds = uniq(comments.map((comment) => comment.author_id));
@@ -264,14 +397,15 @@ export async function fetchCommunityPosts(options: FetchCommunityThreadsOptions 
     ]),
   );
   const catsById = new Map(((catsResponse.data ?? []) as CatSummaryRow[]).map((cat) => [cat.id, cat]));
-  const rawImagesByPostId = ((imagesResponse.data ?? []) as CommunityPostImageRow[]).reduce<Record<string, CommunityPostImageRow[]>>(
+  const rawImages = isMissingCommunityPostImagesTable(imagesResponse.error) ? [] : ((imagesResponse.data ?? []) as CommunityPostImageRow[]);
+  const rawImagesByPostId = rawImages.reduce<Record<string, CommunityPostImageRow[]>>(
     (acc, image) => {
       acc[image.post_id] = [...(acc[image.post_id] ?? []), image];
       return acc;
     },
     {},
   );
-  const imageUrlsByPostId = new Map(
+  const imagesByPostId = new Map(
     await Promise.all(
       Object.entries(rawImagesByPostId).map(async ([postId, images]) => [
         postId,
@@ -279,9 +413,21 @@ export async function fetchCommunityPosts(options: FetchCommunityThreadsOptions 
           await Promise.all(
             images
               .sort((left, right) => left.sort_order - right.sort_order)
-              .map((image) => getCommunityPostImageUrl(image.image_url)),
+              .map(async (image): Promise<CommunityPostImage | null> => {
+                const signedUrl = await getOptionalCommunityPostImageUrl(image.image_url);
+
+                if (!signedUrl) {
+                  return null;
+                }
+
+                return {
+                  id: image.id,
+                  uri: signedUrl,
+                  storagePath: image.image_url,
+                };
+              }),
           )
-        ).filter((imageUrl): imageUrl is string => Boolean(imageUrl)),
+        ).filter((image): image is CommunityPostImage => Boolean(image)),
       ] as const),
     ),
   );
@@ -289,7 +435,7 @@ export async function fetchCommunityPosts(options: FetchCommunityThreadsOptions 
     await Promise.all(
       ((catsResponse.data ?? []) as CatSummaryRow[]).map(async (cat) => [
         cat.id,
-        await getCatDisplayImageUrl(cat.representative_photo_url ?? cat.image_url),
+        await getOptionalCatDisplayImageUrl(cat.representative_photo_url ?? cat.image_url),
       ] as const),
     ),
   );
@@ -316,6 +462,7 @@ export async function fetchCommunityPosts(options: FetchCommunityThreadsOptions 
   return posts.map((post) => {
     const postLikes = likesByPostId[post.id] ?? [];
     const linkedCat = post.cat_id ? catsById.get(post.cat_id) : undefined;
+    const images = imagesByPostId.get(post.id) ?? [];
 
     return {
       id: post.id,
@@ -328,7 +475,8 @@ export async function fetchCommunityPosts(options: FetchCommunityThreadsOptions 
       catType: linkedCat?.type,
       catRarity: linkedCat?.rarity,
       catImageUrl: linkedCat ? catImageUrlsById.get(linkedCat.id) : undefined,
-      imageUrls: imageUrlsByPostId.get(post.id) ?? [],
+      imageUrls: images.map((image) => image.uri),
+      images,
       author: mapAuthor(profilesById.get(post.author_id), post.author_id),
       createdAt: formatRelativeTime(post.created_at),
       likeCount: postLikes.length,
@@ -377,37 +525,76 @@ export async function createCommunityPost(draft: CommunityPostDraft) {
   throwIfSupabaseError(error);
 
   const postId = data.id as string;
-  const images = draft.images ?? [];
+  try {
+    await insertCommunityPostImages(postId, userId, draft.images ?? []);
+  } catch (imageError) {
+    const { error: rollbackError } = await supabase.from('community_posts').delete().eq('id', postId).eq('author_id', userId);
 
-  if (images.length > 0) {
-    const imageRows = await Promise.all(
-      images.slice(0, 5).map(async (image, index) => {
-        const file = new File(image.uri);
-        const bytes = await file.arrayBuffer();
-        const extension = getImageExtension(image.mimeType);
-        const contentType = getImageContentType(image.mimeType);
-        const path = `${userId}/posts/${postId}/image-${Date.now()}-${index}.${extension}`;
-        const { data: uploadData, error: uploadError } = await supabase.storage.from('community-post-images').upload(path, bytes, {
-          contentType,
-          upsert: false,
-        });
+    if (rollbackError) {
+      console.warn('[community] post image save failed and rollback also failed', rollbackError);
+    }
 
-        throwIfSupabaseError(uploadError);
-
-        return {
-          post_id: postId,
-          author_id: userId,
-          image_url: uploadData.path,
-          sort_order: index,
-        };
-      }),
-    );
-
-    const { error: imageInsertError } = await supabase.from('community_post_images').insert(imageRows);
-    throwIfSupabaseError(imageInsertError);
+    throw imageError;
   }
 
   return postId;
+}
+
+export async function updateCommunityPost(postId: string, draft: CommunityPostUpdateDraft) {
+  assertSupabaseConfigured();
+
+  const userId = await getCurrentUserId();
+  const title = draft.title.trim();
+  const body = draft.body.trim();
+
+  if (body.length < 2) {
+    throw new Error('동네 이야기를 2자 이상 입력해 주세요.');
+  }
+
+  const { data, error } = await supabase
+    .from('community_posts')
+    .update({
+      title: title || body.slice(0, 48),
+      content: body,
+      topic: toStoredTopic(draft.topic),
+    })
+    .eq('id', postId)
+    .eq('author_id', userId)
+    .select('id')
+    .maybeSingle();
+
+  throwIfSupabaseError(error);
+
+  if (!data) {
+    throw new Error('게시글 수정 권한이 없어요.');
+  }
+
+  if (draft.images) {
+    await replaceCommunityPostImages(postId, userId, draft.images);
+  }
+
+  return data.id as string;
+}
+
+export async function deleteCommunityPost(postId: string) {
+  assertSupabaseConfigured();
+
+  const userId = await getCurrentUserId();
+  const { data, error } = await supabase
+    .from('community_posts')
+    .delete()
+    .eq('id', postId)
+    .eq('author_id', userId)
+    .select('id')
+    .maybeSingle();
+
+  throwIfSupabaseError(error);
+
+  if (!data) {
+    throw new Error('게시글 삭제 권한이 없어요.');
+  }
+
+  return data.id as string;
 }
 
 export async function createCommunityComment(postId: string, body: string) {
@@ -432,6 +619,54 @@ export async function createCommunityComment(postId: string, body: string) {
     .single();
 
   throwIfSupabaseError(error);
+
+  return data.id as string;
+}
+
+export async function updateCommunityComment(commentId: string, body: string) {
+  assertSupabaseConfigured();
+
+  const userId = await getCurrentUserId();
+  const content = body.trim();
+
+  if (content.length < 1) {
+    throw new Error('댓글을 입력해 주세요.');
+  }
+
+  const { data, error } = await supabase
+    .from('community_comments')
+    .update({ content })
+    .eq('id', commentId)
+    .eq('author_id', userId)
+    .select('id')
+    .maybeSingle();
+
+  throwIfSupabaseError(error);
+
+  if (!data) {
+    throw new Error('댓글 수정 권한이 없어요.');
+  }
+
+  return data.id as string;
+}
+
+export async function deleteCommunityComment(commentId: string) {
+  assertSupabaseConfigured();
+
+  const userId = await getCurrentUserId();
+  const { data, error } = await supabase
+    .from('community_comments')
+    .delete()
+    .eq('id', commentId)
+    .eq('author_id', userId)
+    .select('id')
+    .maybeSingle();
+
+  throwIfSupabaseError(error);
+
+  if (!data) {
+    throw new Error('댓글 삭제 권한이 없어요.');
+  }
 
   return data.id as string;
 }

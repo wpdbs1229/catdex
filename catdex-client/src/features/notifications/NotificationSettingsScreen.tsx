@@ -38,7 +38,7 @@ export function NotificationSettingsScreen({
   return (
     <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <View style={styles.header}>
-        <Pressable onPress={onBack} style={styles.backButton}>
+        <Pressable accessibilityLabel="알림 설정 뒤로가기" accessibilityRole="button" onPress={onBack} style={styles.backButton}>
           <ChevronLeft color={theme.colors.primaryDark} size={22} />
         </Pressable>
         <View style={styles.headerCopy}>
@@ -60,7 +60,13 @@ export function NotificationSettingsScreen({
           </Text>
         </View>
         {!canUseNotifications ? (
-          <Pressable disabled={isSaving || permissionState === 'denied'} onPress={onRequestPermission} style={styles.permissionButton}>
+          <Pressable
+            accessibilityLabel="알림 권한 허용"
+            accessibilityRole="button"
+            disabled={isSaving || permissionState === 'denied'}
+            onPress={onRequestPermission}
+            style={styles.permissionButton}
+          >
             <Text style={styles.permissionButtonText}>허용</Text>
           </Pressable>
         ) : null}
@@ -84,6 +90,8 @@ export function NotificationSettingsScreen({
 
               return (
                 <Pressable
+                  accessibilityLabel={`${time} 리마인더 시간 선택`}
+                  accessibilityRole="button"
                   disabled={!canUseNotifications || !settings.dailyReminderEnabled || isSaving}
                   key={time}
                   onPress={() => updateSetting({ dailyReminderTime: time })}
