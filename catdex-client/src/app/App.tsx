@@ -76,8 +76,6 @@ const emptyProfile: ExplorerProfile = {
 
 const emptyCustomization: CollectionCustomizationState = {
   featuredCatSlots: [],
-  entitlementTier: 'free',
-  maxFeaturedCats: 1,
 };
 
 const UNSET_NEIGHBORHOOD_NAME = '동네 설정 전';
@@ -1316,7 +1314,6 @@ export default function App() {
             collectionSummary={collectionSummary}
             isSigningOut={isSigningOut}
             isSavingFeaturedCats={isFeaturedCatsSaving}
-            maxFeaturedCats={customization.maxFeaturedCats}
             isWithdrawing={isWithdrawing}
             myCats={myCats}
             neighborhoodName={activeNeighborhoodName}

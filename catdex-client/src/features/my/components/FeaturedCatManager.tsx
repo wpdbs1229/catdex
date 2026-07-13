@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Modal, Pressable, ScrollView, StyleSheet, Text, View, type ImageSourcePropType } from 'react-native';
 import { ArrowDown, ArrowUp, Check, PawPrint, Save, Star, Trash2, X } from 'lucide-react-native';
+import { MAX_FEATURED_CATS } from '@/shared/constants/collection.constants';
 import { createShadow, theme } from '@/shared/styles/theme';
 import type { Cat } from '@/shared/types/cat';
 import { getCatIllustrationKey, type CatIllustrationKey } from '@/shared/utils/catPresentation';
@@ -17,7 +18,6 @@ interface FeaturedCatManagerProps {
   selectedCatIds: string[];
   visible: boolean;
   isSaving?: boolean;
-  maxFeaturedCats: number;
   onClose: () => void;
   onSave: (catIds: string[]) => Promise<void> | void;
 }
@@ -30,18 +30,18 @@ function catImage(cat: Cat): ImageSourcePropType {
   return illustrations[getCatIllustrationKey(cat.type)];
 }
 
-export function FeaturedCatManager({ cats, selectedCatIds, visible, isSaving = false, maxFeaturedCats, onClose, onSave }: FeaturedCatManagerProps) {
+export function FeaturedCatManager({ cats, selectedCatIds, visible, isSaving = false, onClose, onSave }: FeaturedCatManagerProps) {
   const [draftIds, setDraftIds] = useState<string[]>([]);
   const selectedCats = draftIds.map((catId) => cats.find((cat) => cat.id === catId)).filter((cat): cat is Cat => Boolean(cat));
-  const initialIds = selectedCatIds.slice(0, maxFeaturedCats);
+  const initialIds = selectedCatIds.slice(0, MAX_FEATURED_CATS);
   const hasUnsavedChanges =
     draftIds.length !== initialIds.length || draftIds.some((catId, index) => catId !== initialIds[index]);
 
   useEffect(() => {
     if (visible) {
-      setDraftIds(selectedCatIds.slice(0, maxFeaturedCats));
+      setDraftIds(selectedCatIds.slice(0, MAX_FEATURED_CATS));
     }
-  }, [maxFeaturedCats, selectedCatIds, visible]);
+  }, [selectedCatIds, visible]);
 
   const handleToggleCat = (catId: string) => {
     setDraftIds((current) => {
@@ -49,12 +49,10 @@ export function FeaturedCatManager({ cats, selectedCatIds, visible, isSaving = f
         return current.filter((id) => id !== catId);
       }
 
-      if (current.length >= maxFeaturedCats) {
+      if (current.length >= MAX_FEATURED_CATS) {
         Alert.alert(
-          `대표 고양이는 ${maxFeaturedCats}마리까지`,
-          maxFeaturedCats === 1
-            ? '무료 사원증은 1마리를 대표로 설정할 수 있어요. 다른 고양이를 선택하려면 현재 대표를 먼저 해제해 주세요.'
-            : '순서를 바꾸거나 기존 대표 고양이를 해제한 뒤 다시 선택해 주세요.',
+          `대표 고양이는 ${MAX_FEATURED_CATS}마리까지`,
+          '순서를 바꾸거나 기존 대표 고양이를 해제한 뒤 다시 선택해 주세요.',
         );
         return current;
       }
@@ -102,9 +100,7 @@ export function FeaturedCatManager({ cats, selectedCatIds, visible, isSaving = f
             <View style={styles.headerCopy}>
               <Text style={styles.kicker}>우리 도감 주인공</Text>
               <Text style={styles.title}>대표 고양이 관리</Text>
-              <Text style={styles.description}>
-                {maxFeaturedCats === 1 ? '무료 사원증은 홈과 MY에 먼저 보여줄 고양이 1마리를 골라요.' : '마이페이지와 홈에 먼저 보여줄 고양이를 순서대로 골라요.'}
-              </Text>
+              <Text style={styles.description}>마이페이지와 홈에 먼저 보여줄 고양이를 순서대로 골라요.</Text>
             </View>
             <Pressable accessibilityLabel="대표 고양이 관리 닫기" accessibilityRole="button" disabled={isSaving} onPress={handleClose} style={styles.closeButton}>
               <X color={theme.colors.primaryDark} size={20} />
@@ -117,7 +113,7 @@ export function FeaturedCatManager({ cats, selectedCatIds, visible, isSaving = f
                 <Star color={theme.colors.accent} size={16} />
                 <Text style={styles.selectedTitle}>선택한 순서</Text>
               </View>
-              <Text style={styles.selectedCount}>{draftIds.length}/{maxFeaturedCats}</Text>
+              <Text style={styles.selectedCount}>{draftIds.length}/{MAX_FEATURED_CATS}</Text>
             </View>
 
             {selectedCats.length > 0 ? (

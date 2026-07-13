@@ -23,7 +23,6 @@ interface MyPageScreenProps {
   isSigningOut: boolean;
   isWithdrawing: boolean;
   isSavingFeaturedCats?: boolean;
-  maxFeaturedCats: number;
   onLogout: () => Promise<void> | void;
   onWithdrawAccount: () => Promise<void> | void;
   onOpenCat: (catId: string) => void;
@@ -82,7 +81,6 @@ export function MyPageScreen({
   isSigningOut,
   isWithdrawing,
   isSavingFeaturedCats = false,
-  maxFeaturedCats,
   onLogout,
   onWithdrawAccount,
   onOpenCat,
@@ -285,7 +283,6 @@ export function MyPageScreen({
       <FeaturedCatManager
         cats={myCats}
         isSaving={isSavingFeaturedCats}
-        maxFeaturedCats={maxFeaturedCats}
         onClose={() => setIsFeaturedManagerOpen(false)}
         onSave={handleSaveFeaturedCats}
         selectedCatIds={selectedFeaturedCatIds}
