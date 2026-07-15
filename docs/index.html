@@ -16,23 +16,13 @@
     <meta property="og:type" content="website" />
     <meta property="og:image" content="./assets/catdex-home.png" />
     <!-- GitHub Pages rebuild marker: admin waitlist route is served from ./admin/. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Jua&family=Gothic+A1:wght@400;500;600;700;800;900&display=swap"
+      rel="stylesheet"
+    />
     <style>
-      :root {
-        color-scheme: light;
-        --ink: #221916;
-        --brown: #5a3928;
-        --muted: #78685e;
-        --paper: #fff7ea;
-        --surface: #ffffff;
-        --soft-green: #e8f0d6;
-        --green: #6e8a54;
-        --clay: #c37248;
-        --gold: #f0b957;
-        --sky: #dcecf2;
-        --line: #eadccd;
-        --shadow: 0 22px 70px rgba(42, 31, 24, 0.14);
-      }
-
       * {
         box-sizing: border-box;
       }
@@ -43,16 +33,19 @@
 
       body {
         margin: 0;
-        background: var(--paper);
-        color: var(--ink);
-        font-family:
-          -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", "Segoe UI", sans-serif;
-        letter-spacing: 0;
+        font-family: "Gothic A1", sans-serif;
+        background: #fff8f1;
+        color: #3b2d26;
+        -webkit-font-smoothing: antialiased;
       }
 
       a {
-        color: inherit;
+        color: #f2603c;
         text-decoration: none;
+      }
+
+      a:hover {
+        color: #d94a28;
       }
 
       img {
@@ -60,300 +53,678 @@
         max-width: 100%;
       }
 
-      h1,
-      h2,
-      h3,
-      p {
-        margin: 0;
+      @keyframes floaty {
+        0%,
+        100% {
+          transform: translateY(0) rotate(var(--r, 0deg));
+        }
+
+        50% {
+          transform: translateY(-12px) rotate(var(--r, 0deg));
+        }
       }
 
-      .nav {
-        position: fixed;
+      @keyframes wiggle {
+        0%,
+        100% {
+          transform: rotate(-4deg);
+        }
+
+        50% {
+          transform: rotate(4deg);
+        }
+      }
+
+      .page {
+        width: 100%;
+        overflow-x: hidden;
+        background: #fff8f1;
+      }
+
+      .site-header {
+        position: sticky;
         top: 0;
-        left: 0;
-        right: 0;
-        z-index: 20;
+        z-index: 50;
+        background: rgba(255, 248, 241, 0.9);
+        backdrop-filter: blur(10px);
+        border-bottom: 1px solid #f3e6d9;
+      }
+
+      .site-header-inner {
+        max-width: 1120px;
+        margin: 0 auto;
+        padding: 14px 24px;
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 14px clamp(18px, 4vw, 64px);
-        background: rgba(255, 247, 234, 0.88);
-        border-bottom: 1px solid rgba(234, 220, 205, 0.72);
-        backdrop-filter: blur(18px);
+        gap: 16px;
       }
 
       .brand {
-        display: inline-flex;
-        align-items: center;
-        gap: 10px;
-        font-weight: 950;
-      }
-
-      .brand-icon {
-        width: 38px;
-        height: 38px;
-        border-radius: 8px;
-        box-shadow: 0 8px 20px rgba(90, 57, 40, 0.16);
-      }
-
-      .nav-links {
         display: flex;
         align-items: center;
-        gap: 22px;
-        color: var(--muted);
-        font-size: 14px;
-        font-weight: 850;
+        gap: 10px;
+        color: #3b2d26;
       }
 
-      .nav-cta {
-        min-height: 36px;
-        border-radius: 8px;
-        padding: 0 13px;
-        display: inline-flex;
+      .brand:hover {
+        color: #3b2d26;
+      }
+
+      .brand img {
+        width: 40px;
+        height: 40px;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(242, 96, 60, 0.25);
+      }
+
+      .brand span {
+        font-family: "Jua", sans-serif;
+        font-size: 22px;
+      }
+
+      .site-nav {
+        display: flex;
         align-items: center;
-        background: var(--brown);
+        gap: 26px;
+      }
+
+      .site-nav a {
+        color: #6b584d;
+        font-weight: 600;
+        font-size: 15px;
+      }
+
+      .site-nav a:hover {
+        color: #f2603c;
+      }
+
+      .btn-primary {
+        display: inline-block;
+        background: #ff7a59;
+        color: #fff;
+        font-weight: 800;
+        border-radius: 999px;
+        white-space: nowrap;
+      }
+
+      .btn-primary:hover {
+        background: #f2603c;
         color: #fff;
       }
 
+      .header-cta {
+        font-size: 15px;
+        padding: 11px 20px;
+        box-shadow: 0 6px 16px rgba(255, 122, 89, 0.4);
+      }
+
       .hero {
-        min-height: 100svh;
-        display: grid;
-        align-items: center;
-        padding: 108px clamp(20px, 5vw, 72px) 64px;
-        overflow: hidden;
-        background:
-          linear-gradient(180deg, rgba(255, 247, 234, 0.92), rgba(255, 247, 234, 0.74)),
-          radial-gradient(circle at 20% 100%, rgba(232, 240, 214, 0.82), transparent 38%),
-          radial-gradient(circle at 90% 20%, rgba(220, 236, 242, 0.82), transparent 34%);
-      }
-
-      .hero-inner,
-      .section-inner,
-      .footer-inner {
-        width: min(1160px, 100%);
+        max-width: 1120px;
         margin: 0 auto;
-      }
-
-      .hero-inner {
-        display: grid;
-        grid-template-columns: minmax(0, 0.92fr) minmax(360px, 1.08fr);
-        gap: clamp(38px, 7vw, 88px);
+        padding: 56px 24px 40px;
+        display: flex;
+        flex-wrap: wrap;
         align-items: center;
-      }
-
-      .eyebrow {
-        display: inline-flex;
-        min-height: 32px;
-        align-items: center;
-        border: 1px solid rgba(195, 114, 72, 0.28);
-        border-radius: 999px;
-        padding: 0 13px;
-        background: rgba(255, 255, 255, 0.76);
-        color: var(--clay);
-        font-size: 14px;
-        font-weight: 950;
-      }
-
-      h1 {
-        max-width: 720px;
-        margin-top: 24px;
-        font-size: clamp(52px, 8vw, 102px);
-        line-height: 0.96;
-        font-weight: 950;
+        gap: 48px;
       }
 
       .hero-copy {
-        max-width: 620px;
-        margin-top: 26px;
-        color: var(--muted);
-        font-size: clamp(18px, 2vw, 23px);
-        line-height: 1.7;
-        font-weight: 750;
+        flex: 1 1 400px;
+        min-width: 300px;
+      }
+
+      .hero-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        background: #ffebd6;
+        color: #e06a2e;
+        font-weight: 700;
+        font-size: 14px;
+        padding: 8px 16px;
+        border-radius: 999px;
+        margin-bottom: 22px;
+      }
+
+      .hero h1 {
+        font-family: "Jua", sans-serif;
+        font-size: clamp(38px, 6vw, 52px);
+        line-height: 1.25;
+        margin: 0 0 20px;
+        color: #3b2d26;
+        letter-spacing: -0.5px;
+      }
+
+      .hero h1 .accent {
+        color: #ff7a59;
+      }
+
+      .hero-lede {
+        font-size: 18px;
+        line-height: 1.75;
+        color: #6b584d;
+        margin: 0 0 20px;
+        max-width: 520px;
+      }
+
+      .hero-lede b {
+        color: #3b2d26;
       }
 
       .hero-actions {
         display: flex;
         flex-wrap: wrap;
-        gap: 12px;
-        margin-top: 34px;
+        gap: 14px;
+        margin-bottom: 34px;
       }
 
-      .button {
-        display: inline-flex;
-        min-height: 50px;
+      .hero-cta {
+        font-size: 17px;
+        padding: 16px 30px;
+        box-shadow: 0 10px 24px rgba(255, 122, 89, 0.42);
+      }
+
+      .btn-outline {
+        display: inline-block;
+        background: #fff;
+        color: #3b2d26;
+        font-weight: 700;
+        font-size: 17px;
+        padding: 16px 30px;
+        border-radius: 999px;
+        border: 2px solid #f0dfd0;
+      }
+
+      .btn-outline:hover {
+        border-color: #ff7a59;
+        color: #ff7a59;
+      }
+
+      .proof-strip {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+      }
+
+      .proof-item {
+        background: #fff;
+        border: 1px solid #f3e6d9;
+        border-radius: 16px;
+        padding: 12px 18px;
+      }
+
+      .proof-value {
+        font-family: "Jua", sans-serif;
+        font-size: 24px;
+        color: #ff7a59;
+      }
+
+      .proof-label {
+        font-size: 13px;
+        color: #8a7a70;
+        font-weight: 600;
+      }
+
+      .hero-visual {
+        flex: 1 1 340px;
+        min-width: 280px;
+        display: flex;
+        justify-content: center;
+        position: relative;
+      }
+
+      .hero-glow {
+        position: absolute;
+        width: 340px;
+        height: 340px;
+        background: radial-gradient(circle, #ffe0c8, transparent 70%);
+        border-radius: 50%;
+        top: 40px;
+      }
+
+      .hero-visual img {
+        position: relative;
+        border-radius: 28px;
+        box-shadow: 0 20px 44px rgba(159, 110, 80, 0.28);
+        border: 6px solid #fff;
+        animation: floaty 6s ease-in-out infinite;
+      }
+
+      .hero-phone-left {
+        width: 200px;
+        margin-top: 60px;
+        margin-right: -40px;
+        z-index: 1;
+        --r: -6deg;
+      }
+
+      .hero-phone-center {
+        width: 230px;
+        border-radius: 32px;
+        box-shadow: 0 26px 54px rgba(159, 110, 80, 0.32);
+        z-index: 2;
+        animation-delay: 0.4s;
+      }
+
+      .hero-phone-right {
+        width: 200px;
+        margin-top: 60px;
+        margin-left: -40px;
+        z-index: 1;
+        --r: 6deg;
+        animation-delay: 0.8s;
+      }
+
+      .section {
+        max-width: 1120px;
+        margin: 0 auto;
+        padding: 48px 24px;
+      }
+
+      .section-heading {
+        text-align: center;
+        margin-bottom: 40px;
+      }
+
+      .section-kicker {
+        font-weight: 800;
+        color: #ff7a59;
+        letter-spacing: 1px;
+        font-size: 14px;
+        margin-bottom: 10px;
+      }
+
+      h2 {
+        font-family: "Jua", sans-serif;
+        font-size: clamp(28px, 4.5vw, 36px);
+        margin: 0;
+        color: #3b2d26;
+      }
+
+      .section-sub {
+        color: #6b584d;
+        font-size: 16px;
+        margin: 12px 0 0;
+      }
+
+      .card-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 20px;
+      }
+
+      .info-card {
+        background: #fff;
+        border: 1px solid #f3e6d9;
+        border-radius: 24px;
+        padding: 32px 28px;
+      }
+
+      .info-card-icon {
+        width: 56px;
+        height: 56px;
+        border-radius: 18px;
+        display: flex;
         align-items: center;
         justify-content: center;
-        border: 1px solid var(--brown);
-        border-radius: 8px;
-        padding: 0 20px;
-        background: var(--brown);
-        color: #fff;
+        font-size: 28px;
+        margin-bottom: 18px;
+      }
+
+      h3 {
+        font-family: "Jua", sans-serif;
+        font-size: 22px;
+        margin: 0 0 10px;
+      }
+
+      .info-card p,
+      .step-card p,
+      .safety-card p {
+        color: #6b584d;
+        line-height: 1.7;
+        margin: 0;
         font-size: 15px;
-        font-weight: 900;
       }
 
-      .button.secondary {
-        border-color: var(--line);
-        background: rgba(255, 255, 255, 0.82);
-        color: var(--ink);
+      .band {
+        background: #fff1e4;
+        padding: 64px 0;
       }
 
-      .waitlist-section {
-        background:
-          linear-gradient(135deg, rgba(232, 240, 214, 0.72), rgba(255, 247, 234, 0.92)),
-          var(--paper);
+      .band-inner {
+        max-width: 1120px;
+        margin: 0 auto;
+        padding: 0 24px;
+      }
+
+      .band .section-heading {
+        margin-bottom: 44px;
+      }
+
+      .step-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 22px;
+      }
+
+      .step-card {
+        background: #fff;
+        border-radius: 24px;
+        padding: 30px 26px;
+        position: relative;
+      }
+
+      .step-number {
+        font-family: "Jua", sans-serif;
+        font-size: 52px;
+        line-height: 1;
+        margin-bottom: 6px;
+      }
+
+      .step-card h3 {
+        font-size: 21px;
+      }
+
+      .feature {
+        max-width: 1120px;
+        margin: 0 auto;
+        padding: 40px 24px;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 48px;
+      }
+
+      .feature-shot {
+        flex: 1 1 300px;
+        min-width: 260px;
+        display: flex;
+        justify-content: center;
+      }
+
+      .feature-shot img {
+        width: 250px;
+        border-radius: 32px;
+        box-shadow: 0 22px 48px rgba(159, 110, 80, 0.28);
+        border: 6px solid #fff;
+      }
+
+      .feature-copy {
+        flex: 1 1 360px;
+        min-width: 300px;
+      }
+
+      .feature.media-right .feature-shot {
+        order: 2;
+      }
+
+      .feature.media-right .feature-copy {
+        order: 1;
+      }
+
+      .feature-tag {
+        display: inline-block;
+        font-weight: 700;
+        font-size: 13px;
+        padding: 6px 14px;
+        border-radius: 999px;
+        margin-bottom: 16px;
+      }
+
+      .feature h3 {
+        font-size: 30px;
+        margin: 0 0 14px;
+        color: #3b2d26;
+      }
+
+      .feature p {
+        color: #6b584d;
+        line-height: 1.75;
+        font-size: 16px;
+        margin: 0 0 20px;
+      }
+
+      .chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+
+      .chip {
+        background: #fff;
+        border: 1px solid #f0dfd0;
+        border-radius: 999px;
+        padding: 8px 16px;
+        font-weight: 600;
+        font-size: 14px;
+        color: #6b584d;
+      }
+
+      .safety-card {
+        background: #fff;
+        border-radius: 24px;
+        padding: 30px 26px;
+      }
+
+      .safety-icon {
+        font-size: 34px;
+        margin-bottom: 14px;
+      }
+
+      .safety-card h3 {
+        font-size: 20px;
+      }
+
+      .safety-card a {
+        font-weight: 700;
+        text-decoration: underline;
+      }
+
+      .waitlist {
+        max-width: 1120px;
+        margin: 0 auto;
+        padding: 72px 24px;
+      }
+
+      .waitlist-frame {
+        background: linear-gradient(135deg, #ff8a5b, #ff6f45);
+        border-radius: 32px;
+        padding: 8px;
+        box-shadow: 0 24px 54px rgba(255, 122, 89, 0.35);
       }
 
       .waitlist-panel {
-        display: grid;
-        grid-template-columns: minmax(0, 0.92fr) minmax(320px, 0.72fr);
-        gap: clamp(28px, 5vw, 54px);
-        align-items: start;
-        border: 1px solid rgba(234, 220, 205, 0.92);
-        border-radius: 8px;
-        padding: clamp(24px, 4vw, 42px);
-        background: rgba(255, 255, 255, 0.78);
-        box-shadow: var(--shadow);
+        background: #fff;
+        border-radius: 26px;
+        padding: 44px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 44px;
+        align-items: flex-start;
       }
 
-      .waitlist-copy {
-        display: grid;
-        gap: 18px;
+      .waitlist-copy,
+      .waitlist-form-col {
+        flex: 1 1 320px;
+        min-width: 280px;
       }
 
-      .waitlist-copy p,
-      .waitlist-note,
-      .form-help,
-      .consent-copy {
-        color: var(--muted);
+      .waitlist-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        background: #ffebd6;
+        color: #e06a2e;
+        font-weight: 700;
+        font-size: 13px;
+        padding: 7px 15px;
+        border-radius: 999px;
+        margin-bottom: 18px;
+      }
+
+      .waitlist h2 {
+        font-size: 32px;
+        margin: 0 0 14px;
+        line-height: 1.35;
+      }
+
+      .waitlist-copy p {
+        color: #6b584d;
+        line-height: 1.75;
         font-size: 15px;
-        line-height: 1.68;
-        font-weight: 750;
+        margin: 0 0 18px;
+      }
+
+      .waitlist-note {
+        background: #fff8f1;
+        border: 1px solid #f3e6d9;
+        border-radius: 16px;
+        padding: 16px 18px;
+        font-size: 13px;
+        color: #8a7a70;
+        line-height: 1.65;
+      }
+
+      .waitlist-note b {
+        color: #6b584d;
       }
 
       .waitlist-form {
-        display: grid;
+        display: flex;
+        flex-direction: column;
         gap: 16px;
-        border: 1px solid rgba(234, 220, 205, 0.9);
-        border-radius: 8px;
-        padding: 20px;
-        background: rgba(255, 247, 234, 0.86);
       }
 
-      .waitlist-form fieldset {
-        min-width: 0;
-        margin: 0;
-        border: 0;
-        padding: 0;
-      }
-
-      .form-field {
-        display: grid;
-        gap: 8px;
-      }
-
-      .form-label,
-      .platform-label {
-        color: var(--brown);
-        font-size: 13px;
-        font-weight: 950;
+      .form-label {
+        display: block;
+        font-weight: 700;
+        font-size: 14px;
+        margin-bottom: 8px;
+        color: #3b2d26;
       }
 
       .waitlist-input {
         width: 100%;
-        min-height: 50px;
-        border: 1px solid var(--line);
-        border-radius: 8px;
-        padding: 0 14px;
-        background: #fff;
-        color: var(--ink);
-        font: inherit;
+        padding: 14px 16px;
+        border: 2px solid #f0dfd0;
+        border-radius: 14px;
         font-size: 15px;
-        font-weight: 800;
+        font-family: "Gothic A1", sans-serif;
+        outline: none;
       }
 
       .waitlist-input:focus {
-        outline: 3px solid rgba(110, 138, 84, 0.22);
-        border-color: rgba(110, 138, 84, 0.54);
+        border-color: #ff7a59;
       }
 
       .platform-options {
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 8px;
-      }
-
-      .platform-option {
-        position: relative;
-      }
-
-      .platform-option input {
-        position: absolute;
-        inset: 0;
-        opacity: 0;
-      }
-
-      .platform-option span {
-        display: grid;
-        min-height: 42px;
-        place-items: center;
-        border: 1px solid var(--line);
-        border-radius: 8px;
-        background: rgba(255, 255, 255, 0.84);
-        color: var(--muted);
-        font-size: 13px;
-        font-weight: 950;
-      }
-
-      .platform-option input:checked + span {
-        border-color: var(--brown);
-        background: var(--brown);
-        color: #fff;
-      }
-
-      .consent-list {
-        display: grid;
+        display: flex;
         gap: 10px;
+      }
+
+      .platform-pill {
+        flex: 1;
+        padding: 12px 0;
+        border-radius: 14px;
+        font-size: 14px;
+        font-family: "Gothic A1", sans-serif;
+        font-weight: 700;
+        cursor: pointer;
+        border: 2px solid #f0dfd0;
+        background: #fff;
+        color: #8a7a70;
+      }
+
+      .platform-pill[aria-pressed="true"] {
+        border-color: #ff7a59;
+        background: #ffebd6;
+        color: #e06a2e;
       }
 
       .consent-item {
-        display: grid;
-        grid-template-columns: 18px minmax(0, 1fr);
+        display: flex;
+        align-items: flex-start;
         gap: 10px;
-        align-items: start;
+        cursor: pointer;
+        font-size: 14px;
+        color: #6b584d;
+        line-height: 1.5;
       }
 
       .consent-item input {
-        width: 18px;
-        height: 18px;
-        margin: 2px 0 0;
-        accent-color: var(--brown);
+        width: 20px;
+        height: 20px;
+        margin-top: 1px;
+        accent-color: #ff7a59;
+        flex-shrink: 0;
+      }
+
+      .consent-required {
+        color: #f2603c;
+        font-weight: 800;
+      }
+
+      .consent-optional {
+        color: #a99a90;
       }
 
       .waitlist-submit {
         width: 100%;
-        cursor: pointer;
+        padding: 16px;
+        border: none;
+        border-radius: 14px;
+        font-family: "Gothic A1", sans-serif;
+        font-size: 16px;
+        font-weight: 800;
+        color: #fff;
+        background: #f0c9bb;
+        cursor: not-allowed;
       }
 
-      .waitlist-submit:disabled {
-        cursor: not-allowed;
-        opacity: 0.64;
+      .waitlist-submit.ready {
+        background: #ff7a59;
+        cursor: pointer;
+        box-shadow: 0 8px 20px rgba(255, 122, 89, 0.4);
       }
 
       .waitlist-status {
         min-height: 22px;
-        color: var(--muted);
+        margin: 0;
+        color: #8a7a70;
         font-size: 14px;
-        font-weight: 850;
+        font-weight: 600;
         line-height: 1.5;
       }
 
-      .waitlist-status[data-state="success"] {
-        color: var(--green);
+      .waitlist-status[data-state="error"] {
+        color: #c0392b;
       }
 
-      .waitlist-status[data-state="error"] {
-        color: #9f3a21;
+      .waitlist-success {
+        background: #e7f3e4;
+        border-radius: 20px;
+        padding: 40px 28px;
+        text-align: center;
+      }
+
+      .waitlist-success-cat {
+        font-size: 52px;
+        margin-bottom: 14px;
+        animation: wiggle 1.2s ease-in-out infinite;
+      }
+
+      .waitlist-success h3 {
+        font-size: 24px;
+        margin: 0 0 10px;
+        color: #3b2d26;
+      }
+
+      .waitlist-success p {
+        color: #4e8c46;
+        font-weight: 600;
+        margin: 0;
+        line-height: 1.6;
       }
 
       .honeypot {
@@ -364,893 +735,649 @@
         overflow: hidden;
       }
 
-      .proof-strip {
-        display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-        gap: 10px;
-        max-width: 620px;
-        margin-top: 32px;
+      .faq {
+        max-width: 820px;
+        margin: 0 auto;
+        padding: 24px 24px 72px;
       }
 
-      .proof-item {
-        min-height: 80px;
-        border: 1px solid rgba(234, 220, 205, 0.92);
-        border-radius: 8px;
-        padding: 14px;
-        background: rgba(255, 255, 255, 0.76);
+      .faq .section-heading {
+        margin-bottom: 36px;
       }
 
-      .proof-value {
-        display: block;
-        color: var(--brown);
-        font-size: 21px;
-        font-weight: 950;
+      .faq-list {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
       }
 
-      .proof-label {
-        display: block;
-        margin-top: 6px;
-        color: var(--muted);
-        font-size: 12px;
-        font-weight: 850;
+      .faq-list details {
+        background: #fff;
+        border: 1px solid #f3e6d9;
+        border-radius: 20px;
+        padding: 20px 24px;
+      }
+
+      .faq-list summary {
+        font-family: "Jua", sans-serif;
+        font-size: 18px;
+        color: #3b2d26;
+        cursor: pointer;
+        list-style: none;
+      }
+
+      .faq-list summary::-webkit-details-marker {
+        display: none;
+      }
+
+      .faq-list p {
+        color: #6b584d;
+        line-height: 1.75;
+        margin: 14px 0 0;
+        font-size: 15px;
+      }
+
+      .faq-list a {
+        font-weight: 700;
+        text-decoration: underline;
+      }
+
+      .final-cta {
+        max-width: 1120px;
+        margin: 0 auto;
+        padding: 0 24px 72px;
+      }
+
+      .final-cta-panel {
+        background: #3b2d26;
+        border-radius: 32px;
+        padding: 56px 40px;
+        text-align: center;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .final-cta-emoji {
+        font-size: 44px;
+        margin-bottom: 16px;
+      }
+
+      .final-cta h2 {
+        font-size: 34px;
+        margin: 0 0 14px;
+        color: #fff;
         line-height: 1.35;
       }
 
-      .phone-showcase {
-        position: relative;
-        min-height: 640px;
-      }
-
-      .phone-card {
-        position: absolute;
-        width: min(270px, 46vw);
-        overflow: hidden;
-        border: 10px solid #231916;
-        border-radius: 36px;
-        background: #231916;
-        box-shadow: var(--shadow);
-      }
-
-      .phone-card.primary {
-        right: 9%;
-        top: 0;
-        z-index: 2;
-      }
-
-      .phone-card.secondary {
-        left: 0;
-        top: 88px;
-        z-index: 1;
-        transform: rotate(-4deg);
-      }
-
-      .phone-card.tertiary {
-        right: 0;
-        bottom: 0;
-        z-index: 0;
-        width: min(235px, 40vw);
-        transform: rotate(4deg);
-        opacity: 0.94;
-      }
-
-      .phone-card img {
-        width: 100%;
-        border-radius: 26px;
-      }
-
-      .ticker {
-        overflow: hidden;
-        border-top: 1px solid rgba(90, 57, 40, 0.12);
-        border-bottom: 1px solid rgba(90, 57, 40, 0.12);
-        background: var(--brown);
-        color: #fff;
-      }
-
-      .ticker-track {
-        display: flex;
-        width: max-content;
-        animation: marquee 30s linear infinite;
-      }
-
-      .ticker span {
-        padding: 18px 24px;
-        font-size: 14px;
-        font-weight: 950;
-        white-space: nowrap;
-      }
-
-      @keyframes marquee {
-        from {
-          transform: translateX(0);
-        }
-
-        to {
-          transform: translateX(-50%);
-        }
-      }
-
-      .section {
-        padding: 106px clamp(20px, 5vw, 72px);
-        background: var(--surface);
-      }
-
-      .section.alt {
-        background: var(--paper);
-      }
-
-      .section.dark {
-        background: #2a221f;
-        color: #fff;
-      }
-
-      .section-heading {
-        display: grid;
-        gap: 16px;
-        max-width: 820px;
-      }
-
-      .section-kicker {
-        color: var(--clay);
-        font-size: 15px;
-        font-weight: 950;
-      }
-
-      .section.dark .section-kicker {
-        color: var(--gold);
-      }
-
-      h2 {
-        font-size: clamp(36px, 5.6vw, 70px);
-        line-height: 1.05;
-        font-weight: 950;
-      }
-
-      .section-heading p,
-      .feature-copy p,
-      .safety-card p,
-      .faq-answer,
-      .closing-copy {
-        color: var(--muted);
-        font-size: 18px;
-        line-height: 1.72;
-        font-weight: 700;
-      }
-
-      .section.dark .section-heading p,
-      .section.dark .feature-copy p,
-      .section.dark .safety-card p,
-      .section.dark .faq-answer,
-      .section.dark .closing-copy {
-        color: rgba(255, 255, 255, 0.72);
-      }
-
-      .steps {
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 18px;
-        margin-top: 44px;
-      }
-
-      .step-card,
-      .safety-card,
-      .faq-card {
-        border: 1px solid var(--line);
-        border-radius: 8px;
-        background: #fff;
-        box-shadow: 0 16px 46px rgba(42, 31, 24, 0.08);
-      }
-
-      .step-card {
-        padding: 24px;
-      }
-
-      .step-number {
-        display: grid;
-        width: 42px;
-        height: 42px;
-        place-items: center;
-        border-radius: 999px;
-        background: var(--soft-green);
-        color: var(--green);
-        font-weight: 950;
-      }
-
-      .step-card h3 {
-        margin-top: 22px;
-        font-size: 24px;
-        line-height: 1.2;
-        font-weight: 950;
-      }
-
-      .step-card p {
-        margin-top: 14px;
-        color: var(--muted);
+      .final-cta p {
+        color: #e4d3c6;
         font-size: 16px;
-        line-height: 1.65;
-        font-weight: 700;
-      }
-
-      .feature {
-        display: grid;
-        grid-template-columns: minmax(0, 0.86fr) minmax(320px, 1fr);
-        gap: clamp(38px, 7vw, 90px);
-        align-items: center;
-      }
-
-      .feature + .feature {
-        margin-top: 110px;
-      }
-
-      .feature.reverse {
-        grid-template-columns: minmax(320px, 1fr) minmax(0, 0.86fr);
-      }
-
-      .feature.reverse .feature-copy {
-        order: 2;
-      }
-
-      .feature.reverse .screen-stage {
-        order: 1;
-      }
-
-      .feature-copy h2 {
-        margin-top: 16px;
-      }
-
-      .feature-copy p {
+        line-height: 1.7;
+        margin: 0 auto 28px;
         max-width: 520px;
-        margin-top: 22px;
       }
 
-      .chips {
+      .final-cta-actions {
         display: flex;
         flex-wrap: wrap;
-        gap: 10px;
-        margin-top: 26px;
+        gap: 14px;
+        justify-content: center;
       }
 
-      .chip {
-        display: inline-flex;
-        min-height: 34px;
-        align-items: center;
-        border: 1px solid rgba(110, 138, 84, 0.2);
+      .final-cta .btn-primary {
+        font-size: 17px;
+        padding: 16px 32px;
+        box-shadow: 0 10px 24px rgba(255, 122, 89, 0.5);
+      }
+
+      .final-cta .btn-primary:hover {
+        background: #ff6f45;
+      }
+
+      .btn-ghost {
+        display: inline-block;
+        background: rgba(255, 255, 255, 0.12);
+        color: #fff;
+        font-weight: 700;
+        font-size: 17px;
+        padding: 16px 32px;
         border-radius: 999px;
-        padding: 0 13px;
-        background: rgba(232, 240, 214, 0.7);
-        color: var(--green);
-        font-size: 14px;
-        font-weight: 900;
+        border: 1px solid rgba(255, 255, 255, 0.25);
       }
 
-      .screen-stage {
-        display: grid;
-        min-height: 620px;
-        place-items: center;
+      .btn-ghost:hover {
+        background: rgba(255, 255, 255, 0.2);
+        color: #fff;
       }
 
-      .screen-frame {
-        width: min(342px, 78vw);
-        overflow: hidden;
-        border: 10px solid #241b17;
-        border-radius: 36px;
-        background: #241b17;
-        box-shadow: var(--shadow);
+      .site-footer {
+        background: #fff;
+        border-top: 1px solid #f3e6d9;
+        padding: 48px 24px 40px;
       }
 
-      .screen-frame img {
-        width: 100%;
-        border-radius: 25px;
+      .site-footer-inner {
+        max-width: 1120px;
+        margin: 0 auto;
       }
 
-      .safety-grid {
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 18px;
-        margin-top: 42px;
-      }
-
-      .safety-card {
-        padding: 24px;
-      }
-
-      .safety-card h3,
-      .faq-question {
-        font-size: 21px;
-        line-height: 1.32;
-        font-weight: 950;
-      }
-
-      .safety-card p {
-        margin-top: 12px;
-        font-size: 16px;
-      }
-
-      .section.dark .safety-card {
-        color: var(--ink);
-      }
-
-      .section.dark .safety-card p {
-        color: var(--muted);
-      }
-
-      .faq-grid {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 16px;
-        margin-top: 42px;
-      }
-
-      .faq-card {
-        padding: 22px;
-      }
-
-      .faq-answer {
-        margin-top: 10px;
-        font-size: 16px;
-      }
-
-      .closing {
-        display: grid;
-        grid-template-columns: minmax(0, 0.9fr) minmax(240px, 0.5fr);
-        gap: 38px;
-        align-items: center;
-      }
-
-      .closing-logo {
-        width: min(240px, 58vw);
-        justify-self: end;
-        border-radius: 28px;
-        box-shadow: 0 24px 80px rgba(0, 0, 0, 0.22);
-      }
-
-      .footer {
-        padding: 34px clamp(20px, 5vw, 72px);
-        background: #2a221f;
-        color: rgba(255, 255, 255, 0.66);
-      }
-
-      .footer-inner {
+      .footer-columns {
         display: flex;
+        flex-wrap: wrap;
+        gap: 32px;
         justify-content: space-between;
-        gap: 28px;
+        margin-bottom: 36px;
       }
 
       .footer-brand {
-        display: grid;
-        gap: 8px;
+        flex: 1 1 280px;
+      }
+
+      .footer-brand-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 14px;
+      }
+
+      .footer-brand-row img {
+        width: 44px;
+        height: 44px;
+        border-radius: 13px;
+      }
+
+      .footer-brand-name {
+        font-family: "Jua", sans-serif;
+        font-size: 20px;
+      }
+
+      .footer-brand-name small {
+        color: #b7a79c;
         font-size: 14px;
-        font-weight: 750;
+        font-family: "Jua", sans-serif;
+      }
+
+      .footer-brand p {
+        color: #8a7a70;
+        font-size: 14px;
+        line-height: 1.6;
+        margin: 0;
+        max-width: 320px;
+      }
+
+      .footer-col {
+        flex: 0 1 auto;
+      }
+
+      .footer-col-title {
+        font-weight: 800;
+        font-size: 14px;
+        margin-bottom: 14px;
+        color: #3b2d26;
       }
 
       .footer-links {
         display: flex;
-        flex-wrap: wrap;
-        justify-content: flex-end;
-        gap: 14px;
-        font-size: 13px;
-        font-weight: 750;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .footer-links a {
+        color: #8a7a70;
+        font-size: 14px;
+        font-weight: 600;
+      }
+
+      .footer-links a:hover {
+        color: #f2603c;
       }
 
       .business-info {
+        border-top: 1px solid #f3e6d9;
+        padding-top: 24px;
         display: grid;
-        gap: 6px;
-        max-width: 720px;
-        margin-top: 20px;
-        margin-left: auto;
-        color: rgba(255, 255, 255, 0.48);
-        font-size: 12px;
-        font-weight: 600;
-        line-height: 1.65;
-        text-align: right;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 14px 24px;
+        font-size: 12.5px;
+        color: #a99a90;
+        line-height: 1.6;
       }
 
-      .business-info dl {
-        display: flex;
-        flex-wrap: wrap;
-        justify-content: flex-end;
-        gap: 4px 14px;
-        margin: 0;
+      .business-info b {
+        color: #8a7a70;
       }
 
-      .business-info div {
-        display: inline-flex;
-        gap: 5px;
+      .business-info .full-row {
+        grid-column: 1 / -1;
       }
 
-      .business-info dt,
-      .business-info dd {
-        margin: 0;
-      }
-
-      .business-info dt {
-        color: rgba(255, 255, 255, 0.62);
-      }
-
-      @media (max-width: 920px) {
-        .nav-links a:not(.nav-cta) {
+      @media (max-width: 760px) {
+        .site-nav {
           display: none;
         }
-
-        .hero {
-          min-height: auto;
-          padding-top: 102px;
-        }
-
-        .hero-inner,
-        .feature,
-        .feature.reverse,
-        .closing,
-        .waitlist-panel {
-          grid-template-columns: 1fr;
-        }
-
-        .feature.reverse .feature-copy,
-        .feature.reverse .screen-stage {
-          order: initial;
-        }
-
-        .phone-showcase {
-          min-height: 570px;
-        }
-
-        .phone-card.primary {
-          right: 2%;
-        }
-
-        .phone-card.secondary {
-          left: 2%;
-        }
-
-        .proof-strip,
-        .steps,
-        .safety-grid,
-        .faq-grid {
-          grid-template-columns: 1fr;
-        }
-
-        .screen-stage {
-          min-height: auto;
-        }
-
-        .closing-logo {
-          justify-self: start;
-        }
-
-        .footer-inner {
-          flex-direction: column;
-        }
-
-        .footer-links {
-          justify-content: flex-start;
-        }
-
-        .business-info {
-          max-width: none;
-          margin-left: 0;
-          text-align: left;
-        }
-
-        .business-info dl {
-          justify-content: flex-start;
-        }
-
-        .platform-options {
-          grid-template-columns: 1fr;
-        }
       }
 
-      @media (max-width: 560px) {
-        .brand-icon {
-          width: 34px;
-          height: 34px;
+      @media (max-width: 600px) {
+        .hero-phone-left {
+          width: 30vw;
+          margin-right: -8vw;
         }
 
-        h1 {
-          font-size: clamp(42px, 15vw, 64px);
+        .hero-phone-center {
+          width: 38vw;
         }
 
-        .phone-showcase {
-          min-height: 500px;
+        .hero-phone-right {
+          width: 30vw;
+          margin-left: -8vw;
         }
 
-        .phone-card {
-          width: min(220px, 60vw);
-          border-width: 8px;
-          border-radius: 30px;
-        }
-
-        .phone-card.tertiary {
-          width: min(190px, 52vw);
+        .hero-glow {
+          width: 70vw;
+          height: 70vw;
         }
       }
     </style>
   </head>
   <body>
-    <header class="nav" aria-label="냥도감 페이지 내비게이션">
-      <a class="brand" href="#top" aria-label="냥도감 홈">
-        <img class="brand-icon" src="./assets/catdex-app-icon.png" alt="" />
-        <span>냥도감</span>
-      </a>
-      <nav class="nav-links" aria-label="주요 섹션">
-        <a href="#how">사용 흐름</a>
-        <a href="#dex">도감</a>
-        <a href="#neighborhood">동네</a>
-        <a href="#safety">안전</a>
-        <a href="#waitlist">출시 알림</a>
-        <a href="./contact.html">문의하기</a>
-        <a href="./delete-account.html">회원탈퇴</a>
-        <a class="nav-cta" href="#waitlist">출시 알림 받기</a>
-      </nav>
-    </header>
+    <div class="page">
+      <header class="site-header" aria-label="냥도감 페이지 내비게이션">
+        <div class="site-header-inner">
+          <a class="brand" href="#top" aria-label="냥도감 홈">
+            <img src="./assets/catdex-app-icon.png" alt="냥도감 앱 아이콘" width="40" height="40" />
+            <span>냥도감</span>
+          </a>
+          <nav class="site-nav" aria-label="주요 섹션">
+            <a href="#how">사용 흐름</a>
+            <a href="#features">주요 기능</a>
+            <a href="#safety">안전 원칙</a>
+            <a href="#faq">자주 묻는 질문</a>
+          </nav>
+          <a class="btn-primary header-cta" href="#waitlist">🔔 출시 알림 받기</a>
+        </div>
+      </header>
 
-    <main id="top">
-      <section class="hero" aria-label="냥도감 소개">
-        <div class="hero-inner">
-          <div>
-            <div class="eyebrow">동네 길고양이 기록 앱</div>
-            <h1>자주 보던 그 고양이, 동네가 함께 기억해요.</h1>
-            <p class="hero-copy">
-              냥도감은 길에서 만난 고양이를 사진과 도감, 동네 구역, 이웃 대화로 이어주는 관찰 기록 앱입니다.
-              정확한 좌표보다 안전한 구역 공유를 우선하고, 다시 만난 기록을 쌓아 동네 고양이의 이야기를 남겨요.
+      <main id="top">
+        <section class="hero" aria-label="냥도감 소개">
+          <div class="hero-copy">
+            <div class="hero-badge">🐾 동네 길고양이 기록 앱</div>
+            <h1>자주 보던 그 고양이,<br /><span class="accent">동네가 함께</span> 기억해요</h1>
+            <p class="hero-lede">
+              냥도감은 길에서 만난 고양이를 <b>사진 · 도감 · 동네 지도 · 이웃 대화</b>로 이어주는 관찰 기록
+              앱이에요. 가까이 다가가지 않아도, 멀리서 찍은 한 장이면 우리 동네 고양이 이야기가 시작돼요.
             </p>
             <div class="hero-actions">
-              <a class="button" href="#waitlist">출시 알림 받기</a>
-              <a class="button secondary" href="#how">기록 방식 보기</a>
-              <a class="button secondary" href="#neighborhood">동네 지도 보기</a>
+              <a class="btn-primary hero-cta" href="#waitlist">🔔 출시 알림 받기</a>
+              <a class="btn-outline" href="#how">앱 둘러보기 →</a>
             </div>
             <div class="proof-strip" aria-label="냥도감 핵심 지표">
               <div class="proof-item">
-                <span class="proof-value">6마리</span>
-                <span class="proof-label">내 도감에 남긴 고양이</span>
+                <div class="proof-value">6마리</div>
+                <div class="proof-label">내 도감 기록</div>
               </div>
               <div class="proof-item">
-                <span class="proof-value">3곳</span>
-                <span class="proof-label">동네 냥이 구역</span>
+                <div class="proof-value">3곳</div>
+                <div class="proof-label">동네 냥이 구역</div>
               </div>
               <div class="proof-item">
-                <span class="proof-value">11번</span>
-                <span class="proof-label">다시 만난 기록</span>
-              </div>
-              <div class="proof-item">
-                <span class="proof-value">위치 보호</span>
-                <span class="proof-label">좌표 대신 구역 단위 공유</span>
+                <div class="proof-value">11번</div>
+                <div class="proof-label">다시 만난 기록</div>
               </div>
             </div>
           </div>
-
-          <div class="phone-showcase" aria-label="냥도감 앱 화면 미리보기">
-            <div class="phone-card secondary">
-              <img src="./assets/catdex-neighborhood.png" alt="냥도감 동네 상황실 화면" />
-            </div>
-            <div class="phone-card primary">
-              <img src="./assets/catdex-home.png" alt="냥도감 홈 화면" />
-            </div>
-            <div class="phone-card tertiary">
-              <img src="./assets/catdex-dex.png" alt="냥도감 도감 화면" />
-            </div>
+          <div class="hero-visual" aria-label="냥도감 앱 화면 미리보기">
+            <div class="hero-glow"></div>
+            <img
+              class="hero-phone-left"
+              src="./assets/catdex-neighborhood.png"
+              alt="냥도감 동네 상황실 화면"
+            />
+            <img class="hero-phone-center" src="./assets/catdex-home.png" alt="냥도감 홈 화면" />
+            <img class="hero-phone-right" src="./assets/catdex-dex.png" alt="냥도감 도감 화면" />
           </div>
-        </div>
-      </section>
+        </section>
 
-      <section class="ticker" aria-label="냥도감 핵심 흐름">
-        <div class="ticker-track">
-          <span>발견하기</span>
-          <span>사진으로 기록하기</span>
-          <span>도감에 남기기</span>
-          <span>동네 구역으로 보기</span>
-          <span>이웃과 확인하기</span>
-          <span>다시 만난 기록 이어가기</span>
-          <span>발견하기</span>
-          <span>사진으로 기록하기</span>
-          <span>도감에 남기기</span>
-          <span>동네 구역으로 보기</span>
-          <span>이웃과 확인하기</span>
-          <span>다시 만난 기록 이어가기</span>
-        </div>
-      </section>
-
-      <section id="waitlist" class="section waitlist-section" aria-label="냥도감 출시 알림 신청">
-        <div class="section-inner waitlist-panel">
-          <div class="waitlist-copy">
-            <div class="section-kicker">LAUNCH NOTICE</div>
-            <h2>냥도감이 출시되면 이메일로 알려드릴게요.</h2>
-            <p>
-              App Store와 Google Play 배포가 열리면 다운로드 링크를 한 번 보내드립니다.
-              출시 알림만 받고 싶다면 필수 동의만 체크하면 됩니다.
-            </p>
-            <p class="waitlist-note">
-              수집 항목은 이메일과 관심 플랫폼이며, 출시 안내 발송 후 90일 안에 정리합니다.
-              주요 업데이트 소식 수신은 선택 사항입니다.
-            </p>
-          </div>
-
-          <form
-            id="launch-waitlist-form"
-            class="waitlist-form"
-            data-endpoint="https://wqiqdybzhbmsvccpklli.supabase.co/functions/v1/launch-waitlist-signup"
-            novalidate
-          >
-            <div class="form-field">
-              <label class="form-label" for="waitlist-email">이메일</label>
-              <input
-                id="waitlist-email"
-                class="waitlist-input"
-                name="email"
-                type="email"
-                autocomplete="email"
-                inputmode="email"
-                placeholder="catdex@example.com"
-                required
-              />
-              <p class="form-help">출시 안내 메일 발송 외에는 사용하지 않습니다.</p>
-            </div>
-
-            <fieldset class="form-field">
-              <legend class="platform-label">관심 플랫폼</legend>
-              <div class="platform-options">
-                <label class="platform-option">
-                  <input type="radio" name="platform" value="ios" />
-                  <span>iOS</span>
-                </label>
-                <label class="platform-option">
-                  <input type="radio" name="platform" value="android" />
-                  <span>Android</span>
-                </label>
-                <label class="platform-option">
-                  <input type="radio" name="platform" value="both" checked />
-                  <span>둘 다</span>
-                </label>
-              </div>
-            </fieldset>
-
-            <div class="consent-list">
-              <label class="consent-item">
-                <input id="waitlist-consent" name="launchNoticeConsent" type="checkbox" required />
-                <span class="consent-copy">
-                  출시 알림 발송을 위해 이메일을 수집·이용하는 데 동의합니다.
-                </span>
-              </label>
-              <label class="consent-item">
-                <input name="updateNewsConsent" type="checkbox" />
-                <span class="consent-copy">출시 후 주요 업데이트 소식도 받을래요.</span>
-              </label>
-            </div>
-
-            <label class="honeypot" aria-hidden="true">
-              웹사이트
-              <input name="website" type="text" tabindex="-1" autocomplete="off" />
-            </label>
-
-            <button class="button waitlist-submit" type="submit">출시 알림 받기</button>
-            <p class="waitlist-status" data-waitlist-status role="status" aria-live="polite"></p>
-          </form>
-        </div>
-      </section>
-
-      <section id="how" class="section" aria-label="냥도감 사용 흐름">
-        <div class="section-inner">
+        <section class="section" aria-label="냥도감이란">
           <div class="section-heading">
-            <div class="section-kicker">HOW IT WORKS</div>
-            <h2>길에서 만난 순간이 동네 기록이 되는 세 단계.</h2>
+            <div class="section-kicker">WHAT IS 냥도감?</div>
+            <h2>한마디로, 우리 동네 고양이 도감이에요 🐱</h2>
+          </div>
+          <div class="card-grid">
+            <article class="info-card">
+              <div class="info-card-icon" style="background: #ffebd6">📸</div>
+              <h3>멀리서 찍어 기록</h3>
+              <p>
+                고양이가 불편하지 않은 거리에서 사진 한 장. 이름·특징·만난 날짜를 남기면 나만의 고양이 카드가
+                완성돼요.
+              </p>
+            </article>
+            <article class="info-card">
+              <div class="info-card-icon" style="background: #fff0d6">🗺️</div>
+              <h3>구역으로 안전하게</h3>
+              <p>
+                정확한 좌표 대신 '동네 구역'으로만 공유해요. 급식소나 민감한 위치는 노출하지 않아 고양이도
+                안심.
+              </p>
+            </article>
+            <article class="info-card">
+              <div class="info-card-icon" style="background: #e7f3e4">💬</div>
+              <h3>이웃과 함께 확인</h3>
+              <p>
+                같은 고양이인지, 요즘 잘 지내는지 이웃과 고양이별로 대화해요. 혼자 하는 기록이 동네 기억이
+                됩니다.
+              </p>
+            </article>
+          </div>
+        </section>
+
+        <section id="how" class="band" aria-label="냥도감 사용 흐름">
+          <div class="band-inner">
+            <div class="section-heading">
+              <div class="section-kicker">HOW IT WORKS</div>
+              <h2>딱 세 단계면 충분해요</h2>
+              <p class="section-sub">복잡한 가입 설명은 없어요. 발견하고, 기록하고, 함께 확인하면 끝!</p>
+            </div>
+            <div class="step-grid">
+              <article class="step-card">
+                <div class="step-number" style="color: #ffd08a">1</div>
+                <h3>🔍 발견하기</h3>
+                <p>
+                  산책길, 골목, 단골 구역에서 만난 고양이를 조용히 관찰해요. 다가가거나 만지지 않아도 됩니다.
+                </p>
+              </article>
+              <article class="step-card">
+                <div class="step-number" style="color: #ffb86b">2</div>
+                <h3>✏️ 기록하기</h3>
+                <p>
+                  사진·이름·특징·날짜·구역을 남겨요. 같은 고양이를 다시 만나면 기록이 자연스럽게 이어집니다.
+                </p>
+              </article>
+              <article class="step-card">
+                <div class="step-number" style="color: #ff7a59">3</div>
+                <h3>🤝 함께 확인하기</h3>
+                <p>이웃과 같은 고양이인지, 최근 상태가 어떤지, 어느 구역에서 봤는지 의견을 모아요.</p>
+              </article>
+            </div>
+          </div>
+        </section>
+
+        <section id="features" class="section" style="padding-bottom: 24px; padding-top: 72px" aria-label="주요 기능">
+          <div class="section-heading" style="margin-bottom: 8px">
+            <div class="section-kicker">FEATURES</div>
+            <h2>냥도감이 특별한 이유</h2>
+          </div>
+        </section>
+
+        <section class="feature media-right" aria-label="도감 기능">
+          <div class="feature-shot">
+            <img src="./assets/catdex-dex.png" alt="냥도감 도감 화면" />
+          </div>
+          <div class="feature-copy">
+            <div class="feature-tag" style="background: #ffebd6; color: #e06a2e">나의 냥도감</div>
+            <h3>고양이마다 하나씩,<br />채워지는 도감 📖</h3>
             <p>
-              복잡한 가입 설명보다 먼저 앱에서 바로 할 일을 보여줍니다. 고양이를 발견하고, 방해하지 않는 거리에서 기록하고,
-              내 도감과 동네 지도에서 다시 확인하는 흐름입니다.
+              치즈냥·턱시도·검은냥처럼 눈으로 확인한 특징으로 카드를 쌓아요. 단순 사진첩이 아니라 다시 만난
+              기록과 이웃 확인이 함께 남는 현장 노트예요.
             </p>
+            <div class="chips">
+              <span class="chip">🐱 고양이별 카드</span>
+              <span class="chip">🔎 특징 필터</span>
+              <span class="chip">🔁 다시 만난 이력</span>
+              <span class="chip">📊 수집 진행률</span>
+            </div>
           </div>
-          <div class="steps">
-            <article class="step-card">
-              <div class="step-number">1</div>
-              <h3>발견하기</h3>
-              <p>산책길, 골목, 단골 구역에서 만난 고양이를 조용히 관찰해요. 가까이 다가가거나 만지지 않아도 됩니다.</p>
-            </article>
-            <article class="step-card">
-              <div class="step-number">2</div>
-              <h3>기록하기</h3>
-              <p>사진, 이름, 특징, 만난 날짜, 동네 구역을 남겨요. 같은 고양이를 다시 만나면 기록이 이어집니다.</p>
-            </article>
-            <article class="step-card">
-              <div class="step-number">3</div>
-              <h3>함께 확인하기</h3>
-              <p>이웃과 같은 고양이인지, 최근 상태가 어떤지, 어느 구역에서 조심히 봤는지 의견을 모아요.</p>
-            </article>
-          </div>
-        </div>
-      </section>
+        </section>
 
-      <section id="dex" class="section alt" aria-label="냥도감 도감 기능">
-        <div class="section-inner">
-          <div class="feature">
-            <div class="feature-copy">
-              <div class="section-kicker">YOUR CATDEX</div>
-              <h2>고양이마다 하나씩 채워지는 나의 냥도감.</h2>
-              <p>
-                치즈냥, 턱시도, 검은냥처럼 눈으로 확인한 특징을 중심으로 고양이 카드를 쌓습니다.
-                도감은 단순한 사진첩이 아니라 다시 만난 기록과 이웃의 확인이 함께 남는 현장 노트입니다.
-              </p>
-              <div class="chips">
-                <span class="chip">고양이별 카드</span>
-                <span class="chip">특징 필터</span>
-                <span class="chip">다시 만난 이력</span>
-                <span class="chip">수집 진행률</span>
-              </div>
-            </div>
-            <div class="screen-stage">
-              <div class="screen-frame">
-                <img src="./assets/catdex-dex.png" alt="냥도감 도감 화면" />
-              </div>
-            </div>
+        <section class="feature" aria-label="동네 지도 기능">
+          <div class="feature-shot">
+            <img src="./assets/catdex-neighborhood.png" alt="냥도감 동네 상황실 화면" />
           </div>
-
-          <div id="neighborhood" class="feature reverse">
-            <div class="feature-copy">
-              <div class="section-kicker">NEIGHBORHOOD MAP</div>
-              <h2>정확한 좌표보다 안전한 구역으로 공유해요.</h2>
-              <p>
-                동네 상황실은 활동 고양이, 확인이 필요한 기록, 냥이 구역을 한눈에 보여줍니다.
-                급식소나 정확한 좌표는 노출하지 않고, 동네와 구역 단위로만 조심스럽게 공유합니다.
-              </p>
-              <div class="chips">
-                <span class="chip">동네 상황실</span>
-                <span class="chip">구역 단위 지도</span>
-                <span class="chip">확인 요청</span>
-                <span class="chip">이웃 대화</span>
-              </div>
-            </div>
-            <div class="screen-stage">
-              <div class="screen-frame">
-                <img src="./assets/catdex-neighborhood.png" alt="냥도감 동네 상황실 화면" />
-              </div>
-            </div>
-          </div>
-
-          <div class="feature">
-            <div class="feature-copy">
-              <div class="section-kicker">NYANGNYANGDAN</div>
-              <h2>기록은 사원증과 배지로 남습니다.</h2>
-              <p>
-                냥냥단 사원증은 내가 맡은 동네, 등록 고양이, 재발견, 배지를 보여줍니다.
-                고양이를 찾는 경쟁보다 안전하게 기록하는 습관이 쌓이는 구조입니다.
-              </p>
-              <div class="chips">
-                <span class="chip">냥냥단 직급</span>
-                <span class="chip">획득 배지</span>
-                <span class="chip">담당 동네</span>
-                <span class="chip">위치 보호 원칙</span>
-              </div>
-            </div>
-            <div class="screen-stage">
-              <div class="screen-frame">
-                <img src="./assets/catdex-my.png" alt="냥도감 냥냥단 사원증 화면" />
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section id="safety" class="section dark" aria-label="냥도감 안전 원칙">
-        <div class="section-inner">
-          <div class="section-heading">
-            <div class="section-kicker">SAFETY FIRST</div>
-            <h2>고양이와 사람 모두에게 안전한 기록을 먼저 둡니다.</h2>
+          <div class="feature-copy">
+            <div class="feature-tag" style="background: #e7f3e4; color: #4e8c46">동네 지도</div>
+            <h3>정확한 좌표 대신<br />안전한 구역으로 🗺️</h3>
             <p>
-              냥도감은 길고양이를 잡거나 쫓는 앱이 아닙니다. 동네에서 마주친 고양이를 조심스럽게 관찰하고,
-              필요한 정보만 안전하게 남기는 서비스를 지향합니다.
+              동네 상황실이 활동 고양이, 확인이 필요한 기록, 냥이 구역을 한눈에 보여줘요. 급식소나 정확한
+              좌표는 노출하지 않고, 동네·구역 단위로만 조심스럽게 공유합니다.
             </p>
+            <div class="chips">
+              <span class="chip">🏙️ 동네 상황실</span>
+              <span class="chip">📍 구역 단위 지도</span>
+              <span class="chip">✅ 확인 요청</span>
+              <span class="chip">💬 이웃 대화</span>
+            </div>
           </div>
-          <div class="safety-grid">
-            <article class="safety-card">
-              <h3>거리 두고 관찰</h3>
-              <p>가까이 다가가거나 만지는 행동을 유도하지 않습니다. 사진과 메모는 가능한 안전한 거리에서 남겨요.</p>
-            </article>
-            <article class="safety-card">
-              <h3>위치 정보 보호</h3>
-              <p>정확한 좌표 대신 동네와 구역 단위로 공유합니다. 급식소나 민감한 위치는 노출하지 않는 방향으로 설계합니다.</p>
-            </article>
-            <article class="safety-card">
-              <h3>계정과 데이터 관리</h3>
-              <p>앱 안의 회원탈퇴 흐름과 별도 웹 요청 페이지를 통해 계정 및 데이터 삭제 요청을 받을 수 있습니다.</p>
-            </article>
-          </div>
-        </div>
-      </section>
+        </section>
 
-      <section class="section" aria-label="자주 묻는 질문">
-        <div class="section-inner">
+        <section class="feature media-right" style="padding-bottom: 64px" aria-label="냥냥단 기능">
+          <div class="feature-shot">
+            <img src="./assets/catdex-my.png" alt="냥도감 냥냥단 사원증 화면" />
+          </div>
+          <div class="feature-copy">
+            <div class="feature-tag" style="background: #fff0d6; color: #c98a1e">냥냥단</div>
+            <h3>기록은 사원증과<br />배지로 남아요 🎖️</h3>
+            <p>
+              냥냥단 사원증은 내가 맡은 동네, 등록 고양이, 재발견, 배지를 보여줘요. 고양이를 찾는 '경쟁'보다
+              안전하게 기록하는 '습관'이 쌓이는 구조예요.
+            </p>
+            <div class="chips">
+              <span class="chip">🪪 냥냥단 직급</span>
+              <span class="chip">🏅 획득 배지</span>
+              <span class="chip">🏘️ 담당 동네</span>
+              <span class="chip">🔒 위치 보호 원칙</span>
+            </div>
+          </div>
+        </section>
+
+        <section id="safety" class="band" aria-label="냥도감 안전 원칙">
+          <div class="band-inner">
+            <div class="section-heading">
+              <div class="section-kicker">SAFETY FIRST</div>
+              <h2>고양이도, 사람도 안전하게 🛡️</h2>
+              <p class="section-sub" style="max-width: 600px; margin-left: auto; margin-right: auto">
+                냥도감은 길고양이를 잡거나 쫓는 앱이 아니에요. 조심스럽게 관찰하고, 필요한 정보만 안전하게
+                남깁니다.
+              </p>
+            </div>
+            <div class="card-grid" style="grid-template-columns: repeat(auto-fit, minmax(270px, 1fr))">
+              <article class="safety-card">
+                <div class="safety-icon">🐈</div>
+                <h3>거리 두고 관찰</h3>
+                <p>가까이 다가가거나 만지는 행동을 유도하지 않아요. 사진과 메모는 안전한 거리에서 남깁니다.</p>
+              </article>
+              <article class="safety-card">
+                <div class="safety-icon">📍</div>
+                <h3>위치 정보 보호</h3>
+                <p>정확한 좌표 대신 동네·구역 단위로 공유해요. 급식소나 민감한 위치는 노출하지 않습니다.</p>
+              </article>
+              <article class="safety-card">
+                <div class="safety-icon">🔐</div>
+                <h3>계정·데이터 관리</h3>
+                <p>
+                  앱 안의 회원탈퇴 흐름과
+                  <a href="./delete-account.html">웹 요청 페이지</a>로 계정·데이터 삭제를 요청할 수 있어요.
+                </p>
+              </article>
+            </div>
+          </div>
+        </section>
+
+        <section id="waitlist" class="waitlist" aria-label="냥도감 출시 알림 신청">
+          <div class="waitlist-frame">
+            <div class="waitlist-panel">
+              <div class="waitlist-copy">
+                <div class="waitlist-badge">🔔 LAUNCH NOTICE</div>
+                <h2>출시되면<br />제일 먼저 알려드릴게요!</h2>
+                <p>
+                  App Store와 Google Play 배포가 열리면 다운로드 링크를 딱 한 번 보내드려요. 필수 동의만
+                  체크하면 출시 알림 신청 완료!
+                </p>
+                <div class="waitlist-note">
+                  📮 수집 항목은 <b>이메일과 관심 플랫폼</b>이에요. 출시 안내 발송 후 90일 안에 정리하고, 안내
+                  메일 외 용도로는 쓰지 않습니다.
+                </div>
+              </div>
+              <div class="waitlist-form-col">
+                <div class="waitlist-success" data-waitlist-success hidden>
+                  <div class="waitlist-success-cat">🐱</div>
+                  <h3>신청 완료됐어요!</h3>
+                  <p>출시되면 <b data-waitlist-success-email></b>(으)로<br />가장 먼저 소식 보내드릴게요 💌</p>
+                </div>
+                <form
+                  id="launch-waitlist-form"
+                  class="waitlist-form"
+                  data-endpoint="https://wqiqdybzhbmsvccpklli.supabase.co/functions/v1/launch-waitlist-signup"
+                  novalidate
+                >
+                  <div>
+                    <label class="form-label" for="waitlist-email">이메일</label>
+                    <input
+                      id="waitlist-email"
+                      class="waitlist-input"
+                      name="email"
+                      type="email"
+                      autocomplete="email"
+                      inputmode="email"
+                      placeholder="you@example.com"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <span class="form-label">관심 플랫폼</span>
+                    <div class="platform-options" role="group" aria-label="관심 플랫폼 선택">
+                      <button type="button" class="platform-pill" data-platform="ios" aria-pressed="false">
+                        iOS
+                      </button>
+                      <button
+                        type="button"
+                        class="platform-pill"
+                        data-platform="android"
+                        aria-pressed="false"
+                      >
+                        Android
+                      </button>
+                      <button type="button" class="platform-pill" data-platform="both" aria-pressed="true">
+                        둘 다
+                      </button>
+                    </div>
+                  </div>
+                  <label class="consent-item">
+                    <input id="waitlist-consent" name="launchNoticeConsent" type="checkbox" required />
+                    <span>
+                      출시 알림 발송을 위해 이메일을 수집·이용하는 데 동의해요.
+                      <b class="consent-required">(필수)</b>
+                    </span>
+                  </label>
+                  <label class="consent-item">
+                    <input name="updateNewsConsent" type="checkbox" />
+                    <span>출시 후 주요 업데이트 소식도 받을래요. <span class="consent-optional">(선택)</span></span>
+                  </label>
+                  <label class="honeypot" aria-hidden="true">
+                    웹사이트
+                    <input name="website" type="text" tabindex="-1" autocomplete="off" />
+                  </label>
+                  <button class="waitlist-submit" type="submit" disabled>🔔 출시 알림 받기</button>
+                  <p class="waitlist-status" data-waitlist-status role="status" aria-live="polite"></p>
+                </form>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="faq" class="faq" aria-label="자주 묻는 질문">
           <div class="section-heading">
             <div class="section-kicker">FAQ</div>
-            <h2>첫 기록 전에 궁금한 것들.</h2>
+            <h2>첫 기록 전, 궁금한 것들</h2>
           </div>
-          <div class="faq-grid">
-            <article class="faq-card">
-              <div class="faq-question">길고양이를 가까이서 찍어야 하나요?</div>
-              <p class="faq-answer">아니요. 냥도감은 거리 두고 관찰하는 기록 문화를 지향합니다. 고양이가 불편해하지 않는 거리에서 남겨주세요.</p>
-            </article>
-            <article class="faq-card">
-              <div class="faq-question">위치 정보는 어떻게 보이나요?</div>
-              <p class="faq-answer">정확한 좌표보다 동네와 구역 단위 표시를 우선합니다. 고양이와 사람 모두에게 안전한 공유 방식을 지향합니다.</p>
-            </article>
-            <article class="faq-card">
-              <div class="faq-question">동네 사람들과 같이 볼 수 있나요?</div>
-              <p class="faq-answer">동네 냥이 커뮤니티에서 확인 요청, 목격담, 상태 공유 같은 대화를 고양이별로 이어갈 수 있습니다.</p>
-            </article>
-            <article class="faq-card">
-              <div class="faq-question">회원탈퇴 요청은 어디서 하나요?</div>
-              <p class="faq-answer">
-                앱 안의 회원탈퇴 경로와 별도로, 웹에서도
-                <a href="./delete-account.html">회원탈퇴 및 데이터 삭제 요청</a>을 할 수 있습니다.
+          <div class="faq-list">
+            <details>
+              <summary>🐾 길고양이를 가까이서 찍어야 하나요?</summary>
+              <p>
+                아니요! 냥도감은 거리 두고 관찰하는 기록 문화를 지향해요. 고양이가 불편해하지 않는 거리에서
+                남겨주세요.
               </p>
-            </article>
+            </details>
+            <details>
+              <summary>📍 위치 정보는 어떻게 보이나요?</summary>
+              <p>
+                정확한 좌표보다 동네·구역 단위 표시를 우선해요. 고양이와 사람 모두에게 안전한 공유 방식을
+                지향합니다.
+              </p>
+            </details>
+            <details>
+              <summary>💬 동네 사람들과 같이 볼 수 있나요?</summary>
+              <p>
+                네! 동네 냥이 커뮤니티에서 확인 요청, 목격담, 상태 공유 같은 대화를 고양이별로 이어갈 수
+                있어요.
+              </p>
+            </details>
+            <details>
+              <summary>🔐 회원탈퇴 요청은 어디서 하나요?</summary>
+              <p>
+                앱 안의 회원탈퇴 경로와 별도로, 웹에서도
+                <a href="./delete-account.html">회원탈퇴 및 데이터 삭제 요청</a>을 할 수 있어요.
+              </p>
+            </details>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <section class="section dark" aria-label="냥도감 시작하기">
-        <div class="section-inner closing">
-          <div>
-            <div class="section-kicker">CATDEX</div>
-            <h2>우리 동네 고양이를 함께 기록하는 가장 조심스러운 방법.</h2>
-            <p class="closing-copy">
-              오늘 만난 고양이를 남기고, 다음 만남을 이어가세요. 냥도감은 동네 길고양이의 흔적을 안전하게 모으는 작은 도감입니다.
+        <section class="final-cta" aria-label="냥도감 시작하기">
+          <div class="final-cta-panel">
+            <div class="final-cta-emoji">🐱🐾</div>
+            <h2>우리 동네 고양이,<br />함께 기록해요</h2>
+            <p>
+              오늘 만난 고양이를 남기고, 다음 만남을 이어가세요. 냥도감은 동네 길고양이의 흔적을 안전하게
+              모으는 작은 도감이에요.
             </p>
-            <div class="hero-actions">
-              <a class="button" href="#waitlist">출시 알림 받기</a>
-              <a class="button secondary" href="#top">맨 위로</a>
-              <a class="button secondary" href="#how">사용 흐름 다시 보기</a>
+            <div class="final-cta-actions">
+              <a class="btn-primary" href="#waitlist">🔔 출시 알림 받기</a>
+              <a class="btn-ghost" href="#how">사용 흐름 다시 보기</a>
             </div>
           </div>
-          <img class="closing-logo" src="./assets/catdex-app-icon.png" alt="냥도감 앱 아이콘" />
-        </div>
-      </section>
-    </main>
+        </section>
+      </main>
 
-    <footer class="footer">
-      <div class="footer-inner">
-        <div class="footer-brand">
-          <span>냥도감 Catdex</span>
-          <span>자주 보던 그 고양이, 동네가 함께 기억해요.</span>
+      <footer class="site-footer">
+        <div class="site-footer-inner">
+          <div class="footer-columns">
+            <div class="footer-brand">
+              <div class="footer-brand-row">
+                <img src="./assets/catdex-app-icon.png" alt="냥도감 앱 아이콘" width="44" height="44" />
+                <div class="footer-brand-name">냥도감 <small>Catdex</small></div>
+              </div>
+              <p>자주 보던 그 고양이, 동네가 함께 기억해요.</p>
+            </div>
+            <div class="footer-col">
+              <div class="footer-col-title">바로가기</div>
+              <nav class="footer-links" aria-label="바로가기 링크">
+                <a href="#how">사용 흐름</a>
+                <a href="#features">주요 기능</a>
+                <a href="#safety">안전 원칙</a>
+                <a href="#waitlist">출시 알림</a>
+              </nav>
+            </div>
+            <div class="footer-col">
+              <div class="footer-col-title">고객 지원</div>
+              <nav class="footer-links" aria-label="고객 지원 링크">
+                <a href="./contact.html">문의하기</a>
+                <a href="./delete-account.html">회원탈퇴 및 데이터 삭제</a>
+                <a href="mailto:treka0723@kakao.com">treka0723@kakao.com</a>
+              </nav>
+            </div>
+          </div>
+          <div class="business-info" aria-label="사업자 정보">
+            <div><b>상호명</b> 오도 &nbsp;·&nbsp; <b>대표자</b> 이재윤</div>
+            <div><b>사업자등록번호</b> 757-76-00585</div>
+            <div><b>이메일</b> treka0723@kakao.com</div>
+            <div class="full-row"><b>주소</b> 경기도 부천시 오정구 여월로 27, 510동 8층 803호</div>
+            <div class="full-row">
+              <b>업태</b> 정보통신업, 도매 및 소매업, 전문·과학 및 기술서비스업 &nbsp;·&nbsp;
+              <b>종목</b> 응용 소프트웨어 개발 및 공급업, 전자상거래 소매업, 광고물 문안·도안·설계 등 작성업
+            </div>
+          </div>
         </div>
-        <nav class="footer-links" aria-label="하단 링크">
-          <a href="#how">사용 흐름</a>
-          <a href="#neighborhood">동네 지도</a>
-          <a href="#safety">안전 원칙</a>
-          <a href="#waitlist">출시 알림</a>
-          <a href="./contact.html">문의하기</a>
-          <a href="./delete-account.html">회원탈퇴 및 데이터 삭제 요청</a>
-        </nav>
-      </div>
-      <section class="business-info" aria-label="사업자 정보">
-        <dl>
-          <div>
-            <dt>상호명</dt>
-            <dd>오도</dd>
-          </div>
-          <div>
-            <dt>대표자</dt>
-            <dd>이재윤</dd>
-          </div>
-          <div>
-            <dt>사업자등록번호</dt>
-            <dd>757-76-00585</dd>
-          </div>
-          <div>
-            <dt>주소</dt>
-            <dd>경기도 부천시 오정구 여월로 27, 510동 8층 803호</dd>
-          </div>
-          <div>
-            <dt>업태</dt>
-            <dd>정보통신업, 도매 및 소매업, 전문, 과학 및 기술서비스업</dd>
-          </div>
-          <div>
-            <dt>종목</dt>
-            <dd>응용 소프트웨어 개발 및 공급업, 전자상거래 소매업, 광고물 문안, 도안, 설계 등 작성업</dd>
-          </div>
-          <div>
-            <dt>이메일</dt>
-            <dd>treka0723@kakao.com</dd>
-          </div>
-        </dl>
-      </section>
-    </footer>
+      </footer>
+    </div>
+
     <script>
       (() => {
         const form = document.querySelector("#launch-waitlist-form");
@@ -1263,7 +1390,12 @@
         const consentInput = form.querySelector("#waitlist-consent");
         const submitButton = form.querySelector("button[type='submit']");
         const statusNode = form.querySelector("[data-waitlist-status]");
+        const platformButtons = [...form.querySelectorAll(".platform-pill")];
+        const successCard = document.querySelector("[data-waitlist-success]");
+        const successEmailNode = document.querySelector("[data-waitlist-success-email]");
         const endpoint = form.dataset.endpoint;
+
+        let platform = "both";
 
         function setStatus(message, state = "") {
           statusNode.textContent = message;
@@ -1274,12 +1406,29 @@
           return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
         }
 
+        function refreshSubmitState() {
+          const canSubmit = isValidEmail(emailInput.value.trim()) && consentInput.checked;
+          submitButton.disabled = !canSubmit;
+          submitButton.classList.toggle("ready", canSubmit);
+        }
+
+        platformButtons.forEach((button) => {
+          button.addEventListener("click", () => {
+            platform = button.dataset.platform;
+            platformButtons.forEach((other) => {
+              other.setAttribute("aria-pressed", String(other === button));
+            });
+          });
+        });
+
+        emailInput.addEventListener("input", refreshSubmitState);
+        consentInput.addEventListener("change", refreshSubmitState);
+
         form.addEventListener("submit", async (event) => {
           event.preventDefault();
 
           const formData = new FormData(form);
           const email = String(formData.get("email") ?? "").trim().toLowerCase();
-          const platform = String(formData.get("platform") ?? "unknown");
           const launchNoticeConsent = consentInput.checked;
           const updateNewsConsent = formData.get("updateNewsConsent") === "on";
           const website = String(formData.get("website") ?? "");
@@ -1321,18 +1470,12 @@
               throw new Error(payload.error ?? "출시 알림 등록에 실패했습니다.");
             }
 
-            setStatus(
-              payload.alreadySubscribed
-                ? "이미 등록된 이메일입니다. 출시 소식이 준비되면 알려드릴게요."
-                : "등록됐습니다. 냥도감이 출시되면 이메일로 알려드릴게요.",
-              "success",
-            );
-            form.reset();
-            form.querySelector("input[name='platform'][value='both']").checked = true;
+            successEmailNode.textContent = email;
+            form.hidden = true;
+            successCard.hidden = false;
           } catch (error) {
             setStatus(error instanceof Error ? error.message : "잠시 후 다시 시도해 주세요.", "error");
-          } finally {
-            submitButton.disabled = false;
+            refreshSubmitState();
           }
         });
       })();
