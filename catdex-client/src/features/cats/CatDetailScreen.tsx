@@ -20,13 +20,14 @@ import { theme } from '@/shared/styles/theme';
 interface CatDetailScreenProps {
   cat: Cat;
   encounters: CatEncounter[];
+  isReporting?: boolean;
   onBack: () => void;
   onComposePost: () => void;
   onEditCat: () => void;
   onReportCat: () => void;
 }
 
-export function CatDetailScreen({ cat, encounters, onBack, onComposePost, onEditCat, onReportCat }: CatDetailScreenProps) {
+export function CatDetailScreen({ cat, encounters, isReporting = false, onBack, onComposePost, onEditCat, onReportCat }: CatDetailScreenProps) {
   const [isRarityGuideOpen, setIsRarityGuideOpen] = useState(false);
   const [isRelationshipGuideOpen, setIsRelationshipGuideOpen] = useState(false);
   const visual = getCatVisual(cat.type);
@@ -36,7 +37,7 @@ export function CatDetailScreen({ cat, encounters, onBack, onComposePost, onEdit
     <>
       <ScrollView contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
         <View style={styles.headerRow}>
-          <Pressable onPress={onBack} style={styles.backButton}>
+          <Pressable accessibilityLabel="이전 화면으로 돌아가기" accessibilityRole="button" onPress={onBack} style={styles.backButton}>
             <ArrowLeft color={theme.colors.text} size={20} />
           </Pressable>
           <Text style={styles.number}>No.{String(cat.number).padStart(3, '0')}</Text>
@@ -54,6 +55,7 @@ export function CatDetailScreen({ cat, encounters, onBack, onComposePost, onEdit
             </View>
             <Pressable
               accessibilityLabel="희귀도 산정 기준 보기"
+              accessibilityRole="button"
               onPress={() => setIsRarityGuideOpen(true)}
               style={styles.rarityButton}
             >
@@ -74,6 +76,7 @@ export function CatDetailScreen({ cat, encounters, onBack, onComposePost, onEdit
               <Text style={styles.infoLabel}>관계 레벨</Text>
               <Pressable
                 accessibilityLabel="관계 레벨 기준 보기"
+                accessibilityRole="button"
                 onPress={() => setIsRelationshipGuideOpen(true)}
                 style={styles.infoIconButton}
               >
@@ -121,8 +124,8 @@ export function CatDetailScreen({ cat, encounters, onBack, onComposePost, onEdit
           <Button onPress={onComposePost} variant="secondary">
             이 고양이로 글쓰기
           </Button>
-          <Button onPress={onReportCat} variant="secondary">
-            신고하기
+          <Button disabled={isReporting} onPress={onReportCat} variant="secondary">
+            {isReporting ? '신고 중...' : '신고하기'}
           </Button>
         </View>
       </ScrollView>
@@ -135,7 +138,7 @@ export function CatDetailScreen({ cat, encounters, onBack, onComposePost, onEdit
                 <Text style={styles.modalKicker}>희귀도 산정</Text>
                 <Text style={styles.modalTitle}>{getRarityLabel(cat.rarity)}</Text>
               </View>
-              <Pressable accessibilityLabel="희귀도 산정 기준 닫기" onPress={() => setIsRarityGuideOpen(false)} style={styles.modalCloseButton}>
+              <Pressable accessibilityLabel="희귀도 산정 기준 닫기" accessibilityRole="button" onPress={() => setIsRarityGuideOpen(false)} style={styles.modalCloseButton}>
                 <X color={theme.colors.primaryDark} size={20} />
               </Pressable>
             </View>
@@ -170,7 +173,7 @@ export function CatDetailScreen({ cat, encounters, onBack, onComposePost, onEdit
                 <Text style={styles.modalKicker}>친밀도 기준</Text>
                 <Text style={styles.modalTitle}>{cat.relationshipLevel}</Text>
               </View>
-              <Pressable accessibilityLabel="관계 레벨 기준 닫기" onPress={() => setIsRelationshipGuideOpen(false)} style={styles.modalCloseButton}>
+              <Pressable accessibilityLabel="관계 레벨 기준 닫기" accessibilityRole="button" onPress={() => setIsRelationshipGuideOpen(false)} style={styles.modalCloseButton}>
                 <X color={theme.colors.primaryDark} size={20} />
               </Pressable>
             </View>

@@ -1,11 +1,10 @@
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Modal, Pressable, ScrollView, StyleSheet, Text, View, type ImageSourcePropType } from 'react-native';
 import { ArrowDown, ArrowUp, Check, PawPrint, Save, Star, Trash2, X } from 'lucide-react-native';
+import { MAX_FEATURED_CATS } from '@/shared/constants/collection.constants';
 import { createShadow, theme } from '@/shared/styles/theme';
 import type { Cat } from '@/shared/types/cat';
 import { getCatIllustrationKey, type CatIllustrationKey } from '@/shared/utils/catPresentation';
-
-const MAX_FEATURED_CATS = 3;
 
 const illustrations = {
   orange: require('../../../../assets/illustrations/cat-orange-clean.png'),
@@ -34,6 +33,9 @@ function catImage(cat: Cat): ImageSourcePropType {
 export function FeaturedCatManager({ cats, selectedCatIds, visible, isSaving = false, onClose, onSave }: FeaturedCatManagerProps) {
   const [draftIds, setDraftIds] = useState<string[]>([]);
   const selectedCats = draftIds.map((catId) => cats.find((cat) => cat.id === catId)).filter((cat): cat is Cat => Boolean(cat));
+  const initialIds = selectedCatIds.slice(0, MAX_FEATURED_CATS);
+  const hasUnsavedChanges =
+    draftIds.length !== initialIds.length || draftIds.some((catId, index) => catId !== initialIds[index]);
 
   useEffect(() => {
     if (visible) {
@@ -48,7 +50,10 @@ export function FeaturedCatManager({ cats, selectedCatIds, visible, isSaving = f
       }
 
       if (current.length >= MAX_FEATURED_CATS) {
-        Alert.alert('대표 고양이는 3마리까지', '순서를 바꾸거나 기존 대표 고양이를 해제한 뒤 다시 선택해 주세요.');
+        Alert.alert(
+          `대표 고양이는 ${MAX_FEATURED_CATS}마리까지`,
+          '순서를 바꾸거나 기존 대표 고양이를 해제한 뒤 다시 선택해 주세요.',
+        );
         return current;
       }
 
@@ -71,8 +76,24 @@ export function FeaturedCatManager({ cats, selectedCatIds, visible, isSaving = f
     });
   };
 
+  const handleClose = () => {
+    if (isSaving) {
+      return;
+    }
+
+    if (!hasUnsavedChanges) {
+      onClose();
+      return;
+    }
+
+    Alert.alert('대표 고양이 변경을 취소할까요?', '저장하지 않은 선택과 순서 변경이 사라져요.', [
+      { text: '계속 설정', style: 'cancel' },
+      { text: '변경 취소', style: 'destructive', onPress: onClose },
+    ]);
+  };
+
   return (
-    <Modal animationType="fade" onRequestClose={onClose} transparent visible={visible}>
+    <Modal animationType="fade" onRequestClose={handleClose} transparent visible={visible}>
       <View style={styles.backdrop}>
         <View style={styles.sheet}>
           <View style={styles.header}>
@@ -81,7 +102,7 @@ export function FeaturedCatManager({ cats, selectedCatIds, visible, isSaving = f
               <Text style={styles.title}>대표 고양이 관리</Text>
               <Text style={styles.description}>마이페이지와 홈에 먼저 보여줄 고양이를 순서대로 골라요.</Text>
             </View>
-            <Pressable accessibilityLabel="대표 고양이 관리 닫기" accessibilityRole="button" disabled={isSaving} onPress={onClose} style={styles.closeButton}>
+            <Pressable accessibilityLabel="대표 고양이 관리 닫기" accessibilityRole="button" disabled={isSaving} onPress={handleClose} style={styles.closeButton}>
               <X color={theme.colors.primaryDark} size={20} />
             </Pressable>
           </View>
@@ -162,7 +183,7 @@ export function FeaturedCatManager({ cats, selectedCatIds, visible, isSaving = f
           </ScrollView>
 
           <View style={styles.actions}>
-            <Pressable accessibilityLabel="대표 고양이 저장 취소" accessibilityRole="button" disabled={isSaving} onPress={onClose} style={({ pressed }) => [styles.cancelButton, pressed && styles.pressed]}>
+            <Pressable accessibilityLabel="대표 고양이 저장 취소" accessibilityRole="button" disabled={isSaving} onPress={handleClose} style={({ pressed }) => [styles.cancelButton, pressed && styles.pressed]}>
               <Text style={styles.cancelText}>취소</Text>
             </Pressable>
             <Pressable accessibilityLabel="대표 고양이 저장" accessibilityRole="button" disabled={isSaving} onPress={() => onSave(draftIds)} style={({ pressed }) => [styles.saveButton, pressed && styles.pressed, isSaving && styles.saveButtonDisabled]}>

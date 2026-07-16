@@ -21,7 +21,13 @@ export function Chip({ children, selected = false, onPress }: ChipProps) {
   }
 
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.base, selected ? styles.selected : null, pressed ? styles.pressed : null]}>
+    <Pressable
+      accessibilityLabel={typeof children === 'string' ? children : undefined}
+      accessibilityRole="button"
+      accessibilityState={{ selected }}
+      onPress={onPress}
+      style={({ pressed }) => [styles.base, selected ? styles.selected : null, pressed ? styles.pressed : null]}
+    >
       {content}
     </Pressable>
   );

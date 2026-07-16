@@ -288,7 +288,7 @@ export function BadgeBookScreen({
   return (
     <View style={styles.screen}>
       <View style={styles.header}>
-        <Pressable accessibilityLabel="사원증으로 돌아가기" accessibilityRole="button" onPress={onBack} style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}>
+        <Pressable accessibilityLabel="이전 화면으로 돌아가기" accessibilityRole="button" onPress={onBack} style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}>
           <ChevronLeft color={theme.colors.primaryDark} size={20} />
         </Pressable>
         <View style={styles.headerCopy}>
@@ -354,6 +354,7 @@ export function BadgeBookScreen({
               <Pressable
                 accessibilityLabel={`${option.label} 배지 보기`}
                 accessibilityRole="button"
+                accessibilityState={{ selected: isActive }}
                 key={option.id}
                 onPress={() => setActiveFilter(option.id)}
                 style={({ pressed }) => [styles.filterChip, isActive && styles.filterChipActive, pressed && styles.pressed]}
@@ -372,6 +373,7 @@ export function BadgeBookScreen({
               <Pressable
                 accessibilityLabel={`${option.label} 카테고리 배지 보기`}
                 accessibilityRole="button"
+                accessibilityState={{ selected: isActive }}
                 key={option.id}
                 onPress={() => setActiveCategory(option.id)}
                 style={({ pressed }) => [styles.categoryChip, isActive && styles.categoryChipActive, pressed && styles.pressed]}
@@ -461,7 +463,7 @@ export function BadgeBookScreen({
                 </Text>
               </View>
 
-              <Pressable accessibilityRole="button" onPress={() => handlePrimaryAction(selectedBadge)} style={({ pressed }) => [styles.detailAction, pressed && styles.pressed]}>
+              <Pressable accessibilityLabel={getActionLabel(selectedBadge)} accessibilityRole="button" onPress={() => handlePrimaryAction(selectedBadge)} style={({ pressed }) => [styles.detailAction, pressed && styles.pressed]}>
                 {getBadgeCategory(selectedBadge) === 'neighborhood' || getBadgeCategory(selectedBadge) === 'community' ? (
                   <MapPin color="#FFF8F0" size={17} />
                 ) : selectedBadge.achieved || getBadgeCategory(selectedBadge) === 'dex' ? (

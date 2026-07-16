@@ -30,7 +30,16 @@ export function CatCard({ item, onPress }: CatCardProps) {
   const visual = getCatVisual(item.type);
 
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.pressable, pressed && styles.pressed]}>
+    <Pressable
+      accessibilityLabel={
+        item.discovered
+          ? `${item.name}, ${item.type}, 발견 ${item.encounterCount}회 도감 보기`
+          : `${item.type} 계열 미확인 고양이 단서 보기`
+      }
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => [styles.pressable, pressed && styles.pressed]}
+    >
       <Card style={[styles.card, !item.discovered && styles.lockedCard]}>
         <View style={styles.row}>
           <Text style={styles.number}>No.{String(item.number).padStart(3, '0')}</Text>

@@ -1,17 +1,18 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { Alert } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { fetchAchievedBadges, fetchProfile, fetchRegions, uploadCatObservationImage } from '@/shared/api/app.api';
+import { fetchAchievedBadges, fetchProfile, fetchRegions, removeCatImages, uploadCatObservationImage } from '@/shared/api/app.api';
 import { fetchCollectionCustomization, saveFeaturedCats } from '@/shared/api/collection.api';
 import {
   createCatObservation,
+  deletePendingCatObservation,
   fetchCatMatchCandidates,
   fetchCatOptions,
   reportCat,
   resolveCatObservation,
 } from '@/shared/api/cats.api';
-import { fetchRemoteNotificationSettings, registerNotificationDevice, saveRemoteNotificationSettings } from '@/shared/api/notifications.api';
+import { fetchNotificationEvents, fetchRemoteNotificationSettings, registerNotificationDevice, saveRemoteNotificationSettings } from '@/shared/api/notifications.api';
 import { LoginScreen } from '@/features/auth/LoginScreen';
 import { ProfileSetupScreen } from '@/features/auth/ProfileSetupScreen';
 import { useAuth } from '@/features/auth/hooks/useAuth';
@@ -35,9 +36,10 @@ import { NotificationInboxScreen } from '@/features/notifications/NotificationIn
 import { NotificationSettingsScreen } from '@/features/notifications/NotificationSettingsScreen';
 import { SplashScreen } from '@/features/splash/SplashScreen';
 import { AppShell } from '@/shared/components/AppShell';
+import { AppLoadFailureScreen, AppStatusBanner } from '@/shared/components/AppDataState';
 import { BottomTabBar } from '@/shared/components/BottomTabBar';
 import { coatOptions, personalityOptions } from '@/shared/constants/cat.constants';
-import { getUserFacingError } from '@/shared/errors/user-facing-error';
+import { getUserFacingError, type UserFacingError } from '@/shared/errors/user-facing-error';
 import { detectCurrentNeighborhood } from '@/shared/neighborhood/neighborhood-location';
 import { isMatchingNeighborhoodName, uniqueNeighborhoodRegionNames } from '@/shared/neighborhood/neighborhood-match';
 import { loadNeighborhoodState, saveNeighborhoodState } from '@/shared/neighborhood/neighborhood-storage';
@@ -47,6 +49,7 @@ import {
   getExpoPushTokenForDevice,
   getNotificationDevicePlatform,
   getNotificationPermissionState,
+  loadNotificationReadIds,
   loadNotificationSettings,
   mergeNotificationSettings,
   requestNotificationPermissions,
@@ -140,6 +143,7 @@ export default function App() {
     selectedCommunityCatId: null,
     selectedCommunityPostId: null,
   });
+  const [catReturnNavigation, setCatReturnNavigation] = useState<NavigationState | null>(null);
   const [neighborhoodView, setNeighborhoodView] = useState<NeighborhoodView>('dex');
   const [savedNeighborhoods, setSavedNeighborhoods] = useState<SavedNeighborhood[]>([]);
   const [activeNeighborhoodId, setActiveNeighborhoodId] = useState('');
@@ -157,11 +161,18 @@ export default function App() {
   const [notificationPermissionState, setNotificationPermissionState] = useState<NotificationPermissionState>('undetermined');
   const [isNotificationSaving, setIsNotificationSaving] = useState(false);
   const [notificationReturnScreen, setNotificationReturnScreen] = useState<TabScreen>('my');
+  const [badgeBookReturnScreen, setBadgeBookReturnScreen] = useState<TabScreen>('my');
   const [communityReturnScreen, setCommunityReturnScreen] = useState<CommunityReturnScreen>('board');
   const [shouldEditCommunityPostOnOpen, setShouldEditCommunityPostOnOpen] = useState(false);
   const [isProfileSaving, setIsProfileSaving] = useState(false);
   const [isFeaturedCatsSaving, setIsFeaturedCatsSaving] = useState(false);
   const [isCatProfileSaving, setIsCatProfileSaving] = useState(false);
+  const [isReportingCat, setIsReportingCat] = useState(false);
+  const [isAppResourcesLoading, setIsAppResourcesLoading] = useState(false);
+  const [hasLoadedAppResources, setHasLoadedAppResources] = useState(false);
+  const [appResourcesError, setAppResourcesError] = useState<UserFacingError | null>(null);
+  const [hasUnreadNotifications, setHasUnreadNotifications] = useState(false);
+  const appResourceRequestId = useRef(0);
   const {
     addEncounter,
     cats,
@@ -169,8 +180,12 @@ export default function App() {
     createCatSighting,
     dexProgress,
     homeSummary,
+    hasLoaded: hasLoadedCats,
+    isLoading: isCatsLoading,
+    loadError: catsLoadError,
     myCats,
     recentCats,
+    reloadCats,
     selectedCat,
     selectedCatEncounters,
     undiscoveredDexSlots,
@@ -235,7 +250,7 @@ export default function App() {
         return navigation.screen;
     }
   })();
-  const shouldHideBottomBar = activeTab === 'capture';
+  const shouldShowBottomBar = navigation.screen === 'home' || navigation.screen === 'dex' || navigation.screen === 'map' || navigation.screen === 'my';
 
   useEffect(() => {
     const timerId = setTimeout(() => {
@@ -282,28 +297,60 @@ export default function App() {
     }).catch(() => undefined);
   }, [activeNeighborhoodId, hasLoadedNeighborhoodState, savedNeighborhoods]);
 
-  const reloadAppResources = async () => {
-    const [nextOptions, nextRegions, nextBadges, nextProfile, nextCustomization] = await Promise.all([
-      fetchCatOptions(),
-      fetchRegions(),
-      fetchAchievedBadges(),
-      fetchProfile(),
-      fetchCollectionCustomization(),
-    ]);
+  const reloadAppResources = useCallback(async () => {
+    const requestId = ++appResourceRequestId.current;
 
-    setApiCoatOptions(nextOptions.coatTypes);
-    setApiPersonalityOptions(nextOptions.personalityTags);
-    setRegions(nextRegions);
-    setBadges(nextBadges);
-    setProfile(nextProfile);
-    setCustomization(nextCustomization);
-  };
+    setIsAppResourcesLoading(true);
+    setAppResourcesError(null);
+
+    try {
+      const [nextOptions, nextRegions, nextBadges, nextProfile, nextCustomization] = await Promise.all([
+        fetchCatOptions(),
+        fetchRegions(),
+        fetchAchievedBadges(),
+        fetchProfile(),
+        fetchCollectionCustomization(),
+      ]);
+
+      if (requestId !== appResourceRequestId.current) {
+        return false;
+      }
+
+      setApiCoatOptions(nextOptions.coatTypes);
+      setApiPersonalityOptions(nextOptions.personalityTags);
+      setRegions(nextRegions);
+      setBadges(nextBadges);
+      setProfile(nextProfile);
+      setCustomization(nextCustomization);
+      setHasLoadedAppResources(true);
+      return true;
+    } catch (error) {
+      console.warn('[app] resource load failed', error);
+
+      if (requestId === appResourceRequestId.current) {
+        setAppResourcesError(getUserFacingError(error, 'app.load'));
+      }
+
+      return false;
+    } finally {
+      if (requestId === appResourceRequestId.current) {
+        setIsAppResourcesLoading(false);
+      }
+    }
+  }, []);
 
   useEffect(() => {
     if (isAuthenticated) {
-      reloadAppResources();
+      void reloadAppResources();
+      return;
     }
-  }, [isAuthenticated]);
+
+    appResourceRequestId.current += 1;
+    setIsAppResourcesLoading(false);
+    setHasLoadedAppResources(false);
+    setAppResourcesError(null);
+    setHasUnreadNotifications(false);
+  }, [isAuthenticated, reloadAppResources]);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -313,31 +360,56 @@ export default function App() {
     let isMounted = true;
 
     async function loadNotifications() {
-      const [localSettings, remoteSettings, nextPermissionState] = await Promise.all([
-        loadNotificationSettings(),
-        fetchRemoteNotificationSettings().catch(() => null),
-        getNotificationPermissionState(),
-      ]);
-      const nextSettings = mergeNotificationSettings(localSettings, remoteSettings);
-      const appliedSettings = await applyNotificationSettings(nextSettings);
+      try {
+        const [localSettings, remoteSettings, nextPermissionState, events, readEventIds] = await Promise.all([
+          loadNotificationSettings(),
+          fetchRemoteNotificationSettings().catch(() => null),
+          getNotificationPermissionState(),
+          fetchNotificationEvents(40),
+          loadNotificationReadIds(currentUser?.id),
+        ]);
+        const nextSettings = mergeNotificationSettings(localSettings, remoteSettings);
+        const appliedSettings = await applyNotificationSettings(nextSettings);
 
-      if (isMounted) {
-        setNotificationSettings(appliedSettings);
-        setNotificationPermissionState(nextPermissionState);
+        if (isMounted) {
+          const readEventIdSet = new Set(readEventIds);
+
+          setNotificationSettings(appliedSettings);
+          setNotificationPermissionState(nextPermissionState);
+          setHasUnreadNotifications(events.some((event) => !readEventIdSet.has(event.id)));
+        }
+      } catch (error) {
+        console.warn('[notifications] initial load failed', error);
       }
     }
 
-    loadNotifications();
+    void loadNotifications();
 
     return () => {
       isMounted = false;
     };
-  }, [isAuthenticated]);
+  }, [currentUser?.id, isAuthenticated]);
+
+  const handleUnreadNotificationCountChange = useCallback((unreadCount: number) => {
+    setHasUnreadNotifications(unreadCount > 0);
+  }, []);
+
+  const handleRetryAppData = useCallback(() => {
+    void Promise.all([reloadCats(), reloadAppResources()]);
+  }, [reloadAppResources, reloadCats]);
+
+  const requireActiveNeighborhood = () => {
+    if (hasActiveNeighborhood) {
+      return true;
+    }
+
+    const alert = getNeighborhoodRequiredAlert();
+    Alert.alert(alert.title, alert.message);
+    return false;
+  };
 
   const handleTabChange = (screen: TabScreen) => {
-    if (screen === 'capture' && !hasActiveNeighborhood) {
-      const alert = getNeighborhoodRequiredAlert();
-      Alert.alert(alert.title, alert.message);
+    if ((screen === 'capture' || screen === 'map') && !requireActiveNeighborhood()) {
       return;
     }
 
@@ -350,14 +422,26 @@ export default function App() {
       selectedCatId: null,
       selectedOwnerId: null,
     });
+    setCatReturnNavigation(null);
   };
 
   const handleOpenCat = (catId: string) => {
+    setCatReturnNavigation(navigation);
     setNavigation({
       screen: 'detail',
       selectedCatId: catId,
       selectedOwnerId: null,
     });
+  };
+
+  const handleReturnFromCatDetail = () => {
+    if (catReturnNavigation) {
+      setNavigation(catReturnNavigation);
+      setCatReturnNavigation(null);
+      return;
+    }
+
+    handleTabChange('dex');
   };
 
   const handleOpenCatEdit = (catId: string) => {
@@ -368,7 +452,41 @@ export default function App() {
     });
   };
 
+  const handleReturnFromCatEdit = (catId: string) => {
+    setNavigation({
+      screen: 'detail',
+      selectedCatId: catId,
+      selectedOwnerId: null,
+    });
+  };
+
+  useEffect(() => {
+    const isCatScreen = navigation.screen === 'detail' || navigation.screen === 'catEdit';
+
+    if (!isCatScreen || !navigation.selectedCatId || isCatsLoading || !hasLoadedCats || visibleSelectedCat) {
+      return;
+    }
+
+    Alert.alert('고양이 기록을 찾을 수 없어요', '삭제되었거나 지금은 볼 수 없는 기록이에요.');
+
+    if (catReturnNavigation) {
+      setNavigation(catReturnNavigation);
+      setCatReturnNavigation(null);
+      return;
+    }
+
+    setNavigation({
+      screen: 'dex',
+      selectedCatId: null,
+      selectedOwnerId: null,
+    });
+  }, [catReturnNavigation, hasLoadedCats, isCatsLoading, navigation.screen, navigation.selectedCatId, visibleSelectedCat]);
+
   const handleOpenNeighborhoodDex = () => {
+    if (!requireActiveNeighborhood()) {
+      return;
+    }
+
     setNeighborhoodView('dex');
     setNavigation({
       screen: 'map',
@@ -379,6 +497,10 @@ export default function App() {
   };
 
   const handleOpenNeighborhoodMap = () => {
+    if (!requireActiveNeighborhood()) {
+      return;
+    }
+
     setNeighborhoodView('map');
     setNavigation({
       screen: 'map',
@@ -389,6 +511,10 @@ export default function App() {
   };
 
   const handleOpenCommunityBoard = () => {
+    if (!requireActiveNeighborhood()) {
+      return;
+    }
+
     setNeighborhoodView('board');
     setNavigation({
       screen: 'map',
@@ -412,6 +538,10 @@ export default function App() {
   };
 
   const handleOpenCommunityCompose = (catId?: string, returnScreen: CommunityReturnScreen = 'board') => {
+    if (!requireActiveNeighborhood()) {
+      return;
+    }
+
     setCommunityReturnScreen(returnScreen);
     setShouldEditCommunityPostOnOpen(false);
     setNeighborhoodView('board');
@@ -526,30 +656,75 @@ export default function App() {
       throw new Error(alert.message);
     }
 
-    const [originalUpload, cutoutUpload] = await Promise.all([
-      uploadCatObservationImage(processedPhoto.originalImageUri, 'original'),
-      uploadCatObservationImage(processedPhoto.cutoutImageUri, 'cutout'),
-    ]);
-    const observation = await createCatObservation({
-      originalImageUrl: originalUpload.imageUrl,
-      cutoutImageUrl: cutoutUpload.imageUrl,
-      regionName: activeNeighborhoodName,
-      detectionConfidence: processedPhoto.confidence,
-      boundingBox: processedPhoto.boundingBox,
-      featureVector: processedPhoto.featureVector,
-      isPreciseCutout: processedPhoto.isPreciseCutout,
-    });
-    const candidates = await fetchCatMatchCandidates({
-      observationId: observation.id,
-      regionNames: activeNeighborhoodRegionNames,
-      limit: 5,
-    });
+    const uploadedImagePaths: string[] = [];
+    let observationId: string | null = null;
 
-    return {
-      observationId: observation.id,
-      cutoutImageUrl: cutoutUpload.imageUrl,
-      candidates,
-    };
+    try {
+      const originalUpload = await uploadCatObservationImage(processedPhoto.originalImageUri, 'original');
+      uploadedImagePaths.push(originalUpload.imageUrl);
+
+      const cutoutUpload =
+        processedPhoto.cutoutImageUri === processedPhoto.originalImageUri
+          ? originalUpload
+          : await uploadCatObservationImage(processedPhoto.cutoutImageUri, 'cutout');
+
+      if (cutoutUpload.imageUrl !== originalUpload.imageUrl) {
+        uploadedImagePaths.push(cutoutUpload.imageUrl);
+      }
+
+      const observation = await createCatObservation({
+        originalImageUrl: originalUpload.imageUrl,
+        cutoutImageUrl: cutoutUpload.imageUrl,
+        regionName: activeNeighborhoodName,
+        detectionConfidence: processedPhoto.confidence,
+        boundingBox: processedPhoto.boundingBox,
+        featureVector: processedPhoto.featureVector,
+        isPreciseCutout: processedPhoto.isPreciseCutout,
+      });
+      observationId = observation.id;
+
+      const candidates = await fetchCatMatchCandidates({
+        observationId: observation.id,
+        regionNames: activeNeighborhoodRegionNames,
+        limit: 5,
+      });
+
+      return {
+        observationId: observation.id,
+        cutoutImageUrl: cutoutUpload.imageUrl,
+        uploadedImagePaths,
+        candidates,
+      };
+    } catch (error) {
+      let canRemoveImages = observationId === null;
+
+      if (observationId) {
+        try {
+          await deletePendingCatObservation(observationId);
+          canRemoveImages = true;
+        } catch (cleanupError) {
+          console.warn('[capture] failed observation cleanup failed', cleanupError);
+        }
+      }
+
+      if (canRemoveImages) {
+        await removeCatImages(uploadedImagePaths).catch((cleanupError) => {
+          console.warn('[capture] failed image cleanup failed', cleanupError);
+        });
+      }
+
+      throw error;
+    }
+  };
+
+  const handleDiscardCapture = async (payload: { observationId?: string; uploadedImagePaths?: string[] }) => {
+    if (payload.observationId) {
+      await deletePendingCatObservation(payload.observationId);
+    }
+
+    await removeCatImages(payload.uploadedImagePaths ?? []).catch((error) => {
+      console.warn('[capture] discarded image cleanup failed', error);
+    });
   };
 
   const handleSaveCapture = async (draft: CaptureCatDraft) => {
@@ -558,7 +733,12 @@ export default function App() {
     try {
       const nextCat = await createCat(draft);
       if (draft.observationId) {
-        await resolveCatObservation(draft.observationId, nextCat.id, 'new_cat');
+        try {
+          await resolveCatObservation(draft.observationId, nextCat.id, 'new_cat');
+        } catch (error) {
+          console.warn('[capture] created cat observation link failed', error);
+          Alert.alert('고양이는 등록했어요', '촬영 분석 기록 연결만 완료하지 못했어요. 도감에는 정상적으로 저장됐습니다.');
+        }
       }
       await reloadAppResources();
       setNavigation({
@@ -566,6 +746,10 @@ export default function App() {
         selectedCatId: null,
         selectedOwnerId: null,
       });
+    } catch (error) {
+      console.warn('[capture] cat save failed', error);
+      const friendlyError = getUserFacingError(error, 'capture.save');
+      Alert.alert(friendlyError.title, friendlyError.message);
     } finally {
       setIsSaving(false);
     }
@@ -577,7 +761,12 @@ export default function App() {
     try {
       await createCatSighting(draft);
       if (draft.observationId) {
-        await resolveCatObservation(draft.observationId, null, 'uncertain');
+        try {
+          await resolveCatObservation(draft.observationId, null, 'uncertain');
+        } catch (error) {
+          console.warn('[capture] sighting observation link failed', error);
+          Alert.alert('확인 요청은 저장했어요', '촬영 분석 기록 연결만 완료하지 못했어요. 확인 요청은 정상적으로 남았습니다.');
+        }
       }
       await reloadAppResources();
       setNavigation({
@@ -585,6 +774,10 @@ export default function App() {
         selectedCatId: null,
         selectedOwnerId: null,
       });
+    } catch (error) {
+      console.warn('[capture] sighting save failed', error);
+      const friendlyError = getUserFacingError(error, 'capture.save');
+      Alert.alert(friendlyError.title, friendlyError.message);
     } finally {
       setIsSaving(false);
     }
@@ -602,7 +795,12 @@ export default function App() {
     try {
       await addEncounter(catId, activeNeighborhoodName, payload?.imageUrl);
       if (payload?.observationId) {
-        await resolveCatObservation(payload.observationId, catId, 'linked');
+        try {
+          await resolveCatObservation(payload.observationId, catId, 'linked');
+        } catch (error) {
+          console.warn('[capture] encounter observation link failed', error);
+          Alert.alert('다시 만남은 기록했어요', '촬영 분석 기록 연결만 완료하지 못했어요. 만남 횟수는 정상적으로 반영됐습니다.');
+        }
       }
       await reloadAppResources();
       setNavigation({
@@ -610,22 +808,53 @@ export default function App() {
         selectedCatId: catId,
         selectedOwnerId: null,
       });
+    } catch (error) {
+      console.warn('[capture] existing cat record failed', error);
+      const friendlyError = getUserFacingError(error, 'capture.save');
+      Alert.alert(friendlyError.title, friendlyError.message);
     } finally {
       setIsSaving(false);
     }
   };
 
-  const handleReportSelectedCat = async () => {
+  const submitSelectedCatReport = async () => {
     if (!visibleSelectedCat) {
       return;
     }
 
-    await reportCat({
-      catId: visibleSelectedCat.id,
-      reason: 'incorrect_info',
-      memo: '앱에서 사용자 신고로 접수되었습니다.',
-    });
-    Alert.alert('신고 접수', '검토가 필요한 고양이 정보로 신고했어요.');
+    setIsReportingCat(true);
+
+    try {
+      await reportCat({
+        catId: visibleSelectedCat.id,
+        reason: 'incorrect_info',
+        memo: '앱에서 사용자 신고로 접수되었습니다.',
+      });
+      Alert.alert('신고 접수', '검토가 필요한 고양이 정보로 신고했어요.');
+    } catch (error) {
+      console.warn('[cats] report failed', error);
+      const friendlyError = getUserFacingError(error, 'cat.report');
+      Alert.alert(friendlyError.title, friendlyError.message);
+    } finally {
+      setIsReportingCat(false);
+    }
+  };
+
+  const handleReportSelectedCat = () => {
+    if (!visibleSelectedCat || isReportingCat) {
+      return;
+    }
+
+    Alert.alert('고양이 정보 신고', `${visibleSelectedCat.name}의 정보가 잘못되었거나 검토가 필요한가요?`, [
+      { text: '취소', style: 'cancel' },
+      {
+        text: '신고하기',
+        style: 'destructive',
+        onPress: () => {
+          void submitSelectedCatReport();
+        },
+      },
+    ]);
   };
 
   const handleSaveCatProfile = async (draft: CatProfileUpdateDraft) => {
@@ -670,7 +899,8 @@ export default function App() {
     });
   };
 
-  const handleOpenBadgeBook = () => {
+  const handleOpenBadgeBook = (returnScreen: TabScreen = 'my') => {
+    setBadgeBookReturnScreen(returnScreen);
     setNavigation({
       screen: 'badgeBook',
       selectedCatId: null,
@@ -755,6 +985,21 @@ export default function App() {
     }
   };
 
+  const handleLogout = async () => {
+    try {
+      await logout();
+      setNavigation({
+        screen: 'home',
+        selectedCatId: null,
+        selectedOwnerId: null,
+      });
+    } catch (error) {
+      console.warn('[auth] logout failed', error);
+      const friendlyError = getUserFacingError(error, 'auth.logout');
+      Alert.alert(friendlyError.title, friendlyError.message);
+    }
+  };
+
   const handleSaveFeaturedCats = async (catIds: string[]) => {
     setIsFeaturedCatsSaving(true);
 
@@ -809,6 +1054,7 @@ export default function App() {
 
   const handleChangeNotificationSettings = async (nextSettings: NotificationSettings) => {
     setIsNotificationSaving(true);
+    const previousSettings = notificationSettings;
 
     try {
       const appliedSettings = await applyNotificationSettings(nextSettings);
@@ -816,6 +1062,12 @@ export default function App() {
       setNotificationSettings(appliedSettings);
     } catch (error) {
       console.warn('[notifications] settings save failed', error);
+      try {
+        const restoredSettings = await applyNotificationSettings(previousSettings);
+        setNotificationSettings(restoredSettings);
+      } catch (rollbackError) {
+        console.warn('[notifications] settings rollback failed', rollbackError);
+      }
       const friendlyError = getUserFacingError(error, 'notification.save');
       Alert.alert(friendlyError.title, friendlyError.message);
     } finally {
@@ -834,6 +1086,10 @@ export default function App() {
         const expoPushToken = await getExpoPushTokenForDevice();
         await registerNotificationDevice(expoPushToken, getNotificationDevicePlatform());
       }
+    } catch (error) {
+      console.warn('[notifications] permission request failed', error);
+      const friendlyError = getUserFacingError(error, 'notification.save');
+      Alert.alert(friendlyError.title, friendlyError.message);
     } finally {
       setIsNotificationSaving(false);
     }
@@ -844,6 +1100,11 @@ export default function App() {
 
     try {
       await sendAchievementPreviewNotification();
+      Alert.alert('미리보기 전송', '알림이 표시되는지 확인해 주세요.');
+    } catch (error) {
+      console.warn('[notifications] preview failed', error);
+      const friendlyError = getUserFacingError(error, 'notification.save');
+      Alert.alert(friendlyError.title, friendlyError.message);
     } finally {
       setIsNotificationSaving(false);
     }
@@ -854,16 +1115,26 @@ export default function App() {
     cutoutImageUrl?: string;
     processedPhoto: ProcessedCatPhoto;
   }) => {
-    if (payload.observationId) {
-      await resolveCatObservation(payload.observationId, null, 'uncertain');
-    }
+    setIsSaving(true);
 
-    Alert.alert('미확인 기록 저장', '같은 고양이인지 판단하기 어려운 관찰로 남겼어요.');
-    setNavigation({
-      screen: 'dex',
-      selectedCatId: null,
-      selectedOwnerId: null,
-    });
+    try {
+      if (payload.observationId) {
+        await resolveCatObservation(payload.observationId, null, 'uncertain');
+      }
+
+      Alert.alert('미확인 기록 저장', '같은 고양이인지 판단하기 어려운 관찰로 남겼어요.');
+      setNavigation({
+        screen: 'dex',
+        selectedCatId: null,
+        selectedOwnerId: null,
+      });
+    } catch (error) {
+      console.warn('[capture] uncertain observation save failed', error);
+      const friendlyError = getUserFacingError(error, 'capture.save');
+      Alert.alert(friendlyError.title, friendlyError.message);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const collectionSummary: CollectionSummary = {
@@ -872,6 +1143,9 @@ export default function App() {
       .filter((cat): cat is NonNullable<typeof cat> => Boolean(cat)),
     achievedBadgeCount: badges.filter((badge) => badge.achieved).length,
   };
+  const hasLoadedInitialAppData = hasLoadedCats && hasLoadedAppResources;
+  const appDataError = catsLoadError ?? appResourcesError;
+  const isAppDataRetrying = isCatsLoading || isAppResourcesLoading;
 
   const renderScreen = () => {
     switch (navigation.screen) {
@@ -886,10 +1160,11 @@ export default function App() {
             favoriteCats={collectionSummary.featuredCats}
             isDetectingNeighborhood={isDetectingNeighborhood}
             neighborhoodName={activeNeighborhoodName}
+            hasUnreadNotifications={hasUnreadNotifications}
             onDetectNeighborhood={handleDetectNeighborhood}
             onGoCapture={() => handleTabChange('capture')}
             onGoDex={() => handleTabChange('dex')}
-            onOpenBadges={handleOpenBadgeBook}
+            onOpenBadges={() => handleOpenBadgeBook('home')}
             onOpenCat={handleOpenCat}
             onOpenNotifications={() => handleOpenNotificationInbox('home')}
             onRemoveNeighborhood={handleRemoveNeighborhood}
@@ -914,10 +1189,11 @@ export default function App() {
           <CatDetailScreen
             cat={visibleSelectedCat}
             encounters={selectedCatEncounters}
-            onBack={() => handleTabChange('dex')}
+            onBack={handleReturnFromCatDetail}
             onComposePost={() => handleOpenCommunityCompose(visibleSelectedCat.id)}
             onEditCat={() => handleOpenCatEdit(visibleSelectedCat.id)}
             onReportCat={handleReportSelectedCat}
+            isReporting={isReportingCat}
           />
         ) : (
           <CatDexScreen
@@ -931,7 +1207,7 @@ export default function App() {
           <CatEditScreen
             cat={visibleSelectedCat}
             isSaving={isCatProfileSaving}
-            onBack={() => handleOpenCat(visibleSelectedCat.id)}
+            onBack={() => handleReturnFromCatEdit(visibleSelectedCat.id)}
             onSave={handleSaveCatProfile}
             personalityOptions={apiPersonalityOptions}
           />
@@ -949,6 +1225,7 @@ export default function App() {
             isSubmitting={isSaving}
             neighborhoodName={activeNeighborhoodName}
             onBack={() => handleTabChange('home')}
+            onDiscard={handleDiscardCapture}
             onMarkUncertain={handleMarkCaptureUncertain}
             onProcessPhoto={handleProcessCapturedPhoto}
             onRecordExisting={handleRecordExistingCat}
@@ -1041,13 +1318,13 @@ export default function App() {
             myCats={myCats}
             neighborhoodName={activeNeighborhoodName}
             onOpenExplorationHistory={handleOpenExplorationHistory}
-            onOpenBadges={handleOpenBadgeBook}
+            onOpenBadges={() => handleOpenBadgeBook('my')}
             onOpenCommunityPosts={handleOpenMyCommunityPosts}
             onOpenNotifications={() => handleOpenNotifications('my')}
             onOpenProfileEdit={handleOpenProfileEdit}
             onSaveFeaturedCats={handleSaveFeaturedCats}
             onOpenCat={handleOpenCat}
-            onLogout={logout}
+            onLogout={handleLogout}
             onWithdrawAccount={handleWithdrawAccount}
             profile={profile}
             user={currentUser}
@@ -1068,7 +1345,7 @@ export default function App() {
             badges={badges}
             myCats={myCats}
             neighborhoodName={activeNeighborhoodName}
-            onBack={() => handleTabChange('my')}
+            onBack={() => handleTabChange(badgeBookReturnScreen)}
             onGoCapture={() => handleTabChange('capture')}
             onGoDex={() => handleTabChange('dex')}
             onGoMap={() => handleTabChange('map')}
@@ -1111,6 +1388,7 @@ export default function App() {
             onBack={() => handleTabChange(notificationReturnScreen)}
             onOpenEvent={handleOpenNotificationEvent}
             onOpenSettings={() => handleOpenNotifications(notificationReturnScreen)}
+            onUnreadCountChange={handleUnreadNotificationCountChange}
           />
         );
       default:
@@ -1129,8 +1407,17 @@ export default function App() {
           onComplete={handleCompleteProfileSetup}
           user={currentUser}
         />
+      ) : isAuthenticated && currentUser && !hasLoadedInitialAppData && !appDataError ? (
+        <SplashScreen />
+      ) : isAuthenticated && currentUser && !hasLoadedInitialAppData && appDataError ? (
+        <AppShell>
+          <AppLoadFailureScreen error={appDataError} isRetrying={isAppDataRetrying} onRetry={handleRetryAppData} />
+        </AppShell>
       ) : isAuthenticated && currentUser ? (
-        <AppShell bottomBar={shouldHideBottomBar ? undefined : <BottomTabBar activeTab={activeTab} onChange={handleTabChange} />}>
+        <AppShell
+          bottomBar={shouldShowBottomBar ? <BottomTabBar activeTab={activeTab} onChange={handleTabChange} /> : undefined}
+          statusBanner={appDataError ? <AppStatusBanner error={appDataError} isRetrying={isAppDataRetrying} onRetry={handleRetryAppData} /> : undefined}
+        >
           {renderScreen()}
         </AppShell>
       ) : (

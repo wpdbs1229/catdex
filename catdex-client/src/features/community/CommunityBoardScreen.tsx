@@ -95,6 +95,7 @@ export function CommunityBoardScreen({
             <Pressable
               accessibilityLabel={`게시판 필터 ${filter.label}`}
               accessibilityRole="button"
+              accessibilityState={{ selected: isActive }}
               key={filter.id}
               onPress={() => handleChangeFilter(filter.id)}
               style={({ pressed }) => [styles.filterChip, isActive && styles.filterChipActive, pressed && styles.pressed]}

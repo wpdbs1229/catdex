@@ -1,5 +1,7 @@
 type ErrorContext =
+  | 'app.load'
   | 'auth.login'
+  | 'auth.logout'
   | 'account.withdraw'
   | 'community.load'
   | 'community.save'
@@ -9,7 +11,10 @@ type ErrorContext =
   | 'community.like'
   | 'leaderboard.load'
   | 'capture.process'
+  | 'capture.save'
+  | 'capture.discard'
   | 'cat.update'
+  | 'cat.report'
   | 'profile.save'
   | 'notification.save'
   | 'notification.load'
@@ -22,9 +27,17 @@ export interface UserFacingError {
 }
 
 const contextFallbacks: Record<ErrorContext, UserFacingError> = {
+  'app.load': {
+    title: '앱 정보를 불러오지 못했어요',
+    message: '인터넷 연결을 확인한 뒤 다시 불러와 주세요.',
+  },
   'auth.login': {
     title: '로그인이 완료되지 않았어요',
     message: '잠시 후 다시 시도하거나 다른 시작 방법을 선택해 주세요.',
+  },
+  'auth.logout': {
+    title: '로그아웃하지 못했어요',
+    message: '연결 상태를 확인한 뒤 다시 시도해 주세요.',
   },
   'account.withdraw': {
     title: '회원탈퇴를 완료하지 못했어요',
@@ -62,9 +75,21 @@ const contextFallbacks: Record<ErrorContext, UserFacingError> = {
     title: '사진을 처리하지 못했어요',
     message: '사진은 아직 저장되지 않았어요. 고양이가 더 잘 보이게 다시 찍어 주세요.',
   },
+  'capture.save': {
+    title: '고양이 기록을 저장하지 못했어요',
+    message: '입력한 내용은 그대로 두었어요. 연결 상태를 확인한 뒤 다시 저장해 주세요.',
+  },
+  'capture.discard': {
+    title: '임시 촬영 기록을 정리하지 못했어요',
+    message: '잠시 후 다시 시도해 주세요. 정리가 끝나기 전에는 화면을 유지해 주세요.',
+  },
   'cat.update': {
     title: '고양이 정보를 저장하지 못했어요',
     message: '입력한 내용은 유지돼요. 잠시 후 다시 저장해 주세요.',
+  },
+  'cat.report': {
+    title: '신고를 접수하지 못했어요',
+    message: '연결 상태를 확인한 뒤 다시 시도해 주세요.',
   },
   'profile.save': {
     title: '프로필을 저장하지 못했어요',

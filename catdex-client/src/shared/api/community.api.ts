@@ -232,48 +232,36 @@ async function uploadCommunityPostImage(userId: string, postId: string, image: C
   return uploadData.path;
 }
 
-async function buildCommunityPostImageRows(postId: string, userId: string, images: CommunityPostImageDraft[]) {
+async function buildCommunityPostImagePaths(postId: string, userId: string, images: CommunityPostImageDraft[]) {
   const uploadedPaths: string[] = [];
-  const rows = await Promise.all(
-    images.slice(0, 5).map(async (image, index) => {
+  const imagePaths: string[] = [];
+
+  try {
+    for (const [index, image] of images.slice(0, 5).entries()) {
       const imagePath = image.storagePath ?? (await uploadCommunityPostImage(userId, postId, image, index));
 
       if (!image.storagePath) {
         uploadedPaths.push(imagePath);
       }
 
-      return {
-        post_id: postId,
-        author_id: userId,
-        image_url: imagePath,
-        sort_order: index,
-      };
-    }),
-  );
-
-  return { rows, uploadedPaths };
-}
-
-async function insertCommunityPostImages(postId: string, userId: string, images: CommunityPostImageDraft[]) {
-  if (images.length === 0) {
-    return;
-  }
-
-  const { rows, uploadedPaths } = await buildCommunityPostImageRows(postId, userId, images);
-
-  try {
-    const { error: imageInsertError } = await supabase.from('community_post_images').insert(rows);
-    throwIfSupabaseError(imageInsertError);
+      imagePaths.push(imagePath);
+    }
   } catch (error) {
     if (uploadedPaths.length > 0) {
-      await supabase.storage.from('community-post-images').remove(uploadedPaths);
+      const { error: cleanupError } = await supabase.storage.from('community-post-images').remove(uploadedPaths);
+
+      if (cleanupError) {
+        console.warn('[community] partial post image upload cleanup failed', cleanupError);
+      }
     }
 
     throw error;
   }
+
+  return { imagePaths, uploadedPaths };
 }
 
-async function replaceCommunityPostImages(postId: string, userId: string, images: CommunityPostImageDraft[]) {
+async function prepareCommunityPostImageReplacement(postId: string, userId: string, images: CommunityPostImageDraft[]) {
   const existingResponse = await supabase.from('community_post_images').select('image_url').eq('post_id', postId).eq('author_id', userId);
   throwIfSupabaseError(existingResponse.error);
 
@@ -281,31 +269,52 @@ async function replaceCommunityPostImages(postId: string, userId: string, images
   const normalizedImages = images.slice(0, 5);
   const keptPaths = new Set(normalizedImages.map((image) => image.storagePath).filter((path): path is string => Boolean(path)));
   const removedPaths = existingPaths.filter((path) => !keptPaths.has(path));
-  const { rows, uploadedPaths } = await buildCommunityPostImageRows(postId, userId, normalizedImages);
+  const { imagePaths, uploadedPaths } = await buildCommunityPostImagePaths(postId, userId, normalizedImages);
+
+  return { imagePaths, removedPaths, uploadedPaths };
+}
+
+async function cleanupUploadedCommunityPostImages(uploadedPaths: string[], context: string) {
+  if (uploadedPaths.length === 0) {
+    return;
+  }
+
+  const { error } = await supabase.storage.from('community-post-images').remove(uploadedPaths);
+
+  if (error) {
+    console.warn(context, error);
+  }
+}
+
+async function cleanupRemovedCommunityPostImages(removedPaths: string[]) {
+  if (removedPaths.length === 0) {
+    return;
+  }
+
+  const { error } = await supabase.storage.from('community-post-images').remove(removedPaths);
+
+  if (error) {
+    console.warn('[community] removed post image rows but storage cleanup failed', error);
+  }
+}
+
+async function replaceCommunityPostImages(postId: string, userId: string, images: CommunityPostImageDraft[]) {
+  const { imagePaths, removedPaths, uploadedPaths } = await prepareCommunityPostImageReplacement(postId, userId, images);
 
   try {
-    const { error: deleteError } = await supabase.from('community_post_images').delete().eq('post_id', postId).eq('author_id', userId);
-    throwIfSupabaseError(deleteError);
-
-    if (rows.length > 0) {
-      const { error: imageInsertError } = await supabase.from('community_post_images').insert(rows);
-      throwIfSupabaseError(imageInsertError);
-    }
+    const { error: replaceError } = await supabase.rpc('replace_community_post_images', {
+      p_post_id: postId,
+      p_image_paths: imagePaths,
+    });
+    throwIfSupabaseError(replaceError);
   } catch (error) {
-    if (uploadedPaths.length > 0) {
-      await supabase.storage.from('community-post-images').remove(uploadedPaths);
-    }
+    await cleanupUploadedCommunityPostImages(uploadedPaths, '[community] failed post image transaction cleanup failed');
 
     throw error;
   }
 
-  if (removedPaths.length > 0) {
-    const { error: removeError } = await supabase.storage.from('community-post-images').remove(removedPaths);
-
-    if (removeError) {
-      console.warn('[community] removed post image rows but storage cleanup failed', removeError);
-    }
-  }
+  await cleanupRemovedCommunityPostImages(removedPaths);
+  return imagePaths;
 }
 
 export async function fetchCommunityPosts(options: FetchCommunityThreadsOptions = {}): Promise<CommunityPost[]> {
@@ -522,7 +531,7 @@ export async function createCommunityPost(draft: CommunityPostDraft) {
       region_name: draft.regionName,
       cat_id: draft.catId ?? null,
       visibility: 'PUBLIC',
-      status: 'ACTIVE',
+      status: 'HIDDEN',
     })
     .select('id')
     .single();
@@ -530,13 +539,31 @@ export async function createCommunityPost(draft: CommunityPostDraft) {
   throwIfSupabaseError(error);
 
   const postId = data.id as string;
+  let savedImagePaths: string[] = [];
+
   try {
-    await insertCommunityPostImages(postId, userId, draft.images ?? []);
+    savedImagePaths = await replaceCommunityPostImages(postId, userId, draft.images ?? []);
+
+    const activationResponse = await supabase
+      .from('community_posts')
+      .update({ status: 'ACTIVE' })
+      .eq('id', postId)
+      .eq('author_id', userId)
+      .select('id')
+      .maybeSingle();
+
+    throwIfSupabaseError(activationResponse.error);
+
+    if (!activationResponse.data) {
+      throw new Error('게시글을 공개할 권한이 없어요.');
+    }
   } catch (imageError) {
     const { error: rollbackError } = await supabase.from('community_posts').delete().eq('id', postId).eq('author_id', userId);
 
     if (rollbackError) {
       console.warn('[community] post image save failed and rollback also failed', rollbackError);
+    } else {
+      await cleanupUploadedCommunityPostImages(savedImagePaths, '[community] failed post draft storage cleanup failed');
     }
 
     throw imageError;
@@ -554,6 +581,27 @@ export async function updateCommunityPost(postId: string, draft: CommunityPostUp
 
   if (body.length < 2) {
     throw new Error('동네 이야기를 2자 이상 입력해 주세요.');
+  }
+
+  if (draft.images) {
+    const { imagePaths, removedPaths, uploadedPaths } = await prepareCommunityPostImageReplacement(postId, userId, draft.images);
+
+    try {
+      const { data, error } = await supabase.rpc('update_community_post_with_images', {
+        p_post_id: postId,
+        p_title: title,
+        p_content: body,
+        p_topic: toStoredTopic(draft.topic),
+        p_image_paths: imagePaths,
+      });
+
+      throwIfSupabaseError(error);
+      await cleanupRemovedCommunityPostImages(removedPaths);
+      return data as string;
+    } catch (error) {
+      await cleanupUploadedCommunityPostImages(uploadedPaths, '[community] failed atomic post update cleanup failed');
+      throw error;
+    }
   }
 
   const { data, error } = await supabase
@@ -574,10 +622,6 @@ export async function updateCommunityPost(postId: string, draft: CommunityPostUp
     throw new Error('게시글 수정 권한이 없어요.');
   }
 
-  if (draft.images) {
-    await replaceCommunityPostImages(postId, userId, draft.images);
-  }
-
   return data.id as string;
 }
 
@@ -585,6 +629,17 @@ export async function deleteCommunityPost(postId: string) {
   assertSupabaseConfigured();
 
   const userId = await getCurrentUserId();
+  const imagesResponse = await supabase
+    .from('community_post_images')
+    .select('image_url')
+    .eq('post_id', postId)
+    .eq('author_id', userId);
+
+  throwIfSupabaseError(imagesResponse.error);
+
+  const imagePaths = ((imagesResponse.data ?? []) as Pick<CommunityPostImageRow, 'image_url'>[]).map(
+    (image) => image.image_url,
+  );
   const { data, error } = await supabase
     .from('community_posts')
     .delete()
@@ -597,6 +652,14 @@ export async function deleteCommunityPost(postId: string) {
 
   if (!data) {
     throw new Error('게시글 삭제 권한이 없어요.');
+  }
+
+  if (imagePaths.length > 0) {
+    const { error: cleanupError } = await supabase.storage.from('community-post-images').remove(imagePaths);
+
+    if (cleanupError) {
+      console.warn('[community] deleted post storage cleanup failed', cleanupError);
+    }
   }
 
   return data.id as string;

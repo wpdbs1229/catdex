@@ -33,7 +33,7 @@ export function BottomTabBar({ activeTab, onChange }: BottomTabBarProps) {
         return (
           <Pressable
             accessibilityLabel={`${label} 탭`}
-            accessibilityRole="tab"
+            accessibilityRole="button"
             accessibilityState={{ selected: isActive }}
             key={id}
             onPress={() => onChange(id)}

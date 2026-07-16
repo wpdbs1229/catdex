@@ -50,10 +50,13 @@ async function mapLeaderboardRow(row: NeighborhoodLeaderboardRow): Promise<Neigh
 export async function fetchNeighborhoodLeaderboard(regionName: string, days = 30, limit = 5): Promise<NeighborhoodLeaderboardEntry[]> {
   assertSupabaseConfigured();
 
+  const boundedDays = Math.min(Math.max(Math.trunc(days), 1), 365);
+  const boundedLimit = Math.min(Math.max(Math.trunc(limit), 1), 50);
+
   const { data, error } = await supabase.rpc('get_neighborhood_leaderboard', {
     p_region_name: regionName,
-    p_days: days,
-    p_limit: limit,
+    p_days: boundedDays,
+    p_limit: boundedLimit,
   });
 
   throwIfSupabaseError(error);

@@ -472,16 +472,44 @@ export async function fetchCatMatchCandidates(payload: {
 export async function resolveCatObservation(observationId: string, catId: string | null, status: 'linked' | 'new_cat' | 'uncertain') {
   assertSupabaseConfigured();
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('cat_observations')
     .update({
       resolved_cat_id: catId,
       status,
       resolved_at: new Date().toISOString(),
     })
-    .eq('id', observationId);
+    .eq('id', observationId)
+    .select('id')
+    .maybeSingle();
 
   throwIfSupabaseError(error);
+
+  if (!data) {
+    throw new Error('촬영 관찰 기록을 찾지 못했거나 수정할 권한이 없어요.');
+  }
+
+  return data.id as string;
+}
+
+export async function deletePendingCatObservation(observationId: string) {
+  assertSupabaseConfigured();
+
+  const { data, error } = await supabase
+    .from('cat_observations')
+    .delete()
+    .eq('id', observationId)
+    .eq('status', 'pending')
+    .select('id')
+    .maybeSingle();
+
+  throwIfSupabaseError(error);
+
+  if (!data) {
+    throw new Error('정리할 촬영 관찰 기록을 찾지 못했어요.');
+  }
+
+  return data.id as string;
 }
 
 export async function createCatSighting(draft: Pick<CaptureCatDraft, 'type' | 'regionName' | 'memo'> & { imageUrl?: string }) {

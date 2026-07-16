@@ -23,7 +23,7 @@ interface MyPageScreenProps {
   isSigningOut: boolean;
   isWithdrawing: boolean;
   isSavingFeaturedCats?: boolean;
-  onLogout: () => void;
+  onLogout: () => Promise<void> | void;
   onWithdrawAccount: () => Promise<void> | void;
   onOpenCat: (catId: string) => void;
   onOpenBadges: () => void;
@@ -115,8 +115,12 @@ export function MyPageScreen({
   };
 
   const handleSaveFeaturedCats = async (catIds: string[]) => {
-    await onSaveFeaturedCats(catIds);
-    setIsFeaturedManagerOpen(false);
+    try {
+      await onSaveFeaturedCats(catIds);
+      setIsFeaturedManagerOpen(false);
+    } catch {
+      // The app-level handler keeps the manager open and shows the error.
+    }
   };
 
   return (
@@ -126,7 +130,7 @@ export function MyPageScreen({
           <Text style={styles.idHeaderKicker}>NYANGNYANGDAN OFFICE</Text>
           <Text style={styles.idHeaderTitle}>냥냥단 사원증</Text>
         </View>
-        <Pressable onPress={onOpenProfileEdit} style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}>
+        <Pressable accessibilityLabel="프로필 수정" accessibilityRole="button" onPress={onOpenProfileEdit} style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}>
           <Settings color={theme.colors.primaryDark} size={20} />
         </Pressable>
       </View>
@@ -169,7 +173,7 @@ export function MyPageScreen({
           </View>
         </View>
 
-        <Pressable onPress={() => setIsRankGuideOpen(true)} style={({ pressed }) => [styles.idProgressBlock, pressed && styles.pressed]}>
+        <Pressable accessibilityLabel="냥냥단 직급 기준 보기" accessibilityRole="button" onPress={() => setIsRankGuideOpen(true)} style={({ pressed }) => [styles.idProgressBlock, pressed && styles.pressed]}>
           <View style={styles.idProgressRow}>
             <View style={styles.idProgressLabelRow}>
               <Text style={styles.idProgressLabel}>다음 직급까지</Text>
@@ -246,7 +250,7 @@ export function MyPageScreen({
         {featuredCats.length > 0 ? (
           <View style={styles.featuredRow}>
             {featuredCats.map((cat) => (
-              <Pressable key={cat.id} onPress={() => onOpenCat(cat.id)} style={({ pressed }) => [styles.featuredCat, pressed && styles.pressed]}>
+              <Pressable accessibilityLabel={`${cat.name} 도감 보기`} accessibilityRole="button" key={cat.id} onPress={() => onOpenCat(cat.id)} style={({ pressed }) => [styles.featuredCat, pressed && styles.pressed]}>
                 <Image resizeMode="cover" source={catImage(cat)} style={styles.featuredImage} />
                 <Text numberOfLines={1} style={styles.featuredName}>
                   {cat.name}
@@ -293,7 +297,7 @@ export function MyPageScreen({
                 <Text style={styles.rankModalKicker}>냥냥단 인사팀</Text>
                 <Text style={styles.rankModalTitle}>직급 기준</Text>
               </View>
-              <Pressable accessibilityLabel="직급 기준 닫기" onPress={() => setIsRankGuideOpen(false)} style={styles.modalCloseButton}>
+              <Pressable accessibilityLabel="직급 기준 닫기" accessibilityRole="button" onPress={() => setIsRankGuideOpen(false)} style={styles.modalCloseButton}>
                 <X color={theme.colors.primaryDark} size={20} />
               </Pressable>
             </View>
@@ -339,7 +343,7 @@ export function MyPageScreen({
                 <Text style={styles.withdrawalKicker}>ACCOUNT WITHDRAWAL</Text>
                 <Text style={styles.rankModalTitle}>회원탈퇴</Text>
               </View>
-              <Pressable accessibilityLabel="회원탈퇴 닫기" disabled={isWithdrawing} onPress={() => setIsWithdrawalOpen(false)} style={styles.modalCloseButton}>
+              <Pressable accessibilityLabel="회원탈퇴 닫기" accessibilityRole="button" disabled={isWithdrawing} onPress={() => setIsWithdrawalOpen(false)} style={styles.modalCloseButton}>
                 <X color={theme.colors.primaryDark} size={20} />
               </Pressable>
             </View>
@@ -354,10 +358,10 @@ export function MyPageScreen({
             </View>
 
             <View style={styles.withdrawalActions}>
-              <Pressable disabled={isWithdrawing} onPress={() => setIsWithdrawalOpen(false)} style={({ pressed }) => [styles.withdrawalCancelButton, pressed && styles.pressed]}>
+              <Pressable accessibilityLabel="회원탈퇴 취소" accessibilityRole="button" disabled={isWithdrawing} onPress={() => setIsWithdrawalOpen(false)} style={({ pressed }) => [styles.withdrawalCancelButton, pressed && styles.pressed]}>
                 <Text style={styles.withdrawalCancelText}>취소</Text>
               </Pressable>
-              <Pressable disabled={isWithdrawing} onPress={handleConfirmWithdrawal} style={({ pressed }) => [styles.withdrawalConfirmButton, pressed && styles.pressed, isWithdrawing && styles.disabled]}>
+              <Pressable accessibilityLabel="회원탈퇴 확인" accessibilityRole="button" disabled={isWithdrawing} onPress={handleConfirmWithdrawal} style={({ pressed }) => [styles.withdrawalConfirmButton, pressed && styles.pressed, isWithdrawing && styles.disabled]}>
                 <Text style={styles.withdrawalConfirmText}>{isWithdrawing ? '처리 중...' : '회원탈퇴'}</Text>
               </Pressable>
             </View>
@@ -380,7 +384,7 @@ function MenuItem({ disabled = false, icon: Icon, label, onPress, tone = 'defaul
   const color = tone === 'danger' ? '#B55345' : theme.colors.primaryDark;
 
   return (
-    <Pressable disabled={disabled} onPress={onPress} style={({ pressed }) => [styles.menuItem, pressed && styles.pressed, disabled && styles.disabled]}>
+    <Pressable accessibilityLabel={label} accessibilityRole="button" disabled={disabled} onPress={onPress} style={({ pressed }) => [styles.menuItem, pressed && styles.pressed, disabled && styles.disabled]}>
       <Icon color={color} size={18} />
       <Text style={[styles.menuLabel, tone === 'danger' && styles.menuLabelDanger]}>{label}</Text>
       <ChevronRight color={theme.colors.mutedText} size={18} />

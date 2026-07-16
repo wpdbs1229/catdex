@@ -1,4 +1,5 @@
 import { throwIfSupabaseError } from '@/shared/api/client';
+import { MAX_FEATURED_CATS } from '@/shared/constants/collection.constants';
 import { assertSupabaseConfigured, supabase } from '@/shared/supabase/client';
 import type { CollectionCustomizationState, FeaturedCatSlot } from '@/shared/types/collection';
 
@@ -48,22 +49,13 @@ export async function fetchCollectionCustomization(): Promise<CollectionCustomiz
 export async function saveFeaturedCats(catIds: string[]): Promise<CollectionCustomizationState> {
   assertSupabaseConfigured();
 
-  const userId = await getCurrentUserId('저장하려면');
-  const uniqueCatIds = Array.from(new Set(catIds.filter(Boolean))).slice(0, 3);
-  const rows = uniqueCatIds.map((catId, index) => ({
-    user_id: userId,
-    cat_id: catId,
-    slot: index + 1,
-    caption: '',
-  }));
+  await getCurrentUserId('저장하려면');
+  const uniqueCatIds = Array.from(new Set(catIds.filter(Boolean))).slice(0, MAX_FEATURED_CATS);
+  const { error } = await supabase.rpc('replace_featured_cats', {
+    p_cat_ids: uniqueCatIds,
+  });
 
-  const deleteResponse = await supabase.from('featured_cats').delete().eq('user_id', userId);
-  throwIfSupabaseError(deleteResponse.error);
-
-  if (rows.length > 0) {
-    const insertResponse = await supabase.from('featured_cats').insert(rows);
-    throwIfSupabaseError(insertResponse.error);
-  }
+  throwIfSupabaseError(error);
 
   return fetchCollectionCustomization();
 }

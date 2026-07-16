@@ -15,7 +15,7 @@ export function RecentCatCard({ cat, onPress }: RecentCatCardProps) {
   const visual = getCatVisual(cat.type);
 
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.pressable, pressed && styles.pressed]}>
+    <Pressable accessibilityLabel={`${cat.name} 도감 보기`} accessibilityRole="button" onPress={onPress} style={({ pressed }) => [styles.pressable, pressed && styles.pressed]}>
       <Card style={styles.card}>
         <View style={[styles.art, { backgroundColor: visual.colors[0] }]}>
           {cat.imageUrl ? <Image source={{ uri: cat.imageUrl }} style={styles.artImage} /> : <Text style={styles.artEmoji}>{visual.emoji}</Text>}

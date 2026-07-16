@@ -65,6 +65,8 @@ export function CatRegisterForm({
       <View style={styles.section}>
         <Text style={styles.label}>이름 입력</Text>
         <TextInput
+          accessibilityLabel="고양이 이름"
+          maxLength={24}
           onChangeText={(name) => setDraft((current) => ({ ...current, name }))}
           placeholder="길에서 만난 이름을 적어보세요"
           placeholderTextColor="#B59680"
@@ -95,19 +97,17 @@ export function CatRegisterForm({
 
       <View style={styles.section}>
         <Text style={styles.label}>발견 동네</Text>
-        <TextInput
-          onChangeText={(regionName) => setDraft((current) => ({ ...current, regionName }))}
-          placeholder="정확한 위치 말고 동네 이름만"
-          placeholderTextColor="#B59680"
-          style={styles.input}
-          value={draft.regionName}
-        />
+        <View accessibilityLabel={`발견 동네 ${trimmedDraft.regionName}`} style={styles.readonlyField}>
+          <Text numberOfLines={1} style={styles.readonlyFieldText}>{trimmedDraft.regionName}</Text>
+        </View>
         <Text style={[styles.helperText, !hasRegionName && styles.requiredText]}>정확한 좌표 대신 동네 단위 기록만 남겨요.</Text>
       </View>
 
       <View style={styles.section}>
         <Text style={styles.label}>메모</Text>
         <TextInput
+          accessibilityLabel="고양이 관찰 메모"
+          maxLength={300}
           multiline
           onChangeText={(memo) => setDraft((current) => ({ ...current, memo }))}
           placeholder="표정, 행동, 분위기 등을 적어보세요"
@@ -160,6 +160,21 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     lineHeight: 16,
+  },
+  readonlyField: {
+    minHeight: 48,
+    justifyContent: 'center',
+    marginTop: theme.spacing.sm,
+    borderRadius: theme.radius.lg,
+    paddingHorizontal: theme.spacing.lg,
+    backgroundColor: 'rgba(221,232,200,0.58)',
+    borderWidth: 1,
+    borderColor: 'rgba(113,138,91,0.2)',
+  },
+  readonlyFieldText: {
+    color: theme.colors.primaryDark,
+    fontSize: 14,
+    fontWeight: '900',
   },
   requiredText: {
     color: theme.colors.primaryDark,

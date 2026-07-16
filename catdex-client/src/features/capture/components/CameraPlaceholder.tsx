@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import type { CameraType } from 'expo-camera';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Image, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Camera, RefreshCw, RotateCcw } from 'lucide-react-native';
 import { Button } from '@/shared/components/Button';
 import { theme } from '@/shared/styles/theme';
@@ -49,6 +49,20 @@ export function CameraPlaceholder({ capturedImageUri, height, onPhotoCaptured, o
     setFacing((current) => (current === 'back' ? 'front' : 'back'));
   };
 
+  const handlePermissionAction = async () => {
+    try {
+      if (permission && !permission.canAskAgain) {
+        await Linking.openSettings();
+        return;
+      }
+
+      await requestPermission();
+    } catch (error) {
+      console.warn('[camera] permission action failed', error);
+      Alert.alert('카메라 설정을 열지 못했어요', '기기 설정에서 냥도감 카메라 권한을 직접 확인해 주세요.');
+    }
+  };
+
   if (capturedImageUri) {
     return (
       <View style={[styles.container, height ? { height } : null]}>
@@ -78,7 +92,7 @@ export function CameraPlaceholder({ capturedImageUri, height, onPhotoCaptured, o
         <Text style={styles.fallbackTitle}>카메라 권한이 필요해요</Text>
         <Text style={styles.fallbackText}>산책 중 만난 고양이를 사진으로 기록하려면 카메라 접근을 허용해주세요.</Text>
         <View style={styles.permissionButtonWrap}>
-          <Button onPress={requestPermission}>카메라 권한 허용하기</Button>
+          <Button onPress={handlePermissionAction}>{permission.canAskAgain ? '카메라 권한 허용하기' : '기기 설정 열기'}</Button>
         </View>
       </View>
     );

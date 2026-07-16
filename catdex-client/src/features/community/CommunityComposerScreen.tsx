@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import * as ImagePicker from 'expo-image-picker';
-import { ActivityIndicator, Alert, Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { AlertCircle, ArrowLeft, Camera, ImagePlus, PawPrint, Send, ShieldCheck, Trash2, X } from 'lucide-react-native';
 import { communityComposerTopicOptions } from '@/features/community/community.constants';
 import { createCommunityPost } from '@/shared/api/community.api';
@@ -34,6 +34,12 @@ export function CommunityComposerScreen({ cats, initialCatId, neighborhoodName, 
   const trimmedTitle = title.trim();
   const trimmedBody = body.trim();
   const canSubmit = trimmedBody.length >= 2 && !isSubmitting;
+  const hasUnsavedDraft =
+    topic !== 'SIGHTING' ||
+    trimmedTitle.length > 0 ||
+    trimmedBody.length > 0 ||
+    selectedCatId !== (initialCatId ?? null) ||
+    selectedImages.length > 0;
 
   useEffect(() => {
     if (!error) {
@@ -68,31 +74,62 @@ export function CommunityComposerScreen({ cats, initialCatId, neighborhoodName, 
       return;
     }
 
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
-    if (!permission.granted) {
-      Alert.alert('사진 접근 권한 필요', '게시글에 사진을 추가하려면 사진 접근을 허용해 주세요.');
+      if (!permission.granted) {
+        Alert.alert(
+          '사진 접근 권한 필요',
+          '게시글에 사진을 추가하려면 사진 접근을 허용해 주세요.',
+          permission.canAskAgain
+            ? undefined
+            : [
+                { text: '나중에', style: 'cancel' },
+                {
+                  text: '설정 열기',
+                  onPress: () => {
+                    void Linking.openSettings().catch((error) => console.warn('[community] open photo settings failed', error));
+                  },
+                },
+              ],
+        );
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        allowsMultipleSelection: true,
+        mediaTypes: ['images'],
+        quality: 0.84,
+        selectionLimit: MAX_POST_IMAGES - selectedImages.length,
+      });
+
+      if (result.canceled) {
+        return;
+      }
+
+      const nextImages = result.assets.map((asset) => ({
+        uri: asset.uri,
+        mimeType: asset.mimeType,
+      }));
+
+      setError(null);
+      setSelectedImages((current) => [...current, ...nextImages].slice(0, MAX_POST_IMAGES));
+    } catch (nextError) {
+      console.warn('[community] image picker failed', nextError);
+      setError(getUserFacingError(nextError, 'community.save'));
+    }
+  };
+
+  const handleBack = () => {
+    if (!hasUnsavedDraft) {
+      onBack();
       return;
     }
 
-    const result = await ImagePicker.launchImageLibraryAsync({
-      allowsMultipleSelection: true,
-      mediaTypes: ['images'],
-      quality: 0.84,
-      selectionLimit: MAX_POST_IMAGES - selectedImages.length,
-    });
-
-    if (result.canceled) {
-      return;
-    }
-
-    const nextImages = result.assets.map((asset) => ({
-      uri: asset.uri,
-      mimeType: asset.mimeType,
-    }));
-
-    setError(null);
-    setSelectedImages((current) => [...current, ...nextImages].slice(0, MAX_POST_IMAGES));
+    Alert.alert('작성 중인 글을 나갈까요?', '입력한 내용과 선택한 사진은 저장되지 않아요.', [
+      { text: '계속 작성', style: 'cancel' },
+      { text: '나가기', style: 'destructive', onPress: onBack },
+    ]);
   };
 
   const handleRemoveImage = (index: number) => {
@@ -128,9 +165,9 @@ export function CommunityComposerScreen({ cats, initialCatId, neighborhoodName, 
 
   return (
     <>
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={styles.content} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         <View style={styles.topBar}>
-          <Pressable accessibilityLabel="게시판으로 돌아가기" accessibilityRole="button" onPress={onBack} style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}>
+          <Pressable accessibilityLabel="게시판으로 돌아가기" accessibilityRole="button" disabled={isSubmitting} onPress={handleBack} style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}>
             <ArrowLeft color={theme.colors.text} size={20} />
           </Pressable>
           <Text style={styles.topTitle}>글쓰기</Text>
@@ -234,6 +271,8 @@ export function CommunityComposerScreen({ cats, initialCatId, neighborhoodName, 
         <View style={styles.section}>
           <Text style={styles.label}>제목</Text>
           <TextInput
+            accessibilityLabel="게시글 제목"
+            maxLength={80}
             onChangeText={(text) => {
               setError(null);
               setTitle(text);
@@ -248,6 +287,8 @@ export function CommunityComposerScreen({ cats, initialCatId, neighborhoodName, 
         <View style={styles.section}>
           <Text style={styles.label}>내용</Text>
           <TextInput
+            accessibilityLabel="게시글 내용"
+            maxLength={2000}
             multiline
             onChangeText={(text) => {
               setError(null);

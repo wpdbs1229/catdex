@@ -280,7 +280,7 @@ export function NeighborhoodDexScreen({
   }, [refreshLeaderboard]);
 
   return (
-    <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+    <ScrollView contentContainerStyle={styles.content} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
       <NeighborhoodTopTabs
         activeTab="dex"
         onOpenBoard={onOpenCommunityBoard}
@@ -336,6 +336,7 @@ export function NeighborhoodDexScreen({
             <Pressable
               accessibilityLabel={`동네 도감 범위 ${scope.label}`}
               accessibilityRole="button"
+              accessibilityState={{ selected: isSelected }}
               key={scope.id}
               onPress={() => setSelectedScope(scope.id)}
               style={({ pressed }) => [styles.scopeTab, isSelected && styles.scopeTabActive, pressed && styles.pressed]}
@@ -350,6 +351,7 @@ export function NeighborhoodDexScreen({
       <View style={styles.searchBar}>
         <Search color={theme.colors.mutedText} size={18} />
         <TextInput
+          accessibilityLabel="동네 도감 검색"
           autoCapitalize="none"
           autoCorrect={false}
           onChangeText={setSearchQuery}
@@ -370,6 +372,7 @@ export function NeighborhoodDexScreen({
             <Pressable
               accessibilityLabel={`동네 도감 필터 ${filter}`}
               accessibilityRole="button"
+              accessibilityState={{ selected: isSelected }}
               key={filter}
               onPress={() => setSelectedFilter(filter)}
               style={({ pressed }) => [styles.filterChip, isSelected && styles.filterChipActive, pressed && styles.pressed]}

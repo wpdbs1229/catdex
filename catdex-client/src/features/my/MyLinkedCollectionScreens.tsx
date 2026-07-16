@@ -41,7 +41,7 @@ function formatDate(value: string) {
 function Header({ onBack }: { onBack: () => void }) {
   return (
     <View style={styles.header}>
-      <Pressable accessibilityLabel="뒤로 가기" onPress={onBack} style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}>
+      <Pressable accessibilityLabel="사원증으로 돌아가기" accessibilityRole="button" onPress={onBack} style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}>
         <ChevronLeft color={theme.colors.primaryDark} size={22} />
       </Pressable>
       <View style={styles.headerCopy}>
@@ -64,7 +64,7 @@ export function ExplorationHistoryScreen({ cats, onBack, onOpenCat }: Exploratio
       {sortedCats.length > 0 ? (
         <View style={styles.list}>
           {sortedCats.map((cat) => (
-            <Pressable key={cat.id} onPress={() => onOpenCat(cat.id)} style={({ pressed }) => [styles.historyItem, pressed && styles.pressed]}>
+            <Pressable accessibilityLabel={`${cat.name} 근무 기록 보기`} accessibilityRole="button" key={cat.id} onPress={() => onOpenCat(cat.id)} style={({ pressed }) => [styles.historyItem, pressed && styles.pressed]}>
               <Image resizeMode="cover" source={imageForType(cat.type, cat.imageUrl)} style={styles.catThumb} />
               <View style={styles.itemCopy}>
                 <Text numberOfLines={1} style={styles.itemTitle}>

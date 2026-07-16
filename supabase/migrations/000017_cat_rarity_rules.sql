@@ -40,7 +40,7 @@ declare
   base_rarity integer := public.cat_type_base_rarity(p_type);
   final_rarity integer;
   reason_list text[] := array[]::text[];
-  region_id text;
+  target_region_id text;
   region_total_count integer := 0;
   region_type_count integer := 0;
   global_total_count integer := 0;
@@ -51,22 +51,22 @@ begin
   reason_list := array_append(reason_list, format('%s 기본 희귀도 %s성으로 시작했어요.', p_type, base_rarity));
 
   select regions.id
-  into region_id
+  into target_region_id
   from public.regions
   where regions.name = trim(p_region_name)
   limit 1;
 
-  if region_id is not null then
+  if target_region_id is not null then
     select count(distinct cat_regions.cat_id)
     into region_total_count
     from public.cat_regions
-    where cat_regions.region_id = region_id;
+    where cat_regions.region_id = target_region_id;
 
     select count(distinct cats.id)
     into region_type_count
     from public.cat_regions
     join public.cats on cats.id = cat_regions.cat_id
-    where cat_regions.region_id = region_id
+    where cat_regions.region_id = target_region_id
       and cats.type = p_type;
 
     if region_total_count >= 3 and region_type_count = 0 then

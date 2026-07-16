@@ -41,6 +41,7 @@ interface HomeScreenProps {
   neighborhoodCatCounts: Record<string, number>;
   savedNeighborhoods: SavedNeighborhood[];
   isDetectingNeighborhood: boolean;
+  hasUnreadNotifications: boolean;
   onOpenCat: (catId: string) => void;
   onOpenBadges: () => void;
   onGoCapture: () => void;
@@ -86,6 +87,7 @@ export function HomeScreen({
   neighborhoodCatCounts,
   savedNeighborhoods,
   isDetectingNeighborhood,
+  hasUnreadNotifications,
   onOpenCat,
   onOpenBadges,
   onOpenNotifications,
@@ -130,6 +132,9 @@ export function HomeScreen({
         </View>
         <View style={styles.headerActions}>
           <Pressable
+            accessibilityLabel={`현재 동네 ${neighborhoodName}. 동네 목록 ${isNeighborhoodPanelOpen ? '접기' : '펼치기'}`}
+            accessibilityRole="button"
+            accessibilityState={{ expanded: isNeighborhoodPanelOpen }}
             onPress={() => setIsNeighborhoodPanelOpen((current) => !current)}
             style={({ pressed }) => [styles.locationPill, pressed && styles.pressed]}
           >
@@ -146,7 +151,7 @@ export function HomeScreen({
             style={({ pressed }) => [styles.bellButton, pressed && styles.pressed]}
           >
             <Bell color={theme.colors.primaryDark} size={18} />
-            <View style={styles.noticeDot} />
+            {hasUnreadNotifications ? <View style={styles.noticeDot} /> : null}
           </Pressable>
         </View>
       </View>
@@ -166,6 +171,8 @@ export function HomeScreen({
           </View>
 
           <Pressable
+            accessibilityLabel="현재 위치로 동네 추가"
+            accessibilityRole="button"
             disabled={isDetectingNeighborhood}
             onPress={onDetectNeighborhood}
             style={({ pressed }) => [
@@ -197,6 +204,9 @@ export function HomeScreen({
 
                 return (
                   <Pressable
+                    accessibilityLabel={`${neighborhood.name} 동네 선택. 고양이 ${catCount}마리`}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: isActive }}
                     key={neighborhood.id}
                     onPress={() => onSelectNeighborhood(neighborhood.id)}
                     style={({ pressed }) => [
@@ -222,6 +232,8 @@ export function HomeScreen({
                     </View>
                     <Text style={styles.neighborhoodCatCount}>{catCount}마리</Text>
                     <Pressable
+                      accessibilityLabel={`${neighborhood.name} 동네 목록에서 제거`}
+                      accessibilityRole="button"
                       disabled={!canRemove}
                       onPress={(event) => {
                         event.stopPropagation();
@@ -284,7 +296,7 @@ export function HomeScreen({
               <Text style={styles.primaryButtonText}>오늘 본 냥이 기록</Text>
             </Button>
           </View>
-          <Pressable onPress={onGoDex} style={({ pressed }) => [styles.secondaryCta, pressed && styles.pressed]}>
+          <Pressable accessibilityLabel="내 도감 보기" accessibilityRole="button" onPress={onGoDex} style={({ pressed }) => [styles.secondaryCta, pressed && styles.pressed]}>
             <BookOpen color={theme.colors.primaryDark} size={18} />
             <Text style={styles.secondaryCtaText}>도감</Text>
           </Pressable>
@@ -333,7 +345,7 @@ export function HomeScreen({
           <Text style={styles.sectionKicker}>관심 고양이</Text>
           <Text style={styles.sectionTitle}>{hasFavoriteCats ? '즐겨찾기한 고양이' : '최근 등록한 고양이'}</Text>
         </View>
-        <Pressable onPress={onGoDex} style={({ pressed }) => [styles.headerLink, pressed && styles.pressed]}>
+        <Pressable accessibilityLabel="내 도감 전체 보기" accessibilityRole="button" onPress={onGoDex} style={({ pressed }) => [styles.headerLink, pressed && styles.pressed]}>
           <Text style={styles.headerLinkText}>전체</Text>
           <ChevronRight color={theme.colors.primaryDark} size={16} />
         </Pressable>
@@ -342,7 +354,7 @@ export function HomeScreen({
       <View style={styles.catStack}>
         {featuredCats.length > 0 ? (
           featuredCats.map((cat) => (
-            <Pressable key={cat.id} onPress={() => onOpenCat(cat.id)} style={({ pressed }) => [styles.catCard, pressed && styles.pressed]}>
+            <Pressable accessibilityLabel={`${cat.name} 도감 보기`} accessibilityRole="button" key={cat.id} onPress={() => onOpenCat(cat.id)} style={({ pressed }) => [styles.catCard, pressed && styles.pressed]}>
               <View style={styles.catImagePaper}>
                 <Image resizeMode="contain" source={getCatImage(cat)} style={styles.catImage} />
               </View>

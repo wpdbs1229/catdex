@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import * as ImagePicker from 'expo-image-picker';
-import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type ImageSourcePropType } from 'react-native';
+import { Alert, Image, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type ImageSourcePropType } from 'react-native';
 import { Camera, ChevronLeft, ImagePlus, RotateCcw, ShieldCheck } from 'lucide-react-native';
 import { TagChipGroup } from '@/features/capture/components/TagChipGroup';
 import { Button } from '@/shared/components/Button';
@@ -36,28 +36,55 @@ export function CatEditScreen({ cat, isSaving, personalityOptions, onBack, onSav
   const previewImageUri = clearImage ? undefined : (imageUri ?? cat.imageUrl);
   const trimmedName = name.trim();
   const canSave = trimmedName.length > 0 && !isSaving;
+  const initialTags = cat.tags as PersonalityTag[];
+  const hasUnsavedChanges =
+    trimmedName !== cat.name.trim() ||
+    memo.trim() !== (cat.memo ?? '').trim() ||
+    imageUri !== undefined ||
+    previewImageUri !== cat.imageUrl ||
+    tags.length !== initialTags.length ||
+    tags.some((tag, index) => tag !== initialTags[index]);
 
   const handlePickImage = async () => {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
-    if (!permission.granted) {
-      Alert.alert('사진 접근 권한 필요', '대표 사진을 선택하려면 사진 접근을 허용해 주세요.');
-      return;
+      if (!permission.granted) {
+        Alert.alert(
+          '사진 접근 권한 필요',
+          '대표 사진을 선택하려면 사진 접근을 허용해 주세요.',
+          permission.canAskAgain
+            ? undefined
+            : [
+                { text: '나중에', style: 'cancel' },
+                {
+                  text: '설정 열기',
+                  onPress: () => {
+                    void Linking.openSettings().catch((error) => console.warn('[cats] open photo settings failed', error));
+                  },
+                },
+              ],
+        );
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        allowsEditing: true,
+        aspect: [1, 1],
+        mediaTypes: ['images'],
+        quality: 0.84,
+      });
+
+      if (result.canceled || !result.assets[0]) {
+        return;
+      }
+
+      setImageUri(result.assets[0].uri);
+      setClearImage(false);
+    } catch (error) {
+      console.warn('[cats] image picker failed', error);
+      Alert.alert('사진을 불러오지 못했어요', '사진 접근 상태를 확인한 뒤 다시 시도해 주세요.');
     }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      allowsEditing: true,
-      aspect: [1, 1],
-      mediaTypes: ['images'],
-      quality: 0.84,
-    });
-
-    if (result.canceled || !result.assets[0]) {
-      return;
-    }
-
-    setImageUri(result.assets[0].uri);
-    setClearImage(false);
   };
 
   const handleClearImage = () => {
@@ -80,10 +107,22 @@ export function CatEditScreen({ cat, isSaving, personalityOptions, onBack, onSav
     });
   };
 
+  const handleBack = () => {
+    if (!hasUnsavedChanges) {
+      onBack();
+      return;
+    }
+
+    Alert.alert('수정 내용을 버릴까요?', '저장하지 않은 이름, 태그, 메모, 사진 변경이 사라져요.', [
+      { text: '계속 수정', style: 'cancel' },
+      { text: '나가기', style: 'destructive', onPress: onBack },
+    ]);
+  };
+
   return (
-    <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+    <ScrollView contentContainerStyle={styles.content} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
       <View style={styles.header}>
-        <Pressable accessibilityLabel="고양이 상세로 돌아가기" accessibilityRole="button" disabled={isSaving} onPress={onBack} style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}>
+        <Pressable accessibilityLabel="고양이 상세로 돌아가기" accessibilityRole="button" disabled={isSaving} onPress={handleBack} style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}>
           <ChevronLeft color={theme.colors.primaryDark} size={22} />
         </Pressable>
         <View style={styles.headerCopy}>
@@ -101,11 +140,11 @@ export function CatEditScreen({ cat, isSaving, personalityOptions, onBack, onSav
         </View>
         <Text style={styles.photoHint}>정사각형으로 잘라 대표 사진에 사용해요.</Text>
         <View style={styles.inlineActions}>
-          <Pressable disabled={isSaving} onPress={handlePickImage} style={({ pressed }) => [styles.smallAction, pressed && styles.pressed]}>
+          <Pressable accessibilityLabel="대표 사진 선택" accessibilityRole="button" disabled={isSaving} onPress={handlePickImage} style={({ pressed }) => [styles.smallAction, pressed && styles.pressed]}>
             <Camera color={theme.colors.primaryDark} size={15} />
             <Text style={styles.smallActionText}>사진 선택</Text>
           </Pressable>
-          <Pressable disabled={isSaving} onPress={handleClearImage} style={({ pressed }) => [styles.smallAction, pressed && styles.pressed]}>
+          <Pressable accessibilityLabel="대표 사진을 기본 그림으로 변경" accessibilityRole="button" disabled={isSaving} onPress={handleClearImage} style={({ pressed }) => [styles.smallAction, pressed && styles.pressed]}>
             <RotateCcw color={theme.colors.primaryDark} size={15} />
             <Text style={styles.smallActionText}>기본 그림</Text>
           </Pressable>
@@ -116,6 +155,7 @@ export function CatEditScreen({ cat, isSaving, personalityOptions, onBack, onSav
         <View style={styles.field}>
           <Text style={styles.label}>이름</Text>
           <TextInput
+            accessibilityLabel="고양이 이름"
             editable={!isSaving}
             maxLength={24}
             onChangeText={setName}
@@ -140,7 +180,9 @@ export function CatEditScreen({ cat, isSaving, personalityOptions, onBack, onSav
         <View style={styles.field}>
           <Text style={styles.label}>메모</Text>
           <TextInput
+            accessibilityLabel="고양이 메모"
             editable={!isSaving}
+            maxLength={300}
             multiline
             onChangeText={setMemo}
             placeholder="표정, 행동, 분위기 등을 적어보세요"
@@ -163,7 +205,7 @@ export function CatEditScreen({ cat, isSaving, personalityOptions, onBack, onSav
         <Button disabled={!canSave} onPress={handleSave}>
           {isSaving ? '저장 중...' : '저장하기'}
         </Button>
-        <Button disabled={isSaving} onPress={onBack} variant="secondary">
+        <Button disabled={isSaving} onPress={handleBack} variant="secondary">
           취소
         </Button>
       </View>

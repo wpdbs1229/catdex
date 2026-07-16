@@ -186,3 +186,22 @@ export async function uploadCatObservationImage(imageUri: string, kind: 'origina
     mimetype: contentType,
   };
 }
+
+export async function removeCatImages(imagePaths: Array<string | null | undefined>) {
+  assertSupabaseConfigured();
+
+  const paths = Array.from(
+    new Set(
+      imagePaths.filter(
+        (path): path is string => Boolean(path && !path.startsWith('http') && !path.startsWith('file:')),
+      ),
+    ),
+  );
+
+  if (paths.length === 0) {
+    return;
+  }
+
+  const { error } = await supabase.storage.from('cat-images').remove(paths);
+  throwIfSupabaseError(error);
+}
