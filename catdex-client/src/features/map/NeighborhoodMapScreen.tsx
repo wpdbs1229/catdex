@@ -59,8 +59,21 @@ export function NeighborhoodMapScreen({
       return;
     }
 
-    if (selectedRegion && !displayRegions.some((region) => region.id === selectedRegion.id)) {
+    if (!selectedRegion) {
+      return;
+    }
+
+    const refreshedRegion = displayRegions.find((region) => region.id === selectedRegion.id);
+
+    if (!refreshedRegion) {
       setSelectedRegion(displayRegions[0] ?? null);
+      return;
+    }
+
+    // 같은 구역이라도 데이터가 새로 로드되면 시트 내용(고양이 수/목록)이
+    // 낡은 객체를 계속 보여주지 않도록 최신 객체로 교체한다.
+    if (refreshedRegion !== selectedRegion) {
+      setSelectedRegion(refreshedRegion);
     }
   }, [displayRegions, selectedRegion]);
 

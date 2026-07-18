@@ -284,12 +284,39 @@ async function replaceCommunityPostImages(postId: string, userId: string, images
   const { rows, uploadedPaths } = await buildCommunityPostImageRows(postId, userId, normalizedImages);
 
   try {
-    const { error: deleteError } = await supabase.from('community_post_images').delete().eq('post_id', postId).eq('author_id', userId);
-    throwIfSupabaseError(deleteError);
+    // 새 이미지 행을 먼저 넣고 나서 빠진 행만 지운다.
+    // (전체 삭제 후 삽입 방식은 삽입이 실패하면 게시글 사진이 전부 사라진다.)
+    const existingPathSet = new Set(existingPaths);
+    const newRows = rows.filter((row) => !existingPathSet.has(row.image_url));
 
-    if (rows.length > 0) {
-      const { error: imageInsertError } = await supabase.from('community_post_images').insert(rows);
+    if (newRows.length > 0) {
+      const { error: imageInsertError } = await supabase.from('community_post_images').insert(newRows);
       throwIfSupabaseError(imageInsertError);
+    }
+
+    const keptImageUrls = new Set(rows.map((row) => row.image_url));
+    const staleImageUrls = existingPaths.filter((path) => !keptImageUrls.has(path));
+
+    if (staleImageUrls.length > 0) {
+      const { error: deleteError } = await supabase
+        .from('community_post_images')
+        .delete()
+        .eq('post_id', postId)
+        .eq('author_id', userId)
+        .in('image_url', staleImageUrls);
+      throwIfSupabaseError(deleteError);
+    }
+
+    // 유지된 기존 행의 순서를 새 정렬에 맞춘다.
+    const keptRows = rows.filter((row) => existingPathSet.has(row.image_url));
+    for (const row of keptRows) {
+      const { error: orderError } = await supabase
+        .from('community_post_images')
+        .update({ sort_order: row.sort_order })
+        .eq('post_id', postId)
+        .eq('author_id', userId)
+        .eq('image_url', row.image_url);
+      throwIfSupabaseError(orderError);
     }
   } catch (error) {
     if (uploadedPaths.length > 0) {
@@ -306,6 +333,25 @@ async function replaceCommunityPostImages(postId: string, userId: string, images
       console.warn('[community] removed post image rows but storage cleanup failed', removeError);
     }
   }
+}
+
+// 작성자 표시용 프로필 조회. profiles RLS가 본인 행만 허용하므로
+// security definer RPC(get_community_author_profiles)를 우선 사용하고,
+// RPC가 아직 배포되지 않은 환경에서는 직접 조회(본인 행만 반환)로 폴백한다.
+async function fetchAuthorProfiles(userIds: string[]): Promise<ProfileRow[]> {
+  if (userIds.length === 0) {
+    return [];
+  }
+
+  const rpcResponse = await supabase.rpc('get_community_author_profiles', { p_user_ids: userIds });
+
+  if (!rpcResponse.error) {
+    return (rpcResponse.data ?? []) as ProfileRow[];
+  }
+
+  const fallbackResponse = await supabase.from('profiles').select('id, nickname, profile_image_url').in('id', userIds);
+  throwIfSupabaseError(fallbackResponse.error);
+  return (fallbackResponse.data ?? []) as ProfileRow[];
 }
 
 export async function fetchCommunityPosts(options: FetchCommunityThreadsOptions = {}): Promise<CommunityPost[]> {
@@ -354,7 +400,7 @@ export async function fetchCommunityPosts(options: FetchCommunityThreadsOptions 
   }
 
   const [profilesResponse, catsResponse, commentsResponse, likesResponse, imagesResponse] = await Promise.all([
-    supabase.from('profiles').select('id, nickname, profile_image_url').in('id', authorIds),
+    fetchAuthorProfiles(authorIds).then((data) => ({ data, error: null })),
     catIds.length > 0
       ? supabase.from('cats').select('id, name, type, rarity, image_url, representative_photo_url').in('id', catIds)
       : Promise.resolve({ data: [] as CatSummaryRow[], error: null }),
@@ -388,12 +434,10 @@ export async function fetchCommunityPosts(options: FetchCommunityThreadsOptions 
   const comments = (commentsResponse.data ?? []) as CommunityCommentRow[];
   const commentAuthorIds = uniq(comments.map((comment) => comment.author_id));
   const missingCommentAuthorIds = commentAuthorIds.filter((authorId) => !authorIds.includes(authorId));
-  const commentProfilesResponse =
-    missingCommentAuthorIds.length > 0
-      ? await supabase.from('profiles').select('id, nickname, profile_image_url').in('id', missingCommentAuthorIds)
-      : { data: [] as ProfileRow[], error: null };
-
-  throwIfSupabaseError(commentProfilesResponse.error);
+  const commentProfilesResponse = {
+    data: missingCommentAuthorIds.length > 0 ? await fetchAuthorProfiles(missingCommentAuthorIds) : ([] as ProfileRow[]),
+    error: null,
+  };
 
   const profilesById = new Map(
     [...((profilesResponse.data ?? []) as ProfileRow[]), ...((commentProfilesResponse.data ?? []) as ProfileRow[])].map((profile) => [
@@ -585,6 +629,18 @@ export async function deleteCommunityPost(postId: string) {
   assertSupabaseConfigured();
 
   const userId = await getCurrentUserId();
+
+  // 삭제 전에 이미지 경로를 확보해 두고, 게시글 삭제 후 스토리지도 정리한다.
+  // (행은 FK cascade로 지워지지만 스토리지 파일은 남아 누적된다.)
+  const imagesResponse = await supabase
+    .from('community_post_images')
+    .select('image_url')
+    .eq('post_id', postId)
+    .eq('author_id', userId);
+  const imagePaths = ((imagesResponse.data ?? []) as Pick<CommunityPostImageRow, 'image_url'>[]).map(
+    (image) => image.image_url,
+  );
+
   const { data, error } = await supabase
     .from('community_posts')
     .delete()
@@ -597,6 +653,14 @@ export async function deleteCommunityPost(postId: string) {
 
   if (!data) {
     throw new Error('게시글 삭제 권한이 없어요.');
+  }
+
+  if (imagePaths.length > 0) {
+    const { error: removeError } = await supabase.storage.from('community-post-images').remove(imagePaths);
+
+    if (removeError) {
+      console.warn('[community] post deleted but storage cleanup failed', removeError);
+    }
   }
 
   return data.id as string;
@@ -692,6 +756,10 @@ export async function toggleCommunityPostLike(postId: string, liked: boolean) {
     user_id: userId,
   });
 
-  throwIfSupabaseError(error);
+  // 이미 공감한 상태에서 다시 눌린 경우(중복 키)는 성공으로 처리한다.
+  if (error && error.code !== '23505') {
+    throwIfSupabaseError(error);
+  }
+
   return true;
 }

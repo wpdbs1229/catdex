@@ -114,7 +114,9 @@ export function CommunityComposerScreen({ cats, initialCatId, neighborhoodName, 
         title: trimmedTitle,
         body: trimmedBody,
         regionName: neighborhoodName,
-        catId: selectedCatId ?? undefined,
+        // 화면에 연결 카드로 보이는 고양이(내 도감에 있는)만 실제로 연결한다.
+        // 목록에 없는 id가 남아 있으면 사용자가 모르는 연결이 게시글에 붙는다.
+        catId: selectedCat ? selectedCat.id : undefined,
         images: selectedImages,
       });
       onCreated(postId);
