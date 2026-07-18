@@ -1,6 +1,7 @@
 import { throwIfSupabaseError } from '@/shared/api/client';
 import { assertSupabaseConfigured, supabase } from '@/shared/supabase/client';
 import { catFilters, coatOptions, personalityOptions, totalDexCount } from '@/shared/constants/cat.constants';
+import { getRelationshipLevel } from '@/shared/utils/catPresentation';
 import type {
   Cat,
   CatEncounter,
@@ -208,6 +209,10 @@ export async function fetchMyCats() {
           encounter_count: row.encounter_count,
           first_seen_at: row.first_collected_at,
           last_seen_at: row.last_seen_at,
+          // 관계 레벨도 내 만남 횟수 기준으로 재계산한다.
+          // (cats.relationship_level은 모든 사용자 합산 기준이라
+          // "발견 횟수 5회 · 골목 대장(7회 이상)"처럼 짝이 안 맞게 보인다.)
+          relationship_level: getRelationshipLevel(row.encounter_count),
         };
       })
       .filter((row): row is CatRow => row !== null)

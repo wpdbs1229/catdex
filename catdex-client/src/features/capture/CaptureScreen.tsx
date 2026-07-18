@@ -266,7 +266,7 @@ export function CaptureScreen({
           : '고양이를 찾지 못했어요';
 
     return (
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView key={step} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Card style={styles.resultCard}>
           {capturedImageUri ? <Image source={{ uri: capturedImageUri }} style={styles.resultImage} /> : null}
           <View style={styles.resultMessage}>
@@ -298,7 +298,7 @@ export function CaptureScreen({
       processedPhoto.confidence === 0 && processedPhoto.boundingBox === null && processedPhoto.featureVector.length === 0;
 
     return (
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView key={step} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <Text style={styles.kicker}>동네 기록 후보</Text>
           <Text style={styles.title}>같은 고양이인지 확인해요</Text>
@@ -391,7 +391,7 @@ export function CaptureScreen({
 
   if (step === 'register' && processedPhoto) {
     return (
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView key={step} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <Pressable
             accessibilityLabel="후보 확인으로 돌아가기"
