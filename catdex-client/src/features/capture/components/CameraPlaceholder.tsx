@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import type { CameraType } from 'expo-camera';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Camera, RefreshCw, RotateCcw } from 'lucide-react-native';
 import { Button } from '@/shared/components/Button';
 import { theme } from '@/shared/styles/theme';
@@ -73,12 +73,31 @@ export function CameraPlaceholder({ capturedImageUri, height, onPhotoCaptured, o
   }
 
   if (!permission.granted) {
+    // iOS는 한 번 거부하면 다시 물을 수 없어(canAskAgain=false) 요청 버튼이
+    // 아무 동작도 하지 않는다. 이때는 설정 화면으로 안내한다.
+    const canAskAgain = permission.canAskAgain;
+
     return (
       <View style={[styles.fallback, height ? { minHeight: height } : null]}>
         <Text style={styles.fallbackTitle}>카메라 권한이 필요해요</Text>
-        <Text style={styles.fallbackText}>산책 중 만난 고양이를 사진으로 기록하려면 카메라 접근을 허용해주세요.</Text>
+        <Text style={styles.fallbackText}>
+          {canAskAgain
+            ? '산책 중 만난 고양이를 사진으로 기록하려면 카메라 접근을 허용해주세요.'
+            : '설정 > 냥도감에서 카메라 접근을 허용하면 바로 기록할 수 있어요.'}
+        </Text>
         <View style={styles.permissionButtonWrap}>
-          <Button onPress={requestPermission}>카메라 권한 허용하기</Button>
+          <Button
+            onPress={() => {
+              if (canAskAgain) {
+                requestPermission().catch(() => undefined);
+                return;
+              }
+
+              Linking.openSettings().catch(() => undefined);
+            }}
+          >
+            {canAskAgain ? '카메라 권한 허용하기' : '설정에서 허용하기'}
+          </Button>
         </View>
       </View>
     );
