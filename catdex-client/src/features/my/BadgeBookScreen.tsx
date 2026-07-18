@@ -55,7 +55,7 @@ const categoryOptions: Array<{ id: BadgeCategory | 'all'; label: string }> = [
   { id: 'collection', label: '대표' },
 ];
 
-const badgeIconMap: Record<string, string> = {
+export const badgeIconMap: Record<string, string> = {
   'first-cat': '🐾',
   'first-sighting': '📍',
   'reunion-friend': '🔁',
@@ -252,7 +252,15 @@ export function BadgeBookScreen({
       }) ?? sortedBadges.find((badge) => !badge.achieved),
     [myCats, profile, sortedBadges],
   );
-  const recentBadge = achievedBadges[0] ?? null;
+  // achievedAt은 "YYYY.MM.DD" 형식이라 문자열 내림차순 = 최신순이다.
+  // (카탈로그 순서 그대로 첫 항목을 쓰면 알파벳순으로 앞선 배지가 항상 "최근 획득"으로 보인다.)
+  const recentBadge = useMemo(
+    () =>
+      [...achievedBadges].sort((left, right) =>
+        (right.achievedAt ?? '').localeCompare(left.achievedAt ?? ''),
+      )[0] ?? null,
+    [achievedBadges],
+  );
 
   const filteredBadges = sortedBadges.filter((badge) => {
     const progress = getBadgeProgress(badge, myCats, profile);
