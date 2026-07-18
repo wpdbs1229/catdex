@@ -225,3 +225,46 @@ export async function sendAchievementPreviewNotification() {
     trigger: null,
   });
 }
+
+export interface NotificationTapPayload {
+  screen: string | null;
+  catId: string | null;
+}
+
+function toNotificationTapPayload(response: Notifications.NotificationResponse | null): NotificationTapPayload | null {
+  const data = response?.notification.request.content.data;
+
+  if (!data || typeof data !== 'object') {
+    return null;
+  }
+
+  const record = data as Record<string, unknown>;
+
+  return {
+    screen: typeof record.screen === 'string' ? record.screen : null,
+    catId: typeof record.catId === 'string' ? record.catId : null,
+  };
+}
+
+// 알림을 탭해 앱이 열렸을 때 원하는 화면으로 이동시키기 위한 리스너.
+// (콜드 스타트로 열린 경우는 getInitialNotificationTap으로 처리한다.)
+export function addNotificationTapListener(handler: (payload: NotificationTapPayload) => void) {
+  const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
+    const payload = toNotificationTapPayload(response);
+
+    if (payload) {
+      handler(payload);
+    }
+  });
+
+  return () => subscription.remove();
+}
+
+export async function getInitialNotificationTap(): Promise<NotificationTapPayload | null> {
+  try {
+    const response = await Notifications.getLastNotificationResponseAsync();
+    return toNotificationTapPayload(response);
+  } catch {
+    return null;
+  }
+}

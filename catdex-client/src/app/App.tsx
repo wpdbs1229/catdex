@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { Alert } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -42,15 +42,18 @@ import { detectCurrentNeighborhood } from '@/shared/neighborhood/neighborhood-lo
 import { isMatchingNeighborhoodName, uniqueNeighborhoodRegionNames } from '@/shared/neighborhood/neighborhood-match';
 import { loadNeighborhoodState, saveNeighborhoodState } from '@/shared/neighborhood/neighborhood-storage';
 import {
+  addNotificationTapListener,
   applyNotificationSettings,
   defaultNotificationSettings,
   getExpoPushTokenForDevice,
+  getInitialNotificationTap,
   getNotificationDevicePlatform,
   getNotificationPermissionState,
   loadNotificationSettings,
   mergeNotificationSettings,
   requestNotificationPermissions,
   sendAchievementPreviewNotification,
+  type NotificationTapPayload,
 } from '@/shared/notifications/notification.service';
 import type { ProfileUpdateDraft } from '@/shared/types/auth';
 import type { Badge, ExplorerProfile } from '@/shared/types/badge';
@@ -170,7 +173,6 @@ export default function App() {
     dexProgress,
     homeSummary,
     myCats,
-    recentCats,
     selectedCat,
     selectedCatEncounters,
     undiscoveredDexSlots,
@@ -247,10 +249,20 @@ export default function App() {
     };
   }, []);
 
+  const currentUserId = currentUser?.id ?? null;
+
   useEffect(() => {
     let isMounted = true;
 
-    loadNeighborhoodState()
+    // 계정별로 저장된 동네를 불러온다. 로그아웃 상태에서는 초기화한다.
+    if (!currentUserId) {
+      setSavedNeighborhoods([]);
+      setActiveNeighborhoodId('');
+      setHasLoadedNeighborhoodState(false);
+      return;
+    }
+
+    loadNeighborhoodState(currentUserId)
       .then((nextState) => {
         if (!isMounted) {
           return;
@@ -269,18 +281,21 @@ export default function App() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [currentUserId]);
 
   useEffect(() => {
-    if (!hasLoadedNeighborhoodState) {
+    if (!hasLoadedNeighborhoodState || !currentUserId) {
       return;
     }
 
-    saveNeighborhoodState({
-      activeNeighborhoodId,
-      savedNeighborhoods,
-    }).catch(() => undefined);
-  }, [activeNeighborhoodId, hasLoadedNeighborhoodState, savedNeighborhoods]);
+    saveNeighborhoodState(
+      {
+        activeNeighborhoodId,
+        savedNeighborhoods,
+      },
+      currentUserId,
+    ).catch(() => undefined);
+  }, [activeNeighborhoodId, currentUserId, hasLoadedNeighborhoodState, savedNeighborhoods]);
 
   const reloadAppResources = async () => {
     const [nextOptions, nextRegions, nextBadges, nextProfile, nextCustomization] = await Promise.all([
@@ -299,10 +314,38 @@ export default function App() {
     setCustomization(nextCustomization);
   };
 
+  const reloadAppResourcesWithRetry = () => {
+    reloadAppResources().catch((error) => {
+      console.warn('[app] resource load failed', error);
+      const friendlyError = getUserFacingError(error, 'generic');
+      Alert.alert(friendlyError.title, friendlyError.message, [
+        { text: '나중에', style: 'cancel' },
+        { text: '다시 시도', onPress: () => reloadAppResourcesWithRetry() },
+      ]);
+    });
+  };
+
   useEffect(() => {
     if (isAuthenticated) {
-      reloadAppResources();
+      reloadAppResourcesWithRetry();
+      return;
     }
+
+    // 로그아웃/탈퇴 시 이전 사용자 데이터가 다음 사용자에게 보이지 않도록 초기화한다.
+    setApiCoatOptions(coatOptions);
+    setApiPersonalityOptions(personalityOptions);
+    setRegions([]);
+    setBadges([]);
+    setProfile(emptyProfile);
+    setCustomization(emptyCustomization);
+    setNotificationSettings(defaultNotificationSettings);
+    setNavigation({
+      screen: 'home',
+      selectedCatId: null,
+      selectedOwnerId: null,
+      selectedCommunityCatId: null,
+      selectedCommunityPostId: null,
+    });
   }, [isAuthenticated]);
 
   useEffect(() => {
@@ -325,9 +368,24 @@ export default function App() {
         setNotificationSettings(appliedSettings);
         setNotificationPermissionState(nextPermissionState);
       }
+
+      // 권한이 이미 허용된 상태(재설치, 토큰 회전 포함)에서도 기기 토큰을
+      // 서버에 등록해 푸시가 유실되지 않게 한다. 시뮬레이터 등 토큰을 못
+      // 받는 환경에서는 조용히 건너뛴다.
+      if (nextPermissionState === 'granted') {
+        try {
+          const expoPushToken = await getExpoPushTokenForDevice();
+          await registerNotificationDevice(expoPushToken, getNotificationDevicePlatform());
+        } catch (error) {
+          console.warn('[notifications] device registration skipped', error);
+        }
+      }
     }
 
-    loadNotifications();
+    loadNotifications().catch((error) => {
+      // 알림 설정 로드 실패가 앱 진입을 막지 않도록 한다.
+      console.warn('[notifications] load failed', error);
+    });
 
     return () => {
       isMounted = false;
@@ -412,6 +470,14 @@ export default function App() {
   };
 
   const handleOpenCommunityCompose = (catId?: string, returnScreen: CommunityReturnScreen = 'board') => {
+    // 동네가 없으면 region_name이 '동네 설정 전'으로 저장되어
+    // 어떤 동네 게시판에서도 글이 보이지 않게 되므로 촬영과 동일하게 막는다.
+    if (!hasActiveNeighborhood) {
+      const alert = getNeighborhoodRequiredAlert();
+      Alert.alert(alert.title, alert.message);
+      return;
+    }
+
     setCommunityReturnScreen(returnScreen);
     setShouldEditCommunityPostOnOpen(false);
     setNeighborhoodView('board');
@@ -552,39 +618,70 @@ export default function App() {
     };
   };
 
+  // 저장 성공 이후의 후처리(관찰 기록 정리, 리소스 새로고침)가 실패해도
+  // 저장 자체는 성공한 상태이므로, 실패를 삼키고 화면 이동은 진행한다.
+  // (여기서 실패를 그대로 던지면 사용자가 재시도해 중복 등록이 생긴다.)
+  const runPostSaveSteps = async (steps: () => Promise<void>) => {
+    try {
+      await steps();
+    } catch (error) {
+      console.warn('[capture] post-save refresh failed', error);
+    }
+  };
+
   const handleSaveCapture = async (draft: CaptureCatDraft) => {
+    if (isSaving) {
+      return;
+    }
+
     setIsSaving(true);
 
     try {
       const nextCat = await createCat(draft);
-      if (draft.observationId) {
-        await resolveCatObservation(draft.observationId, nextCat.id, 'new_cat');
-      }
-      await reloadAppResources();
+      await runPostSaveSteps(async () => {
+        if (draft.observationId) {
+          await resolveCatObservation(draft.observationId, nextCat.id, 'new_cat');
+        }
+        await reloadAppResources();
+      });
       setNavigation({
         screen: 'dex',
         selectedCatId: null,
         selectedOwnerId: null,
       });
+    } catch (error) {
+      console.warn('[capture] save failed', error);
+      const friendlyError = getUserFacingError(error, 'capture.process');
+      Alert.alert(friendlyError.title, friendlyError.message);
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleSaveSighting = async (draft: CaptureCatDraft) => {
+    if (isSaving) {
+      return;
+    }
+
     setIsSaving(true);
 
     try {
       await createCatSighting(draft);
-      if (draft.observationId) {
-        await resolveCatObservation(draft.observationId, null, 'uncertain');
-      }
-      await reloadAppResources();
+      await runPostSaveSteps(async () => {
+        if (draft.observationId) {
+          await resolveCatObservation(draft.observationId, null, 'uncertain');
+        }
+        await reloadAppResources();
+      });
       setNavigation({
         screen: 'dex',
         selectedCatId: null,
         selectedOwnerId: null,
       });
+    } catch (error) {
+      console.warn('[capture] sighting save failed', error);
+      const friendlyError = getUserFacingError(error, 'capture.process');
+      Alert.alert(friendlyError.title, friendlyError.message);
     } finally {
       setIsSaving(false);
     }
@@ -597,19 +694,29 @@ export default function App() {
       return;
     }
 
+    if (isSaving) {
+      return;
+    }
+
     setIsSaving(true);
 
     try {
       await addEncounter(catId, activeNeighborhoodName, payload?.imageUrl);
-      if (payload?.observationId) {
-        await resolveCatObservation(payload.observationId, catId, 'linked');
-      }
-      await reloadAppResources();
+      await runPostSaveSteps(async () => {
+        if (payload?.observationId) {
+          await resolveCatObservation(payload.observationId, catId, 'linked');
+        }
+        await reloadAppResources();
+      });
       setNavigation({
         screen: 'detail',
         selectedCatId: catId,
         selectedOwnerId: null,
       });
+    } catch (error) {
+      console.warn('[capture] encounter save failed', error);
+      const friendlyError = getUserFacingError(error, 'capture.process');
+      Alert.alert(friendlyError.title, friendlyError.message);
     } finally {
       setIsSaving(false);
     }
@@ -620,12 +727,20 @@ export default function App() {
       return;
     }
 
-    await reportCat({
-      catId: visibleSelectedCat.id,
-      reason: 'incorrect_info',
-      memo: '앱에서 사용자 신고로 접수되었습니다.',
-    });
-    Alert.alert('신고 접수', '검토가 필요한 고양이 정보로 신고했어요.');
+    try {
+      await reportCat({
+        catId: visibleSelectedCat.id,
+        reason: 'incorrect_info',
+        memo: '앱에서 사용자 신고로 접수되었습니다.',
+      });
+      Alert.alert('신고 접수', '검토가 필요한 고양이 정보로 신고했어요.');
+      // 신고 배지(안전 제보자)가 서버에서 즉시 지급되므로 리소스를 갱신한다.
+      reloadAppResources().catch(() => undefined);
+    } catch (error) {
+      console.warn('[cats] report failed', error);
+      const friendlyError = getUserFacingError(error, 'generic');
+      Alert.alert(friendlyError.title, friendlyError.message);
+    }
   };
 
   const handleSaveCatProfile = async (draft: CatProfileUpdateDraft) => {
@@ -727,6 +842,70 @@ export default function App() {
 
     handleTabChange(notificationReturnScreen);
   };
+
+  // 알림(로컬/푸시) 탭 → 화면 이동. 리스너는 한 번만 등록하고, 최신 라우팅
+  // 로직은 ref로 참조해 stale closure를 피한다.
+  const handleNotificationTap = (payload: NotificationTapPayload) => {
+    if (!isAuthenticated) {
+      return;
+    }
+
+    if (payload.catId) {
+      handleOpenCat(payload.catId);
+      return;
+    }
+
+    switch (payload.screen) {
+      case 'capture':
+        handleTabChange('capture');
+        return;
+      case 'dex':
+        handleTabChange('dex');
+        return;
+      case 'map':
+        handleOpenNeighborhoodDex();
+        return;
+      case 'my':
+        handleTabChange('my');
+        return;
+      default:
+        setNotificationReturnScreen('home');
+        setNavigation({
+          screen: 'notificationInbox',
+          selectedCatId: null,
+          selectedOwnerId: null,
+        });
+    }
+  };
+
+  const notificationTapHandlerRef = useRef(handleNotificationTap);
+  notificationTapHandlerRef.current = handleNotificationTap;
+
+  useEffect(() => {
+    const unsubscribe = addNotificationTapListener((payload) => {
+      notificationTapHandlerRef.current(payload);
+    });
+
+    return unsubscribe;
+  }, []);
+
+  const hasHandledInitialNotificationTapRef = useRef(false);
+
+  useEffect(() => {
+    if (!isAuthenticated || hasHandledInitialNotificationTapRef.current) {
+      return;
+    }
+
+    hasHandledInitialNotificationTapRef.current = true;
+
+    getInitialNotificationTap()
+      .then((payload) => {
+        if (payload) {
+          notificationTapHandlerRef.current(payload);
+        }
+      })
+      .catch(() => undefined);
+  }, [isAuthenticated]);
 
   const handleOpenProfileEdit = () => {
     setNavigation({
@@ -854,16 +1033,22 @@ export default function App() {
     cutoutImageUrl?: string;
     processedPhoto: ProcessedCatPhoto;
   }) => {
-    if (payload.observationId) {
-      await resolveCatObservation(payload.observationId, null, 'uncertain');
-    }
+    try {
+      if (payload.observationId) {
+        await resolveCatObservation(payload.observationId, null, 'uncertain');
+      }
 
-    Alert.alert('미확인 기록 저장', '같은 고양이인지 판단하기 어려운 관찰로 남겼어요.');
-    setNavigation({
-      screen: 'dex',
-      selectedCatId: null,
-      selectedOwnerId: null,
-    });
+      Alert.alert('미확인 기록 저장', '같은 고양이인지 판단하기 어려운 관찰로 남겼어요.');
+      setNavigation({
+        screen: 'dex',
+        selectedCatId: null,
+        selectedOwnerId: null,
+      });
+    } catch (error) {
+      console.warn('[capture] uncertain mark failed', error);
+      const friendlyError = getUserFacingError(error, 'capture.process');
+      Alert.alert(friendlyError.title, friendlyError.message);
+    }
   };
 
   const collectionSummary: CollectionSummary = {
@@ -895,7 +1080,7 @@ export default function App() {
             onRemoveNeighborhood={handleRemoveNeighborhood}
             onSelectNeighborhood={handleSelectNeighborhood}
             profile={profile}
-            recentCats={recentCats}
+            recentCats={myCats.slice(0, 3)}
             neighborhoodCatCounts={neighborhoodCatCounts}
             savedNeighborhoods={savedNeighborhoods}
             summary={homeSummary}

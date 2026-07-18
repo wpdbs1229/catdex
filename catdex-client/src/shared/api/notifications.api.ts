@@ -135,6 +135,17 @@ export async function registerNotificationDevice(expoPushToken: string, platform
     return;
   }
 
+  // 토큰은 기기 단위라 다른 계정이 소유한 행이 있을 수 있다. 소유권 인계까지
+  // 처리하는 RPC를 우선 사용하고, 미배포 환경에서는 기존 upsert로 폴백한다.
+  const rpcResponse = await supabase.rpc('register_notification_device', {
+    p_expo_push_token: expoPushToken,
+    p_platform: platform,
+  });
+
+  if (!rpcResponse.error) {
+    return;
+  }
+
   const { error } = await supabase.from('notification_devices').upsert(
     {
       user_id: userId,
