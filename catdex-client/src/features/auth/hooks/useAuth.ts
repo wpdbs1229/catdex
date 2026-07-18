@@ -44,7 +44,16 @@ function isAuthSession(value: unknown): value is AuthSession {
 }
 
 async function persistSession(session: AuthSession) {
-  await SecureStore.setItemAsync(authStorageKey, JSON.stringify(session));
+  // 토큰은 Supabase 클라이언트가 AsyncStorage에서 직접 관리하므로 여기에는
+  // 저장하지 않는다. (토큰 포함 시 SecureStore 2048바이트 제한을 초과했고,
+  // 회전된 토큰과 어긋나는 문제도 있었다.) provider와 사용자 정보만 남긴다.
+  const snapshot: AuthSession = {
+    ...session,
+    accessToken: '',
+    refreshToken: '',
+  };
+
+  await SecureStore.setItemAsync(authStorageKey, JSON.stringify(snapshot));
 }
 
 async function restoreSession() {
@@ -91,6 +100,11 @@ async function restoreSupabaseSession(restoredSession: AuthSession | null) {
   }
 
   if (!restoredSession) {
+    return null;
+  }
+
+  // 새 저장 형식은 토큰을 담지 않으므로 setSession 재생 대상이 아니다.
+  if (!restoredSession.accessToken || !restoredSession.refreshToken) {
     return null;
   }
 
