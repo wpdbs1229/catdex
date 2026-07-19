@@ -1,16 +1,20 @@
 import { useCallback, useEffect, useState } from 'react';
 import * as ImagePicker from 'expo-image-picker';
 import { ActivityIndicator, Alert, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { AlertCircle, ArrowLeft, Edit3, Heart, ImagePlus, Images, MessageCircle, PawPrint, Send, ShieldCheck, Trash2 } from 'lucide-react-native';
+import { AlertCircle, ArrowLeft, Edit3, Flag, Heart, ImagePlus, Images, MessageCircle, PawPrint, Send, ShieldCheck, Trash2 } from 'lucide-react-native';
 import { communityComposerTopicOptions, communityTopicLabel } from '@/features/community/community.constants';
 import {
+  blockCommunityUser,
   createCommunityComment,
   deleteCommunityComment,
   deleteCommunityPost,
   fetchCommunityPost,
+  reportCommunityContent,
   toggleCommunityPostLike,
   updateCommunityComment,
   updateCommunityPost,
+  type CommunityReportReason,
+  type CommunityReportTarget,
 } from '@/shared/api/community.api';
 import { getUserFacingError, type UserFacingError } from '@/shared/errors/user-facing-error';
 import { createShadow, theme } from '@/shared/styles/theme';
@@ -48,6 +52,83 @@ export function CommunityPostDetailScreen({ postId, currentUserId, initiallyEdit
   const [submittingCommentId, setSubmittingCommentId] = useState<string | null>(null);
   const [deletingCommentId, setDeletingCommentId] = useState<string | null>(null);
   const canManagePost = Boolean(post && currentUserId && post.author.id === currentUserId);
+
+  const reportReasonOptions: { id: CommunityReportReason; label: string }[] = [
+    { id: 'SPAM', label: '스팸·광고예요' },
+    { id: 'ABUSE', label: '욕설·혐오 표현이에요' },
+    { id: 'ANIMAL_ABUSE', label: '동물 학대가 의심돼요' },
+    { id: 'LOCATION_EXPOSURE', label: '위치·개인정보가 노출됐어요' },
+    { id: 'ETC', label: '기타 부적절한 내용이에요' },
+  ];
+
+  const handleSubmitReport = (target: CommunityReportTarget) => {
+    Alert.alert('신고 사유를 선택해 주세요', '접수된 신고는 운영자가 확인한 뒤 조치해요.', [
+      ...reportReasonOptions.map((reason) => ({
+        text: reason.label,
+        onPress: () => {
+          reportCommunityContent(target, reason.id)
+            .then(() => {
+              Alert.alert('신고가 접수됐어요', '알려주셔서 고마워요. 빠르게 확인할게요.');
+            })
+            .catch((reportError) => {
+              const friendlyError = getUserFacingError(reportError, 'generic');
+              Alert.alert(friendlyError.title, friendlyError.message);
+            });
+        },
+      })),
+      { text: '취소', style: 'cancel' as const },
+    ]);
+  };
+
+  const handleBlockAuthor = (author: { id: string; nickname: string }, options?: { leaveAfterBlock?: boolean }) => {
+    Alert.alert(
+      `${author.nickname}님을 차단할까요?`,
+      '차단하면 이 사용자의 게시글과 댓글이 더 이상 보이지 않아요. 사원증 → 차단한 사용자에서 언제든 해제할 수 있어요.',
+      [
+        { text: '취소', style: 'cancel' },
+        {
+          text: '차단하기',
+          style: 'destructive',
+          onPress: () => {
+            blockCommunityUser(author.id)
+              .then(() => {
+                if (options?.leaveAfterBlock) {
+                  onDeleted();
+                  return;
+                }
+
+                void refreshPost();
+              })
+              .catch((blockError) => {
+                const friendlyError = getUserFacingError(blockError, 'generic');
+                Alert.alert(friendlyError.title, friendlyError.message);
+              });
+          },
+        },
+      ],
+    );
+  };
+
+  const handleOpenPostModerationMenu = () => {
+    if (!post) {
+      return;
+    }
+
+    Alert.alert('신고·차단', '이 게시글이나 작성자에 대해 조치할 수 있어요.', [
+      { text: '게시글 신고', onPress: () => handleSubmitReport({ type: 'POST', targetId: post.id }) },
+      { text: '작성자 신고', onPress: () => handleSubmitReport({ type: 'USER', targetId: post.author.id }) },
+      { text: '작성자 차단', style: 'destructive', onPress: () => handleBlockAuthor(post.author, { leaveAfterBlock: true }) },
+      { text: '취소', style: 'cancel' },
+    ]);
+  };
+
+  const handleOpenCommentModerationMenu = (comment: CommunityComment) => {
+    Alert.alert('신고·차단', '이 댓글이나 작성자에 대해 조치할 수 있어요.', [
+      { text: '댓글 신고', onPress: () => handleSubmitReport({ type: 'COMMENT', targetId: comment.id }) },
+      { text: '작성자 차단', style: 'destructive', onPress: () => handleBlockAuthor(comment.author) },
+      { text: '취소', style: 'cancel' },
+    ]);
+  };
   const trimmedEditTitle = editTitle.trim();
   const trimmedEditBody = editBody.trim();
   const canSaveEdit = trimmedEditBody.length >= 2 && !isEditSubmitting;
@@ -387,6 +468,20 @@ export function CommunityPostDetailScreen({ postId, currentUserId, initiallyEdit
               {isEditing ? null : <Text style={styles.title}>{post.title}</Text>}
               <Text style={styles.authorText}>{post.author.nickname} · {post.regionName ?? '동네'}</Text>
 
+              {!canManagePost && currentUserId && !isEditing ? (
+                <View style={styles.ownerActionRow}>
+                  <Pressable
+                    accessibilityLabel="게시글 신고 또는 작성자 차단"
+                    accessibilityRole="button"
+                    onPress={handleOpenPostModerationMenu}
+                    style={({ pressed }) => [styles.ownerActionButton, pressed && styles.pressed]}
+                  >
+                    <Flag color={theme.colors.primaryDark} size={14} />
+                    <Text style={styles.ownerActionText}>신고·차단</Text>
+                  </Pressable>
+                </View>
+              ) : null}
+
               {canManagePost && !isEditing ? (
                 <View style={styles.ownerActionRow}>
                   <Pressable
@@ -585,7 +680,20 @@ export function CommunityPostDetailScreen({ postId, currentUserId, initiallyEdit
                       <Text numberOfLines={1} style={styles.commentAuthor}>
                         {comment.author.nickname}
                       </Text>
-                      <Text style={styles.commentTime}>{comment.createdAt}</Text>
+                      <View style={styles.commentMetaRight}>
+                        <Text style={styles.commentTime}>{comment.createdAt}</Text>
+                        {!canManageComment && currentUserId ? (
+                          <Pressable
+                            accessibilityLabel="댓글 신고 또는 작성자 차단"
+                            accessibilityRole="button"
+                            hitSlop={8}
+                            onPress={() => handleOpenCommentModerationMenu(comment)}
+                            style={({ pressed }) => pressed && styles.pressed}
+                          >
+                            <Flag color={theme.colors.mutedText} size={13} />
+                          </Pressable>
+                        ) : null}
+                      </View>
                     </View>
 
                     {isCommentEditing ? (
@@ -1200,6 +1308,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: theme.spacing.sm,
+  },
+  commentMetaRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: theme.spacing.sm,
   },
   commentAuthor: {

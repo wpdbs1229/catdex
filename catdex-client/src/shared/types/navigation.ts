@@ -11,6 +11,7 @@ export type Screen =
   | 'myCommunityPosts'
   | 'badgeBook'
   | 'explorationHistory'
+  | 'blockedUsers'
   | 'profileEdit'
   | 'notificationInbox'
   | 'notifications';
@@ -24,6 +25,7 @@ export type TabScreen = Exclude<
   | 'myCommunityPosts'
   | 'badgeBook'
   | 'explorationHistory'
+  | 'blockedUsers'
   | 'profileEdit'
   | 'notificationInbox'
   | 'notifications'
