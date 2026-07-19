@@ -20,13 +20,15 @@ import { theme } from '@/shared/styles/theme';
 interface CatDetailScreenProps {
   cat: Cat;
   encounters: CatEncounter[];
+  currentUserId?: string | null;
   onBack: () => void;
   onComposePost: () => void;
   onEditCat: () => void;
+  onRemoveEncounter?: (encounter: CatEncounter) => void;
   onReportCat: () => void;
 }
 
-export function CatDetailScreen({ cat, encounters, onBack, onComposePost, onEditCat, onReportCat }: CatDetailScreenProps) {
+export function CatDetailScreen({ cat, encounters, currentUserId, onBack, onComposePost, onEditCat, onRemoveEncounter, onReportCat }: CatDetailScreenProps) {
   const [isRarityGuideOpen, setIsRarityGuideOpen] = useState(false);
   const [isRelationshipGuideOpen, setIsRelationshipGuideOpen] = useState(false);
   const visual = getCatVisual(cat.type);
@@ -109,7 +111,7 @@ export function CatDetailScreen({ cat, encounters, onBack, onComposePost, onEdit
           {cat.memo ? <Text style={styles.memo}>{cat.memo}</Text> : null}
         </Card>
 
-        <EncounterTimeline encounters={encounters} />
+        <EncounterTimeline currentUserId={currentUserId} encounters={encounters} onRemoveEncounter={onRemoveEncounter} />
 
         <View style={styles.buttonWrap}>
           <Button onPress={onEditCat} variant="secondary">

@@ -11,6 +11,7 @@ import {
   fetchMyCats,
   fetchRecentCats,
   recordCatEncounter,
+  removeMyCatEncounter,
   updateCatProfile as updateCatProfileRequest,
 } from '@/shared/api/cats.api';
 import type { Cat, CatEncounter, CatProfileUpdateDraft, CaptureCatDraft, DexPlaceholder, DexProgress, HomeSummary } from '@/shared/types/cat';
@@ -181,9 +182,22 @@ export function useCats(selectedCatId: string | null, enabled = true) {
     setSelectedCatEncounters(await fetchCatEncounters(catId));
   };
 
+  const removeEncounter = async (encounterId: string) => {
+    const result = await removeMyCatEncounter(encounterId);
+
+    await reloadCats();
+
+    if (!result.catRemoved && selectedCatId) {
+      setSelectedCatEncounters(await fetchCatEncounters(selectedCatId));
+    }
+
+    return result;
+  };
+
   return {
     addEncounter,
     cats,
+    removeEncounter,
     createCat,
     createCatSighting,
     dexProgress,

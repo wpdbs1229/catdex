@@ -45,6 +45,7 @@ interface CatRow {
 interface CatEncounterRow {
   id: string;
   cat_id: string;
+  user_id: string;
   seen_at: string;
   region_name: string;
   memo: string;
@@ -142,11 +143,26 @@ async function mapEncounter(row: CatEncounterRow): Promise<CatEncounter> {
   return {
     id: row.id,
     catId: row.cat_id,
+    userId: row.user_id,
     seenAt: formatDate(row.seen_at),
     regionName: row.region_name,
     memo: row.memo,
     imageUrl: await getDisplayImageUrl(row.image_url),
   };
+}
+
+// 잘못 연결한 내 만남 기록을 분리(삭제)한다. 서버에서 수집·구역·개체
+// 통계까지 재계산하며, 마지막 기록이었다면 개체도 함께 정리된다.
+export async function removeMyCatEncounter(encounterId: string) {
+  assertSupabaseConfigured();
+
+  const { data, error } = await supabase.rpc('remove_my_cat_encounter', {
+    p_encounter_id: encounterId,
+  });
+
+  throwIfSupabaseError(error);
+
+  return data as { catRemoved: boolean; myRemainingCount: number };
 }
 
 export async function fetchCats(filter: CatFilter = '전체') {
