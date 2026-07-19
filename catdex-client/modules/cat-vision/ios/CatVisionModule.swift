@@ -41,8 +41,107 @@ private extension CatVisionModule {
       "boundingBox": normalizedDisplayBoundingBox(observation.boundingBox),
       "cutoutImageUri": cutout.url.absoluteString,
       "featureVector": featureVector(for: observation, image: cgImage),
-      "isPreciseCutout": cutout.isPrecise
+      "isPreciseCutout": cutout.isPrecise,
+      "colorProfile": coatColorProfile(imageUrl: cutout.url, usesAlphaMask: cutout.isPrecise)
     ]
+  }
+
+  /// 누끼 이미지의 픽셀을 색 계열(검정/흰색/회색/주황/갈색)로 분류해 비율을 반환한다.
+  /// 개체 식별이 아니라 후보 정렬의 털색 힌트로만 사용한다.
+  static func coatColorProfile(imageUrl: URL, usesAlphaMask: Bool) -> [String: Double] {
+    guard let image = UIImage(contentsOfFile: imageUrl.path), let cgImage = image.cgImage else {
+      return [:]
+    }
+
+    let sampleSize = 64
+    var pixels = [UInt8](repeating: 0, count: sampleSize * sampleSize * 4)
+    guard let context = CGContext(
+      data: &pixels,
+      width: sampleSize,
+      height: sampleSize,
+      bitsPerComponent: 8,
+      bytesPerRow: sampleSize * 4,
+      space: CGColorSpaceCreateDeviceRGB(),
+      bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+    ) else {
+      return [:]
+    }
+
+    context.clear(CGRect(x: 0, y: 0, width: sampleSize, height: sampleSize))
+    context.draw(cgImage, in: CGRect(x: 0, y: 0, width: sampleSize, height: sampleSize))
+
+    var counts: [String: Int] = ["black": 0, "white": 0, "gray": 0, "orange": 0, "brown": 0]
+    var classified = 0
+    var opaque = 0
+
+    for index in stride(from: 0, to: pixels.count, by: 4) {
+      let alpha = Double(pixels[index + 3]) / 255
+      // 정밀 누끼면 마스크 밖(투명) 픽셀을 제외한다. 사각 크롭이면 배경이
+      // 섞이므로 중앙 가중 없이 전체를 대상으로 하되 알파는 그대로 본다.
+      if alpha < 0.5 {
+        continue
+      }
+
+      opaque += 1
+
+      // premultiplied alpha 복원
+      let red = min(1, Double(pixels[index]) / 255 / alpha)
+      let green = min(1, Double(pixels[index + 1]) / 255 / alpha)
+      let blue = min(1, Double(pixels[index + 2]) / 255 / alpha)
+
+      let maxValue = max(red, green, blue)
+      let minValue = min(red, green, blue)
+      let delta = maxValue - minValue
+      let value = maxValue
+      let saturation = maxValue <= 0 ? 0 : delta / maxValue
+
+      var hue = 0.0
+      if delta > 0 {
+        if maxValue == red {
+          hue = ((green - blue) / delta).truncatingRemainder(dividingBy: 6)
+        } else if maxValue == green {
+          hue = (blue - red) / delta + 2
+        } else {
+          hue = (red - green) / delta + 4
+        }
+        hue *= 60
+        if hue < 0 {
+          hue += 360
+        }
+      }
+
+      let isWarmHue = hue >= 10 && hue <= 55
+
+      if value < 0.2 {
+        counts["black"]! += 1
+      } else if saturation < 0.16 && value > 0.8 {
+        counts["white"]! += 1
+      } else if saturation < 0.18 {
+        counts["gray"]! += 1
+      } else if isWarmHue && (saturation >= 0.32 || value >= 0.65) && value >= 0.45 {
+        counts["orange"]! += 1
+      } else if isWarmHue {
+        counts["brown"]! += 1
+      } else {
+        // 냉색 계열(배경 잔여물 등)은 분모에서 제외한다.
+        continue
+      }
+
+      classified += 1
+    }
+
+    guard classified > 32 else {
+      return [:]
+    }
+
+    var profile: [String: Double] = [:]
+    for (family, count) in counts {
+      profile[family] = Double(count) / Double(classified)
+    }
+    profile["coverage"] = Double(opaque) / Double(sampleSize * sampleSize)
+    profile["maskUsed"] = usesAlphaMask ? 1 : 0
+
+    return profile
   }
 
   static func fileUrl(from imageUri: String) throws -> URL {
