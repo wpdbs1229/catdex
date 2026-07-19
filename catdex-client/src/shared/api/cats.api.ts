@@ -376,6 +376,7 @@ export async function createCatObservation(draft: {
   boundingBox: Record<string, number> | null;
   featureVector: number[];
   isPreciseCutout: boolean;
+  coatHints?: string[];
 }) {
   assertSupabaseConfigured();
 
@@ -401,6 +402,7 @@ export async function createCatObservation(draft: {
       detection_box: draft.boundingBox,
       feature_vector: draft.featureVector,
       is_precise_cutout: draft.isPreciseCutout,
+      coat_hints: draft.coatHints ?? [],
       status: 'pending',
     })
     .select('id, original_image_url, cutout_image_url, region_name, detection_confidence, resolved_cat_id')
@@ -414,6 +416,7 @@ export async function createCatObservation(draft: {
 export async function fetchCatMatchCandidates(payload: {
   observationId?: string;
   regionNames: string[];
+  coatHints?: string[];
   limit?: number;
 }) {
   if (!payload.observationId) {
@@ -426,6 +429,7 @@ export async function fetchCatMatchCandidates(payload: {
   const { error: generationError } = await supabase.rpc('generate_cat_match_candidates', {
     p_observation_id: payload.observationId,
     p_region_names: payload.regionNames,
+    p_coat_hints: payload.coatHints ?? [],
     p_limit: limit,
   });
   throwIfSupabaseError(generationError);

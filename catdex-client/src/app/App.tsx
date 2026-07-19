@@ -606,10 +606,12 @@ export default function App() {
       boundingBox: processedPhoto.boundingBox,
       featureVector: processedPhoto.featureVector,
       isPreciseCutout: processedPhoto.isPreciseCutout,
+      coatHints: processedPhoto.coatHints,
     });
     const candidates = await fetchCatMatchCandidates({
       observationId: observation.id,
       regionNames: activeNeighborhoodRegionNames,
+      coatHints: processedPhoto.coatHints,
       limit: 5,
     });
 

@@ -7,7 +7,7 @@ import { CatRegisterForm } from '@/features/capture/components/CatRegisterForm';
 import { Button } from '@/shared/components/Button';
 import { Card } from '@/shared/components/Card';
 import { getUserFacingError } from '@/shared/errors/user-facing-error';
-import { isCatVisionAvailable, processCatPhoto } from '@/shared/native/catVision';
+import { deriveCoatHints, isCatVisionAvailable, processCatPhoto } from '@/shared/native/catVision';
 import { createShadow, theme } from '@/shared/styles/theme';
 import type { Cat, CatMatchCandidate, CatType, CaptureCatDraft, PersonalityTag, ProcessedCatPhoto } from '@/shared/types/cat';
 import { getCatIllustrationKey, type CatIllustrationKey } from '@/shared/utils/catPresentation';
@@ -147,6 +147,7 @@ export function CaptureScreen({
         isPreciseCutout: visionResult.isPreciseCutout,
         boundingBox: visionResult.boundingBox,
         featureVector: visionResult.featureVector,
+        coatHints: deriveCoatHints(visionResult.colorProfile),
       };
       setProcessedPhoto(nextProcessedPhoto);
       const nextStoredResult = await onProcessPhoto(nextProcessedPhoto);
