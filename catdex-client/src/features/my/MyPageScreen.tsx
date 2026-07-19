@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react-native';
-import { Bell, BookOpen, ChevronRight, IdCard, Info, LogOut, MessageCircle, Settings, ShieldCheck, Star, Trash2, X } from 'lucide-react-native';
+import { Bell, BookOpen, ChevronRight, IdCard, Info, LogOut, MessageCircle, Settings, ShieldCheck, Star, Trash2, UserX, X } from 'lucide-react-native';
 import { useState } from 'react';
 import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View, type ImageSourcePropType } from 'react-native';
 import { badgeIconMap } from '@/features/my/BadgeBookScreen';
@@ -30,6 +30,7 @@ interface MyPageScreenProps {
   onOpenBadges: () => void;
   onOpenCommunityPosts: () => void;
   onOpenExplorationHistory: () => void;
+  onOpenBlockedUsers: () => void;
   onOpenNotifications: () => void;
   onOpenProfileEdit: () => void;
   onSaveFeaturedCats: (catIds: string[]) => Promise<void> | void;
@@ -87,6 +88,7 @@ export function MyPageScreen({
   onOpenBadges,
   onOpenCommunityPosts,
   onOpenExplorationHistory,
+  onOpenBlockedUsers,
   onOpenNotifications,
   onOpenProfileEdit,
   onSaveFeaturedCats,
@@ -266,6 +268,7 @@ export function MyPageScreen({
         <MenuItem icon={BookOpen} label="근무 기록" onPress={onOpenExplorationHistory} />
         <MenuItem icon={MessageCircle} label="내 게시글" onPress={onOpenCommunityPosts} />
         <MenuItem icon={Bell} label="알림 설정" onPress={onOpenNotifications} />
+        <MenuItem icon={UserX} label="차단한 사용자" onPress={onOpenBlockedUsers} />
         <MenuItem disabled={isAccountActionDisabled} icon={LogOut} label={isSigningOut ? '로그아웃 중...' : '로그아웃'} onPress={onLogout} />
         <MenuItem
           disabled={isAccountActionDisabled}

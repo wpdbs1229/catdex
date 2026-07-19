@@ -508,7 +508,19 @@ export async function fetchCommunityPosts(options: FetchCommunityThreadsOptions 
     return acc;
   }, {});
 
-  return posts.map((post) => {
+  // 차단한 사용자의 게시글·댓글은 목록·상세·미리보기 어디에서도 보이지 않게 한다.
+  const blockedUserIds = userId ? await fetchBlockedUserIdSet() : new Set<string>();
+  const visiblePosts = posts.filter((post) => !blockedUserIds.has(post.author_id));
+
+  if (blockedUserIds.size > 0) {
+    for (const postId of Object.keys(commentsByPostId)) {
+      commentsByPostId[postId] = commentsByPostId[postId].filter(
+        (comment) => !blockedUserIds.has(comment.author.id),
+      );
+    }
+  }
+
+  return visiblePosts.map((post) => {
     const postLikes = likesByPostId[post.id] ?? [];
     const linkedCat = post.cat_id ? catsById.get(post.cat_id) : undefined;
     const images = imagesByPostId.get(post.id) ?? [];
@@ -762,4 +774,122 @@ export async function toggleCommunityPostLike(postId: string, liked: boolean) {
   }
 
   return true;
+}
+
+// ---------------------------------------------------------------------------
+// UGC 신고·차단 (Google Play UGC 정책 대응)
+// ---------------------------------------------------------------------------
+
+export interface CommunityReportTarget {
+  type: 'POST' | 'COMMENT' | 'USER';
+  targetId: string;
+}
+
+// 운영 DB의 community_reports.reason 체크 제약과 동일한 값 집합이다.
+export type CommunityReportReason = 'SPAM' | 'ABUSE' | 'INAPPROPRIATE_IMAGE' | 'PRIVACY' | 'ANIMAL_ABUSE' | 'LOCATION_EXPOSURE' | 'ETC';
+
+export async function reportCommunityContent(target: CommunityReportTarget, reason: CommunityReportReason, detail?: string) {
+  assertSupabaseConfigured();
+
+  const reporterId = await getCurrentUserId();
+  const { error } = await supabase.from('community_reports').insert({
+    reporter_id: reporterId,
+    target_type: target.type,
+    target_id: target.targetId,
+    reason,
+    detail: detail ?? null,
+  });
+
+  // 같은 대상을 이미 신고한 경우(중복 키)는 접수 완료로 처리한다.
+  if (error && error.code !== '23505') {
+    throwIfSupabaseError(error);
+  }
+}
+
+export async function blockCommunityUser(blockedUserId: string) {
+  assertSupabaseConfigured();
+
+  const blockerId = await getCurrentUserId();
+
+  if (blockerId === blockedUserId) {
+    throw new Error('자기 자신은 차단할 수 없어요.');
+  }
+
+  const { error } = await supabase.from('user_blocks').insert({
+    blocker_id: blockerId,
+    blocked_id: blockedUserId,
+  });
+
+  if (error && error.code !== '23505') {
+    throwIfSupabaseError(error);
+  }
+}
+
+export async function unblockCommunityUser(blockedUserId: string) {
+  assertSupabaseConfigured();
+
+  const blockerId = await getCurrentUserId();
+  const { error } = await supabase
+    .from('user_blocks')
+    .delete()
+    .eq('blocker_id', blockerId)
+    .eq('blocked_id', blockedUserId);
+
+  throwIfSupabaseError(error);
+}
+
+async function fetchBlockedUserIdSet(): Promise<Set<string>> {
+  try {
+    const { data, error } = await supabase.from('user_blocks').select('blocked_id');
+
+    if (error) {
+      // 차단 테이블 미배포 등 조회 실패 시에는 필터 없이 동작한다.
+      console.warn('[community] blocked users fetch failed', error.message);
+      return new Set();
+    }
+
+    return new Set(((data ?? []) as { blocked_id: string }[]).map((row) => row.blocked_id));
+  } catch (error) {
+    console.warn('[community] blocked users fetch failed', error);
+    return new Set();
+  }
+}
+
+export interface BlockedUser {
+  id: string;
+  nickname: string;
+  profileImageUrl?: string;
+  blockedAt: string;
+}
+
+export async function fetchBlockedUsers(): Promise<BlockedUser[]> {
+  assertSupabaseConfigured();
+  await getCurrentUserId();
+
+  const { data, error } = await supabase
+    .from('user_blocks')
+    .select('blocked_id, created_at')
+    .order('created_at', { ascending: false });
+
+  throwIfSupabaseError(error);
+
+  const rows = (data ?? []) as { blocked_id: string; created_at: string }[];
+
+  if (rows.length === 0) {
+    return [];
+  }
+
+  const profiles = await fetchAuthorProfiles(rows.map((row) => row.blocked_id));
+  const profilesById = new Map(profiles.map((profile) => [profile.id, profile]));
+
+  return rows.map((row) => {
+    const author = mapAuthor(profilesById.get(row.blocked_id), row.blocked_id);
+
+    return {
+      id: row.blocked_id,
+      nickname: author.nickname,
+      profileImageUrl: author.profileImageUrl,
+      blockedAt: formatRelativeTime(row.created_at),
+    };
+  });
 }

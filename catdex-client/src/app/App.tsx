@@ -27,6 +27,7 @@ import { CommunityPostDetailScreen } from '@/features/community/CommunityPostDet
 import { HomeScreen } from '@/features/home/HomeScreen';
 import { NeighborhoodDexScreen } from '@/features/map/NeighborhoodDexScreen';
 import { NeighborhoodMapScreen } from '@/features/map/NeighborhoodMapScreen';
+import { BlockedUsersScreen } from '@/features/my/BlockedUsersScreen';
 import { ExplorationHistoryScreen } from '@/features/my/MyLinkedCollectionScreens';
 import { BadgeBookScreen } from '@/features/my/BadgeBookScreen';
 import { MyPageScreen } from '@/features/my/MyPageScreen';
@@ -228,6 +229,7 @@ export default function App() {
       case 'myCommunityPosts':
         return 'my';
       case 'explorationHistory':
+      case 'blockedUsers':
       case 'badgeBook':
       case 'profileEdit':
       case 'notificationInbox':
@@ -1225,6 +1227,13 @@ export default function App() {
             isWithdrawing={isWithdrawing}
             myCats={myCats}
             neighborhoodName={activeNeighborhoodName}
+            onOpenBlockedUsers={() =>
+              setNavigation({
+                screen: 'blockedUsers',
+                selectedCatId: null,
+                selectedOwnerId: null,
+              })
+            }
             onOpenExplorationHistory={handleOpenExplorationHistory}
             onOpenBadges={handleOpenBadgeBook}
             onOpenCommunityPosts={handleOpenMyCommunityPosts}
@@ -1268,6 +1277,8 @@ export default function App() {
             onOpenCat={handleOpenCat}
           />
         );
+      case 'blockedUsers':
+        return <BlockedUsersScreen onBack={() => handleTabChange('my')} />;
       case 'profileEdit':
         return currentUser ? (
           <ProfileEditScreen
