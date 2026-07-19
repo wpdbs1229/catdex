@@ -3,6 +3,12 @@ import { MAX_SAVED_NEIGHBORHOODS, type SavedNeighborhood } from '@/shared/types/
 
 const STORAGE_KEY = 'catdex.neighborhoods.v1';
 
+// 같은 기기에서 계정을 전환해도 이전 사용자의 동네 목록이 보이지 않도록
+// 사용자별 키로 분리한다. 기존(전역) 키는 최초 1회 마이그레이션으로 읽는다.
+function getStorageKey(userId?: string | null) {
+  return userId ? `${STORAGE_KEY}:${userId}` : STORAGE_KEY;
+}
+
 interface StoredNeighborhoodState {
   activeNeighborhoodId: string;
   savedNeighborhoods: SavedNeighborhood[];
@@ -31,8 +37,19 @@ function sanitizeNeighborhoods(value: SavedNeighborhood[]) {
   return neighborhoods;
 }
 
-export async function loadNeighborhoodState(): Promise<StoredNeighborhoodState> {
-  const rawValue = await AsyncStorage.getItem(STORAGE_KEY);
+export async function loadNeighborhoodState(userId?: string | null): Promise<StoredNeighborhoodState> {
+  let rawValue = await AsyncStorage.getItem(getStorageKey(userId));
+
+  // 사용자별 키가 비어 있으면 구버전 전역 키에서 마이그레이션한다.
+  if (!rawValue && userId) {
+    const legacyValue = await AsyncStorage.getItem(STORAGE_KEY);
+
+    if (legacyValue) {
+      rawValue = legacyValue;
+      await AsyncStorage.setItem(getStorageKey(userId), legacyValue).catch(() => undefined);
+      await AsyncStorage.removeItem(STORAGE_KEY).catch(() => undefined);
+    }
+  }
 
   if (!rawValue) {
     return {
@@ -60,9 +77,9 @@ export async function loadNeighborhoodState(): Promise<StoredNeighborhoodState> 
   }
 }
 
-export async function saveNeighborhoodState(state: StoredNeighborhoodState) {
+export async function saveNeighborhoodState(state: StoredNeighborhoodState, userId?: string | null) {
   await AsyncStorage.setItem(
-    STORAGE_KEY,
+    getStorageKey(userId),
     JSON.stringify({
       activeNeighborhoodId: state.activeNeighborhoodId,
       savedNeighborhoods: sanitizeNeighborhoods(state.savedNeighborhoods),

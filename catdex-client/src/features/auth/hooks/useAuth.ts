@@ -44,7 +44,16 @@ function isAuthSession(value: unknown): value is AuthSession {
 }
 
 async function persistSession(session: AuthSession) {
-  await SecureStore.setItemAsync(authStorageKey, JSON.stringify(session));
+  // 토큰은 Supabase 클라이언트가 AsyncStorage에서 직접 관리하므로 여기에는
+  // 저장하지 않는다. (토큰 포함 시 SecureStore 2048바이트 제한을 초과했고,
+  // 회전된 토큰과 어긋나는 문제도 있었다.) provider와 사용자 정보만 남긴다.
+  const snapshot: AuthSession = {
+    ...session,
+    accessToken: '',
+    refreshToken: '',
+  };
+
+  await SecureStore.setItemAsync(authStorageKey, JSON.stringify(snapshot));
 }
 
 async function restoreSession() {
@@ -72,19 +81,48 @@ async function restoreSession() {
   }
 }
 
+function isDefinitiveAuthError(error: { status?: number } | null | undefined) {
+  return typeof error?.status === 'number' && [400, 401, 403, 404].includes(error.status);
+}
+
 async function restoreSupabaseSession(restoredSession: AuthSession | null) {
+  const fallbackProvider = restoredSession?.user.provider ?? 'kakao';
+
+  // Supabase 클라이언트(persistSession: true)가 AsyncStorage에 보관·회전하는
+  // 세션을 신뢰 소스로 사용한다. SecureStore 사본은 토큰 회전을 따라가지
+  // 못하므로 여기로 먼저 오면 유효한 세션을 지워버린다.
+  const { data: currentData, error: currentError } = await supabase.auth.getSession();
+
+  if (!currentError && currentData.session) {
+    const nextSession = createAuthSessionFromSupabaseSession(currentData.session, fallbackProvider);
+    await persistSession(nextSession);
+    return nextSession;
+  }
+
   if (!restoredSession) {
     return null;
   }
 
+  // 새 저장 형식은 토큰을 담지 않으므로 setSession 재생 대상이 아니다.
+  if (!restoredSession.accessToken || !restoredSession.refreshToken) {
+    return null;
+  }
+
+  // 구버전에서 저장된 SecureStore 세션만 있는 경우의 마이그레이션 경로.
   const { data, error } = await supabase.auth.setSession({
     access_token: restoredSession.accessToken,
     refresh_token: restoredSession.refreshToken,
   });
 
   if (error || !data.session) {
-    await SecureStore.deleteItemAsync(authStorageKey);
-    return null;
+    // 네트워크 오류 등 일시 장애에는 세션을 지우지 않는다.
+    // 확정적인 인증 실패(만료·폐기)일 때만 제거한다.
+    if (isDefinitiveAuthError(error)) {
+      await SecureStore.deleteItemAsync(authStorageKey);
+      return null;
+    }
+
+    return restoredSession;
   }
 
   const nextSession = createAuthSessionFromSupabaseSession(data.session, restoredSession.user.provider);
@@ -114,8 +152,9 @@ export function useAuth() {
           setCurrentUser(activeSession?.user ?? null);
         }
       } catch (error) {
+        // 일시적인 오류(네트워크 등)로 복원이 실패해도 저장된 세션은 지우지
+        // 않는다. 확정적인 인증 실패는 restoreSupabaseSession에서 처리한다.
         console.warn('[auth] restore failed', error);
-        await SecureStore.deleteItemAsync(authStorageKey);
 
         if (isMounted) {
           setApiAccessToken(null);
@@ -130,8 +169,33 @@ export function useAuth() {
 
     hydrateAuthState();
 
+    // Supabase가 토큰을 회전(TOKEN_REFRESHED)할 때마다 SecureStore 사본을
+    // 따라 갱신해야 다음 콜드스타트에서 폐기된 refresh token을 재사용하지 않는다.
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
+        if (session) {
+          const nextSession = createAuthSessionFromSupabaseSession(session, 'kakao');
+          restoreSession()
+            .then((stored) =>
+              persistSession(
+                stored
+                  ? createAuthSessionFromSupabaseSession(session, stored.user.provider)
+                  : nextSession,
+              ),
+            )
+            .catch((error) => console.warn('[auth] session sync failed', error));
+        }
+        return;
+      }
+
+      if (event === 'SIGNED_OUT') {
+        SecureStore.deleteItemAsync(authStorageKey).catch(() => undefined);
+      }
+    });
+
     return () => {
       isMounted = false;
+      authListener.subscription.unsubscribe();
     };
   }, []);
 
@@ -147,8 +211,16 @@ export function useAuth() {
       return nextSession.user;
     } catch (error) {
       console.warn('[auth] login failed', error);
-      setAuthErrorMessage(getUserFacingErrorMessage(error, 'auth.login'));
-      throw error;
+
+      // 사용자가 직접 취소한 경우는 오류 배너를 띄우지 않는다.
+      const rawMessage = error instanceof Error ? error.message.toLowerCase() : '';
+      if (!rawMessage.includes('cancel')) {
+        setAuthErrorMessage(getUserFacingErrorMessage(error, 'auth.login'));
+      }
+
+      // 화면에서는 상태(authErrorMessage)로 결과를 전달하므로 다시 던지지
+      // 않는다(버튼 onPress로 호출되어 rejection이 처리되지 않는 문제 방지).
+      return null;
     } finally {
       setPendingProvider(null);
     }
@@ -161,9 +233,16 @@ export function useAuth() {
     setIsSigningOut(true);
 
     try {
-      await signOut();
+      try {
+        await signOut();
+      } catch (error) {
+        // 서버 로그아웃이 실패해도(오프라인 등) 로컬 세션은 반드시 정리한다.
+        console.warn('[auth] server sign-out failed, falling back to local', error);
+        await supabase.auth.signOut({ scope: 'local' }).catch(() => undefined);
+      }
+
       setApiAccessToken(null);
-      await SecureStore.deleteItemAsync(authStorageKey);
+      await SecureStore.deleteItemAsync(authStorageKey).catch(() => undefined);
       setCurrentUser(null);
     } finally {
       setIsSigningOut(false);

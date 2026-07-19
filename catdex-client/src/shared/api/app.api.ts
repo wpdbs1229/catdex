@@ -169,8 +169,17 @@ export async function uploadCatObservationImage(imageUri: string, kind: 'origina
 
   const file = new File(imageUri);
   const bytes = await file.arrayBuffer();
-  const extension = kind === 'cutout' ? 'png' : 'jpg';
-  const contentType = kind === 'cutout' ? 'image/png' : 'image/jpeg';
+  // 원본 폴백 시 cutout 자리에 JPEG가 오는 등 kind와 실제 포맷이 다를 수
+  // 있으므로 실제 파일 확장자를 우선한다.
+  const uriExtension = /\.(png|jpe?g|webp|heic)$/i.exec(imageUri.split('?')[0] ?? '')?.[1]?.toLowerCase();
+  const extension = uriExtension === 'jpeg' ? 'jpg' : (uriExtension ?? (kind === 'cutout' ? 'png' : 'jpg'));
+  const contentTypeByExtension: Record<string, string> = {
+    png: 'image/png',
+    jpg: 'image/jpeg',
+    webp: 'image/webp',
+    heic: 'image/heic',
+  };
+  const contentType = contentTypeByExtension[extension] ?? 'image/jpeg';
   const path = `${user.id}/observations/${kind}-${Date.now()}.${extension}`;
   const { data, error } = await supabase.storage.from('cat-images').upload(path, bytes, {
     contentType,

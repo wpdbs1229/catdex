@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import * as ImagePicker from 'expo-image-picker';
 import { ActivityIndicator, Alert, Image, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions, type ImageSourcePropType } from 'react-native';
 import { AlertCircle, ArrowLeft, Camera, Check, ImagePlus, RotateCcw, Scissors, SearchX, Sparkles } from 'lucide-react-native';
@@ -92,7 +92,13 @@ export function CaptureScreen({
     );
   };
 
+  // 처리 중 취소(다시 촬영)하면 세션 번호가 올라가고, 진행 중이던 비동기
+  // 결과는 세션이 달라진 시점에 폐기된다. (취소했는데 뒤늦게 match 화면으로
+  // 튀는 문제 방지)
+  const captureSessionRef = useRef(0);
+
   const resetCapture = () => {
+    captureSessionRef.current += 1;
     setCapturedImageUri(null);
     setProcessedPhoto(null);
     setStoredResult(null);
@@ -103,6 +109,7 @@ export function CaptureScreen({
   };
 
   const handlePhotoCaptured = async (uri: string) => {
+    const session = ++captureSessionRef.current;
     setCapturedImageUri(uri);
     setProcessedPhoto(null);
     setStoredResult(null);
@@ -122,6 +129,10 @@ export function CaptureScreen({
     try {
       const visionResult = await processCatPhoto(uri);
 
+      if (session !== captureSessionRef.current) {
+        return;
+      }
+
       if (!visionResult.hasCat || !visionResult.cutoutImageUri) {
         setErrorMessage('사진에서 고양이를 찾지 못했어요.');
         setFailureKind('noCat');
@@ -138,9 +149,19 @@ export function CaptureScreen({
         featureVector: visionResult.featureVector,
       };
       setProcessedPhoto(nextProcessedPhoto);
-      setStoredResult(await onProcessPhoto(nextProcessedPhoto));
+      const nextStoredResult = await onProcessPhoto(nextProcessedPhoto);
+
+      if (session !== captureSessionRef.current) {
+        return;
+      }
+
+      setStoredResult(nextStoredResult);
       setStep('match');
     } catch (error) {
+      if (session !== captureSessionRef.current) {
+        return;
+      }
+
       console.warn('[capture] photo process failed', error);
       setErrorMessage(getUserFacingError(error, 'capture.process').message);
       setFailureKind('processError');
@@ -149,25 +170,27 @@ export function CaptureScreen({
   };
 
   const handlePickTestPhoto = async () => {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    try {
+      // iOS(PHPicker)와 최신 Android는 시스템 사진 선택기라 별도 권한이
+      // 필요 없다. 권한 요청은 시도하되, 거부돼도 선택기는 열어본다.
+      await ImagePicker.requestMediaLibraryPermissionsAsync().catch(() => null);
 
-    if (!permission.granted) {
-      setErrorMessage('앨범 사진을 테스트하려면 사진 접근 권한이 필요해요.');
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        quality: 0.84,
+      });
+
+      if (result.canceled || !result.assets[0]?.uri) {
+        return;
+      }
+
+      await handlePhotoCaptured(result.assets[0].uri);
+    } catch (error) {
+      console.warn('[capture] album pick failed', error);
+      setErrorMessage('앨범에서 사진을 불러오지 못했어요. 설정에서 사진 접근 권한을 확인해 주세요.');
       setFailureKind('processError');
       setStep('noCat');
-      return;
     }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      quality: 0.84,
-    });
-
-    if (result.canceled || !result.assets[0]?.uri) {
-      return;
-    }
-
-    await handlePhotoCaptured(result.assets[0].uri);
   };
 
   const handleContinueWithOriginalPhoto = async () => {
@@ -175,6 +198,7 @@ export function CaptureScreen({
       return;
     }
 
+    const session = ++captureSessionRef.current;
     const fallbackPhoto: ProcessedCatPhoto = {
       originalImageUri: capturedImageUri,
       cutoutImageUri: capturedImageUri,
@@ -191,9 +215,19 @@ export function CaptureScreen({
 
     try {
       setProcessedPhoto(fallbackPhoto);
-      setStoredResult(await onProcessPhoto(fallbackPhoto));
+      const nextStoredResult = await onProcessPhoto(fallbackPhoto);
+
+      if (session !== captureSessionRef.current) {
+        return;
+      }
+
+      setStoredResult(nextStoredResult);
       setStep('match');
     } catch (error) {
+      if (session !== captureSessionRef.current) {
+        return;
+      }
+
       console.warn('[capture] original fallback failed', error);
       setErrorMessage(getUserFacingError(error, 'capture.process').message);
       setFailureKind('processError');
@@ -215,6 +249,9 @@ export function CaptureScreen({
           <Text style={styles.processingText}>
             {isUsingOriginalFallback ? '자동 누끼 없이 원본 사진을 대표 사진으로 등록할 수 있게 저장해요.' : '사진은 기기에서 먼저 분석하고, 누끼 이미지는 안전하게 저장해 후보 비교에 써요.'}
           </Text>
+          <Button onPress={resetCapture} variant="ghost">
+            취소하고 다시 촬영
+          </Button>
         </Card>
       </View>
     );
@@ -229,7 +266,7 @@ export function CaptureScreen({
           : '고양이를 찾지 못했어요';
 
     return (
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView key={step} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Card style={styles.resultCard}>
           {capturedImageUri ? <Image source={{ uri: capturedImageUri }} style={styles.resultImage} /> : null}
           <View style={styles.resultMessage}>
@@ -261,7 +298,7 @@ export function CaptureScreen({
       processedPhoto.confidence === 0 && processedPhoto.boundingBox === null && processedPhoto.featureVector.length === 0;
 
     return (
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView key={step} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <Text style={styles.kicker}>동네 기록 후보</Text>
           <Text style={styles.title}>같은 고양이인지 확인해요</Text>
@@ -332,6 +369,7 @@ export function CaptureScreen({
             {candidates.length > 0 ? '후보에 없어요 · 새로 등록' : '새 고양이로 등록'}
           </Button>
           <Button
+            disabled={isSubmitting}
             onPress={() =>
               onMarkUncertain({
                 observationId: storedResult?.observationId,
@@ -343,6 +381,9 @@ export function CaptureScreen({
           >
             잘 모르겠어요
           </Button>
+          <Button disabled={isSubmitting} onPress={resetCapture} variant="ghost">
+            다시 촬영하기
+          </Button>
         </View>
       </ScrollView>
     );
@@ -350,8 +391,19 @@ export function CaptureScreen({
 
   if (step === 'register' && processedPhoto) {
     return (
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView key={step} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
+          <Pressable
+            accessibilityLabel="후보 확인으로 돌아가기"
+            accessibilityRole="button"
+            disabled={isSubmitting}
+            hitSlop={10}
+            onPress={() => setStep('match')}
+            style={({ pressed }) => [styles.registerBackButton, pressed && styles.pressed]}
+          >
+            <ArrowLeft color={theme.colors.primaryDark} size={20} />
+            <Text style={styles.registerBackText}>후보 다시 보기</Text>
+          </Pressable>
           <Text style={styles.kicker}>새 고양이 등록</Text>
           <Text style={styles.title}>누끼 이미지를 대표 사진으로 써요</Text>
           <Text style={styles.subtitle}>이름과 동네만 입력하면 새 도감 카드가 만들어져요.</Text>
@@ -780,5 +832,19 @@ const styles = StyleSheet.create({
   },
   pressed: {
     opacity: 0.84,
+  },
+  registerBackButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 6,
+    marginBottom: theme.spacing.sm,
+    paddingVertical: 4,
+    paddingRight: theme.spacing.sm,
+  },
+  registerBackText: {
+    color: theme.colors.primaryDark,
+    fontSize: 13,
+    fontWeight: '800',
   },
 });

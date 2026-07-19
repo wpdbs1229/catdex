@@ -2,6 +2,7 @@ import type { LucideIcon } from 'lucide-react-native';
 import { Bell, BookOpen, ChevronRight, IdCard, Info, LogOut, MessageCircle, Settings, ShieldCheck, Star, Trash2, X } from 'lucide-react-native';
 import { useState } from 'react';
 import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View, type ImageSourcePropType } from 'react-native';
+import { badgeIconMap } from '@/features/my/BadgeBookScreen';
 import { FeaturedCatManager } from '@/features/my/components/FeaturedCatManager';
 import { ProgressBar } from '@/shared/components/ProgressBar';
 import { DEFAULT_BADGE_CATALOG } from '@/shared/constants/badge.constants';
@@ -42,7 +43,6 @@ const illustrations = {
   gray: require('../../../assets/illustrations/cat-gray-clean.png'),
 } satisfies Record<'profile' | CatIllustrationKey, ImageSourcePropType>;
 
-const badgeIcons = ['🐾', '🌿', '🦉', '💙'];
 
 function getEmployeeNumber(user: AuthUser) {
   const source = `${user.provider}:${user.id}:${user.nickname}`;
@@ -214,10 +214,10 @@ export function MyPageScreen({
           </View>
         </View>
         <View style={styles.badgeRow}>
-          {displayBadges.map((badge, index) => (
+          {displayBadges.map((badge) => (
             <View key={badge.id} style={styles.badgeItem}>
               <View style={[styles.badgeCircle, !badge.achieved && styles.badgeCircleLocked]}>
-                <Text style={styles.badgeEmoji}>{badgeIcons[index] ?? '🏅'}</Text>
+                <Text style={styles.badgeEmoji}>{badgeIconMap[badge.id] ?? '🏅'}</Text>
               </View>
               <Text numberOfLines={1} style={styles.badgeLabel}>
                 {badge.name}

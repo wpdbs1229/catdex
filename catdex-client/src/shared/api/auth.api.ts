@@ -282,8 +282,12 @@ async function signInWithOAuthProvider(provider: AuthProvider): Promise<CatdexAu
 
   const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
 
+  if (result.type === 'cancel' || result.type === 'dismiss') {
+    throw new Error('OAuth login was cancelled');
+  }
+
   if (result.type !== 'success') {
-    throw new Error('OAuth login was cancelled or failed');
+    throw new Error('OAuth 로그인에 실패했습니다. 잠시 후 다시 시도해 주세요.');
   }
 
   const session = await exchangeOAuthCallbackUrl(result.url);

@@ -25,8 +25,21 @@ function imageForType(type: CatType, imageUrl?: string): ImageSourcePropType {
   return illustrations[getCatIllustrationKey(type)];
 }
 
+// lastSeenAt은 "YYYY.MM.DD" 형식이라 new Date()로는 엔진에 따라 파싱이 실패한다.
+// 부분별로 직접 파싱해 일관되게 처리한다.
+function parseDotDate(value: string) {
+  const match = /^(\d{4})[.\-](\d{1,2})[.\-](\d{1,2})$/.exec(value.trim());
+
+  if (!match) {
+    return null;
+  }
+
+  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
 function formatDate(value: string) {
-  const date = new Date(value);
+  const date = parseDotDate(value) ?? new Date(value);
 
   if (Number.isNaN(date.getTime())) {
     return value;
@@ -56,7 +69,9 @@ function Header({ onBack }: { onBack: () => void }) {
 }
 
 export function ExplorationHistoryScreen({ cats, onBack, onOpenCat }: ExplorationHistoryScreenProps) {
-  const sortedCats = [...cats].sort((a, b) => new Date(b.lastSeenAt).getTime() - new Date(a.lastSeenAt).getTime());
+  const sortedCats = [...cats].sort(
+    (a, b) => (parseDotDate(b.lastSeenAt)?.getTime() ?? 0) - (parseDotDate(a.lastSeenAt)?.getTime() ?? 0),
+  );
 
   return (
     <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>

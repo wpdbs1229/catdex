@@ -43,7 +43,6 @@
         "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.CAMERA",
-        "android.permission.RECORD_AUDIO",
         "android.permission.POST_NOTIFICATIONS"
       ]
     },
@@ -56,7 +55,12 @@
       ],
       "./plugins/withKakaoMavenRepo",
       "expo-web-browser",
-      "expo-secure-store",
+      [
+        "expo-secure-store",
+        {
+          "faceIDPermission": "로그인 정보를 안전하게 보관하기 위해 Face ID를 사용할 수 있습니다."
+        }
+      ],
       [
         "expo-image-picker",
         {
@@ -72,7 +76,9 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "냥도감에서 길고양이 사진을 기록하기 위해 카메라 접근이 필요합니다."
+          "cameraPermission": "냥도감에서 길고양이 사진을 기록하기 위해 카메라 접근이 필요합니다.",
+          "microphonePermission": false,
+          "recordAudioAndroid": false
         }
       ],
       [

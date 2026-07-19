@@ -188,6 +188,14 @@ Deno.serve(async (request) => {
 
   cleanupResults.push(await removeUserStorage(supabase, 'profile-images', userId));
   cleanupResults.push(await removeUserStorage(supabase, 'cat-images', userId));
+  // 커뮤니티 게시글 이미지도 사용자 폴더 기준으로 함께 삭제한다.
+  // (누락 시 탈퇴 후에도 업로드한 사진이 스토리지에 영구히 남는다.)
+  cleanupResults.push(await removeUserStorage(supabase, 'community-post-images', userId));
+
+  // 탈퇴자가 올린 사진 파일은 삭제되므로, 살아남는 공유 고양이가 그 경로를
+  // 대표 사진으로 계속 참조하지 않도록 비워 둔다.
+  cleanupResults.push(await runOptional('cats.image_url', () => supabase.from('cats').update({ image_url: null }, { count: 'exact' }).like('image_url', `${userId}/%`)));
+  cleanupResults.push(await runOptional('cats.representative_photo_url', () => supabase.from('cats').update({ representative_photo_url: null }, { count: 'exact' }).like('representative_photo_url', `${userId}/%`)));
 
   const communityPostIds = await fetchUserCommunityPostIds(supabase, userId);
 

@@ -69,7 +69,7 @@ function getCatImage(cat: Cat): ImageSourcePropType {
 }
 
 function percent(value: number, total: number) {
-  return Math.round((Math.max(0, value) / Math.max(1, total)) * 100);
+  return Math.min(100, Math.round((Math.max(0, value) / Math.max(1, total)) * 100));
 }
 
 export function HomeScreen({
@@ -98,10 +98,10 @@ export function HomeScreen({
   const [isNeighborhoodPanelOpen, setIsNeighborhoodPanelOpen] = useState(false);
   const earnedBadges = badges.filter((badge) => badge.achieved);
   const displayedBadges = earnedBadges.slice(0, 3);
-  const rediscoveryCount = Math.max(
-    profile.rediscoveries,
-    recentCats.reduce((total, cat) => total + Math.max(cat.encounterCount - 1, 0), 0),
-  );
+  // 내 수집 기록 기준의 재발견 횟수만 사용한다.
+  // (recentCats의 encounterCount는 공유 도감의 전체 만남 횟수라 다른 사용자의
+  // 기록까지 섞여 값이 부풀려진다.)
+  const rediscoveryCount = profile.rediscoveries;
   const completionPercent = percent(dexProgress.collected, dexProgress.total);
   const hasFavoriteCats = favoriteCats.length > 0;
   const featuredCats = hasFavoriteCats ? favoriteCats.slice(0, 3) : recentCats.slice(0, 3);

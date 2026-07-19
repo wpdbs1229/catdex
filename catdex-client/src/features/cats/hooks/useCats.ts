@@ -67,6 +67,10 @@ export function useCats(selectedCatId: string | null, enabled = true) {
 
       try {
         await reloadCats();
+      } catch (error) {
+        // 초기 로드 실패 시 빈 목록으로 렌더되지만, 촬영/새로고침 경로에서
+        // 다시 로드되므로 여기서는 조용히 기록만 남긴다.
+        console.warn('[cats] initial load failed', error);
       } finally {
         if (isMounted) {
           setIsLoading(false);
@@ -97,16 +101,24 @@ export function useCats(selectedCatId: string | null, enabled = true) {
       }
     }
 
-    loadEncounters();
+    loadEncounters().catch((error) => {
+      console.warn('[cats] encounter load failed', error);
+    });
 
     return () => {
       isMounted = false;
     };
   }, [enabled, selectedCatId]);
 
+  // 상세 화면에는 내 수집 기준 기록(myCats: 내 만남 횟수, 내가 처음 만난 날)을
+  // 우선 사용한다. 공유 목록(cats)의 수치는 모든 사용자의 만남 합계라
+  // "발견 횟수 / 관계 레벨"이 내 기록과 다르게 보이는 문제가 있다.
   const selectedCat = useMemo(
-    () => cats.find((cat) => cat.id === selectedCatId) ?? null,
-    [cats, selectedCatId],
+    () =>
+      myCats.find((cat) => cat.id === selectedCatId) ??
+      cats.find((cat) => cat.id === selectedCatId) ??
+      null,
+    [cats, myCats, selectedCatId],
   );
 
   const createCat = async (draft: CaptureCatDraft) => {
