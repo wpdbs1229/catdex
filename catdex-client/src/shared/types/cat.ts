@@ -38,6 +38,7 @@ export interface Cat {
 export interface CatEncounter {
   id: string;
   catId: string;
+  userId?: string;
   seenAt: string;
   regionName: string;
   memo: string;

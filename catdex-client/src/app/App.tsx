@@ -58,7 +58,7 @@ import {
 } from '@/shared/notifications/notification.service';
 import type { ProfileUpdateDraft } from '@/shared/types/auth';
 import type { Badge, ExplorerProfile } from '@/shared/types/badge';
-import type { CatProfileUpdateDraft, CaptureCatDraft, ProcessedCatPhoto } from '@/shared/types/cat';
+import type { CatEncounter, CatProfileUpdateDraft, CaptureCatDraft, ProcessedCatPhoto } from '@/shared/types/cat';
 import type { CatType, PersonalityTag } from '@/shared/types/cat';
 import type { CollectionCustomizationState, CollectionSummary } from '@/shared/types/collection';
 import type { NavigationState, TabScreen } from '@/shared/types/navigation';
@@ -170,6 +170,7 @@ export default function App() {
     addEncounter,
     cats,
     createCat,
+    removeEncounter,
     createCatSighting,
     dexProgress,
     homeSummary,
@@ -726,6 +727,39 @@ export default function App() {
     }
   };
 
+  const handleRemoveMyEncounter = (encounter: CatEncounter) => {
+    Alert.alert(
+      '만남 기록을 분리할까요?',
+      `${encounter.seenAt} 기록이 이 고양이에게서 분리(삭제)돼요. 마지막 기록이라면 도감 카드도 함께 정리돼요.`,
+      [
+        { text: '취소', style: 'cancel' },
+        {
+          text: '분리하기',
+          style: 'destructive',
+          onPress: () => {
+            removeEncounter(encounter.id)
+              .then((result) => {
+                reloadAppResources().catch(() => undefined);
+
+                if (result.catRemoved) {
+                  Alert.alert('기록 정리 완료', '마지막 기록이어서 도감 카드도 함께 정리했어요.');
+                  handleTabChange('dex');
+                  return;
+                }
+
+                Alert.alert('분리 완료', '만남 기록을 분리했어요.');
+              })
+              .catch((error) => {
+                console.warn('[cats] encounter removal failed', error);
+                const friendlyError = getUserFacingError(error, 'generic');
+                Alert.alert(friendlyError.title, friendlyError.message);
+              });
+          },
+        },
+      ],
+    );
+  };
+
   const handleReportSelectedCat = async () => {
     if (!visibleSelectedCat) {
       return;
@@ -1102,10 +1136,12 @@ export default function App() {
         return visibleSelectedCat ? (
           <CatDetailScreen
             cat={visibleSelectedCat}
+            currentUserId={currentUser?.id ?? null}
             encounters={selectedCatEncounters}
             onBack={() => handleTabChange('dex')}
             onComposePost={() => handleOpenCommunityCompose(visibleSelectedCat.id)}
             onEditCat={() => handleOpenCatEdit(visibleSelectedCat.id)}
+            onRemoveEncounter={handleRemoveMyEncounter}
             onReportCat={handleReportSelectedCat}
           />
         ) : (
