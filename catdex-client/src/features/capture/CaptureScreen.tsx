@@ -1,8 +1,9 @@
 import { useRef, useState } from 'react';
 import * as ImagePicker from 'expo-image-picker';
-import { ActivityIndicator, Alert, Image, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions, type ImageSourcePropType } from 'react-native';
+import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions, type ImageSourcePropType } from 'react-native';
 import { AlertCircle, ArrowLeft, Camera, Check, ImagePlus, RotateCcw, Scissors, SearchX, Sparkles } from 'lucide-react-native';
 import { CameraPlaceholder } from '@/features/capture/components/CameraPlaceholder';
+import { CandidateCompareSheet } from '@/features/capture/components/CandidateCompareSheet';
 import { CatRegisterForm } from '@/features/capture/components/CatRegisterForm';
 import { Button } from '@/shared/components/Button';
 import { Card } from '@/shared/components/Card';
@@ -74,22 +75,14 @@ export function CaptureScreen({
   const currentImageUrl = storedResult?.cutoutImageUrl ?? processedPhoto?.cutoutImageUri;
   const canUseCatVision = isCatVisionAvailable();
 
-  const confirmExistingCandidate = (candidate: CatMatchCandidate) => {
-    Alert.alert(
-      `${candidate.cat.name}와 같은 고양이인가요?`,
-      '같은 고양이로 확인하면 이번 사진이 기존 동네 도감 기록에 추가돼요.',
-      [
-        { text: '다시 볼게요', style: 'cancel' },
-        {
-          text: '같은 고양이 맞아요',
-          onPress: () =>
-            void onRecordExisting(candidate.cat.id, {
-              observationId: storedResult?.observationId,
-              imageUrl: currentImageUrl,
-            }),
-        },
-      ],
-    );
+  // 후보 카드를 탭하면 바로 확정하는 대신, 사진을 크게 비교하는 시트를 연다.
+  const [compareCandidate, setCompareCandidate] = useState<CatMatchCandidate | null>(null);
+
+  const handleConfirmCandidate = (candidate: CatMatchCandidate) => {
+    void onRecordExisting(candidate.cat.id, {
+      observationId: storedResult?.observationId,
+      imageUrl: currentImageUrl,
+    });
   };
 
   // 처리 중 취소(다시 촬영)하면 세션 번호가 올라가고, 진행 중이던 비동기
@@ -332,11 +325,11 @@ export function CaptureScreen({
           <View style={styles.candidateList}>
             {candidates.map((candidate) => (
               <Pressable
-                accessibilityLabel={`${candidate.cat.name} 후보 확인`}
+                accessibilityLabel={`${candidate.cat.name} 사진 비교하기`}
                 accessibilityRole="button"
                 disabled={isSubmitting}
                 key={candidate.cat.id}
-                onPress={() => confirmExistingCandidate(candidate)}
+                onPress={() => setCompareCandidate(candidate)}
                 style={({ pressed }) => [styles.candidateCard, pressed && styles.pressed]}
               >
                 <Image resizeMode="cover" source={imageForCat(candidate.cat)} style={styles.candidateImage} />
@@ -350,7 +343,7 @@ export function CaptureScreen({
                 </View>
                 <View style={styles.choosePill}>
                   <Check color="#FFF8F0" size={15} />
-                  <Text style={styles.chooseText}>확인</Text>
+                  <Text style={styles.chooseText}>비교</Text>
                 </View>
               </Pressable>
             ))}
@@ -386,6 +379,14 @@ export function CaptureScreen({
             다시 촬영하기
           </Button>
         </View>
+
+        <CandidateCompareSheet
+          candidate={compareCandidate}
+          isSubmitting={isSubmitting}
+          myPhotoUri={processedPhoto.cutoutImageUri}
+          onClose={() => setCompareCandidate(null)}
+          onConfirm={handleConfirmCandidate}
+        />
       </ScrollView>
     );
   }
