@@ -25,6 +25,9 @@ export interface CatVisionResult {
   featureVector: number[];
   isPreciseCutout: boolean;
   colorProfile?: CatVisionColorProfile | null;
+  // Vision Feature Print — 후보 정렬 유사도 신호 전용 온디바이스 임베딩
+  embedding?: number[];
+  embeddingVersion?: string | null;
 }
 
 // 색 계열 비율을 앱의 털색 분류로 해석한다. 후보 정렬의 가중치 힌트로만

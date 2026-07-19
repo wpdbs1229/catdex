@@ -34,6 +34,7 @@ private extension CatVisionModule {
     }
 
     let cutout = try makeCutout(cgImage: cgImage, boundingBox: observation.boundingBox)
+    let embedding = imageEmbedding(imageUrl: cutout.url)
 
     return [
       "hasCat": true,
@@ -42,8 +43,46 @@ private extension CatVisionModule {
       "cutoutImageUri": cutout.url.absoluteString,
       "featureVector": featureVector(for: observation, image: cgImage),
       "isPreciseCutout": cutout.isPrecise,
-      "colorProfile": coatColorProfile(imageUrl: cutout.url, usesAlphaMask: cutout.isPrecise)
+      "colorProfile": coatColorProfile(imageUrl: cutout.url, usesAlphaMask: cutout.isPrecise),
+      "embedding": embedding?.values ?? [],
+      "embeddingVersion": embedding?.version as Any? ?? NSNull()
     ]
+  }
+
+  /// 누끼 이미지의 Vision Feature Print(온디바이스 시각 임베딩)를 계산한다.
+  /// 개체 확정용이 아니라 후보 정렬의 유사도 신호로만 사용한다.
+  /// 리비전/차원이 다른 임베딩은 서로 비교할 수 없으므로 버전 문자열을 함께 반환한다.
+  static func imageEmbedding(imageUrl: URL) -> (values: [Double], version: String)? {
+    guard let image = UIImage(contentsOfFile: imageUrl.path), let cgImage = image.cgImage else {
+      return nil
+    }
+
+    let request = VNGenerateImageFeaturePrintRequest()
+    let handler = VNImageRequestHandler(cgImage: cgImage, orientation: .up)
+
+    do {
+      try handler.perform([request])
+    } catch {
+      return nil
+    }
+
+    guard let observation = request.results?.first,
+          observation.elementType == .float,
+          observation.elementCount > 0
+    else {
+      return nil
+    }
+
+    var floats = [Float](repeating: 0, count: observation.elementCount)
+    observation.data.withUnsafeBytes { rawBuffer in
+      guard let baseAddress = rawBuffer.baseAddress else {
+        return
+      }
+
+      memcpy(&floats, baseAddress, min(rawBuffer.count, observation.elementCount * MemoryLayout<Float>.size))
+    }
+
+    return (floats.map(Double.init), "vn-fp-r\(request.revision)-d\(observation.elementCount)")
   }
 
   /// 누끼 이미지의 픽셀을 색 계열(검정/흰색/회색/주황/갈색)로 분류해 비율을 반환한다.

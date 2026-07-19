@@ -608,6 +608,8 @@ export default function App() {
       featureVector: processedPhoto.featureVector,
       isPreciseCutout: processedPhoto.isPreciseCutout,
       coatHints: processedPhoto.coatHints,
+      embedding: processedPhoto.embedding,
+      embeddingVersion: processedPhoto.embeddingVersion,
     });
     const candidates = await fetchCatMatchCandidates({
       observationId: observation.id,

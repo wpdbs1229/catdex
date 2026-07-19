@@ -141,6 +141,8 @@ export function CaptureScreen({
         boundingBox: visionResult.boundingBox,
         featureVector: visionResult.featureVector,
         coatHints: deriveCoatHints(visionResult.colorProfile),
+        embedding: visionResult.embedding && visionResult.embedding.length > 0 ? visionResult.embedding : undefined,
+        embeddingVersion: visionResult.embeddingVersion ?? undefined,
       };
       setProcessedPhoto(nextProcessedPhoto);
       const nextStoredResult = await onProcessPhoto(nextProcessedPhoto);

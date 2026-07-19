@@ -71,6 +71,9 @@ export interface ProcessedCatPhoto {
   isPreciseCutout: boolean;
   // 누끼 색 분포에서 추정한 털색 후보 (후보 정렬 가중치 힌트 전용)
   coatHints?: string[];
+  // 온디바이스 시각 임베딩 (후보 정렬 유사도 전용)
+  embedding?: number[];
+  embeddingVersion?: string | null;
   boundingBox: {
     x: number;
     y: number;

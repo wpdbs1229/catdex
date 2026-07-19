@@ -393,6 +393,8 @@ export async function createCatObservation(draft: {
   featureVector: number[];
   isPreciseCutout: boolean;
   coatHints?: string[];
+  embedding?: number[];
+  embeddingVersion?: string | null;
 }) {
   assertSupabaseConfigured();
 
@@ -419,6 +421,8 @@ export async function createCatObservation(draft: {
       feature_vector: draft.featureVector,
       is_precise_cutout: draft.isPreciseCutout,
       coat_hints: draft.coatHints ?? [],
+      embedding: draft.embedding ?? null,
+      embedding_version: draft.embedding && draft.embedding.length > 0 ? (draft.embeddingVersion ?? null) : null,
       status: 'pending',
     })
     .select('id, original_image_url, cutout_image_url, region_name, detection_confidence, resolved_cat_id')
