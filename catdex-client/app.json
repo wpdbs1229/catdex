@@ -54,6 +54,7 @@
         }
       ],
       "./plugins/withKakaoMavenRepo",
+      "./plugins/withMlkitDependencies",
       "expo-web-browser",
       [
         "expo-secure-store",
