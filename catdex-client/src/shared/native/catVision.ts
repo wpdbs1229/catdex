@@ -94,7 +94,7 @@ const nativeCatVision = requireOptionalNativeModule<CatVisionNativeModule>('CatV
 
 export async function processCatPhoto(imageUri: string): Promise<CatVisionResult> {
   if (!nativeCatVision) {
-    throw new Error('이 기기에서는 로컬 고양이 인식 모듈을 사용할 수 없어요. iOS 개발 빌드에서 다시 확인해주세요.');
+    throw new Error('이 기기에서는 로컬 고양이 인식 모듈을 사용할 수 없어요. 개발 빌드(실기기)에서 다시 확인해주세요.');
   }
 
   return nativeCatVision.processCatPhoto(imageUri);

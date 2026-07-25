@@ -8,3 +8,7 @@ web-build
 .env.*
 !.env.example
 .npm-cache
+
+# Android는 CNG(managed)로 유지한다 — EAS가 app.json 기준으로 prebuild하므로
+# 로컬 컴파일 검증용으로 생성된 android/는 커밋하지 않는다.
+/android
