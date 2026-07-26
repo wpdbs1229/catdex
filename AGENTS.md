@@ -9,6 +9,15 @@
 
 제품 콘셉트는 "냥도감"입니다. 사용자가 길고양이를 촬영하고, 생물 도감처럼 수집하는 앱입니다.
 
+## 현재 상태: 클라이언트 재설계 대기
+
+외주 디자인 개편에 맞춰 클라이언트 화면 코드를 모두 제거했습니다. 새 디자인이 나오면 처음부터 다시 만듭니다.
+
+- 유지: Supabase 마이그레이션·RLS, CatVision 네이티브 모듈(`catdex-client/modules/cat-vision`, `src/shared/native`), 랜딩과 출시 알림 신청(`docs/`)
+- 제거: `catdex-client/src/app`, `src/features`, `src/shared`의 나머지 (API 레이어, 컴포넌트, 타입 등)
+- 이전 상태는 `pre-redesign` 태그에 보존되어 있습니다. 필요한 파일은 `git show pre-redesign:<경로>`로 꺼내 씁니다.
+- 화면과 무관한 도메인 규칙(희귀도, 뱃지, 리더보드 점수, 매칭 점수, 관찰 생명주기)은 `docs/domain-rules.md`에 정리되어 있습니다. 새로 만들 때 이 문서를 기준으로 삼습니다.
+
 ## 작업 규칙
 
 - 클라이언트 코드와 API 코드는 서로 다른 폴더에 둡니다.
@@ -27,7 +36,7 @@
 - 커밋은 가능한 가장 작은 논리 단위로 나눕니다.
 - 기능 단위 작업이 끝나면 PR을 생성합니다.
 - 커밋/PR을 만들 수 없는 환경이면 즉시 사용자에게 알리고, 코드 변경 범위를 더 키우기 전에 저장소 상태를 먼저 정리합니다.
-- 공유 도감 전환은 `docs/shared-catdex-migration.md`를 기준 문서로 삼습니다.
+- 도메인 규칙은 `docs/domain-rules.md`를 기준 문서로 삼습니다.
 - 기능을 검증하고 오류가 생기면 수정합니다. 오류가 없다면, 브랜치를 분리하고 한글로 커밋 푸쉬 PR 절차를 진행합니다.
 
 ## 개발/검증 워크플로
@@ -36,7 +45,7 @@
 - 패키지 매니저는 현재 `npm` 기준입니다. 새 스크립트나 의존성 문서화도 `npm` 기준으로 맞춥니다.
 - Node.js 버전은 `>=20.19.4 <21 || >=22` 제약을 따릅니다.
 - 구현 중 기본 검증은 `cd catdex-client && npm run typecheck`로 수행합니다.
-- 화면/수동 QA가 필요한 단계는 `docs/shared-catdex-migration.md` 기준으로 `홈`, `도감`, `촬영`, `지도`, `MY` 화면을 확인합니다.
+- 화면/수동 QA 기준은 새 디자인이 확정되면 다시 정합니다. 현재 클라이언트에는 자리표시 화면만 있습니다.
 - 로컬 실행이 필요하면 `cd catdex-client && npm run start`를 기본으로 사용합니다.
 - 디바이스 연결 방식에 따라 `cd catdex-client && npm run start:lan`, `cd catdex-client && npm run start:tunnel`을 사용합니다.
 - 에뮬레이터 실행은 `cd catdex-client && npm run android`, `cd catdex-client && npm run ios`를 사용합니다.
