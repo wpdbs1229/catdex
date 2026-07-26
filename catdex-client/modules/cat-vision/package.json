@@ -1,8 +1,0 @@
-{
-  "name": "cat-vision",
-  "version": "1.0.0",
-  "description": "On-device cat detection and cutout",
-  "main": "index.js",
-  "license": "MIT",
-  "private": true
-}
