@@ -299,43 +299,78 @@
         outline: 1px solid #f0e9e2;
       }
 
-      /* ===== stats ===== */
-      .stats {
+      /* ===== collection ===== */
+      .collection {
         background: #fff7f0;
         padding: 88px 24px;
         margin-top: 40px;
       }
 
-      .stats-inner {
+      .collection-inner {
         max-width: 1080px;
         margin: 0 auto;
         text-align: center;
       }
 
-      .stats-title {
+      .collection-title {
         font-size: 17px;
         font-weight: 800;
         color: #ff6f2c;
         margin-bottom: 14px;
       }
 
-      .stats-grid {
+      .collection-lede {
+        max-width: 560px;
+        margin: 20px auto 0;
+        font-size: 17px;
+        line-height: 1.75;
+        color: #6f625a;
+      }
+
+      .collection-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-        gap: 28px;
-        max-width: 760px;
-        margin: 48px auto 0;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 24px;
+        align-items: center;
+        max-width: 860px;
+        margin: 52px auto 0;
       }
 
-      .stat-value {
-        font-size: clamp(36px, 5vw, 52px);
-        font-weight: 900;
-        letter-spacing: -0.02em;
-        color: #1f1a17;
+      .collection-card img {
+        display: block;
+        width: 100%;
+        height: auto;
+        border-radius: 22px;
+        box-shadow: 0 26px 56px rgba(63, 46, 36, 0.2);
       }
 
-      .stat-label {
-        margin-top: 8px;
+      .card-slot {
+        aspect-ratio: 658 / 907;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        padding: 16px;
+        border: 2px dashed #e3d2c2;
+        border-radius: 22px;
+        background: #fffdfb;
+      }
+
+      .card-slot svg {
+        width: 42px;
+        height: 42px;
+      }
+
+      .card-slot span {
+        font-size: 14px;
+        font-weight: 600;
+        line-height: 1.55;
+        color: #b3a396;
+      }
+
+      .collection-caption {
+        margin-top: 30px;
         font-size: 15px;
         font-weight: 600;
         color: #8a7f76;
@@ -819,6 +854,18 @@
         .site-nav {
           display: none;
         }
+
+        .collection-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 16px;
+        }
+
+        .collection-card {
+          order: -1;
+          grid-column: 1 / -1;
+          max-width: 300px;
+          margin: 0 auto 8px;
+        }
       }
 
       @media (max-width: 600px) {
@@ -971,24 +1018,44 @@
           </div>
         </section>
 
-        <section class="stats" aria-label="냥도감 기록 지표">
-          <div class="stats-inner">
-            <div class="stats-title">한 동네에서 시작된 도감</div>
-            <h2>작은 발견이 모이면<br />도감은 이만큼 채워집니다</h2>
-            <div class="stats-grid">
-              <div>
-                <div class="stat-value">6마리</div>
-                <div class="stat-label">수집한 고양이 카드</div>
+        <section class="collection" aria-label="고양이 카드 미리보기">
+          <div class="collection-inner">
+            <div class="collection-title">한 장씩 채워가는 우리 동네 도감</div>
+            <h2>이름을 붙이는 순간,<br />한 장의 카드가 됩니다</h2>
+            <p class="collection-lede">
+              사진 한 장, 이름 하나, 그리고 처음 만난 날. 짧은 기록이 도감 속 카드가 되고, 다시 만날
+              때마다 그 카드에 이야기가 덧붙어요.
+            </p>
+            <div class="collection-grid">
+              <div class="card-slot">
+                <svg viewBox="0 0 48 48" aria-hidden="true">
+                  <ellipse cx="24" cy="32" rx="11" ry="9" fill="#ecdccc" />
+                  <circle cx="11" cy="21" r="4.6" fill="#ecdccc" />
+                  <circle cx="19.5" cy="15" r="4.6" fill="#ecdccc" />
+                  <circle cx="28.5" cy="15" r="4.6" fill="#ecdccc" />
+                  <circle cx="37" cy="21" r="4.6" fill="#ecdccc" />
+                </svg>
+                <span>아직 만나지 못한<br />고양이</span>
               </div>
-              <div>
-                <div class="stat-value">3곳</div>
-                <div class="stat-label">탐색한 동네 구역</div>
+              <div class="collection-card">
+                <img
+                  src="./assets/catdex-card-nabi.png"
+                  alt="냥도감 고양이 카드 예시 — 이름 나비, 털이 복실복실한 우리집 고양이, 품종 페르시안, 첫 만남 26.09.09"
+                  loading="lazy"
+                />
               </div>
-              <div>
-                <div class="stat-value">11번</div>
-                <div class="stat-label">재발견 기록</div>
+              <div class="card-slot">
+                <svg viewBox="0 0 48 48" aria-hidden="true">
+                  <ellipse cx="24" cy="32" rx="11" ry="9" fill="#ecdccc" />
+                  <circle cx="11" cy="21" r="4.6" fill="#ecdccc" />
+                  <circle cx="19.5" cy="15" r="4.6" fill="#ecdccc" />
+                  <circle cx="28.5" cy="15" r="4.6" fill="#ecdccc" />
+                  <circle cx="37" cy="21" r="4.6" fill="#ecdccc" />
+                </svg>
+                <span>다음 골목에서<br />만날 누군가</span>
               </div>
             </div>
+            <p class="collection-caption">비어 있는 칸은, 앞으로 만날 고양이의 자리예요.</p>
           </div>
         </section>
 
