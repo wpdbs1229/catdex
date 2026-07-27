@@ -1,0 +1,9 @@
+{
+  "platforms": ["apple", "android"],
+  "apple": {
+    "modules": ["CameraZoomModule"]
+  },
+  "android": {
+    "modules": ["expo.modules.camerazoom.CameraZoomModule"]
+  }
+}
