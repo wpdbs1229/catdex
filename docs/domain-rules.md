@@ -104,7 +104,7 @@
 2. 대표 임베딩이 최신 확정 관찰 1장으로 덮어써져 나쁜 사진 한 장이 기준 벡터를 오염시킨다. 여러 기준 사진 평균으로 바꿔야 한다.
 3. `embedding_version` 불일치 시 유사도가 null → `coalesce(...,0)`으로 0점 처리된다. **비교 불가와 안 닮음이 구분되지 않는다.**
 4. iOS `VNGenerateImageFeaturePrint`는 범용 이미지 유사도이지 개체 재식별 모델이 아니다. 개체 판별력은 검증되지 않았다.
-5. Android 임베딩은 아직 없다(`feat/안드로이드-캣비전` 브랜치 미머지). 버전 문자열이 다르면 iOS와 Android 유저가 같은 고양이를 잇지 못한다.
+5. Android 임베딩이 없어 플랫폼 간에 같은 고양이를 잇지 못한다. → 아래 "임베딩 결정"에서 크로스플랫폼 통일로 정리했다.
 6. 후보 풀에 상한이 없어 동네 개체가 많아지면 느려진다.
 
 측정을 하려면 `cat_match_candidates`에 `visual_similarity`를 저장해야 한다. 지금은 점수 계산에만 쓰이고 남지 않아 임베딩 신호만 따로 평가할 수 없다. **소급이 불가능하므로 새 스키마에는 처음부터 넣는다.**
@@ -129,22 +129,38 @@
 
 **보존이 중요한 이유**: 확정된 관찰의 후보 행이 남아 있어야 나중에 매칭 정확도(Top-1, Recall@k)를 소급 측정할 수 있다.
 
-## 온디바이스 비전 계약 (모듈 제거됨)
+## 온디바이스 비전 계약
 
-재설계에 맞춰 CatVision 네이티브 모듈(`modules/cat-vision`, `src/shared/native/catVision.ts`)을 제거했다. 새로 만들 때 아래 계약을 맞추면 기존 스키마(`cat_observations`, `cats`의 `embedding`·`embedding_version`)를 그대로 쓸 수 있다. 원본은 `pre-redesign` 태그에 있다.
+CatVision 네이티브 모듈은 `catdex-client/modules/cat-vision`에 다시 만들었다. TS 브리지는 `src/shared/native/catVision.ts`다. 플랫폼별 구현은 다르지만 **반환 계약과 판정 기준(여백 비율 0.18, 털색 임계값)은 동일하게 유지**한다.
 
-**네이티브 모듈이 반환하던 값**
+| 플랫폼 | 고양이 탐지 | 누끼 |
+|---|---|---|
+| iOS | `VNRecognizeAnimalsRequest` | `VNGenerateForegroundInstanceMaskRequest` (iOS 17+) |
+| Android | ML Kit Image Labeling (번들 모델) | ML Kit Subject Segmentation (Play 서비스, 최초 1회 다운로드) |
+
+**네이티브 모듈 반환값**
 
 | 필드 | 용도 |
 |---|---|
 | `hasCat`, `confidence` | 고양이 탐지 여부와 신뢰도 |
-| `boundingBox` | 정규화된 표시용 경계 상자 |
-| `cutoutImageUri`, `isPreciseCutout` | 누끼 이미지와 정밀도 여부 |
+| `boundingBox` | 좌상단 원점으로 정규화된 표시용 경계 상자 |
+| `cutoutImageUri`, `cutoutWidth`, `cutoutHeight` | 누끼 PNG(캐시 디렉터리)와 크기 |
+| `isPreciseCutout` | 마스크 기반이면 true, 사각 크롭 폴백이면 false |
 | `colorProfile` | 검정·흰색·회색·주황·갈색 비율과 커버리지 |
-| `embedding`, `embeddingVersion` | 시각 임베딩과 버전 문자열 |
-| `featureVector` | 레거시. 신뢰도·상자 크기·해상도라 개체 구분에 쓸 수 없다 |
+| `embedding`, `embeddingVersion` | **현재 비어 있다.** 아래 결정 참고 |
 
-**임베딩 버전 문자열**은 `vn-fp-r{리비전}-d{차원}` 형식이었다(iOS `VNGenerateImageFeaturePrint`). 버전이 다르면 비교하지 않는 것이 규칙이다. 새 모듈이 다른 방식을 쓰면 **기존 개체와 비교가 불가능해지므로**, 버전 호환 전략(과거 임베딩 재계산 여부)을 먼저 정해야 한다. Android까지 같은 방식으로 맞추지 않으면 플랫폼 간에 같은 고양이를 잇지 못한다.
+`featureVector`(신뢰도·상자 크기·해상도)는 개체 구분에 쓸 수 없어 계약에서 뺐다.
+
+**폴백 순서**: 정밀 마스크 → 탐지 상자(또는 마스크 커버 영역) 사각 크롭 → 원본. 어느 단계든 촬영 흐름은 끊기지 않고, 정밀도는 `isPreciseCutout`으로만 구분한다.
+
+### 임베딩 결정 (2026-07-27)
+
+**기존 `vn-fp-*` 임베딩을 폐기하고, 두 플랫폼이 같은 모델을 쓰는 방식으로 다시 만든다.**
+
+- 근거: `VNGenerateImageFeaturePrint`는 iOS 전용이라 Android 유저와 같은 고양이를 이을 수 없다. 위 "동일 개체 매칭 점수" 5번 문제의 원인이며, 어느 쪽을 남겨도 플랫폼 하나는 버려야 한다.
+- 따라서 **기존 `cats.embedding` / `cat_observations.embedding` 값은 재사용하지 않는다.** 새 모델을 붙일 때 컬럼을 비우거나 새 버전 문자열로 갈아 끼운다.
+- 새 모델을 붙이기 전까지 네이티브 모듈은 `embedding: []`, `embeddingVersion: null`을 반환한다. 임베딩 없이도 촬영·누끼는 정상 동작한다.
+- 후속 작업: 공용 모델(TFLite/ONNX 등) 선정 → 양 플랫폼 추론 경로 구현 → 새 `embedding_version` 문자열 규칙 확정 → 누끼 이미지 기준 임베딩인지 원본 기준인지 확정. 마지막 항목은 매칭 정확도를 좌우하므로 모델 선정과 함께 결정한다.
 
 **털색 힌트 판정** — 색 비율을 앱의 털색 분류로 해석하던 규칙이다. 후보 정렬 가중치 힌트로만 쓰이므로 배타적이지 않게 여러 개를 함께 반환하고, 최대 4개로 자른다.
 

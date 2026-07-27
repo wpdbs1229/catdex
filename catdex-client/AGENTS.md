@@ -6,18 +6,21 @@ The app concept is "냥도감", a cat collection app where users take photos of 
 
 The app uses Supabase directly for Auth, Postgres data, RPC, and Storage.
 
-**The client is being rewritten from scratch** to match an incoming design overhaul. All screens were removed; only the integrations we decided to reuse remain. See the root `AGENTS.md` for the current state and `docs/domain-rules.md` for rules that survive the rewrite.
+**The client is being rewritten from scratch** to match an incoming design overhaul. Step 1 rebuilt the capture flow; every other tab is still a blank placeholder. See `docs/capture-screen-rebuild.md` for that step and `docs/domain-rules.md` for rules that survive the rewrite.
 
 ## Tech Stack
 
 - React Native + TypeScript on Expo
+- React Navigation (native stack + bottom tabs)
+- expo-camera (capture), react-native-gesture-handler (pinch zoom)
+- Local Expo modules: `modules/cat-vision` (detection + cutout), `modules/camera-zoom` (device zoom range)
 - Expo AuthSession, SecureStore, WebBrowser (OAuth)
 - react-native-webview (Kakao Map)
 - @react-native-kakao/core (native SDK config)
 - @supabase/supabase-js — Auth, RLS, RPC, Storage
-- StyleSheet.create based styling
+- lucide-react-native icons, StyleSheet.create based styling
 
-Anything else (camera, icon set, navigation) is chosen when the new design lands.
+The native modules mean **Expo Go will not work** — use a development build.
 
 ## Architecture Principles
 
@@ -29,11 +32,28 @@ Business/domain concepts belong in feature folders. Supabase access goes through
 
 ## Current Folder Structure
 
-Only reused code remains. The full structure is defined when the new design is confirmed.
+Capture is implemented; other screens are placeholders until their design lands.
 
 ```txt
+modules/
+  cat-vision/               # local Expo module: cat detection + background cutout
+  camera-zoom/              # local Expo module: device max zoom factor lookup
+
 src/
+  app/
+    navigation/
+      RootNavigator.tsx     # tabs + full-screen capture flow
+      types.ts
+    screens/
+      PlaceholderScreen.tsx # blank white screen for undesigned tabs
+
   features/
+    capture/
+      screens/              # CameraScreen, CaptureReviewScreen
+      components/           # top bar, zoom chips, shutter, grid, cutout canvas
+      hooks/useZoomControl.ts
+      camera-zoom.ts        # normalized zoom <-> real factor conversion
+      capture.theme.ts
     auth/
       hooks/
         useAuth.ts            # session, SecureStore, provider sign-in
@@ -43,6 +63,8 @@ src/
       map-region-label.ts
 
   shared/
+    native/
+      catVision.ts            # bridge + coat-hint derivation
     api/
       auth.api.ts             # Kakao/Google OAuth, profile, withdrawal
       client.ts
