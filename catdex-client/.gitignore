@@ -8,3 +8,8 @@ web-build
 .env.*
 !.env.example
 .npm-cache
+
+# android/는 expo prebuild로 생성한다. 네이티브 설정은 app.json과
+# plugins/withKakaoMavenRepo.js에서 관리하므로 생성물은 커밋하지 않는다.
+/android
+modules/*/android/build
