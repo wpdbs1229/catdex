@@ -31,6 +31,10 @@ private enum CatVisionProcessor {
   static let maxProcessingDimension: CGFloat = 2048
   /// 잘라낼 때 경계 상자 바깥으로 남기는 여백 비율. 수염과 귀 끝이 잘리지 않게 한다.
   static let cropPaddingRatio: CGFloat = 0.18
+  /// 털색·무늬 판정용 피사체 샘플 해상도. 태비 줄무늬를 잡으려면 이 정도는 필요하다.
+  static let subjectSampleSize = 128
+  /// 조명 추정용 장면 샘플 해상도. 배경 평균만 보므로 거칠어도 된다.
+  static let sceneSampleSize = 64
 
   static func process(imageUri: String) throws -> [String: Any] {
     let startedAt = Date()
@@ -61,7 +65,8 @@ private enum CatVisionProcessor {
         "cutoutWidth": 0,
         "cutoutHeight": 0,
         "isPreciseCutout": false,
-        "colorProfile": NSNull(),
+        "subjectSamples": NSNull(),
+        "sceneSamples": NSNull(),
         "embedding": [Double](),
         "embeddingVersion": NSNull(),
         "processingMs": elapsedMs(since: startedAt)
@@ -79,7 +84,9 @@ private enum CatVisionProcessor {
       "cutoutWidth": cutout.width,
       "cutoutHeight": cutout.height,
       "isPreciseCutout": cutout.isPrecise,
-      "colorProfile": coatColorProfile(imageUrl: cutout.url, usesAlphaMask: cutout.isPrecise) ?? NSNull(),
+      // 털색·무늬 판정은 JS(coat-analysis.ts)에서 한다. 여기서는 픽셀만 넘긴다.
+      "subjectSamples": encodedSamples(from: cutout.image, size: subjectSampleSize) ?? NSNull(),
+      "sceneSamples": encodedSceneSamples(original: cgImage, masked: maskedImage, size: sceneSampleSize) ?? NSNull(),
       // 크로스플랫폼 공용 임베딩 모델을 붙이기 전까지 비워 둔다.
       "embedding": [Double](),
       "embeddingVersion": NSNull(),
@@ -154,7 +161,7 @@ private enum CatVisionProcessor {
   static func visionExtent(of maskedImage: CIImage) -> CGRect? {
     let sampleSize = 64
 
-    guard let pixels = alphaSamples(from: maskedImage, sampleSize: sampleSize) else {
+    guard let pixels = rgbaSamples(from: maskedImage, size: sampleSize) else {
       return nil
     }
 
@@ -193,7 +200,7 @@ private enum CatVisionProcessor {
     maskedImage: CIImage?,
     originalImage: CGImage,
     cropRect: CGRect
-  ) throws -> (url: URL, width: Int, height: Int, isPrecise: Bool) {
+  ) throws -> (url: URL, width: Int, height: Int, isPrecise: Bool, image: CIImage) {
     let context = CIContext(options: nil)
     let colorSpace = CGColorSpaceCreateDeviceRGB()
     let outputUrl = outputUrl(extension: "png")
@@ -203,7 +210,7 @@ private enum CatVisionProcessor {
 
       if let pngData = context.pngRepresentation(of: cropped, format: .RGBA8, colorSpace: colorSpace) {
         try pngData.write(to: outputUrl, options: .atomic)
-        return (outputUrl, Int(cropped.extent.width), Int(cropped.extent.height), true)
+        return (outputUrl, Int(cropped.extent.width), Int(cropped.extent.height), true, cropped)
       }
     }
 
@@ -214,118 +221,48 @@ private enum CatVisionProcessor {
     }
 
     try pngData.write(to: outputUrl, options: .atomic)
-    return (outputUrl, Int(cropped.extent.width), Int(cropped.extent.height), false)
+    return (outputUrl, Int(cropped.extent.width), Int(cropped.extent.height), false, cropped)
   }
 
-  // MARK: - 털색 힌트
+  // MARK: - 픽셀 샘플
 
-  /// 누끼 이미지의 픽셀을 색 계열(검정/흰색/회색/주황/갈색)로 분류해 비율을 반환한다.
-  /// 개체 식별이 아니라 후보 정렬의 털색 힌트로만 사용한다.
-  /// 판정 기준은 Android 구현과 동일하게 유지해야 플랫폼 간 힌트가 어긋나지 않는다.
-  static func coatColorProfile(imageUrl: URL, usesAlphaMask: Bool) -> [String: Double]? {
-    guard
-      let image = UIImage(contentsOfFile: imageUrl.path),
-      let cgImage = image.cgImage
-    else {
+  /// 털색·무늬 판정은 JS에서 한다(coat-analysis.ts). 여기서는 마스크가 적용된
+  /// 픽셀 격자를 base64로 넘기기만 한다. 판정 로직을 한 곳에 두면 iOS와 Android
+  /// 결과가 어긋날 수 없고, 임계값 조정을 네이티브 재빌드 없이 할 수 있다.
+  static func encodedSamples(from image: CIImage, size: Int) -> [String: Any]? {
+    guard let pixels = rgbaSamples(from: image, size: size) else {
       return nil
     }
 
-    let sampleSize = 64
-
-    guard let pixels = alphaSamples(from: CIImage(cgImage: cgImage), sampleSize: sampleSize) else {
-      return nil
-    }
-
-    var counts: [String: Int] = ["black": 0, "white": 0, "gray": 0, "orange": 0, "brown": 0]
-    var classified = 0
-    var opaque = 0
-
-    for index in stride(from: 0, to: pixels.count, by: 4) {
-      let alpha = Double(pixels[index + 3]) / 255
-
-      // 정밀 누끼면 마스크 밖(투명) 픽셀을 제외한다. 사각 크롭이면 배경이
-      // 섞이므로 중앙 가중 없이 전체를 대상으로 하되 알파는 그대로 본다.
-      if alpha < 0.5 {
-        continue
-      }
-
-      opaque += 1
-
-      // premultiplied alpha 복원
-      let red = min(1, Double(pixels[index]) / 255 / alpha)
-      let green = min(1, Double(pixels[index + 1]) / 255 / alpha)
-      let blue = min(1, Double(pixels[index + 2]) / 255 / alpha)
-
-      guard let family = colorFamily(red: red, green: green, blue: blue) else {
-        // 냉색 계열(배경 잔여물 등)은 분모에서 제외한다.
-        continue
-      }
-
-      counts[family]! += 1
-      classified += 1
-    }
-
-    guard classified > 32 else {
-      return nil
-    }
-
-    var profile: [String: Double] = [:]
-    for (family, count) in counts {
-      profile[family] = Double(count) / Double(classified)
-    }
-    profile["coverage"] = Double(opaque) / Double(sampleSize * sampleSize)
-    profile["maskUsed"] = usesAlphaMask ? 1 : 0
-
-    return profile
+    return ["base64": Data(pixels).base64EncodedString(), "size": size]
   }
 
-  static func colorFamily(red: Double, green: Double, blue: Double) -> String? {
-    let maxValue = max(red, green, blue)
-    let minValue = min(red, green, blue)
-    let delta = maxValue - minValue
-    let value = maxValue
-    let saturation = maxValue <= 0 ? 0 : delta / maxValue
+  /// 원본 색 + 피사체 마스크를 알파로 합친 장면 샘플. JS가 알파 없는 픽셀을
+  /// 배경으로 보고 조명 색온도를 추정한다.
+  static func encodedSceneSamples(original: CGImage, masked: CIImage?, size: Int) -> [String: Any]? {
+    guard var pixels = rgbaSamples(from: CIImage(cgImage: original), size: size) else {
+      return nil
+    }
 
-    var hue = 0.0
-    if delta > 0 {
-      if maxValue == red {
-        hue = ((green - blue) / delta).truncatingRemainder(dividingBy: 6)
-      } else if maxValue == green {
-        hue = (blue - red) / delta + 2
-      } else {
-        hue = (red - green) / delta + 4
+    if let masked, let maskPixels = rgbaSamples(from: masked, size: size) {
+      for index in stride(from: 0, to: pixels.count, by: 4) {
+        pixels[index + 3] = maskPixels[index + 3]
       }
-      hue *= 60
-      if hue < 0 {
-        hue += 360
+    } else {
+      // 마스크가 없으면 배경을 가려낼 수 없다. 전부 피사체로 표시해 보정을 건너뛰게 한다.
+      for index in stride(from: 0, to: pixels.count, by: 4) {
+        pixels[index + 3] = 255
       }
     }
 
-    let isWarmHue = hue >= 10 && hue <= 55
-
-    if value < 0.2 {
-      return "black"
-    }
-    if saturation < 0.16 && value > 0.8 {
-      return "white"
-    }
-    if saturation < 0.18 {
-      return "gray"
-    }
-    if isWarmHue && (saturation >= 0.32 || value >= 0.65) && value >= 0.45 {
-      return "orange"
-    }
-    if isWarmHue {
-      return "brown"
-    }
-
-    return nil
+    return ["base64": Data(pixels).base64EncodedString(), "size": size]
   }
 
   // MARK: - 유틸
 
-  /// 이미지를 sampleSize×sampleSize RGBA 격자로 축소해 픽셀 배열로 돌려준다.
-  static func alphaSamples(from image: CIImage, sampleSize: Int) -> [UInt8]? {
+  /// 이미지를 size×size RGBA 격자로 축소해 픽셀 배열로 돌려준다.
+  /// 알파는 미리 나눠 두어(un-premultiply) Android와 같은 형식으로 맞춘다.
+  static func rgbaSamples(from image: CIImage, size sampleSize: Int) -> [UInt8]? {
     var pixels = [UInt8](repeating: 0, count: sampleSize * sampleSize * 4)
     let targetRect = CGRect(x: 0, y: 0, width: sampleSize, height: sampleSize)
 
@@ -347,6 +284,17 @@ private enum CatVisionProcessor {
 
     context.clear(targetRect)
     context.draw(cgImage, in: targetRect)
+
+    for index in stride(from: 0, to: pixels.count, by: 4) {
+      let alpha = Double(pixels[index + 3]) / 255
+      guard alpha > 0, alpha < 1 else {
+        continue
+      }
+
+      pixels[index] = UInt8(min(255, Double(pixels[index]) / alpha))
+      pixels[index + 1] = UInt8(min(255, Double(pixels[index + 1]) / alpha))
+      pixels[index + 2] = UInt8(min(255, Double(pixels[index + 2]) / alpha))
+    }
 
     return pixels
   }

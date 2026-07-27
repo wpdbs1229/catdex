@@ -8,14 +8,15 @@ export interface CatVisionBoundingBox {
   height: number;
 }
 
-export interface CatVisionColorProfile {
-  black?: number;
-  white?: number;
-  gray?: number;
-  orange?: number;
-  brown?: number;
-  coverage?: number;
-  maskUsed?: number;
+/**
+ * 마스크가 적용된 픽셀 격자. RGBA 바이트가 행 우선으로 이어져 있고 알파는
+ * 미리 나눠져 있다(non-premultiplied). 털색·무늬 판정은 이 값을 받아
+ * `features/capture/coat/coat-analysis.ts`에서 한다.
+ */
+export interface CatVisionSamples {
+  base64: string;
+  /** 가로 = 세로 = size */
+  size: number;
 }
 
 export interface CatVisionResult {
@@ -27,7 +28,10 @@ export interface CatVisionResult {
   cutoutHeight: number;
   /** 마스크 기반 정밀 누끼면 true, 사각 크롭 폴백이면 false */
   isPreciseCutout: boolean;
-  colorProfile: CatVisionColorProfile | null;
+  /** 잘라낸 피사체 픽셀. 털색과 무늬를 여기서 읽는다. */
+  subjectSamples: CatVisionSamples | null;
+  /** 원본 색 + 피사체 마스크(알파). 알파가 없는 픽셀이 배경이라 조명 추정에 쓴다. */
+  sceneSamples: CatVisionSamples | null;
   // 시각 임베딩은 아직 채우지 않는다. iOS 전용 Vision Feature Print를 쓰면 Android와
   // 비교가 불가능해서, 두 플랫폼이 같은 모델을 쓰도록 정리한 뒤에 붙인다.
   // 자세한 배경은 docs/domain-rules.md의 "온디바이스 비전 계약" 참고.
@@ -39,62 +43,6 @@ export interface CatVisionResult {
 export interface CatVisionPrepareResult {
   ready: boolean;
   message: string | null;
-}
-
-// 색 계열 비율을 앱의 털색 분류로 해석한다. 후보 정렬의 가중치 힌트로만
-// 쓰이므로 틀려도 비용이 낮게, 배타적이지 않게 여러 후보를 함께 반환한다.
-export function deriveCoatHints(profile: CatVisionColorProfile | null | undefined): string[] {
-  if (!profile) {
-    return [];
-  }
-
-  const black = profile.black ?? 0;
-  const white = profile.white ?? 0;
-  const gray = profile.gray ?? 0;
-  const orange = profile.orange ?? 0;
-  const brown = profile.brown ?? 0;
-  const isSignificant = (value: number) => value >= 0.15;
-  const isDominant = (value: number) => value >= 0.55;
-  const hints = new Set<string>();
-
-  if (isSignificant(orange) && isSignificant(black)) {
-    hints.add('삼색이');
-    hints.add('카오스냥');
-  }
-
-  if (isDominant(orange) || (isSignificant(orange) && isSignificant(white) && !isSignificant(black))) {
-    hints.add('치즈냥');
-  }
-
-  if (isSignificant(black) && isSignificant(white) && !isSignificant(orange)) {
-    hints.add('턱시도');
-    hints.add('젖소냥');
-  }
-
-  if (isDominant(black)) {
-    hints.add('검은냥');
-  }
-
-  if (isDominant(white)) {
-    hints.add('흰냥');
-    hints.add('포인트냥');
-  }
-
-  if (isDominant(gray)) {
-    hints.add('회색냥');
-    hints.add('고등어냥');
-  }
-
-  if (isSignificant(brown) && (isSignificant(gray) || isSignificant(black))) {
-    hints.add('고등어냥');
-    hints.add('갈색태비');
-  }
-
-  if (isDominant(brown)) {
-    hints.add('갈색태비');
-  }
-
-  return [...hints].slice(0, 4);
 }
 
 interface CatVisionNativeModule {
