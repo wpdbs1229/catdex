@@ -29,6 +29,7 @@
 
       html {
         scroll-behavior: smooth;
+        --header-h: 69px;
       }
 
       body {
@@ -52,7 +53,8 @@
 
       .page {
         width: 100%;
-        overflow-x: hidden;
+        /* hidden은 .page를 스크롤 컨테이너로 만들어 sticky 헤더를 무력화한다. clip은 그렇지 않다. */
+        overflow-x: clip;
         background: #fff;
       }
 
@@ -63,6 +65,14 @@
         background: rgba(255, 255, 255, 0.92);
         backdrop-filter: blur(10px);
         border-bottom: 1px solid #f2ede8;
+        transition: background 0.25s ease, border-color 0.25s ease;
+      }
+
+      /* 히어로 그라데이션 위에 떠 있는 동안은 헤더를 투명 반전 상태로 둔다. */
+      .site-header.over-hero {
+        background: transparent;
+        backdrop-filter: none;
+        border-bottom-color: transparent;
       }
 
       .site-header-inner {
@@ -132,48 +142,33 @@
         padding: 10px 18px;
       }
 
-      /* ===== hero ===== */
-      .hero {
-        max-width: 1080px;
-        margin: 0 auto;
-        padding: 96px 24px 24px;
-        text-align: center;
+      .site-header.over-hero .brand,
+      .site-header.over-hero .brand:hover {
+        color: #fff;
       }
 
-      .hero-kicker {
-        font-weight: 800;
-        color: #ff6f2c;
-        font-size: 17px;
-        margin-bottom: 20px;
+      .site-header.over-hero .brand img {
+        box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.55);
       }
 
-      .hero h1 {
-        font-size: clamp(40px, 7.5vw, 76px);
-        line-height: 1.22;
-        font-weight: 900;
-        letter-spacing: -0.03em;
-        margin: 0 0 26px;
-        color: #1f1a17;
+      .site-header.over-hero .site-nav a {
+        color: rgba(255, 255, 255, 0.88);
       }
 
-      .hero h1 .accent {
-        color: #ff6f2c;
+      .site-header.over-hero .site-nav a:hover {
+        color: #fff;
       }
 
-      .hero-lede {
-        font-size: clamp(16px, 2vw, 19px);
-        line-height: 1.8;
-        color: #5f574f;
-        max-width: 560px;
-        margin: 0 auto 34px;
+      .site-header.over-hero .header-cta {
+        background: rgba(255, 255, 255, 0.14);
+        border: 1.5px solid rgba(255, 255, 255, 0.6);
+        padding: 8.5px 16.5px;
+        backdrop-filter: blur(6px);
       }
 
-      .hero-actions {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 12px;
-        justify-content: center;
-        margin-bottom: 26px;
+      .site-header.over-hero .header-cta:hover {
+        background: #fff;
+        color: #f25b16;
       }
 
       .hero-cta {
@@ -198,10 +193,264 @@
         color: #ff6f2c;
       }
 
+      /* ===== hero: 도감 표지 스테이지 ===== */
+      .hero-stage {
+        position: relative;
+        margin-top: calc(-1 * var(--header-h));
+        padding: calc(var(--header-h) + clamp(14px, 2vw, 22px)) clamp(12px, 2.6vw, 30px)
+          clamp(30px, 5vw, 56px);
+        background:
+          radial-gradient(120% 95% at 6% 4%, #ffe7cd 0%, rgba(255, 231, 205, 0) 52%),
+          radial-gradient(95% 85% at 96% 10%, #ffcb95 0%, rgba(255, 203, 149, 0) 58%),
+          linear-gradient(146deg, #ffb877 0%, #ff8f45 34%, #f2610f 70%, #cf4a09 100%);
+      }
+
+      .hero-frame {
+        position: relative;
+        isolation: isolate;
+        max-width: 1180px;
+        margin: 0 auto;
+        min-height: min(76vh, 640px);
+        padding: clamp(22px, 3vw, 38px) clamp(20px, 4.5vw, 74px) clamp(28px, 3.6vw, 44px)
+          clamp(20px, 7.5vw, 116px);
+        border: clamp(7px, 0.85vw, 11px) solid #fff;
+        border-radius: 5px;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: clamp(18px, 3vw, 40px);
+      }
+
+      /* 프레임 안쪽은 바깥보다 한 톤 밝게, 카피가 놓이는 하단은 어둡게 눌러 대비를 확보한다. */
+      .hero-frame::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        z-index: 0;
+        background:
+          linear-gradient(
+            178deg,
+            rgba(255, 255, 255, 0.36) 0%,
+            rgba(255, 255, 255, 0.08) 36%,
+            rgba(255, 255, 255, 0) 58%
+          ),
+          radial-gradient(125% 90% at 2% 104%, rgba(104, 34, 2, 0.62) 0%, rgba(104, 34, 2, 0) 64%);
+      }
+
+      /* --- 좌측 슬라이드 인덱스 레일 --- */
+      .hero-rail {
+        position: absolute;
+        left: clamp(16px, 2.6vw, 42px);
+        top: 34%;
+        z-index: 3;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 9px;
+        color: #fff;
+      }
+
+      .hero-rail-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: #fff;
+      }
+
+      .hero-rail-num {
+        font-family: "Jua", sans-serif;
+        font-size: 17px;
+        letter-spacing: 0.08em;
+      }
+
+      .hero-rail-line {
+        width: 1.5px;
+        height: clamp(64px, 11vh, 116px);
+        background: linear-gradient(#fff, rgba(255, 255, 255, 0.12));
+      }
+
+      .hero-rail-ticks {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .hero-rail-ticks i {
+        width: 3px;
+        height: 3px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.6);
+      }
+
+      /* --- 우측 스크롤 큐 --- */
+      .hero-scroll {
+        position: absolute;
+        right: clamp(14px, 1.8vw, 26px);
+        bottom: clamp(26px, 4vw, 48px);
+        z-index: 3;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+        color: rgba(255, 255, 255, 0.85);
+      }
+
+      .hero-scroll span {
+        writing-mode: vertical-rl;
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.34em;
+      }
+
+      .hero-scroll i {
+        width: 1.5px;
+        height: 46px;
+        background: linear-gradient(rgba(255, 255, 255, 0.75), rgba(255, 255, 255, 0));
+      }
+
+      /* --- 배경 발자국 컨페티 (레퍼런스의 삼각형 자리) --- */
+      .hero-paw {
+        position: absolute;
+        z-index: 1;
+        color: rgba(255, 255, 255, 0.45);
+        pointer-events: none;
+      }
+
+      .hero-paw svg {
+        width: 100%;
+        height: 100%;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 1.7;
+      }
+
+      /* --- 워드마크 + 고양이 누끼 --- */
+      .hero-showcase {
+        position: relative;
+        z-index: 2;
+        display: flex;
+        justify-content: center;
+        margin-top: clamp(4px, 2vw, 26px);
+      }
+
+      .hero-word-stack {
+        position: relative;
+        display: inline-block;
+        line-height: 0.9;
+      }
+
+      .hero-wordmark {
+        display: block;
+        font-family: "Jua", sans-serif;
+        font-size: clamp(76px, 18.5vw, 250px);
+        line-height: 0.9;
+        letter-spacing: 0.045em;
+        color: #fff;
+        white-space: nowrap;
+        text-shadow: 0 14px 44px rgba(112, 40, 4, 0.22);
+        user-select: none;
+      }
+
+      .hero-cat {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 54%;
+        height: auto;
+        transform: translate(-50%, -42%);
+        filter: drop-shadow(0 24px 34px rgba(92, 34, 2, 0.34));
+        pointer-events: none;
+      }
+
+      /* 앞쪽 워드마크 사본을 왼쪽 일부만 남겨, 꼬리가 글자 뒤로 지나가게 만든다. */
+      .hero-wordmark-front {
+        position: absolute;
+        inset: 0;
+        clip-path: inset(-12% 71% -18% -12%);
+        /* 뒤쪽 사본과 그림자가 겹쳐 클립 경계가 드러나지 않도록 그림자를 뺀다. */
+        text-shadow: none;
+      }
+
+      /* --- 하단 카피 블록 --- */
+      .hero-copy {
+        position: relative;
+        z-index: 3;
+        max-width: 540px;
+      }
+
+      .hero-kicker {
+        margin: 0 0 14px;
+        font-size: 12.5px;
+        font-weight: 800;
+        letter-spacing: 0.2em;
+        color: rgba(255, 255, 255, 0.8);
+      }
+
+      .hero-copy h1 {
+        margin: 0 0 16px;
+        font-size: clamp(27px, 4.2vw, 43px);
+        line-height: 1.32;
+        font-weight: 900;
+        letter-spacing: -0.02em;
+        color: #fff;
+      }
+
+      .hero-mark {
+        background: #fff7f0;
+        color: #e2560c;
+        padding: 0.08em 0.22em 0.18em;
+        border-radius: 5px;
+      }
+
+      .hero-lede {
+        margin: 0 0 26px;
+        max-width: 430px;
+        font-size: 15.5px;
+        line-height: 1.85;
+        color: rgba(255, 255, 255, 0.92);
+      }
+
+      .hero-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 11px;
+      }
+
+      .hero-actions .btn-primary {
+        background: #fff;
+        color: #e2560c;
+        font-size: 16px;
+        padding: 14px 26px;
+        border-radius: 11px;
+      }
+
+      .hero-actions .btn-primary:hover {
+        background: #fff7f0;
+        color: #c2470a;
+      }
+
+      .hero-actions .btn-outline {
+        background: rgba(255, 255, 255, 0.1);
+        border-color: rgba(255, 255, 255, 0.65);
+        color: #fff;
+        font-size: 16px;
+        padding: 14px 26px;
+        border-radius: 11px;
+        backdrop-filter: blur(6px);
+      }
+
+      .hero-actions .btn-outline:hover {
+        background: rgba(255, 255, 255, 0.2);
+        border-color: #fff;
+        color: #fff;
+      }
+
+      /* ===== hero 하단 골목 일러스트 ===== */
       .hero-art {
         max-width: 1080px;
         margin: 0 auto;
-        padding: 0 24px 40px;
+        padding: clamp(48px, 7vw, 80px) 24px 40px;
       }
 
       .hero-art img {
@@ -853,6 +1102,18 @@
         grid-column: 1 / -1;
       }
 
+      @media (max-width: 900px) {
+        .hero-rail,
+        .hero-scroll {
+          display: none;
+        }
+
+        .hero-frame {
+          padding-left: clamp(20px, 5vw, 40px);
+          padding-right: clamp(20px, 5vw, 40px);
+        }
+      }
+
       @media (max-width: 760px) {
         .site-nav {
           display: none;
@@ -872,8 +1133,29 @@
       }
 
       @media (max-width: 600px) {
-        .hero {
-          padding-top: 64px;
+        .hero-frame {
+          min-height: 0;
+          gap: 30px;
+          padding: 30px 20px 32px;
+        }
+
+        .hero-wordmark {
+          font-size: clamp(62px, 21vw, 104px);
+        }
+
+        .hero-cat {
+          width: 56%;
+          transform: translate(-50%, -44%);
+        }
+
+        .hero-wordmark-front {
+          clip-path: inset(-12% 74% -18% -12%);
+        }
+
+        .hero-actions .btn-primary,
+        .hero-actions .btn-outline {
+          flex: 1 1 100%;
+          text-align: center;
         }
 
         .statement,
@@ -928,16 +1210,69 @@
       </header>
 
       <main id="top">
-        <section class="hero" aria-label="냥도감 소개">
-          <div class="hero-kicker">동네 길고양이 수집 도감, 냥도감</div>
-          <h1>고양이를<br /><span class="accent">수집하자!</span></h1>
-          <p class="hero-lede">
-            골목에서 만난 고양이를 멀리서 한 장 찍으면 나만의 고양이 카드가 됩니다. 이름을 붙이고,
-            특징을 적고, 다시 만난 날을 더하면서 우리동네 도감을 한 칸씩 채워가요.
-          </p>
-          <div class="hero-actions">
-            <a class="btn-primary hero-cta" href="#waitlist">출시 알림 받기</a>
-            <a class="btn-outline" href="#story">냥도감 이야기 보기</a>
+        <section class="hero-stage" aria-label="냥도감 소개">
+          <svg width="0" height="0" aria-hidden="true" focusable="false" style="position: absolute">
+            <symbol id="paw-outline" viewBox="0 0 32 32">
+              <ellipse cx="16" cy="22.5" rx="8" ry="6.4" />
+              <ellipse cx="6.6" cy="13.4" rx="3.1" ry="4.1" />
+              <ellipse cx="12.8" cy="8.4" rx="3.1" ry="4.3" />
+              <ellipse cx="19.6" cy="8.4" rx="3.1" ry="4.3" />
+              <ellipse cx="25.6" cy="13.4" rx="3.1" ry="4.1" />
+            </symbol>
+          </svg>
+
+          <div class="hero-frame">
+            <span class="hero-paw" aria-hidden="true" style="left: 12%; top: 15%; width: 26px; height: 26px; transform: rotate(-18deg)">
+              <svg><use href="#paw-outline" /></svg>
+            </span>
+            <span class="hero-paw" aria-hidden="true" style="left: 27%; top: 62%; width: 19px; height: 19px; transform: rotate(14deg); color: rgba(255, 255, 255, 0.32)">
+              <svg><use href="#paw-outline" /></svg>
+            </span>
+            <span class="hero-paw" aria-hidden="true" style="left: 32%; top: 4%; width: 22px; height: 22px; transform: rotate(8deg); color: rgba(255, 255, 255, 0.38)">
+              <svg><use href="#paw-outline" /></svg>
+            </span>
+            <span class="hero-paw" aria-hidden="true" style="right: 10%; top: 18%; width: 30px; height: 30px; transform: rotate(22deg)">
+              <svg><use href="#paw-outline" /></svg>
+            </span>
+            <span class="hero-paw" aria-hidden="true" style="right: 9%; top: 47%; width: 20px; height: 20px; transform: rotate(-10deg); color: rgba(255, 255, 255, 0.34)">
+              <svg><use href="#paw-outline" /></svg>
+            </span>
+            <span class="hero-paw" aria-hidden="true" style="right: 30%; bottom: 13%; width: 24px; height: 24px; transform: rotate(-26deg); color: rgba(255, 255, 255, 0.3)">
+              <svg><use href="#paw-outline" /></svg>
+            </span>
+
+            <div class="hero-rail" aria-hidden="true">
+              <span class="hero-rail-dot"></span>
+              <span class="hero-rail-num">01</span>
+              <span class="hero-rail-line"></span>
+              <span class="hero-rail-ticks"><i></i><i></i><i></i></span>
+            </div>
+
+            <div class="hero-showcase" aria-hidden="true">
+              <div class="hero-word-stack">
+                <span class="hero-wordmark">냥도감</span>
+                <img class="hero-cat" src="./assets/catdex-hero-cat.png" alt="" width="900" height="654" />
+                <span class="hero-wordmark hero-wordmark-front">냥도감</span>
+              </div>
+            </div>
+
+            <div class="hero-copy">
+              <p class="hero-kicker">동네 길고양이 수집 도감</p>
+              <h1>고양이를 <span class="hero-mark">수집하자!</span></h1>
+              <p class="hero-lede">
+                골목에서 만난 고양이를 멀리서 한 장 찍으면 나만의 고양이 카드가 됩니다. 이름을 붙이고,
+                특징을 적고, 다시 만난 날을 더하면서 우리동네 도감을 한 칸씩 채워가요.
+              </p>
+              <div class="hero-actions">
+                <a class="btn-primary" href="#waitlist">출시 알림 받기</a>
+                <a class="btn-outline" href="#story">냥도감 이야기 보기</a>
+              </div>
+            </div>
+
+            <div class="hero-scroll" aria-hidden="true">
+              <span>SCROLL</span>
+              <i></i>
+            </div>
           </div>
         </section>
 
@@ -1311,6 +1646,25 @@
     </div>
 
     <script>
+      // 히어로 그라데이션 위에 있을 때만 헤더를 투명 반전 상태로 유지한다.
+      (() => {
+        const header = document.querySelector(".site-header");
+        const stage = document.querySelector(".hero-stage");
+
+        if (!header || !stage) {
+          return;
+        }
+
+        const syncHeader = () => {
+          const overHero = stage.getBoundingClientRect().bottom > header.offsetHeight;
+          header.classList.toggle("over-hero", overHero);
+        };
+
+        syncHeader();
+        addEventListener("scroll", syncHeader, { passive: true });
+        addEventListener("resize", syncHeader);
+      })();
+
       (() => {
         const form = document.querySelector("#launch-waitlist-form");
 
