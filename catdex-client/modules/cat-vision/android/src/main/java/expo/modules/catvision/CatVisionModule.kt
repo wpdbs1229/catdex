@@ -5,6 +5,7 @@ import android.graphics.BitmapFactory
 import android.graphics.Matrix
 import android.graphics.Rect
 import android.net.Uri
+import android.util.Base64
 import androidx.exifinterface.media.ExifInterface
 import com.google.android.gms.common.moduleinstall.ModuleInstall
 import com.google.android.gms.common.moduleinstall.ModuleInstallRequest
@@ -70,7 +71,8 @@ class CatVisionModule : Module() {
         "cutoutWidth" to 0,
         "cutoutHeight" to 0,
         "isPreciseCutout" to false,
-        "colorProfile" to null,
+        "subjectSamples" to null,
+        "sceneSamples" to null,
         "embedding" to emptyList<Double>(),
         "embeddingVersion" to null,
         "processingMs" to (System.currentTimeMillis() - startedAt).toInt()
@@ -96,7 +98,9 @@ class CatVisionModule : Module() {
       "cutoutWidth" to cutout.width,
       "cutoutHeight" to cutout.height,
       "isPreciseCutout" to isPrecise,
-      "colorProfile" to coatColorProfile(cutout, isPrecise),
+      // 털색·무늬 판정은 JS(coat-analysis.ts)에서 한다. 여기서는 픽셀만 넘긴다.
+      "subjectSamples" to encodedSamples(cutout, SUBJECT_SAMPLE_SIZE),
+      "sceneSamples" to encodedSceneSamples(source, foreground, SCENE_SAMPLE_SIZE),
       // 크로스플랫폼 공용 임베딩 모델을 붙이기 전까지 비워 둔다.
       "embedding" to emptyList<Double>(),
       "embeddingVersion" to null,
@@ -282,82 +286,60 @@ class CatVisionModule : Module() {
     "height" to bounds.height().toDouble() / height
   )
 
-  // MARK: - 털색 힌트
+  // MARK: - 픽셀 샘플
 
   /**
-   * 누끼 이미지의 픽셀을 색 계열(검정/흰색/회색/주황/갈색)로 분류해 비율을 반환한다.
-   * 개체 식별이 아니라 후보 정렬의 털색 힌트로만 사용한다.
-   * 판정 기준은 iOS 구현과 동일하게 유지해야 플랫폼 간 힌트가 어긋나지 않는다.
+   * 털색·무늬 판정은 JS에서 한다(coat-analysis.ts). 여기서는 마스크가 적용된
+   * 픽셀 격자를 base64로 넘기기만 한다. 판정 로직을 한 곳에 두면 iOS와 Android
+   * 결과가 어긋날 수 없고, 임계값 조정을 네이티브 재빌드 없이 할 수 있다.
    */
-  private fun coatColorProfile(bitmap: Bitmap, usesAlphaMask: Boolean): Map<String, Double>? {
-    val sample = Bitmap.createScaledBitmap(bitmap, SAMPLE_SIZE, SAMPLE_SIZE, true)
-    val pixels = IntArray(SAMPLE_SIZE * SAMPLE_SIZE)
-    sample.getPixels(pixels, 0, SAMPLE_SIZE, 0, 0, SAMPLE_SIZE, SAMPLE_SIZE)
+  private fun encodedSamples(bitmap: Bitmap, size: Int): Map<String, Any> {
+    val pixels = IntArray(size * size)
+    Bitmap.createScaledBitmap(bitmap, size, size, true).getPixels(pixels, 0, size, 0, 0, size, size)
 
-    val counts = mutableMapOf("black" to 0, "white" to 0, "gray" to 0, "orange" to 0, "brown" to 0)
-    var classified = 0
-    var opaque = 0
-
-    for (pixel in pixels) {
-      val alpha = (pixel ushr 24) / 255.0
-
-      // 정밀 누끼면 마스크 밖(투명) 픽셀을 제외한다. 사각 크롭이면 배경이
-      // 섞이므로 중앙 가중 없이 전체를 대상으로 하되 알파는 그대로 본다.
-      if (alpha < 0.5) {
-        continue
-      }
-
-      opaque += 1
-
-      val red = ((pixel shr 16) and 0xFF) / 255.0
-      val green = ((pixel shr 8) and 0xFF) / 255.0
-      val blue = (pixel and 0xFF) / 255.0
-
-      // 냉색 계열(배경 잔여물 등)은 분모에서 제외한다.
-      val family = colorFamily(red, green, blue) ?: continue
-      counts[family] = counts.getValue(family) + 1
-      classified += 1
-    }
-
-    if (classified <= 32) {
-      return null
-    }
-
-    val profile = counts.mapValues { (_, count) -> count.toDouble() / classified }.toMutableMap()
-    profile["coverage"] = opaque.toDouble() / (SAMPLE_SIZE * SAMPLE_SIZE)
-    profile["maskUsed"] = if (usesAlphaMask) 1.0 else 0.0
-
-    return profile
+    return mapOf("base64" to encodeRgba(pixels), "size" to size)
   }
 
-  private fun colorFamily(red: Double, green: Double, blue: Double): String? {
-    val maxValue = max(red, max(green, blue))
-    val minValue = min(red, min(green, blue))
-    val delta = maxValue - minValue
-    val saturation = if (maxValue <= 0) 0.0 else delta / maxValue
+  /**
+   * 원본 색 + 피사체 마스크를 알파로 합친 장면 샘플. JS가 알파 없는 픽셀을
+   * 배경으로 보고 조명 색온도를 추정한다.
+   */
+  private fun encodedSceneSamples(source: Bitmap, foreground: Bitmap?, size: Int): Map<String, Any> {
+    val pixels = IntArray(size * size)
+    Bitmap.createScaledBitmap(source, size, size, true).getPixels(pixels, 0, size, 0, 0, size, size)
 
-    var hue = 0.0
-    if (delta > 0) {
-      hue = when (maxValue) {
-        red -> ((green - blue) / delta) % 6
-        green -> (blue - red) / delta + 2
-        else -> (red - green) / delta + 4
-      } * 60
-      if (hue < 0) {
-        hue += 360
+    if (foreground == null) {
+      // 마스크가 없으면 배경을 가려낼 수 없다. 전부 피사체로 표시해 보정을 건너뛰게 한다.
+      for (index in pixels.indices) {
+        pixels[index] = pixels[index] or (0xFF shl 24)
+      }
+    } else {
+      val maskPixels = IntArray(size * size)
+      Bitmap.createScaledBitmap(foreground, size, size, true)
+        .getPixels(maskPixels, 0, size, 0, 0, size, size)
+
+      for (index in pixels.indices) {
+        pixels[index] = (pixels[index] and 0x00FFFFFF) or (maskPixels[index] and 0xFF000000.toInt())
       }
     }
 
-    val isWarmHue = hue in 10.0..55.0
+    return mapOf("base64" to encodeRgba(pixels), "size" to size)
+  }
 
-    return when {
-      maxValue < 0.2 -> "black"
-      saturation < 0.16 && maxValue > 0.8 -> "white"
-      saturation < 0.18 -> "gray"
-      isWarmHue && (saturation >= 0.32 || maxValue >= 0.65) && maxValue >= 0.45 -> "orange"
-      isWarmHue -> "brown"
-      else -> null
+  /** ARGB int 배열을 RGBA 바이트 순서로 펴서 base64로 만든다. iOS와 같은 형식이다. */
+  private fun encodeRgba(pixels: IntArray): String {
+    val bytes = ByteArray(pixels.size * 4)
+
+    for (index in pixels.indices) {
+      val pixel = pixels[index]
+      val offset = index * 4
+      bytes[offset] = ((pixel shr 16) and 0xFF).toByte()
+      bytes[offset + 1] = ((pixel shr 8) and 0xFF).toByte()
+      bytes[offset + 2] = (pixel and 0xFF).toByte()
+      bytes[offset + 3] = ((pixel ushr 24) and 0xFF).toByte()
     }
+
+    return Base64.encodeToString(bytes, Base64.NO_WRAP)
   }
 
   // MARK: - 파일
@@ -377,6 +359,12 @@ class CatVisionModule : Module() {
   private companion object {
     const val MAX_DIMENSION = 2048
     const val SAMPLE_SIZE = 64
+
+    /** 털색·무늬 판정용 피사체 샘플 해상도. 태비 줄무늬를 잡으려면 이 정도는 필요하다. */
+    const val SUBJECT_SAMPLE_SIZE = 128
+
+    /** 조명 추정용 장면 샘플 해상도. 배경 평균만 보므로 거칠어도 된다. */
+    const val SCENE_SAMPLE_SIZE = 64
 
     /** 잘라낼 때 경계 상자 바깥으로 남기는 여백 비율. 수염과 귀 끝이 잘리지 않게 한다. */
     const val CROP_PADDING_RATIO = 0.18f

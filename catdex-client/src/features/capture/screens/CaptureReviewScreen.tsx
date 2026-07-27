@@ -1,13 +1,12 @@
-import { AlertCircle, Check, Scissors } from 'lucide-react-native';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { AlertCircle, Check, ChevronLeft, Scissors } from 'lucide-react-native';
+import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import {
-  deriveCoatHints,
-  processCatPhoto,
-  type CatVisionResult,
-} from '../../../shared/native/catVision';
+import { processCatPhoto, type CatVisionResult } from '../../../shared/native/catVision';
+import { analyzeCoat } from '../coat/coat-analysis';
+import type { CoatColorId, CoatPatternId, CoatPatternMetrics } from '../coat/coat.types';
+import { CoatSelector } from '../components/CoatSelector';
 import { CutoutCanvas } from '../components/CutoutCanvas';
 import { captureColors, captureSpacing } from '../capture.theme';
 import type { CaptureStackScreenProps } from '../../../app/navigation/types';
@@ -21,6 +20,10 @@ export function CaptureReviewScreen({ navigation, route }: CaptureStackScreenPro
   const [result, setResult] = useState<CatVisionResult | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
   const [mode, setMode] = useState<ReviewMode>('cutout');
+  const [colors, setColors] = useState<CoatColorId[]>([]);
+  const [pattern, setPattern] = useState<CoatPatternId | null>(null);
+  const [autoSuggested, setAutoSuggested] = useState(false);
+  const [metrics, setMetrics] = useState<CoatPatternMetrics | null>(null);
 
   useEffect(() => {
     let isActive = true;
@@ -34,6 +37,13 @@ export function CaptureReviewScreen({ navigation, route }: CaptureStackScreenPro
         setResult(next);
         // 잘라낼 것을 못 찾았으면 원본을 보여 주는 편이 덜 당황스럽다.
         setMode(next.cutoutImageUri ? 'cutout' : 'original');
+
+        // 자동 판정은 사전 선택까지만. 확신이 없으면 비워 두고 사용자가 고르게 한다.
+        const coat = analyzeCoat(next.subjectSamples, next.sceneSamples);
+        setColors(coat.colors);
+        setPattern(coat.pattern);
+        setAutoSuggested(coat.colors.length > 0 || coat.pattern !== null);
+        setMetrics(coat.metrics ?? null);
       })
       .catch((error: unknown) => {
         if (isActive) {
@@ -46,10 +56,20 @@ export function CaptureReviewScreen({ navigation, route }: CaptureStackScreenPro
     };
   }, [photoUri]);
 
-  const coatHints = useMemo(() => deriveCoatHints(result?.colorProfile), [result]);
   const isProcessing = !result && !failure;
   const cutoutAspectRatio =
     result?.cutoutWidth && result.cutoutHeight ? result.cutoutWidth / result.cutoutHeight : undefined;
+
+  const handleToggleColor = useCallback((color: CoatColorId) => {
+    setColors((current) =>
+      current.includes(color) ? current.filter((item) => item !== color) : [...current, color],
+    );
+  }, []);
+
+  // "다시 찍기"는 카메라로 돌아가고, 이 버튼은 촬영 흐름 자체를 빠져나간다.
+  const handleClose = useCallback(() => {
+    navigation.getParent()?.goBack();
+  }, [navigation]);
 
   const handleRetake = useCallback(() => {
     navigation.navigate('Camera', { lastCutoutUri: result?.cutoutImageUri ?? undefined });
@@ -65,8 +85,20 @@ export function CaptureReviewScreen({ navigation, route }: CaptureStackScreenPro
   return (
     <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>이 사진으로 할까요?</Text>
-        <StatusLine isProcessing={isProcessing} failure={failure} result={result} />
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="촬영 그만두고 나가기"
+          hitSlop={8}
+          onPress={handleClose}
+          style={({ pressed }) => [styles.backButton, pressed && styles.backButtonPressed]}
+        >
+          <ChevronLeft color={captureColors.text} size={22} />
+        </Pressable>
+
+        <View style={styles.headerText}>
+          <Text style={styles.headerTitle}>이 사진으로 할까요?</Text>
+          <StatusLine isProcessing={isProcessing} failure={failure} result={result} />
+        </View>
       </View>
 
       <View style={styles.stage}>
@@ -84,15 +116,24 @@ export function CaptureReviewScreen({ navigation, route }: CaptureStackScreenPro
         )}
       </View>
 
-      {coatHints.length > 0 ? (
-        <View style={styles.hintRow}>
-          {coatHints.map((hint) => (
-            <View key={hint} style={styles.hintChip}>
-              <Text style={styles.hintChipText}>{hint}</Text>
-            </View>
-          ))}
-        </View>
+      {__DEV__ && metrics ? (
+        <Text style={styles.debugLine}>
+          {`edge ${metrics.edgeEnergy.toFixed(3)} · 2nd ${metrics.secondaryRatio.toFixed(2)}`}
+          {` · trans ${metrics.transitionDensity.toFixed(3)} · blob ${metrics.largestBlobShare.toFixed(2)}`}
+        </Text>
       ) : null}
+
+      {isProcessing ? null : (
+        <View style={styles.coatSection}>
+          <CoatSelector
+            colors={colors}
+            pattern={pattern}
+            suggested={autoSuggested}
+            onToggleColor={handleToggleColor}
+            onSelectPattern={setPattern}
+          />
+        </View>
+      )}
 
       <View style={styles.footer}>
         {result?.cutoutImageUri ? (
@@ -210,12 +251,29 @@ const styles = StyleSheet.create({
     paddingHorizontal: captureSpacing.gutter,
   },
   header: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingVertical: 16,
-    gap: 6,
+    gap: 12,
+  },
+  backButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: captureColors.control,
+  },
+  backButtonPressed: {
+    opacity: 0.7,
+  },
+  headerText: {
+    flex: 1,
+    gap: 4,
   },
   headerTitle: {
     color: captureColors.text,
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: '800',
   },
   headerBody: {
@@ -247,22 +305,13 @@ const styles = StyleSheet.create({
     color: captureColors.mutedText,
     fontSize: 13,
   },
-  hintRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-    paddingTop: 12,
+  debugLine: {
+    paddingTop: 8,
+    color: captureColors.mutedText,
+    fontSize: 10,
   },
-  hintChip: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 999,
-    backgroundColor: captureColors.control,
-  },
-  hintChipText: {
-    color: captureColors.text,
-    fontSize: 12,
-    fontWeight: '600',
+  coatSection: {
+    paddingTop: 14,
   },
   footer: {
     paddingVertical: 16,
@@ -289,6 +338,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   modeButtonTextActive: {
+    // 선택된 칩은 배경이 거의 흰색이라 글자를 어둡게 해야 읽힌다.
     color: captureColors.onControlActive,
     fontWeight: '800',
   },
@@ -298,8 +348,8 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     flex: 1,
-    height: 52,
-    borderRadius: 26,
+    height: 54,
+    borderRadius: 999,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',

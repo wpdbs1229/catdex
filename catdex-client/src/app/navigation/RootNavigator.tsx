@@ -5,10 +5,12 @@ import {
   type NativeStackNavigationProp,
 } from '@react-navigation/native-stack';
 import { BookOpen, Camera, Home, Map, User } from 'lucide-react-native';
+import type { ComponentType } from 'react';
+import { StyleSheet, View } from 'react-native';
 
 import { CameraScreen } from '../../features/capture/screens/CameraScreen';
 import { CaptureReviewScreen } from '../../features/capture/screens/CaptureReviewScreen';
-import { theme } from '../../shared/styles/theme';
+import { createShadow, theme } from '../../shared/styles/theme';
 import { PlaceholderScreen } from '../screens/PlaceholderScreen';
 import type { CaptureStackParamList, MainTabParamList, RootStackParamList } from './types';
 
@@ -25,29 +27,45 @@ function CaptureNavigator() {
   );
 }
 
+type TabIcon = ComponentType<{ color: string; size: number }>;
+
+/** 선택된 탭만 연한 코랄 알약 위에 올린다. 시안의 탭바 규칙이다. */
+function tabBarIcon(Icon: TabIcon) {
+  return function TabBarIcon({ color, focused }: { color: string; focused: boolean }) {
+    return (
+      <View style={[styles.tabIcon, focused && styles.tabIconFocused]}>
+        <Icon color={color} size={22} />
+      </View>
+    );
+  };
+}
+
 function MainTabNavigator() {
   return (
     <MainTab.Navigator
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: theme.colors.primary,
+        tabBarActiveTintColor: theme.colors.accent,
         tabBarInactiveTintColor: theme.colors.tabMuted,
+        tabBarShowLabel: false,
+        tabBarStyle: styles.tabBar,
+        tabBarItemStyle: styles.tabBarItem,
       }}
     >
       <MainTab.Screen
         name="HomeTab"
         component={PlaceholderScreen}
-        options={{ title: '홈', tabBarIcon: ({ color, size }) => <Home color={color} size={size} /> }}
+        options={{ title: '홈', tabBarIcon: tabBarIcon(Home) }}
       />
       <MainTab.Screen
         name="MapTab"
         component={PlaceholderScreen}
-        options={{ title: '지도', tabBarIcon: ({ color, size }) => <Map color={color} size={size} /> }}
+        options={{ title: '지도', tabBarIcon: tabBarIcon(Map) }}
       />
       <MainTab.Screen
         name="CaptureTab"
         component={PlaceholderScreen}
-        options={{ title: '촬영', tabBarIcon: ({ color, size }) => <Camera color={color} size={size} /> }}
+        options={{ title: '촬영', tabBarIcon: tabBarIcon(Camera) }}
         listeners={({ navigation }) => ({
           // 탭으로 머무르지 않고 전체 화면 촬영으로 바로 넘어간다.
           tabPress: (event) => {
@@ -59,12 +77,12 @@ function MainTabNavigator() {
       <MainTab.Screen
         name="CollectionTab"
         component={PlaceholderScreen}
-        options={{ title: '도감', tabBarIcon: ({ color, size }) => <BookOpen color={color} size={size} /> }}
+        options={{ title: '도감', tabBarIcon: tabBarIcon(BookOpen) }}
       />
       <MainTab.Screen
         name="MyTab"
         component={PlaceholderScreen}
-        options={{ title: '마이', tabBarIcon: ({ color, size }) => <User color={color} size={size} /> }}
+        options={{ title: '마이', tabBarIcon: tabBarIcon(User) }}
       />
     </MainTab.Navigator>
   );
@@ -84,3 +102,31 @@ export function RootNavigator() {
     </NavigationContainer>
   );
 }
+
+const styles = StyleSheet.create({
+  tabBar: {
+    position: 'absolute',
+    left: 20,
+    right: 20,
+    bottom: 24,
+    height: 64,
+    paddingBottom: 0,
+    borderTopWidth: 0,
+    borderRadius: theme.radius.xl,
+    backgroundColor: theme.colors.surface,
+    ...createShadow(16),
+  },
+  tabBarItem: {
+    height: 64,
+  },
+  tabIcon: {
+    width: 44,
+    height: 36,
+    borderRadius: theme.radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tabIconFocused: {
+    backgroundColor: theme.colors.accentSoft,
+  },
+});
