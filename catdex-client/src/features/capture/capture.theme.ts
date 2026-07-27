@@ -9,8 +9,8 @@ export const captureColors = {
   mutedText: 'rgba(255, 255, 255, 0.62)',
   onControlActive: '#1B1512',
   /** 고양이를 찾았을 때 쓰는 강조색. 앱 도감 톤과 맞춘 따뜻한 계열. */
-  accent: '#F0B36B',
-  danger: '#E2795F',
+  accent: '#F5942F',
+  danger: '#E5484D',
 };
 
 export const captureSpacing = {
