@@ -48,6 +48,8 @@ export function CaptureReviewScreen({ navigation, route }: CaptureStackScreenPro
 
   const coatHints = useMemo(() => deriveCoatHints(result?.colorProfile), [result]);
   const isProcessing = !result && !failure;
+  const cutoutAspectRatio =
+    result?.cutoutWidth && result.cutoutHeight ? result.cutoutWidth / result.cutoutHeight : undefined;
 
   const handleRetake = useCallback(() => {
     navigation.navigate('Camera', { lastCutoutUri: result?.cutoutImageUri ?? undefined });
@@ -76,6 +78,7 @@ export function CaptureReviewScreen({ navigation, route }: CaptureStackScreenPro
         ) : (
           <CutoutCanvas
             uri={mode === 'cutout' ? result?.cutoutImageUri ?? photoUri : photoUri}
+            aspectRatio={mode === 'cutout' ? cutoutAspectRatio : undefined}
             showTransparencyPattern={mode === 'cutout' && Boolean(result?.isPreciseCutout)}
           />
         )}
