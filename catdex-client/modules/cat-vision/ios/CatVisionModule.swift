@@ -138,7 +138,10 @@ private enum CatVisionProcessor {
       let maskImage = CIImage(cvPixelBuffer: maskBuffer)
       let transparentBackground = CIImage(color: .clear).cropped(to: sourceImage.extent)
 
-      return sourceImage.applyingFilter("CIBlendWithAlphaMask", parameters: [
+      // CIBlendWithAlphaMask가 아니라 CIBlendWithMask를 써야 한다. Vision이 주는
+      // 마스크는 단일 채널 버퍼라 알파가 전부 1이고, 알파 기준 필터로는 "전부 전경"이
+      // 되어 배경이 하나도 지워지지 않는다. CIBlendWithMask는 밝기값을 본다.
+      return sourceImage.applyingFilter("CIBlendWithMask", parameters: [
         kCIInputBackgroundImageKey: transparentBackground,
         kCIInputMaskImageKey: maskImage
       ])
