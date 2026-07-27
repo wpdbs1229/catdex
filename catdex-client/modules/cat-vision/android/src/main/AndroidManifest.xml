@@ -1,0 +1,4 @@
+<!-- 라벨링 모델은 APK에 번들되어 있고, 누끼 모델은 Play 서비스에서 내려받는다.
+     후자는 prepare()에서 ModuleInstall로 직접 요청하므로 매니페스트 선언이 없다. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+</manifest>
