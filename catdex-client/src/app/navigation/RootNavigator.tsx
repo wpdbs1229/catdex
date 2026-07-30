@@ -5,25 +5,45 @@ import {
   type NativeStackNavigationProp,
 } from '@react-navigation/native-stack';
 import { BookOpen, Camera, Home, Map, User } from 'lucide-react-native';
-import type { ComponentType } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { useState, type ComponentType } from 'react';
+import { Alert, StyleSheet, View } from 'react-native';
 
+import { ProfileSetupScreen } from '../../features/auth/screens/ProfileSetupScreen';
+import { useAuth } from '../../features/auth/hooks/useAuth';
 import { CameraScreen } from '../../features/capture/screens/CameraScreen';
+import { CaptureMatchScreen } from '../../features/capture/screens/CaptureMatchScreen';
+import { CaptureRegisterScreen } from '../../features/capture/screens/CaptureRegisterScreen';
 import { CaptureReviewScreen } from '../../features/capture/screens/CaptureReviewScreen';
+import { CatDetailScreen } from '../../features/cats/screens/CatDetailScreen';
+import { CatDexScreen } from '../../features/cats/screens/CatDexScreen';
+import { NeighborhoodDexScreen } from '../../features/map/screens/NeighborhoodDexScreen';
+import { NeighborhoodMapScreen } from '../../features/map/screens/NeighborhoodMapScreen';
 import { createShadow, theme } from '../../shared/styles/theme';
 import { PlaceholderScreen } from '../screens/PlaceholderScreen';
-import type { CaptureStackParamList, MainTabParamList, RootStackParamList } from './types';
+import type { CaptureStackParamList, MainTabParamList, MapStackParamList, RootStackParamList } from './types';
 
 const RootStack = createNativeStackNavigator<RootStackParamList>();
 const MainTab = createBottomTabNavigator<MainTabParamList>();
 const CaptureStack = createNativeStackNavigator<CaptureStackParamList>();
+const MapStack = createNativeStackNavigator<MapStackParamList>();
 
 function CaptureNavigator() {
   return (
     <CaptureStack.Navigator screenOptions={{ headerShown: false, animation: 'fade' }}>
       <CaptureStack.Screen name="Camera" component={CameraScreen} />
       <CaptureStack.Screen name="CaptureReview" component={CaptureReviewScreen} />
+      <CaptureStack.Screen name="CaptureMatch" component={CaptureMatchScreen} />
+      <CaptureStack.Screen name="CaptureRegister" component={CaptureRegisterScreen} />
     </CaptureStack.Navigator>
+  );
+}
+
+function MapNavigator() {
+  return (
+    <MapStack.Navigator screenOptions={{ headerShown: false, animation: 'fade' }}>
+      <MapStack.Screen name="NeighborhoodDex" component={NeighborhoodDexScreen} />
+      <MapStack.Screen name="NeighborhoodMap" component={NeighborhoodMapScreen} />
+    </MapStack.Navigator>
   );
 }
 
@@ -59,8 +79,9 @@ function MainTabNavigator() {
       />
       <MainTab.Screen
         name="MapTab"
-        component={PlaceholderScreen}
-        options={{ title: '지도', tabBarIcon: tabBarIcon(Map) }}
+        component={MapNavigator}
+        // 동네 흐름은 피그마 시안의 전용 하단 바(지도/동네 도감/커뮤니티)를 쓰므로 기본 탭바를 숨긴다.
+        options={{ title: '지도', tabBarIcon: tabBarIcon(Map), tabBarStyle: { display: 'none' } }}
       />
       <MainTab.Screen
         name="CaptureTab"
@@ -76,7 +97,7 @@ function MainTabNavigator() {
       />
       <MainTab.Screen
         name="CollectionTab"
-        component={PlaceholderScreen}
+        component={CatDexScreen}
         options={{ title: '도감', tabBarIcon: tabBarIcon(BookOpen) }}
       />
       <MainTab.Screen
@@ -89,6 +110,30 @@ function MainTabNavigator() {
 }
 
 export function RootNavigator() {
+  const { currentUser, isAuthenticated, updateProfile } = useAuth();
+  const [isProfileSaving, setIsProfileSaving] = useState(false);
+  const needsProfileSetup = isAuthenticated && currentUser !== null && !currentUser.profileSetupCompleted;
+
+  if (needsProfileSetup && currentUser) {
+    return (
+      <ProfileSetupScreen
+        isSaving={isProfileSaving}
+        onComplete={async (draft) => {
+          setIsProfileSaving(true);
+
+          try {
+            await updateProfile(draft);
+          } catch (error) {
+            Alert.alert('사원증 저장 실패', error instanceof Error ? error.message : '잠시 후 다시 시도해 주세요.');
+          } finally {
+            setIsProfileSaving(false);
+          }
+        }}
+        user={currentUser}
+      />
+    );
+  }
+
   return (
     <NavigationContainer>
       <RootStack.Navigator screenOptions={{ headerShown: false }}>
@@ -97,6 +142,11 @@ export function RootNavigator() {
           name="CaptureFlow"
           component={CaptureNavigator}
           options={{ presentation: 'fullScreenModal', animation: 'slide_from_bottom' }}
+        />
+        <RootStack.Screen
+          name="CatDetail"
+          component={CatDetailScreen}
+          options={{ animation: 'slide_from_right' }}
         />
       </RootStack.Navigator>
     </NavigationContainer>
