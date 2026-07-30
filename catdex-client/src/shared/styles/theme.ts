@@ -46,6 +46,49 @@ export const theme = {
   },
 };
 
+// 피그마 "냥도감(제윤)" 리디자인 토큰. 기존 theme.colors(크래프트 톤)와 분리해
+// 리디자인된 화면에서만 사용한다.
+export const nd = {
+  colors: {
+    bg: '#FFFFFF',
+    ink: '#111111',
+    sub: '#767676',
+    subtle: '#999999',
+    border: '#E5E5EC',
+    field: '#F1F1F5',
+    primary: '#F5942F',
+    primarySoft: '#FDEAD5',
+    tag: '#B7BEFF',
+    heart: '#FF2D55',
+    scrim: 'rgba(17, 17, 17, 0.08)',
+    barBg: 'rgba(255, 255, 255, 0.92)',
+  },
+  radius: {
+    input: 8,
+    sheet: 24,
+    pill: 100,
+  },
+  font: {
+    tracking: (size: number) => size * -0.025,
+  },
+};
+
+export function createNdShadow(opacity = 0.16, radiusPx = 8) {
+  return Platform.select({
+    ios: {
+      shadowColor: '#000000',
+      shadowOpacity: opacity,
+      shadowRadius: radiusPx,
+      shadowOffset: { width: 1, height: 1 },
+    },
+    android: {
+      elevation: Math.max(2, Math.round(radiusPx / 2)),
+      shadowColor: '#000000',
+    },
+    default: {},
+  });
+}
+
 export function createShadow(elevation = 10) {
   return Platform.select({
     ios: {

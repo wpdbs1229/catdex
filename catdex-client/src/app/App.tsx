@@ -27,6 +27,7 @@ import { CommunityPostDetailScreen } from '@/features/community/CommunityPostDet
 import { HomeScreen } from '@/features/home/HomeScreen';
 import { NeighborhoodDexScreen } from '@/features/map/NeighborhoodDexScreen';
 import { NeighborhoodMapScreen } from '@/features/map/NeighborhoodMapScreen';
+import { NeighborhoodTabBar } from '@/features/map/components/NeighborhoodTabBar';
 import { BlockedUsersScreen } from '@/features/my/BlockedUsersScreen';
 import { ExplorationHistoryScreen } from '@/features/my/MyLinkedCollectionScreens';
 import { BadgeBookScreen } from '@/features/my/BadgeBookScreen';
@@ -240,7 +241,7 @@ export default function App() {
         return navigation.screen;
     }
   })();
-  const shouldHideBottomBar = activeTab === 'capture';
+  const shouldHideBottomBar = activeTab === 'capture' || navigation.screen === 'detail';
 
   useEffect(() => {
     const timerId = setTimeout(() => {
@@ -1140,6 +1141,7 @@ export default function App() {
             cat={visibleSelectedCat}
             currentUserId={currentUser?.id ?? null}
             encounters={selectedCatEncounters}
+            onAddDiaryEntry={(memo) => addEncounter(visibleSelectedCat.id, activeNeighborhoodName, undefined, memo)}
             onBack={() => handleTabChange('dex')}
             onComposePost={() => handleOpenCommunityCompose(visibleSelectedCat.id)}
             onEditCat={() => handleOpenCatEdit(visibleSelectedCat.id)}
@@ -1214,6 +1216,7 @@ export default function App() {
             onOpenCommunityBoard={handleOpenCommunityBoard}
             onOpenCommunityPost={(postId) => handleOpenCommunityPost(postId, 'dex')}
             onOpenMap={handleOpenNeighborhoodMap}
+            onOpenNotifications={() => handleOpenNotificationInbox('map')}
             regions={visibleRegions}
             regionNames={activeNeighborhoodRegionNames}
             sightings={undiscoveredDexSlots}
@@ -1366,7 +1369,21 @@ export default function App() {
           user={currentUser}
         />
       ) : isAuthenticated && currentUser ? (
-        <AppShell bottomBar={shouldHideBottomBar ? undefined : <BottomTabBar activeTab={activeTab} onChange={handleTabChange} />}>
+        <AppShell
+          bottomBar={
+            shouldHideBottomBar ? undefined : activeTab === 'map' && navigation.screen === 'map' ? (
+              <NeighborhoodTabBar
+                active={neighborhoodView}
+                onHome={() => handleTabChange('home')}
+                onOpenBoard={handleOpenCommunityBoard}
+                onOpenDex={handleOpenNeighborhoodDex}
+                onOpenMap={handleOpenNeighborhoodMap}
+              />
+            ) : (
+              <BottomTabBar activeTab={activeTab} onChange={handleTabChange} />
+            )
+          }
+        >
           {renderScreen()}
         </AppShell>
       ) : (

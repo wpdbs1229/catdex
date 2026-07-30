@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { Camera, ChevronDown, ChevronRight, ChevronUp, MapPin, PawPrint } from 'lucide-react-native';
-import { NeighborhoodTopTabs } from '@/features/map/components/NeighborhoodTopTabs';
+import { Image, Linking, Pressable, StyleSheet, Text, View, type ImageSourcePropType } from 'react-native';
+import { ChevronDown, MapPin, PawPrint } from 'lucide-react-native';
 import { KakaoMapView } from '@/features/map/components/KakaoMapView';
 import { formatMapRegionName } from '@/features/map/map-region-label';
-import { createShadow, theme } from '@/shared/styles/theme';
-import type { Cat } from '@/shared/types/cat';
+import { createNdShadow, nd } from '@/shared/styles/theme';
+import type { Cat, CatType } from '@/shared/types/cat';
 import type { Region } from '@/shared/types/region';
+import { getCatIllustrationKey, type CatIllustrationKey } from '@/shared/utils/catPresentation';
 
 interface NeighborhoodMapScreenProps {
   regions: Region[];
@@ -18,12 +18,19 @@ interface NeighborhoodMapScreenProps {
   onOpenDex: () => void;
 }
 
-function getRegionCatCount(region: Region | null) {
-  return region ? (region.catIds.length > 0 ? region.catIds.length : region.cats.length) : 0;
-}
+const illustrations = {
+  orange: require('../../../assets/illustrations/cat-orange-clean.png'),
+  dark: require('../../../assets/illustrations/cat-dark-clean.png'),
+  tuxedo: require('../../../assets/illustrations/cat-tuxedo-clean.png'),
+  gray: require('../../../assets/illustrations/cat-gray-clean.png'),
+} satisfies Record<CatIllustrationKey, ImageSourcePropType>;
 
-function getRegionCatKeys(region: Region) {
-  return region.catIds.length > 0 ? region.catIds : region.cats;
+function imageForType(type: CatType, imageUrl?: string): ImageSourcePropType {
+  if (imageUrl) {
+    return { uri: imageUrl };
+  }
+
+  return illustrations[getCatIllustrationKey(type)];
 }
 
 function getRegionCats(region: Region | null, catById: Map<string, Cat>, catByName: Map<string, Cat>) {
@@ -38,169 +45,98 @@ function getRegionCats(region: Region | null, catById: Map<string, Cat>, catByNa
   return region.cats.map((catName) => catByName.get(catName)).filter((cat): cat is Cat => Boolean(cat));
 }
 
-export function NeighborhoodMapScreen({
-  regions,
-  cats,
-  neighborhoodName,
-  onGoCapture,
-  onOpenCat,
-  onOpenCommunityBoard,
-  onOpenDex,
-}: NeighborhoodMapScreenProps) {
-  const displayRegions = useMemo(() => regions, [regions]);
+function getRegionCatCount(region: Region) {
+  return region.catIds.length > 0 ? region.catIds.length : region.cats.length;
+}
+
+export function NeighborhoodMapScreen({ regions, cats, neighborhoodName, onOpenCat }: NeighborhoodMapScreenProps) {
   const catById = useMemo(() => new Map(cats.map((cat) => [cat.id, cat])), [cats]);
   const catByName = useMemo(() => new Map(cats.map((cat) => [cat.name, cat])), [cats]);
-  const [selectedRegion, setSelectedRegion] = useState<Region | null>(displayRegions[0] ?? null);
-  const [isSheetExpanded, setIsSheetExpanded] = useState(false);
+  const [selectedRegion, setSelectedRegion] = useState<Region | null>(null);
 
+  // 데이터가 갱신되면 선택된 구역 객체도 최신 데이터로 바꿔치기한다.
   useEffect(() => {
-    if (!selectedRegion && displayRegions[0]) {
-      setSelectedRegion(displayRegions[0]);
-      return;
-    }
-
     if (!selectedRegion) {
       return;
     }
 
-    const refreshedRegion = displayRegions.find((region) => region.id === selectedRegion.id);
+    const refreshedRegion = regions.find((region) => region.id === selectedRegion.id) ?? null;
 
-    if (!refreshedRegion) {
-      setSelectedRegion(displayRegions[0] ?? null);
-      return;
-    }
-
-    // 같은 구역이라도 데이터가 새로 로드되면 시트 내용(고양이 수/목록)이
-    // 낡은 객체를 계속 보여주지 않도록 최신 객체로 교체한다.
     if (refreshedRegion !== selectedRegion) {
       setSelectedRegion(refreshedRegion);
     }
-  }, [displayRegions, selectedRegion]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [regions]);
 
-  useEffect(() => {
-    setIsSheetExpanded(false);
-  }, [selectedRegion?.id]);
+  const selectedRegionCats = useMemo(
+    () => getRegionCats(selectedRegion, catById, catByName),
+    [catById, catByName, selectedRegion],
+  );
 
-  const selectedRegionCats = useMemo(() => getRegionCats(selectedRegion, catById, catByName), [catById, catByName, selectedRegion]);
-  const activeRegions = displayRegions.filter((region) => getRegionCatCount(region) > 0).length;
-  const totalRegionCats = useMemo(() => new Set(displayRegions.flatMap(getRegionCatKeys)).size, [displayRegions]);
-  const visibleRegionCats = selectedRegionCats.slice(0, 3);
-  const hiddenRegionCatCount = Math.max(selectedRegionCats.length - visibleRegionCats.length, 0);
+  const handleStartDirections = () => {
+    if (!selectedRegion) {
+      return;
+    }
+
+    const name = encodeURIComponent(formatMapRegionName(selectedRegion.name));
+
+    void Linking.openURL(`https://map.kakao.com/link/map/${name},${selectedRegion.lat},${selectedRegion.lng}`);
+  };
 
   return (
-    <View style={styles.mapScreen}>
+    <View style={styles.screen}>
       <KakaoMapView
-        onSelectRegion={setSelectedRegion}
-        regions={displayRegions}
+        onSelectRegion={(region) => setSelectedRegion((prev) => (prev?.id === region.id ? null : region))}
+        regions={regions}
         selectedRegionId={selectedRegion?.id ?? null}
-        style={styles.fullMap}
+        style={styles.map}
       />
 
-      <View pointerEvents="box-none" style={styles.mapTopChrome}>
-        <View style={styles.floatingTabs}>
-          <NeighborhoodTopTabs
-            activeTab="map"
-            onOpenBoard={onOpenCommunityBoard}
-            onOpenDex={onOpenDex}
-            onOpenMap={() => undefined}
-          />
+      <View pointerEvents="box-none" style={styles.topChrome}>
+        <View style={styles.locationChip}>
+          <MapPin color={nd.colors.ink} size={16} strokeWidth={1.8} />
+          <Text style={styles.locationText}>{neighborhoodName}</Text>
+          <ChevronDown color={nd.colors.ink} size={14} strokeWidth={1.8} />
         </View>
 
-        <View style={styles.mapContextRow}>
-          <View style={styles.locationBadge}>
-            <MapPin color={theme.colors.accent} size={15} />
-            <Text numberOfLines={1} style={styles.locationBadgeText}>
-              {neighborhoodName}
-            </Text>
-          </View>
-          <View style={styles.mapCountBadge}>
-            <Text style={styles.mapCountText}>{activeRegions}구역</Text>
-            <Text style={styles.mapCountDot}>·</Text>
-            <Text style={styles.mapCountText}>{totalRegionCats}마리</Text>
-          </View>
-        </View>
-      </View>
-
-      <View style={[styles.mapInfoPanel, !isSheetExpanded && styles.mapInfoPanelCollapsed]}>
-        <View style={styles.sheetHandle} />
-        <Pressable
-          accessibilityLabel={isSheetExpanded ? '선택 구역 접기' : '선택 구역 펼치기'}
-          accessibilityRole="button"
-          accessibilityState={{ expanded: isSheetExpanded }}
-          onPress={() => setIsSheetExpanded((current) => !current)}
-          style={({ pressed }) => [styles.mapInfoHeaderButton, pressed && styles.pressed]}
-        >
-          <View style={styles.mapInfoHeader}>
-            <View style={styles.mapInfoCopy}>
-              <Text style={styles.mapInfoKicker}>선택 구역</Text>
-              <Text numberOfLines={1} style={styles.mapInfoTitle}>
-                {selectedRegion ? formatMapRegionName(selectedRegion.name) : '구역 없음'}
-              </Text>
-            </View>
-            <View style={styles.regionHeaderActions}>
-              <View style={styles.regionCountBadge}>
-                <Text style={styles.regionCountText}>{getRegionCatCount(selectedRegion)}마리</Text>
-              </View>
-              <View style={styles.sheetToggleIcon}>
-                {isSheetExpanded ? (
-                  <ChevronDown color={theme.colors.primaryDark} size={17} />
-                ) : (
-                  <ChevronUp color={theme.colors.primaryDark} size={17} />
-                )}
-              </View>
-            </View>
-          </View>
-        </Pressable>
-
-        {isSheetExpanded ? (
-          <>
-            <Text style={styles.mapInfoText}>
-              {selectedRegion
-                ? '정확한 좌표 대신 자주 보이는 구역만 흐리게 보여줘요.'
-                : '지도에서 냥이 구역을 선택하면 이곳에 고양이 목록이 떠요.'}
+        {selectedRegion ? (
+          <View style={styles.regionCard}>
+            <Text style={styles.regionTitle}>{formatMapRegionName(selectedRegion.name)}</Text>
+            <Text style={styles.regionSubtitle}>
+              사용자들이 이 주변에서 고양이 {getRegionCatCount(selectedRegion)}마리를 만났어요.
             </Text>
 
-            <View style={styles.regionCatList}>
-              {visibleRegionCats.length > 0 ? (
-                visibleRegionCats.map((cat) => (
+            {selectedRegionCats.length > 0 ? (
+              <View style={styles.regionCatRow}>
+                {selectedRegionCats.slice(0, 2).map((cat) => (
                   <Pressable
                     accessibilityLabel={`${cat.name} 도감 보기`}
-                    accessibilityRole="button"
                     key={cat.id}
                     onPress={() => onOpenCat(cat.id)}
-                    style={({ pressed }) => [styles.regionCatChip, pressed && styles.pressed]}
+                    style={({ pressed }) => [styles.regionCatItem, pressed && styles.pressed]}
                   >
-                    <View style={styles.regionCatIcon}>
-                      <PawPrint color={theme.colors.primaryDark} size={14} />
-                    </View>
-                    <View style={styles.regionCatCopy}>
-                      <Text numberOfLines={1} style={styles.regionCatName}>
-                        {cat.name}
-                      </Text>
-                      <Text numberOfLines={1} style={styles.regionCatMeta}>
-                        {cat.relationshipLevel} · 최근 {cat.lastSeenAt}
-                      </Text>
-                    </View>
-                    <ChevronRight color={theme.colors.primaryDark} size={14} />
+                    <Image resizeMode="contain" source={imageForType(cat.type, cat.imageUrl)} style={styles.regionCatImage} />
                   </Pressable>
-                ))
-              ) : (
-                <View style={styles.emptyRegionChip}>
-                  <PawPrint color="#CDB58F" size={14} />
-                  <Text style={styles.emptyRegionChipText}>아직 확인된 고양이가 없어요</Text>
-                </View>
-              )}
+                ))}
+              </View>
+            ) : null}
 
-              {hiddenRegionCatCount > 0 ? (
-                <Text style={styles.moreCatsText}>외 {hiddenRegionCatCount}마리는 동네 도감에서 이어서 확인할 수 있어요.</Text>
-              ) : null}
-            </View>
+            <Text style={styles.privacyNote}>
+              고양이의 이동 특성과 안전을 고려하여{'\n'}정확한 위치 대신 주변 위치를 제공합니다.
+            </Text>
+          </View>
+        ) : null}
 
-            <Pressable accessibilityLabel="고양이 기록하기" accessibilityRole="button" onPress={onGoCapture} style={({ pressed }) => [styles.captureButton, pressed && styles.pressed]}>
-              <Camera color="#FFF8F0" size={17} />
-              <Text style={styles.captureButtonText}>고양이 기록하기</Text>
-            </Pressable>
-          </>
+        {selectedRegion ? (
+          <Pressable
+            accessibilityLabel="길 안내 시작"
+            accessibilityRole="button"
+            onPress={handleStartDirections}
+            style={({ pressed }) => [styles.directionsButton, pressed && styles.pressed]}
+          >
+            <PawPrint color="#FFFFFF" size={18} />
+            <Text style={styles.directionsText}>길 안내 시작</Text>
+          </Pressable>
         ) : null}
       </View>
     </View>
@@ -208,238 +144,103 @@ export function NeighborhoodMapScreen({
 }
 
 const styles = StyleSheet.create({
-  mapScreen: {
+  screen: {
     flex: 1,
-    backgroundColor: theme.colors.mapBase,
+    backgroundColor: nd.colors.bg,
   },
-  fullMap: {
+  map: {
     flex: 1,
   },
-  mapTopChrome: {
+  topChrome: {
     position: 'absolute',
-    top: theme.spacing.md,
-    right: theme.spacing.lg,
-    left: theme.spacing.lg,
-    gap: theme.spacing.sm,
+    top: 12,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
   },
-  floatingTabs: {
-    borderRadius: 22,
-    ...createShadow(7),
-  },
-  mapContextRow: {
-    minHeight: 38,
+  locationChip: {
+    alignSelf: 'flex-start',
+    marginLeft: 20,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: theme.spacing.sm,
+    gap: 4,
+    borderRadius: nd.radius.input,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    ...createNdShadow(0.12, 8),
   },
-  locationBadge: {
-    minWidth: 0,
-    maxWidth: '54%',
-    minHeight: 38,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    borderRadius: 19,
-    paddingHorizontal: theme.spacing.md,
-    backgroundColor: 'rgba(255,253,246,0.88)',
-    borderWidth: 1,
-    borderColor: 'rgba(139,112,83,0.13)',
-    ...createShadow(3),
+  locationText: {
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '500',
+    letterSpacing: -0.35,
+    color: nd.colors.ink,
   },
-  locationBadgeText: {
-    flexShrink: 1,
-    color: theme.colors.primaryDark,
-    fontSize: 12,
-    fontWeight: '900',
+  regionCard: {
+    alignSelf: 'stretch',
+    marginTop: 12,
+    marginHorizontal: 12,
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
+    padding: 20,
+    ...createNdShadow(0.16, 20),
   },
-  mapCountBadge: {
-    minHeight: 38,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    borderRadius: 19,
-    paddingHorizontal: theme.spacing.md,
-    backgroundColor: 'rgba(255,253,246,0.88)',
-    borderWidth: 1,
-    borderColor: 'rgba(139,112,83,0.13)',
-    ...createShadow(3),
-  },
-  mapCountText: {
-    color: theme.colors.primaryDark,
-    fontSize: 12,
-    fontWeight: '900',
-  },
-  mapCountDot: {
-    color: theme.colors.mutedText,
-    fontSize: 12,
-    fontWeight: '900',
-  },
-  mapInfoPanel: {
-    position: 'absolute',
-    right: theme.spacing.lg,
-    bottom: 112,
-    left: theme.spacing.lg,
-    borderRadius: theme.radius.xl,
-    padding: theme.spacing.lg,
-    backgroundColor: 'rgba(255,253,246,0.94)',
-    borderWidth: 1,
-    borderColor: 'rgba(139,112,83,0.12)',
-    ...createShadow(9),
-  },
-  mapInfoPanelCollapsed: {
-    paddingTop: theme.spacing.md,
-    paddingBottom: theme.spacing.md,
-  },
-  sheetHandle: {
-    alignSelf: 'center',
-    width: 42,
-    height: 4,
-    borderRadius: 2,
-    marginBottom: theme.spacing.md,
-    backgroundColor: 'rgba(139,112,83,0.24)',
-  },
-  mapInfoHeaderButton: {
-    borderRadius: theme.radius.lg,
-  },
-  mapInfoHeader: {
-    minHeight: 42,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: theme.spacing.md,
-  },
-  mapInfoCopy: {
-    flex: 1,
-    minWidth: 0,
-  },
-  mapInfoKicker: {
-    color: theme.colors.primary,
-    fontSize: 11,
-    fontWeight: '900',
-  },
-  mapInfoTitle: {
-    marginTop: 3,
-    color: theme.colors.text,
+  regionTitle: {
     fontSize: 20,
-    lineHeight: 26,
-    fontWeight: '900',
+    lineHeight: 28,
+    fontWeight: '600',
+    letterSpacing: -0.5,
+    color: nd.colors.ink,
   },
-  regionHeaderActions: {
+  regionSubtitle: {
+    marginTop: 6,
+    fontSize: 14,
+    lineHeight: 20,
+    letterSpacing: -0.35,
+    color: nd.colors.sub,
+  },
+  regionCatRow: {
+    marginTop: 16,
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.sm,
+    justifyContent: 'space-evenly',
+    alignItems: 'flex-end',
   },
-  regionCountBadge: {
-    minHeight: 34,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 17,
-    paddingHorizontal: theme.spacing.md,
-    backgroundColor: theme.colors.accentSoft,
+  regionCatItem: {
+    width: 120,
+    height: 120,
   },
-  regionCountText: {
-    color: theme.colors.primaryDark,
-    fontSize: 12,
-    fontWeight: '900',
+  regionCatImage: {
+    width: '100%',
+    height: '100%',
   },
-  sheetToggleIcon: {
-    width: 34,
-    height: 34,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 17,
-    backgroundColor: 'rgba(248,234,210,0.72)',
-    borderWidth: 1,
-    borderColor: 'rgba(139,112,83,0.1)',
-  },
-  mapInfoText: {
-    marginTop: theme.spacing.sm,
-    color: theme.colors.mutedText,
-    fontSize: 12,
-    lineHeight: 18,
-    fontWeight: '800',
-  },
-  regionCatList: {
-    marginTop: theme.spacing.md,
-    gap: theme.spacing.sm,
-  },
-  regionCatChip: {
-    minHeight: 48,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.sm,
-    borderRadius: theme.radius.lg,
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
-    backgroundColor: 'rgba(248,234,210,0.78)',
-    borderWidth: 1,
-    borderColor: 'rgba(139,112,83,0.12)',
-  },
-  regionCatIcon: {
-    width: 30,
-    height: 30,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 15,
-    backgroundColor: 'rgba(255,253,246,0.72)',
-  },
-  regionCatCopy: {
-    flex: 1,
-    minWidth: 0,
-  },
-  regionCatName: {
-    color: theme.colors.text,
+  privacyNote: {
+    marginTop: 16,
     fontSize: 13,
-    fontWeight: '900',
-  },
-  regionCatMeta: {
-    marginTop: 2,
-    color: theme.colors.mutedText,
-    fontSize: 11,
-    fontWeight: '800',
-  },
-  emptyRegionChip: {
-    minHeight: 46,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.sm,
-    borderRadius: theme.radius.lg,
-    paddingHorizontal: theme.spacing.md,
-    backgroundColor: 'rgba(255,253,246,0.72)',
-    borderWidth: 1,
-    borderColor: 'rgba(139,112,83,0.1)',
-  },
-  emptyRegionChipText: {
-    flex: 1,
-    color: theme.colors.mutedText,
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  moreCatsText: {
-    color: theme.colors.mutedText,
-    fontSize: 11,
-    lineHeight: 16,
-    fontWeight: '800',
+    lineHeight: 19,
+    letterSpacing: -0.325,
+    color: nd.colors.sub,
     textAlign: 'center',
   },
-  captureButton: {
-    minHeight: 48,
+  directionsButton: {
+    marginTop: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: theme.spacing.sm,
-    borderRadius: 24,
-    marginTop: theme.spacing.md,
-    backgroundColor: theme.colors.primaryDark,
-    ...createShadow(4),
+    gap: 6,
+    borderRadius: nd.radius.pill,
+    backgroundColor: nd.colors.primary,
+    paddingHorizontal: 22,
+    paddingVertical: 14,
+    ...createNdShadow(0.16, 12),
   },
-  captureButtonText: {
-    color: '#FFF8F0',
-    fontSize: 13,
-    fontWeight: '900',
+  directionsText: {
+    fontSize: 15,
+    lineHeight: 21,
+    fontWeight: '600',
+    letterSpacing: -0.375,
+    color: '#FFFFFF',
   },
   pressed: {
-    opacity: 0.82,
+    opacity: 0.86,
   },
 });

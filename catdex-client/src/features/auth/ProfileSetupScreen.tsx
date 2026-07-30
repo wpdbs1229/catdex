@@ -1,11 +1,10 @@
 import { useState } from 'react';
 import * as ImagePicker from 'expo-image-picker';
-import { IdCard, ImagePlus, RotateCcw, Sparkles } from 'lucide-react-native';
+import { Camera } from 'lucide-react-native';
 import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type ImageSourcePropType } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Button } from '@/shared/components/Button';
-import { DEFAULT_PROFILE_NICKNAME, PROFILE_NICKNAME_SUGGESTIONS } from '@/shared/constants/profile.constants';
-import { createShadow, theme } from '@/shared/styles/theme';
+import { DEFAULT_PROFILE_NICKNAME } from '@/shared/constants/profile.constants';
+import { nd } from '@/shared/styles/theme';
 import type { AuthUser, ProfileUpdateDraft } from '@/shared/types/auth';
 
 interface ProfileSetupScreenProps {
@@ -19,13 +18,12 @@ const illustrations = {
 } satisfies Record<string, ImageSourcePropType>;
 
 export function ProfileSetupScreen({ user, isSaving, onComplete }: ProfileSetupScreenProps) {
-  const [nickname, setNickname] = useState(DEFAULT_PROFILE_NICKNAME);
+  const [nickname, setNickname] = useState(user.providerProfile?.nickname ?? DEFAULT_PROFILE_NICKNAME);
   const [profileImageUri, setProfileImageUri] = useState<string | undefined>();
   const [profileImageMimeType, setProfileImageMimeType] = useState<string | undefined>();
-  const [profileImageUrl, setProfileImageUrl] = useState<string | undefined>();
+  const [profileImageUrl, setProfileImageUrl] = useState<string | undefined>(user.providerProfile?.profileImageUrl);
   const previewImage = profileImageUri ?? profileImageUrl;
   const isNicknameValid = nickname.trim().length >= 2 && nickname.trim().length <= 20;
-  const canUseProviderProfile = Boolean(user.providerProfile?.nickname || user.providerProfile?.profileImageUrl);
 
   const handlePickImage = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -51,26 +49,8 @@ export function ProfileSetupScreen({ user, isSaving, onComplete }: ProfileSetupS
     setProfileImageUrl(undefined);
   };
 
-  const handleUseProviderProfile = () => {
-    if (user.providerProfile?.nickname) {
-      setNickname(user.providerProfile.nickname);
-    }
-
-    if (user.providerProfile?.profileImageUrl) {
-      setProfileImageUri(undefined);
-      setProfileImageMimeType(undefined);
-      setProfileImageUrl(user.providerProfile.profileImageUrl);
-    }
-  };
-
-  const handleUseDefaultImage = () => {
-    setProfileImageUri(undefined);
-    setProfileImageMimeType(undefined);
-    setProfileImageUrl(undefined);
-  };
-
-  const submit = (useDefaultValues = false) => {
-    const nextNickname = useDefaultValues ? DEFAULT_PROFILE_NICKNAME : nickname.trim();
+  const submit = () => {
+    const nextNickname = nickname.trim();
 
     if (nextNickname.length < 2 || nextNickname.length > 20) {
       Alert.alert('닉네임 확인', '닉네임은 2자 이상 20자 이하로 입력해 주세요.');
@@ -79,10 +59,10 @@ export function ProfileSetupScreen({ user, isSaving, onComplete }: ProfileSetupS
 
     onComplete({
       nickname: nextNickname,
-      profileImageUri: useDefaultValues ? undefined : profileImageUri,
-      profileImageMimeType: useDefaultValues ? undefined : profileImageMimeType,
-      profileImageUrl: useDefaultValues ? undefined : profileImageUrl,
-      useDefaultProfileImage: useDefaultValues || !previewImage,
+      profileImageUri,
+      profileImageMimeType,
+      profileImageUrl,
+      useDefaultProfileImage: !previewImage,
     });
   };
 
@@ -90,78 +70,44 @@ export function ProfileSetupScreen({ user, isSaving, onComplete }: ProfileSetupS
     <SafeAreaView edges={['top', 'right', 'bottom', 'left']} style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <View style={styles.headerIcon}>
-            <IdCard color={theme.colors.primaryDark} size={22} />
-          </View>
-          <Text style={styles.kicker}>NYANGNYANGDAN ID</Text>
-          <Text style={styles.title}>냥냥단 사원증 만들기</Text>
-          <Text style={styles.subtitle}>계정 정보는 자동으로 공개하지 않아요. 냥도감에서 쓸 이름과 사진만 골라 주세요.</Text>
+          <Text style={styles.title}>냥냥단 사원증</Text>
+          <Text style={styles.subtitle}>탐험을 시작하기 전, 나만의 사원증을 만들어요.</Text>
         </View>
 
-        <View style={styles.card}>
-          <View style={styles.avatarWrap}>
+        <View style={styles.avatarWrap}>
+          <Pressable accessibilityLabel="사원증 사진 선택" disabled={isSaving} onPress={handlePickImage}>
             <Image resizeMode="cover" source={previewImage ? { uri: previewImage } : illustrations.profile} style={styles.avatar} />
-            <Pressable disabled={isSaving} onPress={handlePickImage} style={({ pressed }) => [styles.imageButton, pressed && styles.pressed]}>
-              <ImagePlus color="#FFF8F0" size={18} />
-            </Pressable>
-          </View>
-          <Text style={styles.avatarHint}>선택하지 않으면 기본 사원증 이미지로 시작해요.</Text>
-
-          <View style={styles.inlineActions}>
-            <Pressable disabled={isSaving || !canUseProviderProfile} onPress={handleUseProviderProfile} style={({ pressed }) => [styles.smallAction, !canUseProviderProfile && styles.disabledAction, pressed && styles.pressed]}>
-              <Sparkles color={canUseProviderProfile ? theme.colors.primaryDark : '#BCA995'} size={15} />
-              <Text style={[styles.smallActionText, !canUseProviderProfile && styles.disabledActionText]}>계정 프로필 불러오기</Text>
-            </Pressable>
-            <Pressable disabled={isSaving} onPress={handleUseDefaultImage} style={({ pressed }) => [styles.smallAction, pressed && styles.pressed]}>
-              <RotateCcw color={theme.colors.primaryDark} size={15} />
-              <Text style={styles.smallActionText}>기본 이미지</Text>
-            </Pressable>
-          </View>
-
-          <View style={styles.field}>
-            <Text style={styles.label}>닉네임</Text>
-            <TextInput
-              editable={!isSaving}
-              maxLength={20}
-              onChangeText={setNickname}
-              placeholder="냥도감에서 쓸 이름"
-              placeholderTextColor="#B59680"
-              style={[styles.input, !isNicknameValid && styles.inputError]}
-              value={nickname}
-            />
-            <Text style={[styles.counter, !isNicknameValid && styles.counterError]}>{nickname.trim().length} / 20</Text>
-          </View>
-
-          <View style={styles.suggestionBlock}>
-            <Text style={styles.suggestionLabel}>추천 닉네임</Text>
-            <View style={styles.suggestionGrid}>
-              {PROFILE_NICKNAME_SUGGESTIONS.map((suggestion) => {
-                const isActive = nickname === suggestion;
-
-                return (
-                  <Pressable
-                    disabled={isSaving}
-                    key={suggestion}
-                    onPress={() => setNickname(suggestion)}
-                    style={({ pressed }) => [styles.suggestionChip, isActive && styles.suggestionChipActive, pressed && styles.pressed]}
-                  >
-                    <Text style={[styles.suggestionText, isActive && styles.suggestionTextActive]}>{suggestion}</Text>
-                  </Pressable>
-                );
-              })}
+            <View style={styles.cameraBadge}>
+              <Camera color="#FFFFFF" size={18} strokeWidth={1.8} />
             </View>
-          </View>
+          </Pressable>
         </View>
 
-        <View style={styles.actions}>
-          <Button disabled={isSaving || !isNicknameValid} onPress={() => submit(false)}>
-            {isSaving ? '저장 중...' : '사원증 저장하기'}
-          </Button>
-          <Button disabled={isSaving} onPress={() => submit(true)} variant="secondary">
-            그냥 시작하기
-          </Button>
+        <View style={styles.field}>
+          <Text style={styles.label}>닉네임</Text>
+          <TextInput
+            editable={!isSaving}
+            maxLength={20}
+            onChangeText={setNickname}
+            placeholder="냥도감에서 쓸 이름"
+            placeholderTextColor={nd.colors.sub}
+            style={styles.input}
+            value={nickname}
+          />
         </View>
       </ScrollView>
+
+      <View style={styles.footer}>
+        <Pressable
+          accessibilityLabel="사원증 완성"
+          accessibilityRole="button"
+          disabled={isSaving || !isNicknameValid}
+          onPress={submit}
+          style={({ pressed }) => [styles.cta, (isSaving || !isNicknameValid) && styles.ctaDisabled, pressed && styles.pressed]}
+        >
+          <Text style={styles.ctaText}>{isSaving ? '저장 중...' : '사원증 완성'}</Text>
+        </Pressable>
+      </View>
     </SafeAreaView>
   );
 }
@@ -169,195 +115,99 @@ export function ProfileSetupScreen({ user, isSaving, onComplete }: ProfileSetupS
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: theme.colors.background,
+    backgroundColor: nd.colors.bg,
   },
   content: {
     flexGrow: 1,
-    justifyContent: 'center',
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.xl,
+    paddingTop: 100,
   },
   header: {
     alignItems: 'center',
-    paddingHorizontal: theme.spacing.md,
-  },
-  headerIcon: {
-    width: 52,
-    height: 52,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 26,
-    backgroundColor: 'rgba(255,253,246,0.9)',
-    borderWidth: 1,
-    borderColor: 'rgba(232,211,183,0.88)',
-  },
-  kicker: {
-    marginTop: theme.spacing.md,
-    color: theme.colors.accent,
-    fontSize: 11,
-    fontWeight: '900',
+    gap: 8,
+    paddingHorizontal: 20,
   },
   title: {
-    marginTop: 4,
-    color: theme.colors.text,
     fontSize: 28,
-    lineHeight: 34,
-    fontWeight: '900',
-    textAlign: 'center',
+    lineHeight: 39,
+    fontWeight: '600',
+    letterSpacing: -0.7,
+    color: nd.colors.ink,
   },
   subtitle: {
-    marginTop: theme.spacing.sm,
-    color: theme.colors.mutedText,
-    fontSize: 13,
-    lineHeight: 19,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-  card: {
-    marginTop: theme.spacing.xl,
-    alignItems: 'center',
-    borderRadius: theme.radius.xl,
-    padding: theme.spacing.xl,
-    backgroundColor: 'rgba(255,253,246,0.94)',
-    borderWidth: 1,
-    borderColor: 'rgba(232,211,183,0.88)',
-    ...createShadow(9),
+    fontSize: 16,
+    lineHeight: 22,
+    fontWeight: '500',
+    letterSpacing: -0.4,
+    color: nd.colors.sub,
   },
   avatarWrap: {
-    width: 132,
-    height: 132,
+    marginTop: 32,
+    alignItems: 'center',
   },
   avatar: {
-    width: 132,
-    height: 132,
-    borderRadius: 66,
-    backgroundColor: theme.colors.surfaceAlt,
-    borderWidth: 1,
-    borderColor: 'rgba(201,121,73,0.2)',
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: nd.colors.field,
   },
-  imageButton: {
+  cameraBadge: {
     position: 'absolute',
-    right: 2,
-    bottom: 2,
-    width: 42,
-    height: 42,
+    right: 4,
+    bottom: 4,
+    width: 32,
+    height: 32,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 21,
-    backgroundColor: theme.colors.primaryDark,
-    borderWidth: 2,
-    borderColor: '#FFFDF6',
-  },
-  avatarHint: {
-    marginTop: theme.spacing.md,
-    color: theme.colors.mutedText,
-    fontSize: 12,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-  inlineActions: {
-    width: '100%',
-    marginTop: theme.spacing.lg,
-    flexDirection: 'row',
-    gap: theme.spacing.sm,
-  },
-  smallAction: {
-    flex: 1,
-    minHeight: 42,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    borderRadius: 21,
-    backgroundColor: 'rgba(248,234,210,0.66)',
-    borderWidth: 1,
-    borderColor: 'rgba(232,211,183,0.86)',
-  },
-  smallActionText: {
-    color: theme.colors.primaryDark,
-    fontSize: 12,
-    fontWeight: '900',
-  },
-  disabledAction: {
-    opacity: 0.55,
-  },
-  disabledActionText: {
-    color: '#BCA995',
+    borderRadius: 16,
+    backgroundColor: nd.colors.ink,
   },
   field: {
-    width: '100%',
-    marginTop: theme.spacing.xl,
+    marginTop: 32,
+    paddingHorizontal: 20,
+    gap: 8,
   },
   label: {
-    color: '#8B6956',
+    paddingHorizontal: 8,
     fontSize: 14,
-    fontWeight: '900',
+    lineHeight: 20,
+    fontWeight: '500',
+    letterSpacing: -0.35,
+    color: nd.colors.ink,
   },
   input: {
-    marginTop: theme.spacing.sm,
-    minHeight: 52,
-    borderRadius: theme.radius.lg,
-    paddingHorizontal: theme.spacing.lg,
-    backgroundColor: '#F7EBD8',
-    color: theme.colors.text,
+    minHeight: 54,
+    borderRadius: nd.radius.input,
+    borderWidth: 1,
+    borderColor: nd.colors.border,
+    backgroundColor: nd.colors.bg,
+    padding: 16,
     fontSize: 16,
-    fontWeight: '900',
-    borderWidth: 1,
-    borderColor: theme.colors.border,
+    letterSpacing: -0.4,
+    color: nd.colors.ink,
   },
-  inputError: {
-    borderColor: '#D45B4A',
+  footer: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
   },
-  counter: {
-    marginTop: 6,
-    color: theme.colors.mutedText,
-    fontSize: 12,
-    textAlign: 'right',
-  },
-  counterError: {
-    color: '#B94635',
-  },
-  suggestionBlock: {
-    width: '100%',
-    marginTop: theme.spacing.md,
-  },
-  suggestionLabel: {
-    color: theme.colors.mutedText,
-    fontSize: 12,
-    fontWeight: '900',
-  },
-  suggestionGrid: {
-    marginTop: theme.spacing.sm,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: theme.spacing.sm,
-  },
-  suggestionChip: {
-    minHeight: 34,
+  cta: {
+    minHeight: 54,
+    alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 17,
-    paddingHorizontal: theme.spacing.md,
-    backgroundColor: 'rgba(255,248,236,0.88)',
-    borderWidth: 1,
-    borderColor: 'rgba(232,211,183,0.86)',
+    borderRadius: nd.radius.input,
+    backgroundColor: nd.colors.primary,
+    padding: 16,
   },
-  suggestionChipActive: {
-    backgroundColor: theme.colors.primaryDark,
-    borderColor: theme.colors.primaryDark,
+  ctaDisabled: {
+    opacity: 0.4,
   },
-  suggestionText: {
-    color: theme.colors.mutedText,
-    fontSize: 12,
-    fontWeight: '900',
-  },
-  suggestionTextActive: {
-    color: '#FFF8F0',
-  },
-  actions: {
-    marginTop: theme.spacing.lg,
-    gap: theme.spacing.sm,
+  ctaText: {
+    fontSize: 16,
+    lineHeight: 22,
+    fontWeight: '600',
+    letterSpacing: -0.4,
+    color: '#FFFFFF',
   },
   pressed: {
-    opacity: 0.86,
+    opacity: 0.88,
   },
 });

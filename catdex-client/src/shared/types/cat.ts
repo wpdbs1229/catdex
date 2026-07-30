@@ -48,7 +48,8 @@ export interface CatEncounter {
 export interface CaptureCatDraft {
   name: string;
   type: CatType;
-  tags: PersonalityTag[];
+  // 성격 태그 외에 '수컷'/'암컷', '품종:페르시안' 같은 속성 태그도 함께 담는다.
+  tags: string[];
   regionName: string;
   memo: string;
   imageUrl?: string;

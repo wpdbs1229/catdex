@@ -1,21 +1,26 @@
-import { useState } from 'react';
-import { ArrowLeft, Edit3, Info, X } from 'lucide-react-native';
-import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { CatAffinityGauge } from '@/features/cats/components/CatAffinityGauge';
-import { EncounterTimeline } from '@/features/cats/components/EncounterTimeline';
-import { Button } from '@/shared/components/Button';
-import { Card } from '@/shared/components/Card';
-import { Chip } from '@/shared/components/Chip';
-import type { Cat, CatEncounter } from '@/shared/types/cat';
+import { useMemo, useState } from 'react';
+import { ArrowLeft, ArrowUp, Heart, Mic, PawPrint } from 'lucide-react-native';
 import {
-  formatDisplayDate,
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+  type ImageSourcePropType,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { createNdShadow, nd } from '@/shared/styles/theme';
+import type { Cat, CatEncounter, CatType } from '@/shared/types/cat';
+import {
   getAffinityFromRelationship,
-  getCatVisual,
-  getRarityGuide,
-  getRarityLabel,
-  getRarityStars,
+  getCatIllustrationKey,
+  sortEncountersByDateAsc,
+  type CatIllustrationKey,
 } from '@/shared/utils/catPresentation';
-import { theme } from '@/shared/styles/theme';
 
 interface CatDetailScreenProps {
   cat: Cat;
@@ -26,497 +31,569 @@ interface CatDetailScreenProps {
   onEditCat: () => void;
   onRemoveEncounter?: (encounter: CatEncounter) => void;
   onReportCat: () => void;
+  onAddDiaryEntry?: (memo: string) => Promise<void> | void;
 }
 
-export function CatDetailScreen({ cat, encounters, currentUserId, onBack, onComposePost, onEditCat, onRemoveEncounter, onReportCat }: CatDetailScreenProps) {
-  const [isRarityGuideOpen, setIsRarityGuideOpen] = useState(false);
-  const [isRelationshipGuideOpen, setIsRelationshipGuideOpen] = useState(false);
-  const visual = getCatVisual(cat.type);
-  const rarityGuide = getRarityGuide(cat);
+const paperTexture = require('../../../assets/textures/crumpled-paper.jpg');
+
+const illustrations = {
+  orange: require('../../../assets/illustrations/cat-orange-clean.png'),
+  dark: require('../../../assets/illustrations/cat-dark-clean.png'),
+  tuxedo: require('../../../assets/illustrations/cat-tuxedo-clean.png'),
+  gray: require('../../../assets/illustrations/cat-gray-clean.png'),
+} satisfies Record<CatIllustrationKey, ImageSourcePropType>;
+
+function imageForType(type: CatType, imageUrl?: string): ImageSourcePropType {
+  if (imageUrl) {
+    return { uri: imageUrl };
+  }
+
+  return illustrations[getCatIllustrationKey(type)];
+}
+
+function formatShortDate(value: string) {
+  const parsed = new Date(value);
+
+  if (Number.isNaN(parsed.getTime())) {
+    return value.replace(/-/g, '.');
+  }
+
+  const year = String(parsed.getFullYear()).slice(2);
+  const month = String(parsed.getMonth() + 1).padStart(2, '0');
+  const day = String(parsed.getDate()).padStart(2, '0');
+
+  return `${year}.${month}.${day}`;
+}
+
+function getBreedLabel(tags: string[], fallback: string) {
+  const breedTag = tags.find((tag) => tag.startsWith('품종:'));
+
+  return breedTag ? breedTag.slice('품종:'.length) : fallback;
+}
+
+function getGenderSymbol(tags: string[]) {
+  if (tags.includes('수컷')) {
+    return '♂';
+  }
+
+  if (tags.includes('암컷')) {
+    return '♀';
+  }
+
+  return '-';
+}
+
+const AFFINITY_TRACK_WIDTH = 120;
+const AFFINITY_KNOB_SIZE = 32;
+
+export function CatDetailScreen({
+  cat,
+  encounters,
+  currentUserId,
+  onBack,
+  onComposePost,
+  onEditCat,
+  onRemoveEncounter,
+  onReportCat,
+  onAddDiaryEntry,
+}: CatDetailScreenProps) {
+  const insets = useSafeAreaInsets();
+  const [liked, setLiked] = useState(false);
+  const [showAllEntries, setShowAllEntries] = useState(false);
+  const [draftMemo, setDraftMemo] = useState('');
+  const [isSavingMemo, setIsSavingMemo] = useState(false);
+  const affinity = getAffinityFromRelationship(cat);
+  const sortedEncounters = useMemo(() => sortEncountersByDateAsc(encounters), [encounters]);
+  const visibleEncounters = showAllEntries ? sortedEncounters : sortedEncounters.slice(-3);
+  const hasMoreEntries = sortedEncounters.length > visibleEncounters.length;
+  const knobOffset = Math.min(
+    AFFINITY_TRACK_WIDTH - AFFINITY_KNOB_SIZE / 2,
+    Math.max(-AFFINITY_KNOB_SIZE / 2, (affinity / 100) * AFFINITY_TRACK_WIDTH - AFFINITY_KNOB_SIZE / 2),
+  );
+
+  const handleSubmitMemo = async () => {
+    const memo = draftMemo.trim();
+
+    if (!memo || !onAddDiaryEntry || isSavingMemo) {
+      return;
+    }
+
+    setIsSavingMemo(true);
+
+    try {
+      await onAddDiaryEntry(memo);
+      setDraftMemo('');
+    } finally {
+      setIsSavingMemo(false);
+    }
+  };
 
   return (
-    <>
-      <ScrollView contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
-        <View style={styles.headerRow}>
-          <Pressable onPress={onBack} style={styles.backButton}>
-            <ArrowLeft color={theme.colors.text} size={20} />
-          </Pressable>
-          <Text style={styles.number}>No.{String(cat.number).padStart(3, '0')}</Text>
-          <View style={styles.backButtonPlaceholder} />
-        </View>
+    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.screen}>
+      <View pointerEvents="none" style={styles.backgroundWash}>
+        <View style={styles.washPink} />
+        <View style={styles.washYellow} />
+        <View style={styles.washPeach} />
+      </View>
 
-        <Card style={styles.heroCard}>
-          <View style={[styles.heroArt, { backgroundColor: visual.colors[0] }]}>
-            {cat.imageUrl ? <Image source={{ uri: cat.imageUrl }} style={styles.heroImage} /> : <Text style={styles.heroEmoji}>{visual.emoji}</Text>}
-          </View>
-          <View style={styles.heroHeader}>
-            <View style={styles.heroTitleWrap}>
-              <Text style={styles.heroTitle}>{cat.name}</Text>
-              <Chip>{cat.type}</Chip>
-            </View>
-            <Pressable
-              accessibilityLabel="희귀도 산정 기준 보기"
-              onPress={() => setIsRarityGuideOpen(true)}
-              style={styles.rarityButton}
-            >
-              <Text style={styles.stars}>{getRarityStars(cat.rarity).map((isOn) => (isOn ? '★' : '☆')).join('')}</Text>
-              <Info color={theme.colors.primaryDark} size={15} />
-            </Pressable>
-          </View>
-          <Text style={styles.relationship}>{cat.relationshipLevel}</Text>
-        </Card>
+      <View style={styles.headerRow}>
+        <Pressable accessibilityLabel="뒤로 가기" onPress={onBack} style={({ pressed }) => [styles.circleButton, pressed && styles.pressed]}>
+          <ArrowLeft color={nd.colors.ink} size={20} strokeWidth={1.8} />
+        </Pressable>
+        <Text style={styles.headerTitle}>도감</Text>
+        <Pressable
+          accessibilityLabel={liked ? '찜 해제' : '찜하기'}
+          onPress={() => setLiked((prev) => !prev)}
+          style={({ pressed }) => [styles.circleButton, pressed && styles.pressed]}
+        >
+          <Heart color={liked ? '#FF4D6D' : nd.colors.ink} fill={liked ? '#FF4D6D' : 'transparent'} size={20} strokeWidth={1.8} />
+        </Pressable>
+      </View>
 
-        <View style={styles.infoGrid}>
-          <Card style={styles.infoCard}>
-            <Text style={styles.infoLabel}>발견 횟수</Text>
-            <Text style={styles.infoValue}>{cat.encounterCount}회</Text>
-          </Card>
-          <Card style={styles.infoCard}>
-            <View style={styles.infoLabelRow}>
-              <Text style={styles.infoLabel}>관계 레벨</Text>
-              <Pressable
-                accessibilityLabel="관계 레벨 기준 보기"
-                onPress={() => setIsRelationshipGuideOpen(true)}
-                style={styles.infoIconButton}
-              >
-                <Info color={theme.colors.primaryDark} size={14} />
-              </Pressable>
-            </View>
-            <Text style={styles.infoValueSmall}>{cat.relationshipLevel}</Text>
-          </Card>
-        </View>
+      <ScrollView
+        contentContainerStyle={[styles.content, { paddingBottom: 120 + insets.bottom }]}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.catCard}>
+          <Image resizeMode="cover" source={paperTexture} style={styles.cardPaper} />
 
-        <Card style={styles.dateCard}>
-          <View style={styles.dateRow}>
-            <View style={styles.dateBlock}>
-              <Text style={styles.infoLabel}>처음 만난 날</Text>
-              <Text style={styles.dateValue}>{formatDisplayDate(cat.firstSeenAt)}</Text>
+          <Image resizeMode="contain" source={imageForType(cat.type, cat.imageUrl)} style={styles.catPhoto} />
+
+          <View style={styles.affinityRow}>
+            <View style={styles.affinityTrack}>
+              <View style={[styles.affinityFill, { width: Math.max(8, (affinity / 100) * AFFINITY_TRACK_WIDTH) }]} />
             </View>
-            <View style={styles.dateBlock}>
-              <Text style={styles.infoLabel}>최근 만난 날</Text>
-              <Text style={styles.dateValue}>{formatDisplayDate(cat.lastSeenAt)}</Text>
+            <View style={[styles.affinityKnob, { left: knobOffset }]}>
+              <PawPrint color="#FF4D6D" size={15} style={styles.affinityPaw} />
             </View>
           </View>
-        </Card>
 
-        <CatAffinityGauge value={getAffinityFromRelationship(cat)} />
-
-        <Card style={styles.tagCard}>
-          <Text style={styles.infoLabel}>태그</Text>
-          <View style={styles.tagWrap}>
-            {cat.tags.map((tag) => (
-              <Chip key={tag}>{tag}</Chip>
+          <View style={styles.coatDots}>
+            {['#FFFDD0', '#FFFFFF'].map((dotColor, index) => (
+              <View key={`${dotColor}-${index}`} style={[styles.coatDot, { backgroundColor: dotColor }]} />
             ))}
           </View>
-          {cat.memo ? <Text style={styles.memo}>{cat.memo}</Text> : null}
-        </Card>
 
-        <EncounterTimeline currentUserId={currentUserId} encounters={encounters} onRemoveEncounter={onRemoveEncounter} />
-
-        <View style={styles.buttonWrap}>
-          <Button onPress={onEditCat} variant="secondary">
-            <View style={styles.buttonContent}>
-              <Edit3 color={theme.colors.primaryDark} size={18} />
-              <Text style={styles.secondaryButtonText}>정보 수정</Text>
+          <View style={styles.cardInfo}>
+            <View style={styles.cardInfoText}>
+              <Text style={styles.catName}>{cat.name}</Text>
+              <Text numberOfLines={2} style={styles.catDescription}>
+                {cat.memo?.trim() || '아직 소개가 없는 고양이예요.'}
+              </Text>
             </View>
-          </Button>
-          <Button onPress={onComposePost} variant="secondary">
-            이 고양이로 글쓰기
-          </Button>
-          <Button onPress={onReportCat} variant="secondary">
-            신고하기
-          </Button>
+            <View style={styles.metaRow}>
+              <View style={styles.metaCell}>
+                <Text style={styles.metaLabel}>품종</Text>
+                <Text numberOfLines={1} style={styles.metaValue}>
+                  {getBreedLabel(cat.tags, cat.type)}
+                </Text>
+              </View>
+              <View style={styles.metaDivider} />
+              <View style={styles.metaCell}>
+                <Text style={styles.metaLabel}>성별</Text>
+                <Text style={styles.metaValue}>{getGenderSymbol(cat.tags)}</Text>
+              </View>
+              <View style={styles.metaDivider} />
+              <View style={[styles.metaCell, styles.metaCellWide]}>
+                <Text style={styles.metaLabel}>첫 만남</Text>
+                <Text style={styles.metaValue}>{formatShortDate(cat.firstSeenAt)}</Text>
+              </View>
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.diarySection}>
+          <View style={styles.diaryHeader}>
+            <Text style={styles.diaryTitle}>일기장</Text>
+          </View>
+
+          {visibleEncounters.length === 0 ? (
+            <View style={styles.diaryEmpty}>
+              <Text style={styles.diaryEmptyText}>아직 기록이 없어요. 아래에서 첫 만남을 남겨보세요.</Text>
+            </View>
+          ) : (
+            visibleEncounters.map((encounter) => {
+              const isMine = Boolean(currentUserId && encounter.userId === currentUserId);
+
+              return (
+                <View key={encounter.id} style={styles.diaryEntry}>
+                  <Pressable
+                    delayLongPress={450}
+                    onLongPress={isMine && onRemoveEncounter ? () => onRemoveEncounter(encounter) : undefined}
+                    style={styles.diaryBubble}
+                  >
+                    <Text style={styles.diaryText}>{encounter.memo}</Text>
+                  </Pressable>
+                  <Text style={styles.diaryDate}>{formatShortDate(encounter.seenAt)}</Text>
+                </View>
+              );
+            })
+          )}
+
+          {hasMoreEntries || showAllEntries ? (
+            <Pressable onPress={() => setShowAllEntries((prev) => !prev)} style={({ pressed }) => [styles.diaryMore, pressed && styles.pressed]}>
+              <Text style={styles.diaryMoreText}>{showAllEntries ? '기록 접기' : '전체 기록보기'}</Text>
+            </Pressable>
+          ) : null}
+
+          <View style={styles.utilityRow}>
+            <Pressable onPress={onEditCat} style={({ pressed }) => (pressed ? styles.pressed : null)}>
+              <Text style={styles.utilityText}>정보 수정</Text>
+            </Pressable>
+            <Text style={styles.utilityDot}>·</Text>
+            <Pressable onPress={onComposePost} style={({ pressed }) => (pressed ? styles.pressed : null)}>
+              <Text style={styles.utilityText}>이 고양이로 글쓰기</Text>
+            </Pressable>
+            <Text style={styles.utilityDot}>·</Text>
+            <Pressable onPress={onReportCat} style={({ pressed }) => (pressed ? styles.pressed : null)}>
+              <Text style={styles.utilityText}>신고하기</Text>
+            </Pressable>
+          </View>
         </View>
       </ScrollView>
 
-      <Modal animationType="fade" onRequestClose={() => setIsRarityGuideOpen(false)} transparent visible={isRarityGuideOpen}>
-        <View style={styles.modalBackdrop}>
-          <View style={styles.rarityModal}>
-            <View style={styles.modalHeader}>
-              <View style={styles.modalTitleGroup}>
-                <Text style={styles.modalKicker}>희귀도 산정</Text>
-                <Text style={styles.modalTitle}>{getRarityLabel(cat.rarity)}</Text>
-              </View>
-              <Pressable accessibilityLabel="희귀도 산정 기준 닫기" onPress={() => setIsRarityGuideOpen(false)} style={styles.modalCloseButton}>
-                <X color={theme.colors.primaryDark} size={20} />
-              </Pressable>
-            </View>
-
-            <View style={styles.rarityScoreCard}>
-              <Text style={styles.rarityScoreLabel}>현재 희귀도</Text>
-              <Text style={styles.rarityScoreStars}>{getRarityStars(cat.rarity).map((isOn) => (isOn ? '★' : '☆')).join('')}</Text>
-              <Text style={styles.rarityScoreText}>{cat.rarity} / 5성</Text>
-            </View>
-
-            <View style={styles.reasonList}>
-              {rarityGuide.map((reason) => (
-                <View key={reason} style={styles.reasonRow}>
-                  <View style={styles.reasonDot} />
-                  <Text style={styles.reasonText}>{reason}</Text>
-                </View>
-              ))}
-            </View>
-
-            <Text style={styles.rarityNote}>
-              희귀도는 처음 등록될 때 털색과 동네/전체 도감 분포로 정해져요. 다시 만난 횟수는 관계 레벨에만 반영돼요.
-            </Text>
-          </View>
+      <View style={[styles.inputBarWrap, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+        <View style={styles.inputBar}>
+          <TextInput
+            editable={!isSavingMemo}
+            onChangeText={setDraftMemo}
+            onSubmitEditing={handleSubmitMemo}
+            placeholder="만남을 기록하고 친밀도를 쌓아보세요"
+            placeholderTextColor={nd.colors.sub}
+            returnKeyType="send"
+            style={styles.input}
+            value={draftMemo}
+          />
+          <Pressable
+            accessibilityLabel="기록 남기기"
+            disabled={isSavingMemo || !draftMemo.trim()}
+            onPress={handleSubmitMemo}
+            style={({ pressed }) => [styles.micButton, pressed && styles.pressed]}
+          >
+            {draftMemo.trim() ? (
+              <ArrowUp color={nd.colors.primary} size={20} strokeWidth={2} />
+            ) : (
+              <Mic color="#2A2A37" size={20} strokeWidth={1.6} />
+            )}
+          </Pressable>
         </View>
-      </Modal>
-
-      <Modal animationType="fade" onRequestClose={() => setIsRelationshipGuideOpen(false)} transparent visible={isRelationshipGuideOpen}>
-        <View style={styles.modalBackdrop}>
-          <View style={styles.rarityModal}>
-            <View style={styles.modalHeader}>
-              <View style={styles.modalTitleGroup}>
-                <Text style={styles.modalKicker}>친밀도 기준</Text>
-                <Text style={styles.modalTitle}>{cat.relationshipLevel}</Text>
-              </View>
-              <Pressable accessibilityLabel="관계 레벨 기준 닫기" onPress={() => setIsRelationshipGuideOpen(false)} style={styles.modalCloseButton}>
-                <X color={theme.colors.primaryDark} size={20} />
-              </Pressable>
-            </View>
-
-            <View style={styles.rarityScoreCard}>
-              <Text style={styles.rarityScoreLabel}>현재 발견 횟수</Text>
-              <Text style={styles.relationshipScoreText}>{cat.encounterCount}회</Text>
-              <Text style={styles.rarityScoreText}>촬영 후 같은 고양이로 확인된 기록만 반영돼요.</Text>
-            </View>
-
-            <View style={styles.relationshipGuideList}>
-              {[
-                { count: '1회', label: '첫 만남' },
-                { count: '2-3회', label: '살짝 경계 중' },
-                { count: '4-6회', label: '동네 친구' },
-                { count: '7회 이상', label: '골목 대장' },
-              ].map((level) => {
-                const isCurrent = cat.relationshipLevel === level.label;
-
-                return (
-                  <View key={level.label} style={[styles.relationshipGuideRow, isCurrent && styles.relationshipGuideRowActive]}>
-                    <Text style={[styles.relationshipGuideCount, isCurrent && styles.relationshipGuideTextActive]}>{level.count}</Text>
-                    <Text style={[styles.relationshipGuideLabel, isCurrent && styles.relationshipGuideTextActive]}>{level.label}</Text>
-                  </View>
-                );
-              })}
-            </View>
-
-            <Text style={styles.rarityNote}>
-              친밀도는 버튼으로 직접 올릴 수 없어요. 촬영 화면에서 후보를 보고 사용자가 같은 고양이라고 확인한 다시 발견 기록만 누적돼요.
-            </Text>
-          </View>
-        </View>
-      </Modal>
-    </>
+      </View>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  contentContainer: {
-    paddingHorizontal: theme.spacing.lg,
-    paddingTop: theme.spacing.lg,
-    paddingBottom: 140,
+  screen: {
+    flex: 1,
+    backgroundColor: nd.colors.bg,
+  },
+  backgroundWash: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  washPink: {
+    position: 'absolute',
+    top: -120,
+    left: -80,
+    width: 420,
+    height: 420,
+    borderRadius: 210,
+    backgroundColor: 'rgba(255, 90, 205, 0.13)',
+  },
+  washYellow: {
+    position: 'absolute',
+    top: 200,
+    right: -120,
+    width: 430,
+    height: 430,
+    borderRadius: 215,
+    backgroundColor: 'rgba(250, 218, 97, 0.14)',
+  },
+  washPeach: {
+    position: 'absolute',
+    bottom: -100,
+    left: -60,
+    width: 420,
+    height: 420,
+    borderRadius: 210,
+    backgroundColor: 'rgba(255, 145, 136, 0.14)',
   },
   headerRow: {
+    height: 56,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingHorizontal: 20,
   },
-  backButton: {
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    letterSpacing: -0.5,
+    color: nd.colors.ink,
+  },
+  circleButton: {
     width: 44,
     height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
     borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.8)',
+    backgroundColor: 'rgba(255, 255, 255, 0.72)',
+    ...createNdShadow(0.08, 6),
   },
-  backButtonPlaceholder: {
-    width: 44,
+  content: {
+    paddingTop: 4,
   },
-  number: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: theme.colors.mutedText,
-  },
-  heroCard: {
-    marginTop: theme.spacing.lg,
-  },
-  heroArt: {
-    height: 260,
-    borderRadius: theme.radius.xl,
-    alignItems: 'center',
-    justifyContent: 'center',
+  catCard: {
+    alignSelf: 'center',
+    width: 330,
+    height: 482,
+    borderRadius: 16,
+    borderWidth: 8,
+    borderColor: '#FFA830',
+    backgroundColor: nd.colors.bg,
     overflow: 'hidden',
   },
-  heroImage: {
+  cardPaper: {
+    ...StyleSheet.absoluteFillObject,
     width: '100%',
     height: '100%',
   },
-  heroEmoji: {
-    fontSize: 84,
+  affinityRow: {
+    position: 'absolute',
+    top: 8,
+    left: 16,
+    width: AFFINITY_TRACK_WIDTH,
+    height: 32,
   },
-  heroHeader: {
-    marginTop: theme.spacing.lg,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: theme.spacing.md,
+  affinityTrack: {
+    position: 'absolute',
+    top: 14,
+    left: 0,
+    width: AFFINITY_TRACK_WIDTH,
+    height: 4,
+    borderRadius: 88,
+    backgroundColor: '#FFFFFF',
+    overflow: 'hidden',
+    ...createNdShadow(0.06, 7),
   },
-  heroTitleWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: theme.spacing.sm,
-    flex: 1,
+  affinityFill: {
+    height: 4,
+    borderRadius: 88,
+    backgroundColor: '#FF4D6D',
   },
-  heroTitle: {
-    fontSize: 34,
-    fontWeight: '800',
-    color: theme.colors.text,
-  },
-  stars: {
-    fontSize: 14,
-    color: theme.colors.primary,
-  },
-  rarityButton: {
-    minHeight: 34,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    borderRadius: 17,
-    paddingHorizontal: theme.spacing.sm,
-    backgroundColor: 'rgba(255,248,236,0.86)',
-    borderWidth: 1,
-    borderColor: 'rgba(139,112,83,0.14)',
-  },
-  relationship: {
-    marginTop: theme.spacing.sm,
-    fontSize: 14,
-    color: theme.colors.mutedText,
-  },
-  infoGrid: {
-    marginTop: theme.spacing.lg,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  infoCard: {
-    width: '48.5%',
-  },
-  infoLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#8B6956',
-  },
-  infoLabelRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: theme.spacing.sm,
-  },
-  infoIconButton: {
-    width: 28,
-    height: 28,
+  affinityKnob: {
+    position: 'absolute',
+    top: 0,
+    width: AFFINITY_KNOB_SIZE,
+    height: AFFINITY_KNOB_SIZE,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 14,
-    backgroundColor: 'rgba(255,248,236,0.86)',
+    borderRadius: AFFINITY_KNOB_SIZE / 2,
     borderWidth: 1,
-    borderColor: 'rgba(139,112,83,0.14)',
+    borderColor: '#FF4D6D',
+    backgroundColor: '#FFFFFF',
   },
-  infoValue: {
-    marginTop: theme.spacing.md,
-    fontSize: 28,
-    fontWeight: '800',
-    color: theme.colors.text,
+  affinityPaw: {
+    transform: [{ rotate: '10deg' }],
   },
-  infoValueSmall: {
-    marginTop: theme.spacing.md,
-    fontSize: 20,
-    fontWeight: '700',
-    color: theme.colors.text,
-  },
-  dateCard: {
-    marginTop: theme.spacing.lg,
-  },
-  dateRow: {
+  coatDots: {
+    position: 'absolute',
+    top: 8,
+    right: 16,
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    gap: 6,
   },
-  dateBlock: {
-    width: '48%',
+  coatDot: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(17, 17, 17, 0.1)',
   },
-  dateValue: {
-    marginTop: theme.spacing.sm,
-    fontSize: 16,
-    fontWeight: '700',
-    color: theme.colors.text,
+  catPhoto: {
+    position: 'absolute',
+    top: 52,
+    alignSelf: 'center',
+    width: 220,
+    height: 220,
   },
-  tagCard: {
-    marginTop: theme.spacing.lg,
+  cardInfo: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: nd.colors.bg,
+    paddingHorizontal: 16,
+    paddingVertical: 20,
+    gap: 12,
   },
-  tagWrap: {
-    marginTop: theme.spacing.md,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: theme.spacing.sm,
+  cardInfoText: {
+    paddingHorizontal: 8,
+    gap: 4,
   },
-  memo: {
-    marginTop: theme.spacing.md,
-    fontSize: 14,
-    lineHeight: 22,
-    color: theme.colors.mutedText,
-  },
-  buttonWrap: {
-    marginTop: theme.spacing.xl,
-    gap: theme.spacing.md,
-  },
-  buttonContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: theme.spacing.sm,
-  },
-  secondaryButtonText: {
-    color: theme.colors.primaryDark,
-    fontSize: 15,
-    fontWeight: '900',
-  },
-  modalBackdrop: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(47,36,29,0.36)',
-  },
-  rarityModal: {
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    paddingHorizontal: theme.spacing.lg,
-    paddingTop: theme.spacing.lg,
-    paddingBottom: 34,
-    backgroundColor: '#FFF8EC',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: theme.spacing.md,
-  },
-  modalTitleGroup: {
-    flex: 1,
-  },
-  modalKicker: {
-    color: theme.colors.accent,
-    fontSize: 11,
-    fontWeight: '900',
-  },
-  modalTitle: {
-    marginTop: 3,
-    color: theme.colors.text,
+  catName: {
     fontSize: 24,
-    fontWeight: '900',
+    lineHeight: 34,
+    fontWeight: '600',
+    letterSpacing: -0.6,
+    color: '#000000',
   },
-  modalCloseButton: {
+  catDescription: {
+    fontSize: 14,
+    lineHeight: 20,
+    letterSpacing: -0.35,
+    color: nd.colors.sub,
+    minHeight: 40,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 8,
+  },
+  metaCell: {
+    width: 96,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 6,
+  },
+  metaCellWide: {
+    flex: 1,
+    width: 'auto',
+  },
+  metaLabel: {
+    fontSize: 13,
+    lineHeight: 19,
+    letterSpacing: -0.325,
+    color: nd.colors.sub,
+  },
+  metaValue: {
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '500',
+    letterSpacing: -0.35,
+    color: nd.colors.ink,
+  },
+  metaDivider: {
+    width: StyleSheet.hairlineWidth,
+    height: 16,
+    backgroundColor: nd.colors.border,
+  },
+  diarySection: {
+    marginTop: 16,
+  },
+  diaryHeader: {
+    paddingHorizontal: 28,
+    paddingVertical: 16,
+  },
+  diaryTitle: {
+    fontSize: 18,
+    lineHeight: 25,
+    fontWeight: '600',
+    letterSpacing: -0.45,
+    color: nd.colors.ink,
+  },
+  diaryEmpty: {
+    paddingHorizontal: 28,
+    paddingVertical: 6,
+  },
+  diaryEmptyText: {
+    fontSize: 14,
+    lineHeight: 20,
+    letterSpacing: -0.35,
+    color: nd.colors.sub,
+  },
+  diaryEntry: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 4,
+    paddingHorizontal: 28,
+    paddingVertical: 6,
+  },
+  diaryBubble: {
+    flexShrink: 1,
+    backgroundColor: nd.colors.bg,
+    padding: 16,
+    borderTopLeftRadius: 4,
+    borderTopRightRadius: 20,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+  },
+  diaryText: {
+    fontSize: 15,
+    lineHeight: 22,
+    letterSpacing: -0.375,
+    color: nd.colors.ink,
+  },
+  diaryDate: {
+    fontSize: 12,
+    lineHeight: 17,
+    letterSpacing: -0.3,
+    color: nd.colors.subtle,
+  },
+  diaryMore: {
+    alignItems: 'center',
+    paddingVertical: 16,
+  },
+  diaryMoreText: {
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '600',
+    letterSpacing: -0.35,
+    color: nd.colors.ink,
+  },
+  utilityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 4,
+  },
+  utilityText: {
+    fontSize: 12,
+    lineHeight: 17,
+    letterSpacing: -0.3,
+    color: nd.colors.subtle,
+  },
+  utilityDot: {
+    color: nd.colors.subtle,
+    fontSize: 12,
+  },
+  inputBarWrap: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingHorizontal: 20,
+    paddingTop: 8,
+  },
+  inputBar: {
+    height: 54,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: nd.radius.pill,
+    backgroundColor: 'rgba(255, 255, 255, 0.86)',
+    paddingLeft: 20,
+    paddingRight: 7,
+    ...createNdShadow(0.16, 16),
+  },
+  input: {
+    flex: 1,
+    minWidth: 0,
+    paddingVertical: 0,
+    fontSize: 14,
+    letterSpacing: -0.35,
+    color: nd.colors.ink,
+  },
+  micButton: {
     width: 40,
     height: 40,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 20,
-    backgroundColor: 'rgba(255,253,246,0.82)',
-    borderWidth: 1,
-    borderColor: 'rgba(139,112,83,0.14)',
+    backgroundColor: '#FFFFFF',
+    ...createNdShadow(0.06, 4),
   },
-  rarityScoreCard: {
-    marginTop: theme.spacing.lg,
-    borderRadius: theme.radius.lg,
-    padding: theme.spacing.lg,
-    backgroundColor: '#FFF0DC',
-    borderWidth: 1,
-    borderColor: 'rgba(201,121,73,0.22)',
-  },
-  rarityScoreLabel: {
-    color: theme.colors.mutedText,
-    fontSize: 11,
-    fontWeight: '800',
-  },
-  rarityScoreStars: {
-    marginTop: theme.spacing.sm,
-    color: theme.colors.warning,
-    fontSize: 24,
-    fontWeight: '900',
-  },
-  rarityScoreText: {
-    marginTop: theme.spacing.xs,
-    color: theme.colors.primaryDark,
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  relationshipScoreText: {
-    marginTop: theme.spacing.sm,
-    color: theme.colors.text,
-    fontSize: 28,
-    fontWeight: '900',
-  },
-  relationshipGuideList: {
-    gap: theme.spacing.sm,
-    paddingTop: theme.spacing.lg,
-  },
-  relationshipGuideRow: {
-    minHeight: 48,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: theme.spacing.md,
-    borderRadius: theme.radius.lg,
-    paddingHorizontal: theme.spacing.md,
-    backgroundColor: 'rgba(255,253,246,0.68)',
-    borderWidth: 1,
-    borderColor: 'rgba(139,112,83,0.1)',
-  },
-  relationshipGuideRowActive: {
-    backgroundColor: theme.colors.primaryDark,
-    borderColor: 'rgba(78,52,37,0.22)',
-  },
-  relationshipGuideCount: {
-    color: theme.colors.mutedText,
-    fontSize: 13,
-    fontWeight: '900',
-  },
-  relationshipGuideLabel: {
-    flex: 1,
-    color: theme.colors.text,
-    fontSize: 15,
-    fontWeight: '900',
-    textAlign: 'right',
-  },
-  relationshipGuideTextActive: {
-    color: '#FFF8F0',
-  },
-  reasonList: {
-    gap: theme.spacing.sm,
-    paddingTop: theme.spacing.lg,
-  },
-  reasonRow: {
-    flexDirection: 'row',
-    gap: theme.spacing.sm,
-  },
-  reasonDot: {
-    width: 7,
-    height: 7,
-    marginTop: 7,
-    borderRadius: 4,
-    backgroundColor: theme.colors.accent,
-  },
-  reasonText: {
-    flex: 1,
-    color: theme.colors.text,
-    fontSize: 14,
-    lineHeight: 21,
-    fontWeight: '700',
-  },
-  rarityNote: {
-    marginTop: theme.spacing.lg,
-    color: theme.colors.mutedText,
-    fontSize: 12,
-    lineHeight: 18,
-    fontWeight: '700',
+  pressed: {
+    opacity: 0.86,
   },
 });

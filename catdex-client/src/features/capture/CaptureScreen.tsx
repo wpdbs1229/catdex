@@ -1,17 +1,19 @@
 import { useRef, useState } from 'react';
 import * as ImagePicker from 'expo-image-picker';
 import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions, type ImageSourcePropType } from 'react-native';
-import { AlertCircle, ArrowLeft, Camera, Check, ImagePlus, RotateCcw, Scissors, SearchX, Sparkles } from 'lucide-react-native';
+import { AlertCircle, ArrowLeft, Camera, Heart, ImagePlus, RotateCcw, Scissors } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CameraPlaceholder } from '@/features/capture/components/CameraPlaceholder';
 import { CandidateCompareSheet } from '@/features/capture/components/CandidateCompareSheet';
 import { CatRegisterForm } from '@/features/capture/components/CatRegisterForm';
 import { Button } from '@/shared/components/Button';
 import { Card } from '@/shared/components/Card';
+import { PolaroidCatCard } from '@/shared/components/PolaroidCatCard';
 import { getUserFacingError } from '@/shared/errors/user-facing-error';
 import { deriveCoatHints, isCatVisionAvailable, processCatPhoto } from '@/shared/native/catVision';
-import { createShadow, theme } from '@/shared/styles/theme';
+import { createNdShadow, createShadow, nd, theme } from '@/shared/styles/theme';
 import type { Cat, CatMatchCandidate, CatType, CaptureCatDraft, PersonalityTag, ProcessedCatPhoto } from '@/shared/types/cat';
-import { getCatIllustrationKey, type CatIllustrationKey } from '@/shared/utils/catPresentation';
+import { formatNyanTagLabel, getCatIllustrationKey, type CatIllustrationKey } from '@/shared/utils/catPresentation';
 
 type CaptureStep = 'camera' | 'processing' | 'noCat' | 'match' | 'register';
 type CaptureFailureKind = 'noCat' | 'visionUnavailable' | 'processError';
@@ -77,6 +79,9 @@ export function CaptureScreen({
 
   // 후보 카드를 탭하면 바로 확정하는 대신, 사진을 크게 비교하는 시트를 연다.
   const [compareCandidate, setCompareCandidate] = useState<CatMatchCandidate | null>(null);
+  // '첫 번째 발견자가 되어주세요' 프롬프트 시트 표시 여부
+  const [isDiscoverPromptVisible, setIsDiscoverPromptVisible] = useState(true);
+  const insets = useSafeAreaInsets();
 
   const handleConfirmCandidate = (candidate: CatMatchCandidate) => {
     void onRecordExisting(candidate.cat.id, {
@@ -98,6 +103,7 @@ export function CaptureScreen({
     setErrorMessage(null);
     setFailureKind(null);
     setIsUsingOriginalFallback(false);
+    setIsDiscoverPromptVisible(true);
     setStep('camera');
   };
 
@@ -290,97 +296,97 @@ export function CaptureScreen({
   }
 
   if (step === 'match' && processedPhoto) {
-    const isOriginalOnlyPhoto =
-      processedPhoto.confidence === 0 && processedPhoto.boundingBox === null && processedPhoto.featureVector.length === 0;
-
     return (
-      <ScrollView key={step} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.header}>
-          <Text style={styles.kicker}>동네 기록 후보</Text>
-          <Text style={styles.title}>같은 고양이인지 확인해요</Text>
-          <Text style={styles.subtitle}>현재 동네의 기존 사진과 최근 기록을 보고 같은 고양이인지 직접 확인해 주세요.</Text>
+      <View key={step} style={styles.ndScreen}>
+        <View pointerEvents="none" style={styles.ndWash}>
+          <View style={styles.ndWashPink} />
+          <View style={styles.ndWashYellow} />
+          <View style={styles.ndWashPeach} />
         </View>
 
-        <Card style={styles.cutoutCard}>
-          <View style={styles.cutoutFrame}>
-            <Image resizeMode="contain" source={{ uri: processedPhoto.cutoutImageUri }} style={styles.cutoutImage} />
-          </View>
-          <View style={styles.cutoutMeta}>
-            <View style={styles.cutoutBadge}>
-              {isOriginalOnlyPhoto ? <ImagePlus color={theme.colors.accent} size={16} /> : <Sparkles color={theme.colors.accent} size={16} />}
-              <Text style={styles.cutoutBadgeText}>
-                {isOriginalOnlyPhoto ? '원본 사진 사용' : processedPhoto.isPreciseCutout ? '누끼 완료' : '고양이 영역 추출'}
-              </Text>
-            </View>
-            <Text style={styles.cutoutConfidence}>
-              {isOriginalOnlyPhoto ? '자동 분석 건너뜀' : `감지 신뢰도 ${Math.round(processedPhoto.confidence * 100)}%`}
-            </Text>
-          </View>
-        </Card>
-
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>기존 고양이 후보</Text>
-          <Text style={styles.sectionCaption}>{candidates.length > 0 ? `${candidates.length}마리의 사진과 동네 기록을 비교해 보세요.` : '현재 동네에서 비교할 기존 기록을 찾지 못했어요.'}</Text>
-        </View>
-
-        {candidates.length > 0 ? (
-          <View style={styles.candidateList}>
-            {candidates.map((candidate) => (
-              <Pressable
-                accessibilityLabel={`${candidate.cat.name} 사진 비교하기`}
-                accessibilityRole="button"
-                disabled={isSubmitting}
-                key={candidate.cat.id}
-                onPress={() => setCompareCandidate(candidate)}
-                style={({ pressed }) => [styles.candidateCard, pressed && styles.pressed]}
-              >
-                <Image resizeMode="cover" source={imageForCat(candidate.cat)} style={styles.candidateImage} />
-                <View style={styles.candidateText}>
-                  <Text numberOfLines={1} style={styles.candidateName}>
-                    {candidate.cat.name}
-                  </Text>
-                  <Text numberOfLines={2} style={styles.candidateReason}>
-                    {candidate.reason}
-                  </Text>
-                </View>
-                <View style={styles.choosePill}>
-                  <Check color="#FFF8F0" size={15} />
-                  <Text style={styles.chooseText}>비교</Text>
-                </View>
-              </Pressable>
-            ))}
-          </View>
-        ) : (
-          <View style={styles.emptyCandidateState}>
-            <SearchX color={theme.colors.primary} size={28} />
-            <View style={styles.emptyCandidateCopy}>
-              <Text style={styles.emptyCandidateTitle}>기존 후보가 없어요</Text>
-              <Text style={styles.emptyCandidateText}>새 고양이로 등록하거나 확실하지 않다면 목격 기록으로 남겨주세요.</Text>
-            </View>
-          </View>
-        )}
-
-        <View style={styles.actions}>
-          <Button onPress={() => setStep('register')} variant="secondary">
-            {candidates.length > 0 ? '후보에 없어요 · 새로 등록' : '새 고양이로 등록'}
-          </Button>
-          <Button
+        <View style={styles.ndHeader}>
+          <Pressable
+            accessibilityLabel="다시 촬영하기"
             disabled={isSubmitting}
-            onPress={() =>
-              onMarkUncertain({
-                observationId: storedResult?.observationId,
-                cutoutImageUrl: currentImageUrl,
-                processedPhoto,
-              })
-            }
-            variant="ghost"
+            onPress={resetCapture}
+            style={({ pressed }) => [styles.ndCircleButton, pressed && styles.pressed]}
           >
-            잘 모르겠어요
-          </Button>
-          <Button disabled={isSubmitting} onPress={resetCapture} variant="ghost">
-            다시 촬영하기
-          </Button>
+            <ArrowLeft color={nd.colors.ink} size={20} strokeWidth={1.8} />
+          </Pressable>
+          <Text style={styles.ndHeaderTitle}>도감</Text>
+          <View style={styles.ndCircleButton}>
+            <Heart color={nd.colors.ink} size={20} strokeWidth={1.8} />
+          </View>
         </View>
+
+        <ScrollView contentContainerStyle={[styles.ndMatchContent, { paddingBottom: isDiscoverPromptVisible ? 280 : 60 }]} showsVerticalScrollIndicator={false}>
+          <Image resizeMode="contain" source={{ uri: processedPhoto.cutoutImageUri }} style={styles.ndCutoutImage} />
+
+          {candidates.length > 0 ? (
+            <View style={styles.ndCandidateSection}>
+              <Text style={styles.ndCandidateTitle}>AI가 판별했어요! 이 고양이가 아닌가요?</Text>
+              <ScrollView contentContainerStyle={styles.ndCandidateRow} horizontal showsHorizontalScrollIndicator={false}>
+                {candidates.map((candidate) => (
+                  <View key={candidate.cat.id} style={styles.ndCandidateCard}>
+                    <PolaroidCatCard
+                      imageSource={imageForCat(candidate.cat)}
+                      onPress={isSubmitting ? undefined : () => setCompareCandidate(candidate)}
+                      tagLabel={formatNyanTagLabel(candidate.cat.name, candidate.cat.firstSeenAt)}
+                    />
+                  </View>
+                ))}
+              </ScrollView>
+            </View>
+          ) : (
+            <View style={styles.ndCandidateSection}>
+              <Text style={styles.ndCandidateTitle}>아직 이 동네에 기록된 고양이가 없어요.</Text>
+            </View>
+          )}
+
+          {!isDiscoverPromptVisible ? (
+            <View style={styles.ndMatchActions}>
+              <Pressable disabled={isSubmitting} onPress={() => setStep('register')} style={({ pressed }) => [styles.ndPrimaryButton, pressed && styles.pressed]}>
+                <Text style={styles.ndPrimaryButtonText}>새 고양이로 등록</Text>
+              </Pressable>
+              <Pressable
+                disabled={isSubmitting}
+                onPress={() =>
+                  onMarkUncertain({
+                    observationId: storedResult?.observationId,
+                    cutoutImageUrl: currentImageUrl,
+                    processedPhoto,
+                  })
+                }
+                style={({ pressed }) => pressed && styles.pressed}
+              >
+                <Text style={styles.ndGhostText}>잘 모르겠어요</Text>
+              </Pressable>
+            </View>
+          ) : null}
+        </ScrollView>
+
+        {isDiscoverPromptVisible ? (
+          <View style={[styles.ndDiscoverSheet, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+            <Text style={styles.ndDiscoverTitle}>첫 번째 발견자가 되어주세요.</Text>
+            <Text style={styles.ndDiscoverSubtitle}>일상을 나누고 고양이를 케어하며{'\n'}마음의 거리를 줄여보세요.</Text>
+            <View style={styles.ndDiscoverActions}>
+              <Pressable
+                disabled={isSubmitting}
+                onPress={() => setIsDiscoverPromptVisible(false)}
+                style={({ pressed }) => [styles.ndSecondaryButton, pressed && styles.pressed]}
+              >
+                <Text style={styles.ndSecondaryButtonText}>나중에 할게요</Text>
+              </Pressable>
+              <Pressable
+                disabled={isSubmitting}
+                onPress={() => setStep('register')}
+                style={({ pressed }) => [styles.ndPrimaryButton, styles.ndDiscoverStart, pressed && styles.pressed]}
+              >
+                <Text style={styles.ndPrimaryButtonText}>시작하기</Text>
+              </Pressable>
+            </View>
+          </View>
+        ) : null}
 
         <CandidateCompareSheet
           candidate={compareCandidate}
@@ -389,53 +395,61 @@ export function CaptureScreen({
           onClose={() => setCompareCandidate(null)}
           onConfirm={handleConfirmCandidate}
         />
-      </ScrollView>
+      </View>
     );
   }
 
   if (step === 'register' && processedPhoto) {
     return (
-      <ScrollView key={step} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.header}>
-          <Pressable
-            accessibilityLabel="후보 확인으로 돌아가기"
-            accessibilityRole="button"
-            disabled={isSubmitting}
-            hitSlop={10}
-            onPress={() => setStep('match')}
-            style={({ pressed }) => [styles.registerBackButton, pressed && styles.pressed]}
-          >
-            <ArrowLeft color={theme.colors.primaryDark} size={20} />
-            <Text style={styles.registerBackText}>후보 다시 보기</Text>
-          </Pressable>
-          <Text style={styles.kicker}>새 고양이 등록</Text>
-          <Text style={styles.title}>누끼 이미지를 대표 사진으로 써요</Text>
-          <Text style={styles.subtitle}>이름과 동네만 입력하면 새 도감 카드가 만들어져요.</Text>
+      <View key={step} style={styles.ndScreen}>
+        <View pointerEvents="none" style={styles.ndWash}>
+          <View style={styles.ndWashPink} />
+          <View style={styles.ndWashYellow} />
+          <View style={styles.ndWashPeach} />
         </View>
 
-        <CatRegisterForm
-          capturedImageUri={processedPhoto.cutoutImageUri}
-          coatOptions={coatOptions}
-          defaultRegionName={neighborhoodName}
-          imageUrlOverride={storedResult?.cutoutImageUrl}
-          isSubmitting={isSubmitting}
-          onSubmit={(draft) =>
-            onSave({
-              ...draft,
-              observationId: storedResult?.observationId,
-              cutoutImageUrl: storedResult?.cutoutImageUrl ?? processedPhoto.cutoutImageUri,
-            })
-          }
-          onSubmitSighting={(draft) =>
-            onSaveSighting({
-              ...draft,
-              observationId: storedResult?.observationId,
-              cutoutImageUrl: storedResult?.cutoutImageUrl ?? processedPhoto.cutoutImageUri,
-            })
-          }
-          personalityOptions={personalityOptions}
-        />
-      </ScrollView>
+        <View style={styles.ndHeader}>
+          <Pressable
+            accessibilityLabel="후보 확인으로 돌아가기"
+            disabled={isSubmitting}
+            onPress={() => setStep('match')}
+            style={({ pressed }) => [styles.ndCircleButton, pressed && styles.pressed]}
+          >
+            <ArrowLeft color={nd.colors.ink} size={20} strokeWidth={1.8} />
+          </Pressable>
+          <Text style={styles.ndHeaderTitle}>도감</Text>
+          <View style={styles.ndCircleButton}>
+            <Heart color={nd.colors.ink} size={20} strokeWidth={1.8} />
+          </View>
+        </View>
+
+        <ScrollView contentContainerStyle={[styles.ndRegisterContent, { paddingBottom: Math.max(insets.bottom, 16) }]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+          <Image resizeMode="contain" source={{ uri: processedPhoto.cutoutImageUri }} style={styles.ndCutoutImage} />
+
+          <CatRegisterForm
+            capturedImageUri={processedPhoto.cutoutImageUri}
+            coatOptions={coatOptions}
+            defaultRegionName={neighborhoodName}
+            imageUrlOverride={storedResult?.cutoutImageUrl}
+            isSubmitting={isSubmitting}
+            onSubmit={(draft) =>
+              onSave({
+                ...draft,
+                observationId: storedResult?.observationId,
+                cutoutImageUrl: storedResult?.cutoutImageUrl ?? processedPhoto.cutoutImageUri,
+              })
+            }
+            onSubmitSighting={(draft) =>
+              onSaveSighting({
+                ...draft,
+                observationId: storedResult?.observationId,
+                cutoutImageUrl: storedResult?.cutoutImageUrl ?? processedPhoto.cutoutImageUri,
+              })
+            }
+            personalityOptions={personalityOptions}
+          />
+        </ScrollView>
+      </View>
     );
   }
 
@@ -641,27 +655,6 @@ const styles = StyleSheet.create({
     paddingTop: theme.spacing.lg,
     paddingBottom: theme.spacing.xxl,
   },
-  header: {
-    gap: 5,
-  },
-  kicker: {
-    fontSize: 12,
-    fontWeight: '900',
-    color: theme.colors.primary,
-  },
-  title: {
-    fontSize: 26,
-    lineHeight: 33,
-    fontWeight: '900',
-    letterSpacing: 0,
-    color: theme.colors.text,
-  },
-  subtitle: {
-    fontSize: 13,
-    lineHeight: 20,
-    fontWeight: '700',
-    color: theme.colors.mutedText,
-  },
   resultCard: {
     gap: theme.spacing.lg,
     backgroundColor: 'rgba(255,253,246,0.94)',
@@ -691,144 +684,6 @@ const styles = StyleSheet.create({
   resultActions: {
     gap: theme.spacing.sm,
   },
-  cutoutCard: {
-    gap: theme.spacing.md,
-    backgroundColor: 'rgba(255,253,246,0.94)',
-  },
-  cutoutFrame: {
-    height: 300,
-    borderRadius: theme.radius.lg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#E8E1D3',
-    overflow: 'hidden',
-  },
-  cutoutImage: {
-    width: '96%',
-    height: '96%',
-  },
-  cutoutMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: theme.spacing.md,
-  },
-  cutoutBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    borderRadius: 999,
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: 8,
-    backgroundColor: 'rgba(221,232,200,0.58)',
-  },
-  cutoutBadgeText: {
-    fontSize: 12,
-    fontWeight: '900',
-    color: theme.colors.accent,
-  },
-  cutoutConfidence: {
-    flexShrink: 1,
-    textAlign: 'right',
-    fontSize: 12,
-    fontWeight: '800',
-    color: theme.colors.mutedText,
-  },
-  sectionHeader: {
-    gap: 3,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: '900',
-    color: theme.colors.text,
-  },
-  sectionCaption: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: theme.colors.mutedText,
-  },
-  candidateList: {
-    gap: theme.spacing.sm,
-  },
-  candidateCard: {
-    minHeight: 84,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.md,
-    borderRadius: theme.radius.lg,
-    padding: theme.spacing.sm,
-    backgroundColor: 'rgba(255,253,246,0.94)',
-    borderWidth: 1,
-    borderColor: 'rgba(139,112,83,0.14)',
-    ...createShadow(5),
-  },
-  candidateImage: {
-    width: 64,
-    height: 64,
-    borderRadius: theme.radius.md,
-    backgroundColor: theme.colors.surfaceAlt,
-  },
-  candidateText: {
-    flex: 1,
-    minWidth: 0,
-  },
-  candidateName: {
-    fontSize: 17,
-    fontWeight: '900',
-    color: theme.colors.text,
-  },
-  candidateReason: {
-    marginTop: 4,
-    fontSize: 12,
-    lineHeight: 17,
-    fontWeight: '700',
-    color: theme.colors.mutedText,
-  },
-  emptyCandidateState: {
-    minHeight: 92,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.md,
-    borderRadius: theme.radius.lg,
-    padding: theme.spacing.md,
-    backgroundColor: 'rgba(255,253,246,0.72)',
-    borderWidth: 1,
-    borderColor: 'rgba(139,112,83,0.14)',
-  },
-  emptyCandidateCopy: {
-    flex: 1,
-    minWidth: 0,
-  },
-  emptyCandidateTitle: {
-    color: theme.colors.text,
-    fontSize: 15,
-    fontWeight: '900',
-  },
-  emptyCandidateText: {
-    marginTop: 4,
-    color: theme.colors.mutedText,
-    fontSize: 12,
-    lineHeight: 18,
-    fontWeight: '700',
-  },
-  choosePill: {
-    minHeight: 36,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-    borderRadius: 18,
-    paddingHorizontal: theme.spacing.sm,
-    backgroundColor: theme.colors.accent,
-  },
-  chooseText: {
-    color: '#FFF8F0',
-    fontSize: 12,
-    fontWeight: '900',
-  },
-  actions: {
-    gap: theme.spacing.sm,
-  },
   primaryButtonText: {
     color: '#FFF8F0',
     fontSize: 16,
@@ -837,18 +692,174 @@ const styles = StyleSheet.create({
   pressed: {
     opacity: 0.84,
   },
-  registerBackButton: {
+  ndScreen: {
+    flex: 1,
+    backgroundColor: nd.colors.bg,
+  },
+  ndWash: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  ndWashPink: {
+    position: 'absolute',
+    top: -120,
+    left: -80,
+    width: 420,
+    height: 420,
+    borderRadius: 210,
+    backgroundColor: 'rgba(255, 90, 205, 0.13)',
+  },
+  ndWashYellow: {
+    position: 'absolute',
+    top: 200,
+    right: -120,
+    width: 430,
+    height: 430,
+    borderRadius: 215,
+    backgroundColor: 'rgba(250, 218, 97, 0.14)',
+  },
+  ndWashPeach: {
+    position: 'absolute',
+    bottom: -100,
+    left: -60,
+    width: 420,
+    height: 420,
+    borderRadius: 210,
+    backgroundColor: 'rgba(255, 145, 136, 0.14)',
+  },
+  ndHeader: {
+    height: 56,
     flexDirection: 'row',
     alignItems: 'center',
-    alignSelf: 'flex-start',
-    gap: 6,
-    marginBottom: theme.spacing.sm,
-    paddingVertical: 4,
-    paddingRight: theme.spacing.sm,
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
   },
-  registerBackText: {
-    color: theme.colors.primaryDark,
-    fontSize: 13,
-    fontWeight: '800',
+  ndHeaderTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    letterSpacing: -0.5,
+    color: nd.colors.ink,
+  },
+  ndCircleButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.72)',
+    ...createNdShadow(0.08, 6),
+  },
+  ndMatchContent: {
+    paddingTop: 20,
+  },
+  ndRegisterContent: {
+    paddingTop: 20,
+  },
+  ndCutoutImage: {
+    alignSelf: 'center',
+    width: 220,
+    height: 220,
+  },
+  ndCandidateSection: {
+    marginTop: 20,
+    gap: 12,
+  },
+  ndCandidateTitle: {
+    paddingHorizontal: 20,
+    fontSize: 18,
+    lineHeight: 25,
+    fontWeight: '600',
+    letterSpacing: -0.45,
+    color: '#000000',
+  },
+  ndCandidateRow: {
+    gap: 8,
+    paddingHorizontal: 20,
+  },
+  ndCandidateCard: {
+    width: 165,
+    height: 178,
+  },
+  ndMatchActions: {
+    marginTop: 28,
+    paddingHorizontal: 20,
+    gap: 16,
+    alignItems: 'center',
+  },
+  ndPrimaryButton: {
+    minHeight: 48,
+    alignSelf: 'stretch',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: nd.radius.input,
+    backgroundColor: nd.colors.primary,
+    paddingHorizontal: 16,
+  },
+  ndPrimaryButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    letterSpacing: -0.4,
+    color: '#FFFFFF',
+  },
+  ndGhostText: {
+    fontSize: 14,
+    fontWeight: '500',
+    letterSpacing: -0.35,
+    color: nd.colors.sub,
+  },
+  ndSecondaryButton: {
+    flex: 1,
+    minHeight: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: nd.radius.input,
+    borderWidth: 1,
+    borderColor: nd.colors.border,
+    backgroundColor: '#FFFFFF',
+  },
+  ndSecondaryButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    letterSpacing: -0.4,
+    color: nd.colors.ink,
+  },
+  ndDiscoverSheet: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    backgroundColor: 'rgba(255, 255, 255, 0.97)',
+    paddingHorizontal: 26,
+    paddingTop: 44,
+    ...createNdShadow(0.16, 24),
+  },
+  ndDiscoverTitle: {
+    fontSize: 20,
+    lineHeight: 28,
+    fontWeight: '600',
+    letterSpacing: -0.5,
+    color: nd.colors.ink,
+    textAlign: 'center',
+  },
+  ndDiscoverSubtitle: {
+    marginTop: 12,
+    fontSize: 14,
+    lineHeight: 20,
+    letterSpacing: -0.35,
+    color: nd.colors.sub,
+    textAlign: 'center',
+  },
+  ndDiscoverActions: {
+    marginTop: 32,
+    marginBottom: 16,
+    flexDirection: 'row',
+    gap: 8,
+    alignSelf: 'stretch',
+  },
+  ndDiscoverStart: {
+    flex: 1,
+    alignSelf: 'auto',
   },
 });

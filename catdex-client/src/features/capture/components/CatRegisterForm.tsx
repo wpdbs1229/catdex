@@ -1,10 +1,8 @@
 import { useState } from 'react';
-import { StyleSheet, Text, TextInput, View } from 'react-native';
-import { Button } from '@/shared/components/Button';
+import { Check } from 'lucide-react-native';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { createNdShadow, nd } from '@/shared/styles/theme';
 import type { CaptureCatDraft, CatType, PersonalityTag } from '@/shared/types/cat';
-import { Card } from '@/shared/components/Card';
-import { TagChipGroup } from '@/features/capture/components/TagChipGroup';
-import { theme } from '@/shared/styles/theme';
 
 interface CatRegisterFormProps {
   coatOptions: CatType[];
@@ -17,196 +15,460 @@ interface CatRegisterFormProps {
   onSubmitSighting: (draft: CaptureCatDraft) => Promise<void> | void;
 }
 
+type CoatColorKey = '블랙' | '그레이' | '화이트' | '크림' | '초콜릿' | '브라운' | '시나몬' | '오렌지' | '라일락' | '기타';
+type CoatPatternKey = '원톤' | '투톤' | '태비' | '토티';
+type GenderKey = '수컷' | '암컷';
+
+const COLOR_OPTIONS: Array<{ key: CoatColorKey; color: string; isEtc?: boolean }> = [
+  { key: '블랙', color: '#111111' },
+  { key: '그레이', color: '#9CA0A8' },
+  { key: '화이트', color: '#FFFFFF' },
+  { key: '크림', color: '#FFFDD0' },
+  { key: '초콜릿', color: '#3D2314' },
+  { key: '브라운', color: '#8B4513' },
+  { key: '시나몬', color: '#D2691E' },
+  { key: '오렌지', color: '#F5942F' },
+  { key: '라일락', color: '#C8A2C8' },
+  { key: '기타', color: '#F7F7FB', isEtc: true },
+];
+
+const PATTERN_OPTIONS: CoatPatternKey[] = ['원톤', '투톤', '태비', '토티'];
+
+const DARK_SWATCHES: CoatColorKey[] = ['블랙', '초콜릿', '브라운', '시나몬'];
+
+// 컬러 + 패턴 조합을 기존 CatType(털색 도감 분류)으로 변환한다.
+function deriveCatType(color: CoatColorKey | null, pattern: CoatPatternKey | null): CatType {
+  if (pattern === '토티') {
+    return color === '블랙' || color === '초콜릿' ? '카오스냥' : '삼색이';
+  }
+
+  if (pattern === '태비') {
+    if (color === '오렌지' || color === '크림') {
+      return '치즈냥';
+    }
+
+    if (color === '그레이' || color === '블랙') {
+      return '고등어냥';
+    }
+
+    return '갈색태비';
+  }
+
+  if (pattern === '투톤') {
+    if (color === '블랙') {
+      return '턱시도';
+    }
+
+    if (color === '화이트') {
+      return '젖소냥';
+    }
+
+    return '얼룩냥';
+  }
+
+  switch (color) {
+    case '블랙':
+      return '검은냥';
+    case '화이트':
+      return '흰냥';
+    case '그레이':
+    case '라일락':
+      return '회색냥';
+    case '크림':
+    case '오렌지':
+      return '치즈냥';
+    case '초콜릿':
+    case '브라운':
+    case '시나몬':
+      return '갈색태비';
+    default:
+      return '기타냥';
+  }
+}
+
+function PatternSwatch({ pattern }: { pattern: CoatPatternKey }) {
+  switch (pattern) {
+    case '원톤':
+      return <View style={patternStyles.oneTone} />;
+    case '투톤':
+      return (
+        <View style={patternStyles.twoTone}>
+          <View style={patternStyles.twoToneDot} />
+        </View>
+      );
+    case '태비':
+      return (
+        <View style={patternStyles.tabby}>
+          <View style={patternStyles.tabbyStripe} />
+          <View style={patternStyles.tabbyStripe} />
+          <View style={patternStyles.tabbyStripe} />
+        </View>
+      );
+    case '토티':
+      return (
+        <View style={patternStyles.tortie}>
+          <View style={patternStyles.tortiePatchDark} />
+          <View style={patternStyles.tortiePatchLight} />
+        </View>
+      );
+  }
+}
+
 export function CatRegisterForm({
-  coatOptions,
-  personalityOptions,
   capturedImageUri,
   defaultRegionName,
   imageUrlOverride,
   isSubmitting = false,
   onSubmit,
-  onSubmitSighting,
 }: CatRegisterFormProps) {
-  const [draft, setDraft] = useState<CaptureCatDraft>(() => ({
-    name: '',
-    type: coatOptions[0] ?? '치즈냥',
-    tags: [],
-    regionName: defaultRegionName,
-    memo: '',
-  }));
-  const trimmedDraft: CaptureCatDraft = {
-    ...draft,
-    name: draft.name.trim(),
-    regionName: draft.regionName.trim(),
-    memo: draft.memo.trim(),
+  const [selectedColor, setSelectedColor] = useState<CoatColorKey | null>(null);
+  const [selectedPattern, setSelectedPattern] = useState<CoatPatternKey | null>(null);
+  const [selectedGender, setSelectedGender] = useState<GenderKey | null>(null);
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+  const [breed, setBreed] = useState('');
+  const canSubmit = name.trim().length > 0 && selectedColor !== null && selectedPattern !== null && !isSubmitting;
+
+  const handleSubmit = () => {
+    if (!canSubmit) {
+      return;
+    }
+
+    const tags: string[] = [];
+
+    if (selectedGender) {
+      tags.push(selectedGender);
+    }
+
+    if (breed.trim()) {
+      tags.push(`품종:${breed.trim()}`);
+    }
+
+    const imageUrl = imageUrlOverride ?? capturedImageUri ?? undefined;
+    const draft: CaptureCatDraft = {
+      name: name.trim(),
+      type: deriveCatType(selectedColor, selectedPattern),
+      tags,
+      regionName: defaultRegionName.trim() || '동네 미지정',
+      memo: description.trim(),
+      imageUrl,
+      cutoutImageUrl: imageUrl,
+    };
+
+    void onSubmit(draft);
   };
-  const submitDraft: CaptureCatDraft = imageUrlOverride
-    ? { ...trimmedDraft, imageUrl: imageUrlOverride, cutoutImageUrl: imageUrlOverride }
-    : capturedImageUri
-      ? { ...trimmedDraft, imageUrl: capturedImageUri, cutoutImageUrl: capturedImageUri }
-      : trimmedDraft;
-  const hasName = trimmedDraft.name.length > 0;
-  const hasRegionName = trimmedDraft.regionName.length > 0;
-  const canSubmitCat = hasName && hasRegionName && !isSubmitting;
-  const canSubmitSighting = hasRegionName && !isSubmitting;
 
   return (
-    <Card style={styles.card}>
-      <View style={styles.section}>
-        <Text style={styles.label}>촬영 사진</Text>
-        <View style={styles.photoStatus}>
-          <Text style={styles.photoStatusText}>{capturedImageUri ? '사진이 등록 폼에 첨부됐어요.' : '사진을 찍으면 도감 기록에 첨부돼요.'}</Text>
+    <View style={styles.sheet}>
+      <View style={styles.grabber} />
+      <Text style={styles.sheetTitle}>도감 추가하기</Text>
+
+      <View style={styles.optionSection}>
+        <Text style={styles.optionLabel}>컬러</Text>
+        <ScrollView contentContainerStyle={styles.swatchRow} horizontal showsHorizontalScrollIndicator={false}>
+          {COLOR_OPTIONS.map(({ key, color, isEtc }) => {
+            const isSelected = selectedColor === key;
+            const checkColor = DARK_SWATCHES.includes(key) ? '#FFFFFF' : nd.colors.ink;
+
+            return (
+              <Pressable key={key} onPress={() => setSelectedColor(key)} style={styles.swatchItem}>
+                <View style={[styles.swatch, { backgroundColor: color }, isSelected && styles.swatchSelected]}>
+                  {isEtc && !isSelected ? <Text style={styles.swatchEtcText}>?</Text> : null}
+                  {isSelected ? <Check color={checkColor} size={18} strokeWidth={2.4} /> : null}
+                </View>
+                <Text style={styles.swatchLabel}>{key}</Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      </View>
+
+      <View style={styles.optionSection}>
+        <Text style={styles.optionLabel}>패턴</Text>
+        <View style={styles.swatchRow}>
+          {PATTERN_OPTIONS.map((pattern) => {
+            const isSelected = selectedPattern === pattern;
+
+            return (
+              <Pressable key={pattern} onPress={() => setSelectedPattern(pattern)} style={styles.swatchItem}>
+                <View style={[styles.patternSwatchWrap, isSelected && styles.swatchSelected]}>
+                  <PatternSwatch pattern={pattern} />
+                  {isSelected ? (
+                    <View style={styles.patternCheckOverlay}>
+                      <Check color={nd.colors.ink} size={18} strokeWidth={2.4} />
+                    </View>
+                  ) : null}
+                </View>
+                <Text style={styles.swatchLabel}>{pattern}</Text>
+              </Pressable>
+            );
+          })}
         </View>
-        <View style={styles.shareNotice}>
-          <Text style={styles.shareNoticeText}>새 고양이 정보는 내 도감에 저장되고, 이웃이 함께 보는 동네 도감에도 동네 단위로 쌓여요.</Text>
+      </View>
+
+      <View style={styles.fieldStack}>
+        <TextInput
+          editable={!isSubmitting}
+          maxLength={3}
+          onChangeText={setName}
+          placeholder="3글자 이내로 이름을 지어주세요"
+          placeholderTextColor={nd.colors.sub}
+          style={styles.input}
+          value={name}
+        />
+        <TextInput
+          editable={!isSubmitting}
+          maxLength={50}
+          onChangeText={setDescription}
+          placeholder="생김새나 성격적인 특징을 적어주세요. (50자 이내)"
+          placeholderTextColor={nd.colors.sub}
+          style={styles.input}
+          value={description}
+        />
+        <TextInput
+          editable={!isSubmitting}
+          maxLength={20}
+          onChangeText={setBreed}
+          placeholder="품종을 적어주세요"
+          placeholderTextColor={nd.colors.sub}
+          style={styles.input}
+          value={breed}
+        />
+        <View style={styles.genderRow}>
+          {(['수컷', '암컷'] as GenderKey[]).map((gender) => {
+            const isSelected = selectedGender === gender;
+
+            return (
+              <Pressable
+                accessibilityLabel={gender}
+                disabled={isSubmitting}
+                key={gender}
+                onPress={() => setSelectedGender((prev) => (prev === gender ? null : gender))}
+                style={[styles.genderButton, isSelected && styles.genderButtonSelected]}
+              >
+                <Text style={[styles.genderSymbol, isSelected && styles.genderSymbolSelected]}>{gender === '수컷' ? '♂' : '♀'}</Text>
+              </Pressable>
+            );
+          })}
         </View>
       </View>
 
-      <View style={styles.section}>
-        <Text style={styles.label}>이름 입력</Text>
-        <TextInput
-          onChangeText={(name) => setDraft((current) => ({ ...current, name }))}
-          placeholder="길에서 만난 이름을 적어보세요"
-          placeholderTextColor="#B59680"
-          style={styles.input}
-          value={draft.name}
-        />
-        <Text style={[styles.helperText, !hasName && styles.requiredText]}>도감 등록에는 이름이 필요해요.</Text>
-      </View>
-
-      <View style={styles.section}>
-        <TagChipGroup
-          label="털 색상"
-          onChange={(value) => setDraft((current) => ({ ...current, type: value[0] }))}
-          options={coatOptions}
-          selected={[draft.type]}
-        />
-      </View>
-
-      <View style={styles.section}>
-        <TagChipGroup
-          label="성격 태그"
-          multiple
-          onChange={(value) => setDraft((current) => ({ ...current, tags: value }))}
-          options={personalityOptions}
-          selected={draft.tags}
-        />
-      </View>
-
-      <View style={styles.section}>
-        <Text style={styles.label}>발견 동네</Text>
-        <TextInput
-          onChangeText={(regionName) => setDraft((current) => ({ ...current, regionName }))}
-          placeholder="정확한 위치 말고 동네 이름만"
-          placeholderTextColor="#B59680"
-          style={styles.input}
-          value={draft.regionName}
-        />
-        <Text style={[styles.helperText, !hasRegionName && styles.requiredText]}>정확한 좌표 대신 동네 단위 기록만 남겨요.</Text>
-      </View>
-
-      <View style={styles.section}>
-        <Text style={styles.label}>메모</Text>
-        <TextInput
-          multiline
-          onChangeText={(memo) => setDraft((current) => ({ ...current, memo }))}
-          placeholder="표정, 행동, 분위기 등을 적어보세요"
-          placeholderTextColor="#B59680"
-          style={styles.textarea}
-          textAlignVertical="top"
-          value={draft.memo}
-        />
-      </View>
-
-      <View style={styles.actions}>
-        <Button disabled={!canSubmitCat} onPress={() => onSubmit(submitDraft)}>
-          {isSubmitting ? '등록 중...' : '새 고양이로 등록'}
-        </Button>
-        <Button disabled={!canSubmitSighting} onPress={() => onSubmitSighting(submitDraft)} variant="secondary">
-          {isSubmitting ? '저장 중...' : '이웃 확인 요청으로 남기기'}
-        </Button>
-      </View>
-    </Card>
+      <Pressable
+        accessibilityLabel="등록하기"
+        accessibilityRole="button"
+        disabled={!canSubmit}
+        onPress={handleSubmit}
+        style={({ pressed }) => [styles.submitButton, !canSubmit && styles.submitButtonDisabled, pressed && styles.pressed]}
+      >
+        <Text style={styles.submitButtonText}>{isSubmitting ? '등록 중...' : '등록하기'}</Text>
+      </Pressable>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    backgroundColor: 'rgba(255,253,246,0.92)',
+  sheet: {
+    marginTop: 20,
+    borderTopLeftRadius: 46,
+    borderTopRightRadius: 46,
+    backgroundColor: 'rgba(255, 255, 255, 0.94)',
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    paddingBottom: 16,
+    ...createNdShadow(0.16, 32),
   },
-  section: {
-    marginBottom: theme.spacing.md,
+  grabber: {
+    alignSelf: 'center',
+    width: 48,
+    height: 5,
+    borderRadius: 100,
+    backgroundColor: '#D9D9D9',
+    marginBottom: 20,
   },
-  label: {
+  sheetTitle: {
+    paddingHorizontal: 8,
+    fontSize: 18,
+    lineHeight: 25,
+    fontWeight: '500',
+    letterSpacing: -0.45,
+    color: nd.colors.ink,
+    marginBottom: 20,
+  },
+  optionSection: {
+    gap: 8,
+    marginBottom: 16,
+  },
+  optionLabel: {
+    paddingHorizontal: 8,
     fontSize: 14,
-    fontWeight: '800',
-    color: '#8B6956',
+    lineHeight: 20,
+    fontWeight: '500',
+    letterSpacing: -0.35,
+    color: nd.colors.ink,
+  },
+  swatchRow: {
+    flexDirection: 'row',
+    gap: 16,
+    paddingHorizontal: 4,
+  },
+  swatchItem: {
+    alignItems: 'center',
+    gap: 6,
+  },
+  swatch: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(17, 17, 17, 0.1)',
+  },
+  swatchSelected: {
+    borderWidth: 2,
+    borderColor: nd.colors.ink,
+  },
+  swatchEtcText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: nd.colors.ink,
+  },
+  swatchLabel: {
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: '500',
+    letterSpacing: -0.3,
+    color: '#000000',
+  },
+  patternSwatchWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(17, 17, 17, 0.1)',
+  },
+  patternCheckOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+  },
+  fieldStack: {
+    gap: 8,
+    marginTop: 4,
   },
   input: {
-    marginTop: theme.spacing.sm,
-    minHeight: 48,
-    borderRadius: theme.radius.lg,
-    paddingHorizontal: theme.spacing.lg,
-    backgroundColor: '#F7EBD8',
-    color: theme.colors.text,
+    minHeight: 54,
+    borderRadius: nd.radius.input,
+    borderWidth: 1,
+    borderColor: nd.colors.border,
+    backgroundColor: '#FFFFFF',
+    padding: 16,
     fontSize: 14,
-    fontWeight: '700',
+    letterSpacing: -0.35,
+    color: nd.colors.ink,
+  },
+  genderRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  genderButton: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 17,
+    borderRadius: nd.radius.input,
     borderWidth: 1,
-    borderColor: theme.colors.border,
+    borderColor: nd.colors.border,
+    backgroundColor: '#FFFFFF',
   },
-  helperText: {
-    marginTop: 6,
-    color: theme.colors.mutedText,
-    fontSize: 11,
-    fontWeight: '700',
-    lineHeight: 16,
+  genderButtonSelected: {
+    borderColor: nd.colors.primary,
+    backgroundColor: nd.colors.primarySoft,
   },
-  requiredText: {
-    color: theme.colors.primaryDark,
+  genderSymbol: {
+    fontSize: 18,
+    lineHeight: 22,
+    color: nd.colors.ink,
   },
-  photoStatus: {
-    marginTop: theme.spacing.sm,
-    borderRadius: theme.radius.lg,
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.md,
-    backgroundColor: '#FFF8EC',
-    borderWidth: 1,
-    borderColor: '#EAD9C4',
+  genderSymbolSelected: {
+    color: nd.colors.primary,
   },
-  photoStatusText: {
-    color: theme.colors.mutedText,
-    fontSize: 13,
+  submitButton: {
+    minHeight: 54,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: nd.radius.input,
+    backgroundColor: nd.colors.primary,
+    padding: 16,
+    marginTop: 16,
+  },
+  submitButtonDisabled: {
+    backgroundColor: '#A5ADB8',
+  },
+  submitButtonText: {
+    fontSize: 16,
+    lineHeight: 22,
     fontWeight: '600',
+    letterSpacing: -0.4,
+    color: '#FFFFFF',
   },
-  shareNotice: {
-    marginTop: theme.spacing.sm,
-    borderRadius: theme.radius.md,
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
-    backgroundColor: 'rgba(221,232,200,0.58)',
-    borderWidth: 1,
-    borderColor: 'rgba(113,138,91,0.16)',
+  pressed: {
+    opacity: 0.88,
   },
-  shareNoticeText: {
-    color: theme.colors.inkSoft,
-    fontSize: 12,
-    lineHeight: 18,
-    fontWeight: '800',
+});
+
+const patternStyles = StyleSheet.create({
+  oneTone: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
   },
-  textarea: {
-    marginTop: theme.spacing.sm,
-    minHeight: 94,
-    borderRadius: theme.radius.lg,
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.md,
-    backgroundColor: '#F7EBD8',
-    color: theme.colors.text,
-    fontSize: 14,
-    fontWeight: '700',
-    borderWidth: 1,
-    borderColor: theme.colors.border,
+  twoTone: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F1E2D0',
   },
-  actions: {
-    gap: theme.spacing.sm,
+  twoToneDot: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: '#4A3428',
+  },
+  tabby: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-evenly',
+    backgroundColor: '#C9CDD4',
+  },
+  tabbyStripe: {
+    width: 5,
+    height: '120%',
+    backgroundColor: '#5A5F68',
+    transform: [{ rotate: '18deg' }],
+  },
+  tortie: {
+    flex: 1,
+    backgroundColor: '#C97B3D',
+  },
+  tortiePatchDark: {
+    position: 'absolute',
+    top: 4,
+    left: 6,
+    width: 18,
+    height: 16,
+    borderRadius: 9,
+    backgroundColor: '#3D2314',
+  },
+  tortiePatchLight: {
+    position: 'absolute',
+    right: 3,
+    bottom: 5,
+    width: 16,
+    height: 14,
+    borderRadius: 8,
+    backgroundColor: '#F1E2D0',
   },
 });

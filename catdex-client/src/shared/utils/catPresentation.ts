@@ -54,6 +54,19 @@ export function formatDisplayDate(date: string) {
   return date.replace(/-/g, '.').replace(/\//g, '.');
 }
 
+export function formatNyanTagLabel(name: string, date: string) {
+  const parsed = new Date(date);
+
+  if (Number.isNaN(parsed.getTime())) {
+    return `${name}_${formatDisplayDate(date)}`;
+  }
+
+  const month = String(parsed.getMonth() + 1).padStart(2, '0');
+  const day = String(parsed.getDate()).padStart(2, '0');
+
+  return `${name}_${parsed.getFullYear()}.${month}.${day}`;
+}
+
 export function getAffinityFromRelationship(cat: Cat) {
   const relationMap: Record<string, number> = {
     '첫 만남': 22,
