@@ -115,32 +115,48 @@ function createMapHtml(appKey: string, regions: Region[], selectedRegionId: stri
         text-align: center;
       }
 
-      .map-label {
-        display: inline-flex;
+      .cat-marker {
+        position: relative;
+        display: flex;
         align-items: center;
-        gap: 4px;
-        min-width: 74px;
-        transform: translate(-50%, -100%);
-        border: 1px solid rgba(91, 62, 48, 0.18);
+        justify-content: center;
+        width: 96px;
+        height: 96px;
+        margin: 0;
+        padding: 0;
+        border: 0;
+        border-radius: 50%;
+        background: rgba(245, 148, 47, 0.24);
+        cursor: pointer;
+      }
+
+      .cat-marker-core {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        background: #f5942f;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+      }
+
+      .cat-marker-selected .cat-marker-core {
+        outline: 3px solid #ffffff;
+      }
+
+      .cat-marker-count {
+        position: absolute;
+        right: 18px;
+        bottom: 18px;
+        min-width: 22px;
         border-radius: 999px;
-        padding: 7px 10px;
-        background: rgba(255, 253, 246, 0.86);
-        box-shadow: 0 6px 16px rgba(91, 62, 48, 0.1);
-        color: #4A3428;
-        font: 800 12px -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
-        white-space: nowrap;
-      }
-
-      .map-label-selected {
-        background: rgba(248, 234, 210, 0.9);
-        border-color: rgba(191, 120, 72, 0.48);
-      }
-
-      .map-label-dot {
-        width: 8px;
-        height: 8px;
-        border-radius: 4px;
-        background: #617A43;
+        padding: 3px 6px;
+        background: #ffffff;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.16);
+        color: #111111;
+        font: 700 12px -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+        text-align: center;
       }
     </style>
   </head>
@@ -187,36 +203,23 @@ function createMapHtml(appKey: string, regions: Region[], selectedRegionId: stri
                 level: 5
               });
 
+              var pawSvg = '<svg width="24" height="24" viewBox="0 0 24 24" fill="#ffffff" xmlns="http://www.w3.org/2000/svg"><ellipse cx="12" cy="15.6" rx="4.4" ry="3.7"/><circle cx="6" cy="10.6" r="2"/><circle cx="9.6" cy="7.4" r="2.1"/><circle cx="14.4" cy="7.4" r="2.1"/><circle cx="18" cy="10.6" r="2"/></svg>';
+
               regions.forEach(function (region) {
                 var isSelected = region.id === selectedRegionId;
-                var circle = new kakao.maps.Circle({
-                  center: new kakao.maps.LatLng(region.lat, region.lng),
-                  radius: region.radius,
-                  strokeWeight: 2,
-                  strokeColor: isSelected ? '#B9794B' : '#8BA070',
-                  strokeOpacity: 0.7,
-                  strokeStyle: 'solid',
-                  fillColor: isSelected ? '#F2C69F' : '#8BA070',
-                  fillOpacity: 0.2
-                });
-
-                circle.setMap(map);
-                kakao.maps.event.addListener(circle, 'click', function () {
-                  postMessage({ type: 'REGION_SELECTED', regionId: region.id });
-                });
-
-                var label = document.createElement('button');
-                label.type = 'button';
-                label.className = 'map-label' + (isSelected ? ' map-label-selected' : '');
-                label.innerHTML = '<span class="map-label-dot"></span><span>' + region.name.replace('부천시 ', '').replace(' 근처', '') + ' · ' + region.catCount + '마리</span>';
-                label.onclick = function () {
+                var countLabel = region.catCount > 9 ? '9+' : String(region.catCount);
+                var marker = document.createElement('button');
+                marker.type = 'button';
+                marker.className = 'cat-marker' + (isSelected ? ' cat-marker-selected' : '');
+                marker.innerHTML = '<span class="cat-marker-core">' + pawSvg + '</span><span class="cat-marker-count">' + countLabel + '</span>';
+                marker.onclick = function () {
                   postMessage({ type: 'REGION_SELECTED', regionId: region.id });
                 };
 
                 var overlay = new kakao.maps.CustomOverlay({
                   position: new kakao.maps.LatLng(region.lat, region.lng),
-                  content: label,
-                  yAnchor: 0.18
+                  content: marker,
+                  yAnchor: 0.5
                 });
 
                 overlay.setMap(map);

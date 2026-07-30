@@ -76,11 +76,20 @@ export function CaptureReviewScreen({ navigation, route }: CaptureStackScreenPro
   }, [navigation, result]);
 
   const handleRegister = useCallback(() => {
-    Alert.alert(
-      '도감 등록은 준비 중이에요',
-      '지금은 촬영과 누끼까지만 동작합니다. 등록·매칭 흐름은 다음 단계에서 붙일 예정이에요.',
-    );
-  }, []);
+    if (!result) {
+      return;
+    }
+
+    navigation.navigate('CaptureMatch', {
+      photoUri,
+      cutoutUri: result.cutoutImageUri,
+      confidence: result.confidence,
+      isPreciseCutout: result.isPreciseCutout,
+      boundingBox: result.boundingBox,
+      colors,
+      pattern,
+    });
+  }, [colors, navigation, pattern, photoUri, result]);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>

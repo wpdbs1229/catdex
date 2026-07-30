@@ -67,6 +67,46 @@ export const theme = {
   },
 };
 
+// 피그마 "냥도감(제윤)" 프레임에서 그대로 딴 화면 전용 토큰.
+// theme.colors와 겹치는 값은 의미가 같지만, 프레임 수치를 바꾸지 않고 쓰기 위해 분리해 둔다.
+export const nd = {
+  colors: {
+    bg: '#FFFFFF',
+    ink: '#111111',
+    sub: '#767676',
+    subtle: '#999999',
+    border: '#E5E5EC',
+    field: '#F1F1F5',
+    primary: theme.colors.primary,
+    primarySoft: theme.colors.primarySoft,
+    tag: '#B7BEFF',
+    heart: '#FF2D55',
+    scrim: 'rgba(17, 17, 17, 0.08)',
+    barBg: 'rgba(255, 255, 255, 0.92)',
+  },
+  radius: {
+    input: 8,
+    sheet: 24,
+    pill: 100,
+  },
+};
+
+export function createNdShadow(opacity = 0.16, radiusPx = 8) {
+  return Platform.select({
+    ios: {
+      shadowColor: '#000000',
+      shadowOpacity: opacity,
+      shadowRadius: radiusPx,
+      shadowOffset: { width: 1, height: 1 },
+    },
+    android: {
+      elevation: Math.max(2, Math.round(radiusPx / 2)),
+      shadowColor: '#000000',
+    },
+    default: {},
+  });
+}
+
 export function createShadow(elevation = 10) {
   return Platform.select({
     ios: {
