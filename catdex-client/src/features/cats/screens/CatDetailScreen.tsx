@@ -26,6 +26,14 @@ import { getAffinityFromRelationship, sortEncountersByDateAsc } from '@/shared/u
 const paperTexture = require('../../../../assets/textures/crumpled-paper.jpg');
 
 function formatShortDate(value: string) {
+  // "2026.05.13" / "2026-05-13"처럼 구분자가 섞여 Date 파싱이 실패해도
+  // 연도를 두 자리로 줄여 카드 셀 안에서 줄바꿈되지 않게 한다.
+  const dateMatch = /^(\d{4})[.\-/](\d{1,2})[.\-/](\d{1,2})/.exec(value.trim());
+
+  if (dateMatch) {
+    return `${dateMatch[1].slice(2)}.${dateMatch[2].padStart(2, '0')}.${dateMatch[3].padStart(2, '0')}`;
+  }
+
   const parsed = new Date(value);
 
   if (Number.isNaN(parsed.getTime())) {
@@ -90,7 +98,11 @@ export function CatDetailScreen({ navigation, route }: RootStackScreenProps<'Cat
     }, [reload]),
   );
 
-  const sortedEncounters = useMemo(() => sortEncountersByDateAsc(encounters), [encounters]);
+  // 메모가 없는 만남(사진만 있는 기록 등)은 빈 말풍선이 되므로 일기장에서 제외한다.
+  const sortedEncounters = useMemo(
+    () => sortEncountersByDateAsc(encounters.filter((encounter) => encounter.memo.trim().length > 0)),
+    [encounters],
+  );
   const visibleEncounters = showAllEntries ? sortedEncounters : sortedEncounters.slice(-3);
   const hasMoreEntries = sortedEncounters.length > visibleEncounters.length;
   const affinity = cat ? getAffinityFromRelationship(cat) : 0;
@@ -222,7 +234,9 @@ export function CatDetailScreen({ navigation, route }: RootStackScreenProps<'Cat
                   <View style={styles.metaDivider} />
                   <View style={[styles.metaCell, styles.metaCellWide]}>
                     <Text style={styles.metaLabel}>첫 만남</Text>
-                    <Text style={styles.metaValue}>{formatShortDate(cat.firstSeenAt)}</Text>
+                    <Text numberOfLines={1} style={styles.metaValue}>
+                      {formatShortDate(cat.firstSeenAt)}
+                    </Text>
                   </View>
                 </View>
               </View>
