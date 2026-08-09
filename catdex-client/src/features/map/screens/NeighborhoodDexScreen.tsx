@@ -2,7 +2,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Bell, ChevronDown, MapPin, PawPrint, Search, SlidersHorizontal } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { MapStackParamList, RootStackParamList } from '@/app/navigation/types';
 import { NeighborhoodTabBar } from '@/features/map/components/NeighborhoodTabBar';
@@ -51,7 +51,8 @@ function matchesCatFilter(cat: Cat, selectedFilter: CatFilter) {
 export function NeighborhoodDexScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<MapStackParamList & RootStackParamList>>();
   const insets = useSafeAreaInsets();
-  const { cats, myCatIds, regions, neighborhoodName } = useNeighborhoodData();
+  const { cats, myCatIds, regions, neighborhoodName, isDetectingNeighborhood, redetectNeighborhood } =
+    useNeighborhoodData();
   const [selectedScope, setSelectedScope] = useState<NeighborhoodScope>('all');
   const [selectedFilter, setSelectedFilter] = useState<CatFilter>('전체');
   const [searchQuery, setSearchQuery] = useState('');
@@ -85,13 +86,23 @@ export function NeighborhoodDexScreen() {
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.screen}>
       <View style={styles.headerRow}>
-        <View style={styles.locationChip}>
+        <Pressable
+          accessibilityLabel="현재 위치로 동네 다시 확인"
+          accessibilityRole="button"
+          disabled={isDetectingNeighborhood}
+          onPress={redetectNeighborhood}
+          style={({ pressed }) => [styles.locationChip, pressed && styles.pressed]}
+        >
           <View style={styles.locationIcon}>
-            <MapPin color={nd.colors.ink} size={20} strokeWidth={1.8} />
+            {isDetectingNeighborhood ? (
+              <ActivityIndicator color={nd.colors.ink} size="small" />
+            ) : (
+              <MapPin color={nd.colors.ink} size={20} strokeWidth={1.8} />
+            )}
           </View>
-          <Text style={styles.locationText}>{neighborhoodName}</Text>
+          <Text style={styles.locationText}>{isDetectingNeighborhood ? '동네 확인 중' : neighborhoodName}</Text>
           <ChevronDown color={nd.colors.ink} size={16} strokeWidth={1.8} />
-        </View>
+        </Pressable>
         <Pressable
           accessibilityLabel="알림 보기"
           hitSlop={8}
