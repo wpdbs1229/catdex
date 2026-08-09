@@ -322,6 +322,22 @@ export async function signInWithGoogle(): Promise<CatdexAuthSession> {
 }
 
 /**
+ * 기기에 남기는 데이터(동네·즐겨찾기)를 사용자별로 가르기 위한 키.
+ * 로그아웃 상태면 null이다. 세션은 로컬에서 읽으므로 네트워크를 타지 않는다.
+ */
+export async function getCurrentUserId(): Promise<string | null> {
+  if (!isSupabaseConfigured) {
+    return null;
+  }
+
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  return session?.user?.id ?? null;
+}
+
+/**
  * 지금 로그인한 사용자의 프로필만 읽는다.
  * useAuth는 세션 복원·로그인까지 함께 다루는 훅이라 화면마다 새로 호출하면
  * 복원 절차가 중복 실행된다. 사원증처럼 표시만 하는 곳은 이 함수를 쓴다.

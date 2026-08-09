@@ -12,7 +12,11 @@ import {
 } from '@/shared/api/cats.api';
 import { PolaroidCatCard } from '@/shared/components/PolaroidCatCard';
 import { getUserFacingError } from '@/shared/errors/user-facing-error';
-import { loadNeighborhoodState } from '@/shared/neighborhood/neighborhood-storage';
+import {
+  detectAndSaveNeighborhood,
+  getActiveNeighborhood,
+  UNSET_REGION_NAME,
+} from '@/shared/neighborhood/active-neighborhood';
 import { createNdShadow, nd } from '@/shared/styles/theme';
 import type { CatMatchCandidate } from '@/shared/types/cat';
 import { imageForCatType } from '@/shared/utils/catImage';
@@ -40,11 +44,10 @@ export function CaptureMatchScreen({ navigation, route }: CaptureStackScreenProp
 
     (async () => {
       try {
-        const neighborhoodState = await loadNeighborhoodState().catch(() => null);
-        const activeNeighborhood = neighborhoodState?.savedNeighborhoods.find(
-          (neighborhood) => neighborhood.id === neighborhoodState.activeNeighborhoodId,
-        );
-        const regionName = activeNeighborhood?.name ?? '동네 미지정';
+        // 저장된 동네가 없으면 여기서 현재 위치로 한 번 확인한다.
+        // (동네가 비어 있으면 관찰 기록이 전부 '동네 미지정'으로 쌓인다.)
+        const activeNeighborhood = (await getActiveNeighborhood()) ?? (await detectAndSaveNeighborhood());
+        const regionName = activeNeighborhood?.name ?? UNSET_REGION_NAME;
 
         const [originalUpload, cutoutUpload] = await Promise.all([
           uploadCatObservationImage(photoUri, 'original'),

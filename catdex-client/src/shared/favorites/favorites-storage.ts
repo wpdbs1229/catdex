@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { supabase } from '@/shared/supabase/client';
+import { getCurrentUserId } from '@/shared/api/auth.api';
 
 const STORAGE_KEY = 'catdex.favorites.v1';
 
@@ -7,10 +7,7 @@ const STORAGE_KEY = 'catdex.favorites.v1';
 // 같은 기기에서 계정을 바꿔도 이전 사용자의 목록이 보이지 않도록
 // 동네 목록(neighborhood-storage)과 같은 방식으로 사용자별 키를 쓴다.
 async function getStorageKey() {
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  const userId = session?.user?.id;
+  const userId = await getCurrentUserId();
 
   return userId ? `${STORAGE_KEY}:${userId}` : STORAGE_KEY;
 }

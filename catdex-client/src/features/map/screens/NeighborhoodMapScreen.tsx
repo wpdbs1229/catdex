@@ -2,7 +2,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ChevronDown, MapPin, PawPrint } from 'lucide-react-native';
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, Image, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { MapStackParamList, RootStackParamList } from '@/app/navigation/types';
 import { KakaoMapView } from '@/features/map/components/KakaoMapView';
@@ -33,7 +33,7 @@ function getRegionCatCount(region: Region) {
 export function NeighborhoodMapScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<MapStackParamList & RootStackParamList>>();
   const insets = useSafeAreaInsets();
-  const { cats, regions, neighborhoodName } = useNeighborhoodData();
+  const { cats, regions, neighborhoodName, isDetectingNeighborhood, redetectNeighborhood } = useNeighborhoodData();
   const catById = useMemo(() => new Map(cats.map((cat) => [cat.id, cat])), [cats]);
   const catByName = useMemo(() => new Map(cats.map((cat) => [cat.name, cat])), [cats]);
   const [selectedRegion, setSelectedRegion] = useState<Region | null>(null);
@@ -77,11 +77,21 @@ export function NeighborhoodMapScreen() {
       />
 
       <View pointerEvents="box-none" style={[styles.topChrome, { top: insets.top + 8 }]}>
-        <View style={styles.locationChip}>
-          <MapPin color={nd.colors.ink} size={16} strokeWidth={1.8} />
-          <Text style={styles.locationText}>{neighborhoodName}</Text>
+        <Pressable
+          accessibilityLabel="현재 위치로 동네 다시 확인"
+          accessibilityRole="button"
+          disabled={isDetectingNeighborhood}
+          onPress={redetectNeighborhood}
+          style={({ pressed }) => [styles.locationChip, pressed && styles.pressed]}
+        >
+          {isDetectingNeighborhood ? (
+            <ActivityIndicator color={nd.colors.ink} size="small" />
+          ) : (
+            <MapPin color={nd.colors.ink} size={16} strokeWidth={1.8} />
+          )}
+          <Text style={styles.locationText}>{isDetectingNeighborhood ? '동네 확인 중' : neighborhoodName}</Text>
           <ChevronDown color={nd.colors.ink} size={14} strokeWidth={1.8} />
-        </View>
+        </Pressable>
 
         {selectedRegion ? (
           <View style={styles.regionCard}>

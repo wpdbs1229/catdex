@@ -17,7 +17,11 @@ import { useFocusEffect } from '@react-navigation/native';
 import type { RootStackScreenProps } from '@/app/navigation/types';
 import { fetchCatEncounters, fetchCats, fetchMyCats, recordCatEncounter, removeMyCatEncounter } from '@/shared/api/cats.api';
 import { getUserFacingError } from '@/shared/errors/user-facing-error';
-import { loadNeighborhoodState } from '@/shared/neighborhood/neighborhood-storage';
+import {
+  detectAndSaveNeighborhood,
+  getActiveNeighborhood,
+  UNSET_REGION_NAME,
+} from '@/shared/neighborhood/active-neighborhood';
 import { createNdShadow, nd } from '@/shared/styles/theme';
 import type { Cat, CatEncounter } from '@/shared/types/cat';
 import { imageForCatType } from '@/shared/utils/catImage';
@@ -121,13 +125,10 @@ export function CatDetailScreen({ navigation, route }: RootStackScreenProps<'Cat
     setIsSavingMemo(true);
 
     try {
-      const neighborhoodState = await loadNeighborhoodState().catch(() => null);
-      const activeNeighborhood = neighborhoodState?.savedNeighborhoods.find(
-        (neighborhood) => neighborhood.id === neighborhoodState.activeNeighborhoodId,
-      );
+      const activeNeighborhood = (await getActiveNeighborhood()) ?? (await detectAndSaveNeighborhood());
 
       await recordCatEncounter(cat.id, {
-        regionName: activeNeighborhood?.name ?? encounters[encounters.length - 1]?.regionName ?? '동네 미지정',
+        regionName: activeNeighborhood?.name ?? encounters[encounters.length - 1]?.regionName ?? UNSET_REGION_NAME,
         memo,
       });
       setDraftMemo('');

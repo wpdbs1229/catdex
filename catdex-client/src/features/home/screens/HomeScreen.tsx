@@ -2,7 +2,7 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Bell, ChevronDown, MapPin } from 'lucide-react-native';
 import { useCallback, useMemo, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { RootStackParamList } from '@/app/navigation/types';
 import { CatChatCard } from '@/features/home/components/CatChatCard';
@@ -12,7 +12,7 @@ import { fetchDexPlaceholders, fetchMyCats } from '@/shared/api/cats.api';
 import { PolaroidCatCard } from '@/shared/components/PolaroidCatCard';
 import { DEFAULT_PROFILE_NICKNAME } from '@/shared/constants/profile.constants';
 import { loadFavoriteCatIds, saveFavoriteCatIds } from '@/shared/favorites/favorites-storage';
-import { loadNeighborhoodState } from '@/shared/neighborhood/neighborhood-storage';
+import { useActiveNeighborhood } from '@/shared/neighborhood/useActiveNeighborhood';
 import { nd } from '@/shared/styles/theme';
 import type { AuthUser } from '@/shared/types/auth';
 import type { Cat, DexPlaceholder } from '@/shared/types/cat';
@@ -64,20 +64,14 @@ export function HomeScreen() {
   const [myCats, setMyCats] = useState<Cat[]>([]);
   const [placeholders, setPlaceholders] = useState<DexPlaceholder[]>([]);
   const [favoriteCatIds, setFavoriteCatIds] = useState<Set<string>>(() => new Set());
-  const [neighborhoodName, setNeighborhoodName] = useState('내 동네');
+  const { name: neighborhoodName, isDetecting, redetect } = useActiveNeighborhood();
 
   useFocusEffect(
     useCallback(() => {
       let isActive = true;
 
-      Promise.all([
-        fetchMyProfile(),
-        fetchMyCats(),
-        fetchDexPlaceholders(),
-        loadFavoriteCatIds(),
-        loadNeighborhoodState().catch(() => null),
-      ])
-        .then(([nextProfile, nextCats, nextPlaceholders, nextFavorites, neighborhoodState]) => {
+      Promise.all([fetchMyProfile(), fetchMyCats(), fetchDexPlaceholders(), loadFavoriteCatIds()])
+        .then(([nextProfile, nextCats, nextPlaceholders, nextFavorites]) => {
           if (!isActive) {
             return;
           }
@@ -86,14 +80,6 @@ export function HomeScreen() {
           setMyCats(nextCats);
           setPlaceholders(nextPlaceholders);
           setFavoriteCatIds(nextFavorites);
-
-          const activeNeighborhood = neighborhoodState?.savedNeighborhoods.find(
-            (neighborhood) => neighborhood.id === neighborhoodState.activeNeighborhoodId,
-          );
-
-          if (activeNeighborhood) {
-            setNeighborhoodName(activeNeighborhood.name);
-          }
         })
         .catch((error: unknown) => {
           console.warn('[home] load failed', error);
@@ -131,13 +117,23 @@ export function HomeScreen() {
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.screen}>
       <View style={styles.headerRow}>
-        <View style={styles.locationChip}>
+        <Pressable
+          accessibilityLabel="현재 위치로 동네 다시 확인"
+          accessibilityRole="button"
+          disabled={isDetecting}
+          onPress={redetect}
+          style={({ pressed }) => [styles.locationChip, pressed && styles.pressed]}
+        >
           <View style={styles.locationIcon}>
-            <MapPin color={nd.colors.ink} size={20} strokeWidth={1.8} />
+            {isDetecting ? (
+              <ActivityIndicator color={nd.colors.ink} size="small" />
+            ) : (
+              <MapPin color={nd.colors.ink} size={20} strokeWidth={1.8} />
+            )}
           </View>
-          <Text style={styles.locationText}>{neighborhoodName}</Text>
+          <Text style={styles.locationText}>{isDetecting ? '동네 확인 중' : neighborhoodName}</Text>
           <ChevronDown color={nd.colors.ink} size={16} strokeWidth={1.8} />
-        </View>
+        </Pressable>
         <Pressable
           accessibilityLabel="알림 보기"
           hitSlop={8}
