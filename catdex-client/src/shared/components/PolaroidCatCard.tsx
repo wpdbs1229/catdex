@@ -11,9 +11,19 @@ interface PolaroidCatCardProps {
   liked?: boolean;
   onToggleLike?: () => void;
   locked?: boolean;
+  /** 시안에서 아직 내 도감에 없는 고양이는 냥태그를 회색으로 쓴다. */
+  tagTone?: 'default' | 'muted';
 }
 
-export function PolaroidCatCard({ imageSource, tagLabel, onPress, liked = false, onToggleLike, locked = false }: PolaroidCatCardProps) {
+export function PolaroidCatCard({
+  imageSource,
+  tagLabel,
+  onPress,
+  liked = false,
+  onToggleLike,
+  locked = false,
+  tagTone = 'default',
+}: PolaroidCatCardProps) {
   return (
     <Pressable
       accessibilityLabel={tagLabel}
@@ -46,7 +56,7 @@ export function PolaroidCatCard({ imageSource, tagLabel, onPress, liked = false,
           </Pressable>
         ) : null}
       </View>
-      <View style={styles.tag}>
+      <View style={[styles.tag, tagTone === 'muted' && styles.tagMuted]}>
         <Text numberOfLines={1} style={styles.tagText}>
           {tagLabel}
         </Text>
@@ -115,6 +125,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 5,
     paddingVertical: 4,
     transform: [{ rotate: '-3deg' }],
+  },
+  tagMuted: {
+    backgroundColor: nd.colors.tagMuted,
   },
   tagText: {
     fontSize: 9,

@@ -80,6 +80,10 @@ export const nd = {
     primary: theme.colors.primary,
     primarySoft: theme.colors.primarySoft,
     tag: '#B7BEFF',
+    /** 아직 내 도감에 없는 고양이의 냥태그 */
+    tagMuted: '#BBBBC9',
+    /** 사원증 카드 바탕 */
+    card: '#FFFBF7',
     heart: '#FF2D55',
     scrim: 'rgba(17, 17, 17, 0.08)',
     barBg: 'rgba(255, 255, 255, 0.92)',

@@ -6,7 +6,7 @@ The app concept is "냥도감", a cat collection app where users take photos of 
 
 The app uses Supabase directly for Auth, Postgres data, RPC, and Storage.
 
-**The client is being rewritten from scratch** to match an incoming design overhaul. Step 1 rebuilt the capture flow; every other tab is still a blank placeholder. See `docs/capture-screen-rebuild.md` for that step and `docs/domain-rules.md` for rules that survive the rewrite.
+**The client is being rewritten from scratch** to match an incoming design overhaul. Step 1 rebuilt the capture flow; 홈·도감·동네 화면은 피그마 "냥도감(제윤)" 시안대로 옮겨졌고, 마이페이지 탭만 자리표시자로 남아 있다. See `docs/capture-screen-rebuild.md` for that step and `docs/domain-rules.md` for rules that survive the rewrite.
 
 ## Tech Stack
 
@@ -48,6 +48,9 @@ src/
       PlaceholderScreen.tsx # blank white screen for undesigned tabs
 
   features/
+    home/
+      screens/HomeScreen.tsx  # 피그마 2_홈
+      components/             # CrewIdCard(사원증), CatChatCard(ai 챗)
     capture/
       screens/              # CameraScreen, CaptureReviewScreen
       components/           # top bar, zoom chips, shutter, grid, cutout canvas

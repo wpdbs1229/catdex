@@ -321,6 +321,30 @@ export async function signInWithGoogle(): Promise<CatdexAuthSession> {
   return signInWithOAuthProvider('google');
 }
 
+/**
+ * 지금 로그인한 사용자의 프로필만 읽는다.
+ * useAuth는 세션 복원·로그인까지 함께 다루는 훅이라 화면마다 새로 호출하면
+ * 복원 절차가 중복 실행된다. 사원증처럼 표시만 하는 곳은 이 함수를 쓴다.
+ */
+export async function fetchMyProfile(): Promise<AuthUser | null> {
+  if (!isSupabaseConfigured) {
+    return null;
+  }
+
+  const {
+    data: { session },
+    error: sessionError,
+  } = await supabase.auth.getSession();
+
+  throwIfSupabaseError(sessionError);
+
+  if (!session?.user) {
+    return null;
+  }
+
+  return toAuthUser(session.user, 'kakao');
+}
+
 export async function signOut(): Promise<void> {
   if (!isSupabaseConfigured) {
     return;

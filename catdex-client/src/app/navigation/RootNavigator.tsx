@@ -16,6 +16,7 @@ import { CaptureRegisterScreen } from '../../features/capture/screens/CaptureReg
 import { CaptureReviewScreen } from '../../features/capture/screens/CaptureReviewScreen';
 import { CatDetailScreen } from '../../features/cats/screens/CatDetailScreen';
 import { CatDexScreen } from '../../features/cats/screens/CatDexScreen';
+import { HomeScreen } from '../../features/home/screens/HomeScreen';
 import { NeighborhoodDexScreen } from '../../features/map/screens/NeighborhoodDexScreen';
 import { NeighborhoodMapScreen } from '../../features/map/screens/NeighborhoodMapScreen';
 import { createShadow, theme } from '../../shared/styles/theme';
@@ -74,7 +75,7 @@ function MainTabNavigator() {
     >
       <MainTab.Screen
         name="HomeTab"
-        component={PlaceholderScreen}
+        component={HomeScreen}
         options={{ title: '홈', tabBarIcon: tabBarIcon(Home) }}
       />
       <MainTab.Screen

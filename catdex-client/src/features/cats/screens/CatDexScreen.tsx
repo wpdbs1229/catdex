@@ -8,6 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import type { RootStackParamList } from '@/app/navigation/types';
 import { fetchDexPlaceholders, fetchMyCats } from '@/shared/api/cats.api';
 import { PolaroidCatCard } from '@/shared/components/PolaroidCatCard';
+import { loadFavoriteCatIds, saveFavoriteCatIds } from '@/shared/favorites/favorites-storage';
 import { nd } from '@/shared/styles/theme';
 import type { Cat, DexPlaceholder } from '@/shared/types/cat';
 import { imageForCatType } from '@/shared/utils/catImage';
@@ -39,11 +40,12 @@ export function CatDexScreen() {
     useCallback(() => {
       let isActive = true;
 
-      Promise.all([fetchMyCats(), fetchDexPlaceholders()])
-        .then(([nextCats, nextPlaceholders]) => {
+      Promise.all([fetchMyCats(), fetchDexPlaceholders(), loadFavoriteCatIds()])
+        .then(([nextCats, nextPlaceholders, nextFavorites]) => {
           if (isActive) {
             setCats(nextCats);
             setPlaceholders(nextPlaceholders);
+            setLikedCatIds(nextFavorites);
           }
         })
         .catch((error: unknown) => {
@@ -73,6 +75,11 @@ export function CatDexScreen() {
       } else {
         next.add(catId);
       }
+
+      // 홈의 "즐겨찾기한 고양이"가 같은 목록을 읽으므로 기기에 남긴다.
+      saveFavoriteCatIds(next).catch((error: unknown) => {
+        console.warn('[dex] favorite save failed', error);
+      });
 
       return next;
     });
