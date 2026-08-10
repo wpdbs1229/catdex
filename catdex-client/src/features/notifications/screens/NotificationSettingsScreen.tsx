@@ -26,7 +26,8 @@ const settingKeys: Record<NotificationCategory, keyof NotificationSettings> = {
 export function NotificationSettingsScreen() {
   const goBack = useGoBackOrHome();
   const [settings, setSettings] = useState<NotificationSettings>(defaultNotificationSettings);
-  const [isSaving, setIsSaving] = useState(false);
+  // 저장 중인 줄만 잠근다. 하나로 묶으면 한 스위치를 저장하는 동안 나머지도 못 누른다.
+  const [savingCategory, setSavingCategory] = useState<NotificationCategory | null>(null);
 
   useEffect(() => {
     let isActive = true;
@@ -55,32 +56,38 @@ export function NotificationSettingsScreen() {
 
     // 서버 응답을 기다리면 스위치가 굼떠 보이므로 먼저 바꾸고, 실패하면 되돌린다.
     setSettings(next);
-    setIsSaving(true);
+    setSavingCategory(category);
 
     try {
-      // 하나라도 켜는 순간이 권한을 묻기 좋은 시점이다. 켤 때만 묻는다.
-      if (nextValue && !anyEnabled(previous)) {
-        const state = await requestPushPermissionAndRegister();
-
-        if (state === 'denied') {
-          Alert.alert(
-            '알림이 꺼져 있어요',
-            '기기 설정에서 냥도감 알림을 허용해야 받을 수 있어요.',
-            [
-              { text: '나중에', style: 'cancel' },
-              { text: '설정 열기', onPress: () => void Linking.openSettings() },
-            ],
-          );
-        }
-      }
-
       const saved = await updateMyNotificationSettings(next);
       setSettings(saved);
     } catch (error) {
       setSettings(previous);
       Alert.alert('알림 설정 저장 실패', getUserFacingErrorMessage(error, 'notification.save'));
+      return;
     } finally {
-      setIsSaving(false);
+      setSavingCategory(null);
+    }
+
+    // 권한 요청은 설정 저장과 분리한다. 시뮬레이터처럼 푸시 토큰을 못 받는 환경에서
+    // 여기서 던지는 오류가 스위치를 되돌려 버리면, 한 번 다 끈 뒤로는 아무것도 켤 수 없다.
+    if (!nextValue || anyEnabled(previous)) {
+      return;
+    }
+
+    try {
+      // 하나라도 켜는 순간이 권한을 묻기 좋은 시점이다. 켤 때만 묻는다.
+      const state = await requestPushPermissionAndRegister();
+
+      if (state === 'denied') {
+        Alert.alert('알림이 꺼져 있어요', '기기 설정에서 냥도감 알림을 허용해야 받을 수 있어요.', [
+          { text: '나중에', style: 'cancel' },
+          { text: '설정 열기', onPress: () => void Linking.openSettings() },
+        ]);
+      }
+    } catch (error) {
+      // 설정은 이미 저장됐다. 토큰은 다음에 화면에 들어올 때 다시 시도한다.
+      console.warn('[notifications] push registration failed', error);
     }
   };
 
@@ -128,7 +135,7 @@ export function NotificationSettingsScreen() {
               </View>
               <Switch
                 accessibilityLabel={label.title}
-                disabled={isSaving}
+                disabled={savingCategory === category}
                 ios_backgroundColor={nd.colors.tagMuted}
                 onValueChange={(next) => void toggle(category, next)}
                 style={styles.switch}
