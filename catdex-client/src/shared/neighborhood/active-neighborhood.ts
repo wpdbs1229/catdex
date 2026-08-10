@@ -1,4 +1,5 @@
 import { getCurrentUserId } from '@/shared/api/auth.api';
+import { syncMyNeighborhoods } from '@/shared/api/notifications.api';
 import { detectCurrentNeighborhood } from '@/shared/neighborhood/neighborhood-location';
 import { loadNeighborhoodState, saveNeighborhoodState } from '@/shared/neighborhood/neighborhood-storage';
 import { MAX_SAVED_NEIGHBORHOODS, type SavedNeighborhood } from '@/shared/types/neighborhood';
@@ -36,14 +37,26 @@ export async function setActiveNeighborhood(neighborhood: SavedNeighborhood) {
   const userId = await getCurrentUserId();
   const state = await loadNeighborhoodState(userId).catch(() => null);
   const others = (state?.savedNeighborhoods ?? []).filter((saved) => saved.id !== neighborhood.id);
+  const saved = [neighborhood, ...others].slice(0, MAX_SAVED_NEIGHBORHOODS);
 
   await saveNeighborhoodState(
     {
       activeNeighborhoodId: neighborhood.id,
-      savedNeighborhoods: [neighborhood, ...others].slice(0, MAX_SAVED_NEIGHBORHOODS),
+      savedNeighborhoods: saved,
     },
     userId,
   );
+
+  // 발견 알림을 누구에게 보낼지 서버가 알아야 한다. 좌표는 보내지 않고 이름만 올린다.
+  // 실패해도 동네 자체는 기기에 저장됐으므로 화면 흐름은 막지 않는다.
+  if (userId) {
+    syncMyNeighborhoods(
+      saved.map((item) => item.name),
+      neighborhood.name,
+    ).catch((error: unknown) => {
+      console.warn('[neighborhood] server sync failed', error);
+    });
+  }
 
   return neighborhood;
 }

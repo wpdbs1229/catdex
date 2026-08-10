@@ -8,6 +8,10 @@ export type RootStackParamList = {
   CaptureFlow: undefined;
   /** 도감 기록 상세도 탭바 없이 전체 화면으로 덮는다. (피그마 4_도감_기록o) */
   CatDetail: { catId: string };
+  /** 헤더 벨에서 여는 알림함. 시안에 없어 새로 그린 화면이다. */
+  NotificationInbox: undefined;
+  /** 피그마 마이페이지_알림 */
+  NotificationSettings: undefined;
 };
 
 export type MainTabParamList = {
