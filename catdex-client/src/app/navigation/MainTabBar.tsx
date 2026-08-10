@@ -2,6 +2,7 @@ import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { Camera, Compass, User } from 'lucide-react-native';
 import type { ComponentType } from 'react';
 import { Image, Pressable, StyleSheet, Text, View, type ImageSourcePropType } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { nd, theme } from '@/shared/styles/theme';
 
@@ -37,6 +38,7 @@ const items: TabItem[] = [
 ];
 
 export function MainTabBar({ state, navigation }: BottomTabBarProps) {
+  const insets = useSafeAreaInsets();
   const activeRoute = state.routes[state.index]?.name;
 
   // 동네 흐름은 시안의 전용 하단 바(지도/동네 도감/커뮤니티)를 쓴다.
@@ -45,8 +47,11 @@ export function MainTabBar({ state, navigation }: BottomTabBarProps) {
     return null;
   }
 
+  // 탭바 컨테이너가 이미 16pt를 띄워 주므로, 홈 인디케이터를 비켜 갈 만큼만 더한다.
+  const bottomGap = Math.max(insets.bottom - 16, 8);
+
   return (
-    <View pointerEvents="box-none" style={styles.wrap}>
+    <View pointerEvents="box-none" style={[styles.wrap, { paddingBottom: bottomGap }]}>
       {/* 시안의 스크림: 위는 투명, 아래로 갈수록 rgba(17,17,17,0.3).
           흰색 60% 바 위의 글자가 콘텐츠에 묻히지 않게 잡아 준다. */}
       <Svg pointerEvents="none" style={StyleSheet.absoluteFill}>
