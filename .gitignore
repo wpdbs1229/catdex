@@ -1,3 +1,6 @@
 .env
 .harness-state.json
 .DS_Store
+
+# Supabase CLI 링크 상태 (로컬 전용)
+supabase/.temp/
