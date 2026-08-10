@@ -4,9 +4,8 @@ import {
   createNativeStackNavigator,
   type NativeStackNavigationProp,
 } from '@react-navigation/native-stack';
-import { BookOpen, Camera, Home, Map, User } from 'lucide-react-native';
-import { useState, type ComponentType } from 'react';
-import { Alert, StyleSheet, View } from 'react-native';
+import { useState } from 'react';
+import { Alert } from 'react-native';
 
 import { ProfileSetupScreen } from '../../features/auth/screens/ProfileSetupScreen';
 import { useAuth } from '../../features/auth/hooks/useAuth';
@@ -21,8 +20,8 @@ import { NotificationInboxScreen } from '../../features/notifications/screens/No
 import { NotificationSettingsScreen } from '../../features/notifications/screens/NotificationSettingsScreen';
 import { NeighborhoodDexScreen } from '../../features/map/screens/NeighborhoodDexScreen';
 import { NeighborhoodMapScreen } from '../../features/map/screens/NeighborhoodMapScreen';
-import { createShadow, theme } from '../../shared/styles/theme';
 import { PlaceholderScreen } from '../screens/PlaceholderScreen';
+import { MainTabBar } from './MainTabBar';
 import type { CaptureStackParamList, MainTabParamList, MapStackParamList, RootStackParamList } from './types';
 
 const RootStack = createNativeStackNavigator<RootStackParamList>();
@@ -50,46 +49,16 @@ function MapNavigator() {
   );
 }
 
-type TabIcon = ComponentType<{ color: string; size: number }>;
-
-/** 선택된 탭만 연한 코랄 알약 위에 올린다. 시안의 탭바 규칙이다. */
-function tabBarIcon(Icon: TabIcon) {
-  return function TabBarIcon({ color, focused }: { color: string; focused: boolean }) {
-    return (
-      <View style={[styles.tabIcon, focused && styles.tabIconFocused]}>
-        <Icon color={color} size={22} />
-      </View>
-    );
-  };
-}
-
 function MainTabNavigator() {
   return (
-    <MainTab.Navigator
-      screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: theme.colors.accent,
-        tabBarInactiveTintColor: theme.colors.tabMuted,
-        tabBarShowLabel: false,
-        tabBarStyle: styles.tabBar,
-        tabBarItemStyle: styles.tabBarItem,
-      }}
-    >
-      <MainTab.Screen
-        name="HomeTab"
-        component={HomeScreen}
-        options={{ title: '홈', tabBarIcon: tabBarIcon(Home) }}
-      />
-      <MainTab.Screen
-        name="MapTab"
-        component={MapNavigator}
-        // 동네 흐름은 피그마 시안의 전용 하단 바(지도/동네 도감/커뮤니티)를 쓰므로 기본 탭바를 숨긴다.
-        options={{ title: '지도', tabBarIcon: tabBarIcon(Map), tabBarStyle: { display: 'none' } }}
-      />
+    // 순서는 시안의 '기본 하단바'를 따른다: 홈 / 내 도감 / 촬영 / 동네 / 마이페이지
+    <MainTab.Navigator screenOptions={{ headerShown: false }} tabBar={(props) => <MainTabBar {...props} />}>
+      <MainTab.Screen name="HomeTab" component={HomeScreen} options={{ title: '홈' }} />
+      <MainTab.Screen name="CollectionTab" component={CatDexScreen} options={{ title: '내 도감' }} />
       <MainTab.Screen
         name="CaptureTab"
         component={PlaceholderScreen}
-        options={{ title: '촬영', tabBarIcon: tabBarIcon(Camera) }}
+        options={{ title: '촬영' }}
         listeners={({ navigation }) => ({
           // 탭으로 머무르지 않고 전체 화면 촬영으로 바로 넘어간다.
           tabPress: (event) => {
@@ -99,15 +68,12 @@ function MainTabNavigator() {
         })}
       />
       <MainTab.Screen
-        name="CollectionTab"
-        component={CatDexScreen}
-        options={{ title: '도감', tabBarIcon: tabBarIcon(BookOpen) }}
+        name="MapTab"
+        component={MapNavigator}
+        // 동네 흐름은 시안의 전용 하단 바(지도/동네 도감/커뮤니티)를 쓰므로 기본 탭바를 숨긴다.
+        options={{ title: '동네', tabBarStyle: { display: 'none' } }}
       />
-      <MainTab.Screen
-        name="MyTab"
-        component={PlaceholderScreen}
-        options={{ title: '마이', tabBarIcon: tabBarIcon(User) }}
-      />
+      <MainTab.Screen name="MyTab" component={PlaceholderScreen} options={{ title: '마이페이지' }} />
     </MainTab.Navigator>
   );
 }
@@ -165,31 +131,3 @@ export function RootNavigator() {
     </NavigationContainer>
   );
 }
-
-const styles = StyleSheet.create({
-  tabBar: {
-    position: 'absolute',
-    left: 20,
-    right: 20,
-    bottom: 24,
-    height: 64,
-    paddingBottom: 0,
-    borderTopWidth: 0,
-    borderRadius: theme.radius.xl,
-    backgroundColor: theme.colors.surface,
-    ...createShadow(16),
-  },
-  tabBarItem: {
-    height: 64,
-  },
-  tabIcon: {
-    width: 44,
-    height: 36,
-    borderRadius: theme.radius.pill,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  tabIconFocused: {
-    backgroundColor: theme.colors.accentSoft,
-  },
-});

@@ -180,7 +180,8 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingTop: 4,
-    paddingBottom: 32,
+    // 하단바가 떠 있으므로 마지막 줄이 가리지 않도록 띄운다.
+    paddingBottom: 128,
   },
   searchBar: {
     height: 48,
