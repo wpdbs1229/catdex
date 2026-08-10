@@ -107,7 +107,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingTop: 16,
   },
-  // 시안: 335x60, 완전한 알약, 흰색 60%. 뒤의 스크림이 대비를 만들어 준다.
+  // 시안: 335x60, 완전한 알약.
+  // 배경은 시안이 흰색 60%지만 0.9로 올렸다. 시안 목업은 바 뒤가 밝은 폴라로이드라
+  // 60%로도 읽히는데, 실제로는 어두운 고양이 사진이 오면 라벨이 묻힌다.
   bar: {
     width: 335,
     height: 60,
@@ -116,7 +118,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 2,
     borderRadius: 100,
-    backgroundColor: 'rgba(255, 255, 255, 0.6)',
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
   },
   item: {
     width: 60,
