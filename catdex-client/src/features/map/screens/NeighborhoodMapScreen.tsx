@@ -33,7 +33,8 @@ function getRegionCatCount(region: Region) {
 export function NeighborhoodMapScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<MapStackParamList & RootStackParamList>>();
   const insets = useSafeAreaInsets();
-  const { cats, regions, neighborhoodName, isDetectingNeighborhood, redetectNeighborhood } = useNeighborhoodData();
+  const { cats, regions, neighborhoodName, hasNeighborhood, isDetectingNeighborhood, redetectNeighborhood } =
+    useNeighborhoodData();
   const catById = useMemo(() => new Map(cats.map((cat) => [cat.id, cat])), [cats]);
   const catByName = useMemo(() => new Map(cats.map((cat) => [cat.name, cat])), [cats]);
   const [selectedRegion, setSelectedRegion] = useState<Region | null>(null);
@@ -92,6 +93,17 @@ export function NeighborhoodMapScreen() {
           <Text style={styles.locationText}>{isDetectingNeighborhood ? '동네 확인 중' : neighborhoodName}</Text>
           <ChevronDown color={nd.colors.ink} size={14} strokeWidth={1.8} />
         </Pressable>
+
+        {regions.length === 0 && !isDetectingNeighborhood ? (
+          <View style={styles.noticeCard}>
+            <Text style={styles.noticeTitle}>{hasNeighborhood ? `${neighborhoodName}에 아직 기록이 없어요` : '동네를 아직 못 찾았어요'}</Text>
+            <Text style={styles.noticeText}>
+              {hasNeighborhood
+                ? '이 동네에서 첫 고양이를 기록하면 지도에 표시돼요.'
+                : '위쪽 동네 칩을 눌러 현재 위치로 동네를 확인해 주세요.'}
+            </Text>
+          </View>
+        ) : null}
 
         {selectedRegion ? (
           <View style={styles.regionCard}>
@@ -179,6 +191,29 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     letterSpacing: -0.35,
     color: nd.colors.ink,
+  },
+  noticeCard: {
+    alignSelf: 'stretch',
+    marginTop: 12,
+    marginHorizontal: 12,
+    gap: 6,
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
+    padding: 20,
+    ...createNdShadow(0.16, 20),
+  },
+  noticeTitle: {
+    fontSize: 16,
+    lineHeight: 22,
+    fontWeight: '600',
+    letterSpacing: -0.4,
+    color: nd.colors.ink,
+  },
+  noticeText: {
+    fontSize: 14,
+    lineHeight: 20,
+    letterSpacing: -0.35,
+    color: nd.colors.sub,
   },
   regionCard: {
     alignSelf: 'stretch',

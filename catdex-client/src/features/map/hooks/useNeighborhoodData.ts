@@ -12,6 +12,8 @@ interface NeighborhoodData {
   myCatIds: Set<string>;
   regions: Region[];
   neighborhoodName: string;
+  /** 동네가 아직 안 잡혔으면 false. 화면이 빈 이유를 구분하는 데 쓴다. */
+  hasNeighborhood: boolean;
   isDetectingNeighborhood: boolean;
   redetectNeighborhood: () => void;
 }
@@ -21,7 +23,7 @@ export function useNeighborhoodData(): NeighborhoodData {
   const [cats, setCats] = useState<Cat[]>([]);
   const [myCatIds, setMyCatIds] = useState<Set<string>>(() => new Set());
   const [allRegions, setAllRegions] = useState<Region[]>([]);
-  const { name: neighborhoodName, isDetecting, redetect } = useActiveNeighborhood();
+  const { neighborhood, name: neighborhoodName, isDetecting, redetect } = useActiveNeighborhood();
 
   useFocusEffect(
     useCallback(() => {
@@ -47,17 +49,23 @@ export function useNeighborhoodData(): NeighborhoodData {
     }, []),
   );
 
-  const regions = useMemo(() => {
-    const matched = allRegions.filter((region) => isMatchingNeighborhoodName(region.name, neighborhoodName));
-
-    return matched.length > 0 ? matched : allRegions;
-  }, [allRegions, neighborhoodName]);
+  // 내 동네 구역만 남긴다. 예전에는 0건이면 전국 구역으로 되돌렸는데, 동네가
+  // 한 번도 저장되지 않던 시절의 임시 조치였다. 지금은 동네가 실제로 잡히므로
+  // "내 동네에 아직 기록이 없다"는 사실을 그대로 보여준다.
+  const regions = useMemo(
+    () =>
+      neighborhood
+        ? allRegions.filter((region) => isMatchingNeighborhoodName(region.name, neighborhood.name))
+        : [],
+    [allRegions, neighborhood],
+  );
 
   return {
     cats,
     myCatIds,
     regions,
     neighborhoodName,
+    hasNeighborhood: neighborhood !== null,
     isDetectingNeighborhood: isDetecting,
     redetectNeighborhood: redetect,
   };
