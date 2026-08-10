@@ -1,12 +1,13 @@
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { Bell, ChevronDown, MapPin, PawPrint, Search, SlidersHorizontal } from 'lucide-react-native';
+import { ChevronDown, MapPin, PawPrint, Search, SlidersHorizontal } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { MapStackParamList, RootStackParamList } from '@/app/navigation/types';
 import { NeighborhoodTabBar } from '@/features/map/components/NeighborhoodTabBar';
 import { useNeighborhoodData } from '@/features/map/hooks/useNeighborhoodData';
+import { NotificationBell } from '@/features/notifications/components/NotificationBell';
 import { PolaroidCatCard } from '@/shared/components/PolaroidCatCard';
 import { catFilters } from '@/shared/constants/cat.constants';
 import { nd } from '@/shared/styles/theme';
@@ -103,15 +104,7 @@ export function NeighborhoodDexScreen() {
           <Text style={styles.locationText}>{isDetectingNeighborhood ? '동네 확인 중' : neighborhoodName}</Text>
           <ChevronDown color={nd.colors.ink} size={16} strokeWidth={1.8} />
         </Pressable>
-        <Pressable
-          accessibilityLabel="알림 보기"
-          hitSlop={8}
-          onPress={() => Alert.alert('알림은 준비 중이에요', '알림함은 다음 단계에서 추가될 예정이에요.')}
-          style={({ pressed }) => [styles.bellButton, pressed && styles.pressed]}
-        >
-          <Bell color={nd.colors.ink} size={24} strokeWidth={1.8} />
-          <View style={styles.bellDot} />
-        </Pressable>
+        <NotificationBell />
       </View>
 
       <View style={styles.scopeTabs}>
@@ -234,18 +227,6 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     letterSpacing: -0.35,
     color: nd.colors.ink,
-  },
-  bellButton: {
-    padding: 2,
-  },
-  bellDot: {
-    position: 'absolute',
-    top: 2,
-    right: 2,
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#ED1C24',
   },
   scopeTabs: {
     height: 56,

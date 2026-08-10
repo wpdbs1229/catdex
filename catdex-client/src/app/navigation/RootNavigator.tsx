@@ -17,6 +17,8 @@ import { CaptureReviewScreen } from '../../features/capture/screens/CaptureRevie
 import { CatDetailScreen } from '../../features/cats/screens/CatDetailScreen';
 import { CatDexScreen } from '../../features/cats/screens/CatDexScreen';
 import { HomeScreen } from '../../features/home/screens/HomeScreen';
+import { NotificationInboxScreen } from '../../features/notifications/screens/NotificationInboxScreen';
+import { NotificationSettingsScreen } from '../../features/notifications/screens/NotificationSettingsScreen';
 import { NeighborhoodDexScreen } from '../../features/map/screens/NeighborhoodDexScreen';
 import { NeighborhoodMapScreen } from '../../features/map/screens/NeighborhoodMapScreen';
 import { createShadow, theme } from '../../shared/styles/theme';
@@ -147,6 +149,16 @@ export function RootNavigator() {
         <RootStack.Screen
           name="CatDetail"
           component={CatDetailScreen}
+          options={{ animation: 'slide_from_right' }}
+        />
+        <RootStack.Screen
+          name="NotificationInbox"
+          component={NotificationInboxScreen}
+          options={{ animation: 'slide_from_right' }}
+        />
+        <RootStack.Screen
+          name="NotificationSettings"
+          component={NotificationSettingsScreen}
           options={{ animation: 'slide_from_right' }}
         />
       </RootStack.Navigator>

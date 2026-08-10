@@ -72,7 +72,11 @@ export const theme = {
 export const nd = {
   colors: {
     bg: '#FFFFFF',
+    /** 설정 화면처럼 카드가 떠 있는 화면의 바탕 */
+    bgSecondary: '#F7F7FB',
     ink: '#111111',
+    /** 켜진 스위치 (color/sementic/informative/300) */
+    switchOn: '#2196F3',
     sub: '#767676',
     subtle: '#999999',
     border: '#E5E5EC',
