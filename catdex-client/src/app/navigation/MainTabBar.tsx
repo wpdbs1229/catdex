@@ -2,8 +2,8 @@ import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { Camera, Compass, User } from 'lucide-react-native';
 import type { ComponentType } from 'react';
 import { Image, Pressable, StyleSheet, Text, View, type ImageSourcePropType } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { createNdShadow, nd, theme } from '@/shared/styles/theme';
+import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
+import { nd, theme } from '@/shared/styles/theme';
 
 type LucideIcon = ComponentType<{ color: string; size: number; fill?: string; strokeWidth?: number }>;
 
@@ -37,7 +37,6 @@ const items: TabItem[] = [
 ];
 
 export function MainTabBar({ state, navigation }: BottomTabBarProps) {
-  const insets = useSafeAreaInsets();
   const activeRoute = state.routes[state.index]?.name;
 
   // 동네 흐름은 시안의 전용 하단 바(지도/동네 도감/커뮤니티)를 쓴다.
@@ -47,7 +46,19 @@ export function MainTabBar({ state, navigation }: BottomTabBarProps) {
   }
 
   return (
-    <View pointerEvents="box-none" style={[styles.wrap, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+    <View pointerEvents="box-none" style={styles.wrap}>
+      {/* 시안의 스크림: 위는 투명, 아래로 갈수록 rgba(17,17,17,0.3).
+          흰색 60% 바 위의 글자가 콘텐츠에 묻히지 않게 잡아 준다. */}
+      <Svg pointerEvents="none" style={StyleSheet.absoluteFill}>
+        <Defs>
+          <LinearGradient id="tabBarScrim" x1="0" x2="0" y1="0" y2="1">
+            <Stop offset="0" stopColor="#111111" stopOpacity={0} />
+            <Stop offset="1" stopColor="#111111" stopOpacity={0.3} />
+          </LinearGradient>
+        </Defs>
+        <Rect fill="url(#tabBarScrim)" height="100%" width="100%" x="0" y="0" />
+      </Svg>
+
       <View style={styles.bar}>
         {items.map(({ route, label, icon: Icon, image }) => {
           const isActive = activeRoute === route;
@@ -96,10 +107,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingTop: 16,
   },
-  // 시안: 335x60, 완전한 알약.
-  // 시안은 바 위에 어두운 그라데이션 스크림을 깔아 흰색 60%로도 글자가 읽히지만,
-  // 그라데이션에는 expo-linear-gradient(네이티브 모듈)가 필요하다. 대신 불투명도를
-  // 올리고 옅은 그림자로 콘텐츠와 분리했다.
+  // 시안: 335x60, 완전한 알약, 흰색 60%. 뒤의 스크림이 대비를 만들어 준다.
   bar: {
     width: 335,
     height: 60,
@@ -108,8 +116,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 2,
     borderRadius: 100,
-    backgroundColor: 'rgba(255, 255, 255, 0.94)',
-    ...createNdShadow(0.12, 12),
+    backgroundColor: 'rgba(255, 255, 255, 0.6)',
   },
   item: {
     width: 60,
