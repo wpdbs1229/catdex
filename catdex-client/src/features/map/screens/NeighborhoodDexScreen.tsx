@@ -51,7 +51,7 @@ function matchesCatFilter(cat: Cat, selectedFilter: CatFilter) {
 export function NeighborhoodDexScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<MapStackParamList & RootStackParamList>>();
   const insets = useSafeAreaInsets();
-  const { cats, myCatIds, regions, neighborhoodName, isDetectingNeighborhood, redetectNeighborhood } =
+  const { cats, myCatIds, regions, neighborhoodName, hasNeighborhood, isDetectingNeighborhood, redetectNeighborhood } =
     useNeighborhoodData();
   const [selectedScope, setSelectedScope] = useState<NeighborhoodScope>('all');
   const [selectedFilter, setSelectedFilter] = useState<CatFilter>('전체');
@@ -175,9 +175,15 @@ export function NeighborhoodDexScreen() {
         {visibleCats.length === 0 ? (
           <View style={styles.emptyState}>
             <PawPrint color={nd.colors.subtle} size={38} />
-            <Text style={styles.emptyTitle}>{hasSearchQuery ? '검색 결과가 없어요' : '아직 동네에 기록된 고양이가 없어요'}</Text>
+            <Text style={styles.emptyTitle}>
+              {hasSearchQuery ? '검색 결과가 없어요' : hasNeighborhood ? '아직 동네에 기록된 고양이가 없어요' : '동네를 아직 못 찾았어요'}
+            </Text>
             <Text style={styles.emptyText}>
-              {hasSearchQuery ? '다른 이름이나 특징으로 다시 찾아보세요.' : '첫 고양이를 기록하면 동네 도감이 채워져요.'}
+              {hasSearchQuery
+                ? '다른 이름이나 특징으로 다시 찾아보세요.'
+                : hasNeighborhood
+                  ? '첫 고양이를 기록하면 동네 도감이 채워져요.'
+                  : '위쪽 동네 칩을 눌러 현재 위치로 동네를 확인해 주세요.'}
             </Text>
           </View>
         ) : null}
