@@ -3,6 +3,7 @@ import { Image, StyleSheet, Text, View, type ImageSourcePropType } from 'react-n
 import { nd } from '@/shared/styles/theme';
 
 const defaultAvatar = require('../../../../assets/illustrations/default-profile-avatar.png');
+const hangingCat = require('../../../../assets/illustrations/id-card-hanging-cat.png');
 
 interface CrewIdCardProps {
   nickname: string;
@@ -49,6 +50,13 @@ export function CrewIdCard({ nickname, profileImageUrl, rank }: CrewIdCardProps)
           <View style={styles.divider} />
         </View>
       </View>
+
+      {/* 카드 오른쪽 위에 걸터앉은 고양이. 시안(285:4453)의 회전값과 위치를 그대로 쓴다.
+          작은 흰 사각형은 고양이 앞발이 걸치는 자리의 카드 테두리를 지우는 조각이다. */}
+      <View pointerEvents="none" style={styles.hangingCat}>
+        <View style={styles.borderGap} />
+        <Image resizeMode="contain" source={hangingCat} style={styles.hangingCatImage} />
+      </View>
     </View>
   );
 }
@@ -60,7 +68,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#000000',
     backgroundColor: nd.colors.card,
-    overflow: 'hidden',
+    // 고양이가 카드 위·오른쪽으로 걸쳐 나가므로 잘라내지 않는다.
   },
   lanyardSlot: {
     position: 'absolute',
@@ -127,5 +135,27 @@ const styles = StyleSheet.create({
   divider: {
     height: 1,
     backgroundColor: '#000000',
+  },
+  // 시안의 110px 상자를 32.19도 돌려 카드 오른쪽 위 모서리에 걸치게 한다.
+  // 원본 그림은 -31.7도로 누워 있고 시안의 고양이는 -3.3도라, 시계방향 회전이 맞다.
+  hangingCat: {
+    position: 'absolute',
+    right: -34.3,
+    top: -62.5,
+    width: 110,
+    height: 110,
+    transform: [{ rotate: '32.19deg' }],
+  },
+  hangingCatImage: {
+    width: '100%',
+    height: '100%',
+  },
+  borderGap: {
+    position: 'absolute',
+    left: 35,
+    top: 60,
+    width: 16,
+    height: 9,
+    backgroundColor: '#FFFFFF',
   },
 });
