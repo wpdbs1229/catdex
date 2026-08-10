@@ -5,6 +5,7 @@ import { useCallback, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { RootStackParamList } from '@/app/navigation/types';
+import { useGoBackOrHome } from '@/app/navigation/useGoBackOrHome';
 import { fetchMyNotifications, markNotificationsRead } from '@/shared/api/notifications.api';
 import { createNdShadow, nd } from '@/shared/styles/theme';
 import type { NotificationItem } from '@/shared/types/notification';
@@ -43,6 +44,7 @@ function formatRelativeTime(isoDate: string) {
  */
 export function NotificationInboxScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const goBack = useGoBackOrHome();
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
 
   useFocusEffect(
@@ -88,7 +90,7 @@ export function NotificationInboxScreen() {
         <Pressable
           accessibilityLabel="뒤로 가기"
           accessibilityRole="button"
-          onPress={() => navigation.goBack()}
+          onPress={goBack}
           style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}
         >
           <ArrowLeft color={nd.colors.ink} size={20} strokeWidth={1.8} />

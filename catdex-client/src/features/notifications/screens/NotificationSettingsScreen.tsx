@@ -1,8 +1,8 @@
-import { useNavigation } from '@react-navigation/native';
 import { ArrowLeft } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import { Alert, Linking, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useGoBackOrHome } from '@/app/navigation/useGoBackOrHome';
 import { getPushPermissionState, requestPushPermissionAndRegister } from '@/features/notifications/push';
 import { fetchMyNotificationSettings, updateMyNotificationSettings } from '@/shared/api/notifications.api';
 import { getUserFacingErrorMessage } from '@/shared/errors/user-facing-error';
@@ -24,7 +24,7 @@ const settingKeys: Record<NotificationCategory, keyof NotificationSettings> = {
 
 /** 피그마 마이페이지_알림 (199:3364) */
 export function NotificationSettingsScreen() {
-  const navigation = useNavigation();
+  const goBack = useGoBackOrHome();
   const [settings, setSettings] = useState<NotificationSettings>(defaultNotificationSettings);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -105,7 +105,7 @@ export function NotificationSettingsScreen() {
         <Pressable
           accessibilityLabel="뒤로 가기"
           accessibilityRole="button"
-          onPress={() => navigation.goBack()}
+          onPress={goBack}
           style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}
         >
           <ArrowLeft color={nd.colors.ink} size={20} strokeWidth={1.8} />
