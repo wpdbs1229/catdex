@@ -63,6 +63,20 @@ export async function setActiveNeighborhood(neighborhood: SavedNeighborhood) {
 }
 
 /**
+ * 내 근거지로 치는 동네 이름들.
+ *
+ * 출장인지 가를 때 활성 동네 하나만 보면 안 된다. 동네는 5개까지 저장되고,
+ * 이사하거나 생활권이 둘인 사람은 활성 동네가 수시로 바뀐다. 그때마다 예전
+ * 기록이 통째로 출장으로 뒤집히면 표시가 아니라 소음이 된다.
+ */
+export async function getHomeRegionNames(): Promise<Set<string>> {
+  const userId = await getCurrentUserId();
+  const state = await loadNeighborhoodState(userId).catch(() => null);
+
+  return new Set((state?.savedNeighborhoods ?? []).map((neighborhood) => neighborhood.name));
+}
+
+/**
  * 이 만남을 어디서 기록할지.
  *
  * 활성 동네는 '내가 활동하는 근거지'(지부·발견 알림 대상)이지, '이 고양이를 만난
