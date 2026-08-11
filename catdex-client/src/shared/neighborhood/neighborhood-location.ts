@@ -51,6 +51,39 @@ function resolveNeighborhoodName(address: Location.LocationGeocodedAddress) {
   return null;
 }
 
+/**
+ * 좌표를 약 500m 격자의 중심으로 스냅한다.
+ *
+ * 동네 좌표는 서버에 남아 구역 중심이 되므로, 처음 기록한 사람의 실제 위치가
+ * 그대로 박히면 안 된다. 정방향 지오코딩이 실패했을 때만 쓰는 보루다.
+ */
+const NEIGHBORHOOD_GRID = 0.005;
+
+function snapToNeighborhoodGrid(value: number) {
+  return Number((Math.round(value / NEIGHBORHOOD_GRID) * NEIGHBORHOOD_GRID).toFixed(4));
+}
+
+/**
+ * 동네 이름을 정방향 지오코딩해서 그 동네의 중심 좌표를 얻는다.
+ *
+ * 사용자가 어디에 서 있든 같은 동네면 같은 좌표가 나온다. 그래야 구역 중심이
+ * 사람이 아니라 동네를 가리킨다. 실패하면 null을 돌려 호출 쪽이 격자 스냅으로
+ * 넘어가게 한다.
+ */
+async function geocodeNeighborhoodCenter(query: string) {
+  try {
+    const [match] = await Location.geocodeAsync(query);
+
+    if (!match) {
+      return null;
+    }
+
+    return { lat: match.latitude, lng: match.longitude };
+  } catch {
+    return null;
+  }
+}
+
 function createNeighborhoodId(city: string, district: string, name: string) {
   // 법정동을 그대로 쓰면 district가 시·도로 밀려 city와 겹치는 경우가 있다.
   // 같은 조각이 두 번 들어가면 "서울특별시-서울특별시-태평로1가"가 되므로 접는다.
@@ -87,14 +120,20 @@ export async function detectCurrentNeighborhood(): Promise<NeighborhoodDetection
       city,
     );
 
+    // 동네 중심을 먼저 구하고, 못 구하면 내 위치를 격자로 뭉갠 값을 쓴다.
+    // 어느 쪽이든 서버에 가는 건 "동네를 가리키는 점"이지 "내가 선 자리"가 아니다.
+    const center =
+      (await geocodeNeighborhoodCenter([city, district, neighborhoodName].filter(Boolean).join(' '))) ??
+      { lat: snapToNeighborhoodGrid(latitude), lng: snapToNeighborhoodGrid(longitude) };
+
     return {
       neighborhood: {
         id: createNeighborhoodId(city, district, neighborhoodName),
         name: neighborhoodName,
         city,
         district,
-        lat: latitude,
-        lng: longitude,
+        lat: center.lat,
+        lng: center.lng,
         radius: 650,
         cats: [],
         verifiedAt,
