@@ -121,7 +121,13 @@ export function NeighborhoodMapScreen() {
                     onPress={() => navigation.navigate('CatDetail', { catId: cat.id })}
                     style={({ pressed }) => [styles.regionCatItem, pressed && styles.pressed]}
                   >
-                    <Image resizeMode="contain" source={imageForCatType(cat.type, cat.imageUrl)} style={styles.regionCatImage} />
+                    {imageForCatType(cat.type, cat.imageUrl) ? (
+                      <Image resizeMode="contain" source={imageForCatType(cat.type, cat.imageUrl)!} style={styles.regionCatImage} />
+                    ) : (
+                      <View style={[styles.regionCatImage, styles.regionCatFallback]}>
+                        <PawPrint color={nd.colors.subtle} size={22} />
+                      </View>
+                    )}
                   </Pressable>
                 ))}
               </View>
@@ -243,6 +249,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-evenly',
     alignItems: 'flex-end',
+  },
+  regionCatFallback: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: nd.colors.field,
+    borderRadius: 12,
   },
   regionCatItem: {
     width: 120,

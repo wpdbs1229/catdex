@@ -1,19 +1,12 @@
 import type { ImageSourcePropType } from 'react-native';
 import type { CatType } from '@/shared/types/cat';
-import { getCatIllustrationKey, type CatIllustrationKey } from '@/shared/utils/catPresentation';
 
-const illustrations = {
-  orange: require('../../../assets/illustrations/cat-orange-clean.png'),
-  dark: require('../../../assets/illustrations/cat-dark-clean.png'),
-  tuxedo: require('../../../assets/illustrations/cat-tuxedo-clean.png'),
-  gray: require('../../../assets/illustrations/cat-gray-clean.png'),
-} satisfies Record<CatIllustrationKey, ImageSourcePropType>;
-
-/** 대표 사진이 없으면 털색 계열 일러스트로 대신한다. */
-export function imageForCatType(type: CatType, imageUrl?: string): ImageSourcePropType {
-  if (imageUrl) {
-    return { uri: imageUrl };
-  }
-
-  return illustrations[getCatIllustrationKey(type)];
+/**
+ * 고양이 대표 사진. 없으면 undefined다.
+ *
+ * 예전에는 털색 계열 일러스트로 대신했지만 그 자산을 걷어냈다. 사진이 없을 때
+ * 무엇을 보여줄지는 화면이 정한다(대부분 발바닥 자리표시자).
+ */
+export function imageForCatType(_type: CatType, imageUrl?: string): ImageSourcePropType | undefined {
+  return imageUrl ? { uri: imageUrl } : undefined;
 }

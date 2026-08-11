@@ -196,7 +196,13 @@ export function CatDetailScreen({ navigation, route }: RootStackScreenProps<'Cat
             <View style={styles.catCard}>
               <Image resizeMode="cover" source={paperTexture} style={styles.cardPaper} />
 
-              <Image resizeMode="contain" source={imageForCatType(cat.type, cat.imageUrl)} style={styles.catPhoto} />
+              {imageForCatType(cat.type, cat.imageUrl) ? (
+                <Image resizeMode="contain" source={imageForCatType(cat.type, cat.imageUrl)!} style={styles.catPhoto} />
+              ) : (
+                <View style={[styles.catPhoto, styles.catPhotoFallback]}>
+                  <PawPrint color={nd.colors.subtle} size={44} />
+                </View>
+              )}
 
               <View style={styles.affinityRow}>
                 <View style={styles.affinityTrack}>
@@ -377,6 +383,10 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     width: '100%',
     height: '100%',
+  },
+  catPhotoFallback: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   affinityRow: {
     position: 'absolute',
