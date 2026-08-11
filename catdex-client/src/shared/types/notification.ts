@@ -5,6 +5,7 @@ export type NotificationType =
   | 'neighborhood_sighting'
   | 'neighborhood_new_cat'
   | 'cat_rediscovery'
+  | 'rank_promoted'
   | 'post_reaction'
   | 'campaign';
 
