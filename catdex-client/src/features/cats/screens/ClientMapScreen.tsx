@@ -1,6 +1,6 @@
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { ChevronDown, ListFilter, MapPin } from 'lucide-react-native';
+import { ChevronDown, ListFilter, MapPin, X } from 'lucide-react-native';
 import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -8,17 +8,29 @@ import type { ClientStackParamList, RootStackParamList } from '@/app/navigation/
 import { ClientCatSheet } from '@/features/cats/components/ClientCatSheet';
 import { ClientRegionSheet } from '@/features/cats/components/ClientRegionSheet';
 import { ClientTabBar } from '@/features/cats/components/ClientTabBar';
+import { DexFilterPanel } from '@/features/cats/components/DexFilterPanel';
+import {
+  describeDexFilter,
+  emptyDexFilter,
+  isDexFilterEmpty,
+  matchesDexFilter,
+  type DexFilter,
+} from '@/features/cats/dex-filter';
 import { useClientMapData } from '@/features/cats/hooks/useClientMapData';
 import { KakaoMapView } from '@/features/map/components/KakaoMapView';
 import { useActiveNeighborhood } from '@/shared/neighborhood/useActiveNeighborhood';
-import { createNdShadow, nd } from '@/shared/styles/theme';
+import { createNdShadow, nd, theme } from '@/shared/styles/theme';
 import type { Cat } from '@/shared/types/cat';
 import type { Region } from '@/shared/types/region';
 
 export function ClientMapScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<ClientStackParamList & RootStackParamList>>();
   const insets = useSafeAreaInsets();
-  const { regions, catsByRegionId, isLoading } = useClientMapData();
+  const [filter, setFilter] = useState<DexFilter>(emptyDexFilter);
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const { myCats, regions, catsByRegionId, isLoading } = useClientMapData(filter);
+  const hasFilter = !isDexFilterEmpty(filter);
+  const filterLabels = describeDexFilter(filter);
   const { name: neighborhoodName, isDetecting, redetect } = useActiveNeighborhood();
   const [selectedRegion, setSelectedRegion] = useState<Region | null>(null);
   const [selectedCat, setSelectedCat] = useState<Cat | null>(null);
@@ -80,21 +92,73 @@ export function ClientMapScreen() {
         </Pressable>
 
         <Pressable
-          accessibilityLabel="지도 필터"
+          accessibilityLabel={isFilterOpen ? '지도 필터 닫기' : '지도 필터 열기'}
           accessibilityRole="button"
-          onPress={() =>
-            Alert.alert('지도 필터는 준비 중이에요', '털색·패턴으로 고객을 걸러 보는 기능은 다음 단계에서 열려요.')
-          }
-          style={({ pressed }) => [styles.filterButton, pressed && styles.pressed]}
+          accessibilityState={{ expanded: isFilterOpen }}
+          onPress={() => setIsFilterOpen((previous) => !previous)}
+          style={({ pressed }) => [
+            styles.filterButton,
+            hasFilter && styles.filterButtonActive,
+            pressed && styles.pressed,
+          ]}
         >
-          <ListFilter color={nd.colors.ink} size={20} strokeWidth={2} />
+          <ListFilter color={hasFilter ? theme.colors.accent : nd.colors.ink} size={20} strokeWidth={2} />
         </Pressable>
       </View>
 
+      {hasFilter && !isFilterOpen ? (
+        <View pointerEvents="box-none" style={[styles.appliedRow, { top: insets.top + 56 }]}>
+          {filterLabels.map((label) => (
+            <View key={label} style={styles.appliedChip}>
+              <Text style={styles.appliedChipLabel}>{label}</Text>
+            </View>
+          ))}
+          <Pressable
+            accessibilityLabel="필터 해제"
+            accessibilityRole="button"
+            hitSlop={10}
+            onPress={() => setFilter(emptyDexFilter)}
+            style={({ pressed }) => [styles.appliedClear, pressed && styles.pressed]}
+          >
+            <X color={nd.colors.ink} size={14} strokeWidth={2} />
+          </Pressable>
+        </View>
+      ) : null}
+
+      {isFilterOpen ? (
+        <View style={StyleSheet.absoluteFill}>
+          <Pressable
+            accessibilityLabel="필터 닫기"
+            accessibilityRole="button"
+            onPress={() => setIsFilterOpen(false)}
+            style={styles.scrim}
+          />
+          <View style={{ paddingTop: insets.top + 56 }}>
+            <DexFilterPanel
+              countFor={(draft) => myCats.filter((cat) => matchesDexFilter(cat, draft)).length}
+              filter={filter}
+              onApply={(next) => {
+                setFilter(next);
+                setIsFilterOpen(false);
+                // 걸러진 뒤에도 열려 있던 시트가 남지 않게 선택을 접는다.
+                setSelectedCat(null);
+                setSelectedRegion(null);
+              }}
+            />
+          </View>
+        </View>
+      ) : null}
+
       {regions.length === 0 && !isLoading ? (
         <View pointerEvents="none" style={[styles.emptyCard, { top: insets.top + 72 }]}>
-          <Text style={styles.emptyTitle}>아직 지도에 띄울 고객이 없어요</Text>
-          <Text style={styles.emptyText}>고객을 등록하면 어느 구역에서 만났는지 여기에 표시돼요.</Text>
+          <Text style={styles.emptyTitle}>
+            {hasFilter ? '조건에 맞는 고객이 없어요' : '아직 지도에 띄울 고객이 없어요'}
+          </Text>
+          <Text style={styles.emptyText}>
+            {hasFilter
+              ? '다른 털색이나 패턴으로 다시 찾아보세요.'
+              : '고객을 등록하면 어느 구역에서 만났는지 여기에 표시돼요.'}
+          </Text>
         </View>
       ) : null}
 
@@ -173,6 +237,44 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     backgroundColor: nd.colors.barBg,
     ...createNdShadow(0.12, 10),
+  },
+  scrim: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: nd.colors.scrim,
+  },
+  appliedRow: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 6,
+  },
+  appliedChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: nd.radius.pill,
+    backgroundColor: nd.colors.barBg,
+    ...createNdShadow(0.1, 8),
+  },
+  appliedChipLabel: {
+    fontSize: 13,
+    letterSpacing: -0.33,
+    color: nd.colors.ink,
+  },
+  appliedClear: {
+    width: 28,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 14,
+    backgroundColor: nd.colors.barBg,
+    ...createNdShadow(0.1, 8),
+  },
+  filterButtonActive: {
+    borderWidth: 1,
+    borderColor: theme.colors.accent,
   },
   emptyCard: {
     position: 'absolute',
