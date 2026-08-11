@@ -202,21 +202,23 @@ function createStyles(screenWidth: number) {
     backgroundColor: colors.sheet,
     overflow: 'hidden',
   },
+  // 왼쪽 패딩만 주고 왼쪽 정렬하면, 폭이 제일 넓은 '냥냥공사'가 오른쪽 끝에
+  // 닿을 때까지 밀려 좌우 여백이 24px 대 4px로 어긋난다. 가운데 정렬로 맞춘다.
   sidebar: {
     width: sidebarWidth,
-    alignItems: 'flex-start',
-    paddingLeft: sidebarWidth * 0.16,
+    alignItems: 'center',
+    paddingHorizontal: sidebarWidth * 0.06,
     justifyContent: 'space-between',
     backgroundColor: colors.orange,
     paddingTop: s(13),
     paddingBottom: s(20),
   },
   sidebarTop: {
-    alignItems: 'flex-start',
+    alignItems: 'center',
     gap: s(5),
   },
   sidebarBottom: {
-    alignItems: 'flex-start',
+    alignItems: 'center',
     gap: s(11),
   },
   catMarkBox: {
@@ -238,6 +240,7 @@ function createStyles(screenWidth: number) {
     lineHeight: s(8.5),
     fontWeight: '700',
     letterSpacing: 0.5,
+    textAlign: 'center',
     color: '#FFFFFF',
   },
   body: {
