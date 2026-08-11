@@ -15,6 +15,12 @@ export interface CrewStatus {
   /** 가장 많이 다시 만난 고양이. 재회가 없으면 undefined */
   topReunionCat?: string;
   topReunionCount?: number;
+  /** 근거지 밖에서 남긴 만남 수. 위치를 믿을 수 있게 된 뒤의 기록만 센다. */
+  awayEncounters: number;
+  /** 그 만남들이 흩어져 있는 동네 수 */
+  awayRegionCount: number;
+  /** 가장 최근 출장지. 출장이 없으면 undefined */
+  awayLatestRegion?: string;
 }
 
 interface CrewStatusRow {
@@ -26,6 +32,9 @@ interface CrewStatusRow {
   attendance_days: number | null;
   top_reunion_cat: string | null;
   top_reunion_count: number | null;
+  away_encounters: number | null;
+  away_region_count: number | null;
+  away_latest_region: string | null;
 }
 
 export const defaultCrewStatus: CrewStatus = {
@@ -35,6 +44,8 @@ export const defaultCrewStatus: CrewStatus = {
   nextRank: '주임',
   nextThreshold: 1,
   attendanceDays: 0,
+  awayEncounters: 0,
+  awayRegionCount: 0,
 };
 
 /**
@@ -65,6 +76,9 @@ export async function checkInAndFetchCrewStatus(): Promise<CrewStatus> {
     attendanceDays: row.attendance_days ?? 0,
     topReunionCat: row.top_reunion_cat ?? undefined,
     topReunionCount: row.top_reunion_count ?? undefined,
+    awayEncounters: row.away_encounters ?? 0,
+    awayRegionCount: row.away_region_count ?? 0,
+    awayLatestRegion: row.away_latest_region ?? undefined,
   };
 }
 
