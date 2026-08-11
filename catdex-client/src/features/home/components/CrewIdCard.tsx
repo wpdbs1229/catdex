@@ -1,11 +1,11 @@
 import { PawPrint } from 'lucide-react-native';
 import { useMemo } from 'react';
 import { Image, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
 import { nd } from '@/shared/styles/theme';
 
 const caseBack = require('../../../../assets/badge/case-back.png');
 const caseFront = require('../../../../assets/badge/case-front.png');
+const catMark = require('../../../../assets/badge/cat-mark.png');
 
 interface CrewIdCardProps {
   nickname: string;
@@ -68,18 +68,6 @@ function formatBranch(city?: string) {
   return `${base || trimmed}지부`;
 }
 
-/** 좌측 바의 고양이 머리 실루엣 */
-function CatMark({ size }: { size: number }) {
-  return (
-    <Svg height={(size * 40) / 48} viewBox="0 0 48 40" width={size}>
-      <Path
-        d="M8 6 L15 16 Q24 12 33 16 L40 6 Q42 4 42 8 L41 20 Q44 26 41 31 Q34 39 24 39 Q14 39 7 31 Q4 26 7 20 L6 8 Q6 4 8 6 Z"
-        fill="#FFFFFF"
-      />
-    </Svg>
-  );
-}
-
 /**
  * 냥냥공사 사원증.
  *
@@ -98,7 +86,7 @@ export function CrewIdCard({ nickname, profileImageUrl, rank, city, joinedAt }: 
       <View style={styles.window}>
         <View style={styles.sidebar}>
           <View style={styles.sidebarTop}>
-            <CatMark size={21} />
+            <Image resizeMode="contain" source={catMark} style={styles.catMark} />
             <Text style={styles.brand}>냥냥공사</Text>
             <Text style={styles.brandRoman}>NYANGGONGSA</Text>
           </View>
@@ -202,15 +190,20 @@ function createStyles(screenWidth: number) {
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: colors.orange,
-    paddingVertical: s(9),
+    paddingTop: s(13),
+    paddingBottom: s(20),
   },
   sidebarTop: {
     alignItems: 'center',
-    gap: s(2),
+    gap: s(5),
   },
   sidebarBottom: {
     alignItems: 'center',
-    gap: s(4),
+    gap: s(11),
+  },
+  catMark: {
+    width: s(24),
+    height: s(23),
   },
   brand: {
     fontSize: s(10),
