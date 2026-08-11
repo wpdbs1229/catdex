@@ -19,6 +19,7 @@ import { fetchCatEncounters, fetchCats, fetchMyCats, recordCatEncounter, removeM
 import { getUserFacingError } from '@/shared/errors/user-facing-error';
 import {
   detectEncounterNeighborhood,
+  isEncounterLocationTrusted,
   getHomeRegionNames,
   UNSET_REGION_NAME,
 } from '@/shared/neighborhood/active-neighborhood';
@@ -157,6 +158,8 @@ export function CatDetailScreen({ navigation, route }: RootStackScreenProps<'Cat
    */
   const isAwayEncounter = (encounter: CatEncounter) =>
     homeRegionNames.size > 0 &&
+    // 위치를 믿을 수 있게 된 뒤의 기록만 판정한다.
+    isEncounterLocationTrusted(encounter.seenAt) &&
     encounter.regionName !== UNSET_REGION_NAME &&
     !homeRegionNames.has(encounter.regionName);
 
