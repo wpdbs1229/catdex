@@ -24,7 +24,7 @@ export function ClientCatSheet({ cat, regionName, onOpenDetail, onStartConsult }
   return (
     <View style={styles.sheet}>
       <View style={styles.row}>
-        <Image resizeMode="cover" source={imageForCatType(cat.type, cat.imageUrl)} style={styles.photo} />
+        <Image resizeMode="contain" source={imageForCatType(cat.type, cat.imageUrl)} style={styles.photo} />
 
         <View style={styles.info}>
           <Text numberOfLines={1} style={styles.name}>
@@ -85,11 +85,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 16,
   },
+  // 고양이 이미지는 배경을 지운 누끼다. cover로 채우면 잘리고, 바탕을 깔면
+  // 투명 영역에 색이 비쳐서 사각형처럼 보인다. contain + 투명으로 띄운다.
   photo: {
     width: 116,
     height: 148,
-    borderRadius: nd.radius.input,
-    backgroundColor: nd.colors.field,
   },
   info: {
     flex: 1,
