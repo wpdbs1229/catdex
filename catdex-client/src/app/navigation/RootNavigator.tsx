@@ -15,6 +15,8 @@ import { CaptureRegisterScreen } from '../../features/capture/screens/CaptureReg
 import { CaptureReviewScreen } from '../../features/capture/screens/CaptureReviewScreen';
 import { CatDetailScreen } from '../../features/cats/screens/CatDetailScreen';
 import { CatDexScreen } from '../../features/cats/screens/CatDexScreen';
+import { AttendanceMonthScreen } from '../../features/attendance/screens/AttendanceMonthScreen';
+import { AttendanceScreen } from '../../features/attendance/screens/AttendanceScreen';
 import { HomeScreen } from '../../features/home/screens/HomeScreen';
 import { NotificationInboxScreen } from '../../features/notifications/screens/NotificationInboxScreen';
 import { NotificationSettingsScreen } from '../../features/notifications/screens/NotificationSettingsScreen';
@@ -22,12 +24,19 @@ import { NeighborhoodDexScreen } from '../../features/map/screens/NeighborhoodDe
 import { NeighborhoodMapScreen } from '../../features/map/screens/NeighborhoodMapScreen';
 import { PlaceholderScreen } from '../screens/PlaceholderScreen';
 import { MainTabBar } from './MainTabBar';
-import type { CaptureStackParamList, MainTabParamList, MapStackParamList, RootStackParamList } from './types';
+import type {
+  CaptureStackParamList,
+  HomeStackParamList,
+  MainTabParamList,
+  MapStackParamList,
+  RootStackParamList,
+} from './types';
 
 const RootStack = createNativeStackNavigator<RootStackParamList>();
 const MainTab = createBottomTabNavigator<MainTabParamList>();
 const CaptureStack = createNativeStackNavigator<CaptureStackParamList>();
 const MapStack = createNativeStackNavigator<MapStackParamList>();
+const HomeStack = createNativeStackNavigator<HomeStackParamList>();
 
 function CaptureNavigator() {
   return (
@@ -49,11 +58,22 @@ function MapNavigator() {
   );
 }
 
+// 출근 현황은 하단바를 그대로 둔 채 홈 위에 쌓인다. 루트 스택에 넣으면 하단바가 사라진다.
+function HomeNavigator() {
+  return (
+    <HomeStack.Navigator screenOptions={{ headerShown: false }}>
+      <HomeStack.Screen name="Home" component={HomeScreen} />
+      <HomeStack.Screen name="Attendance" component={AttendanceScreen} />
+      <HomeStack.Screen name="AttendanceMonth" component={AttendanceMonthScreen} />
+    </HomeStack.Navigator>
+  );
+}
+
 function MainTabNavigator() {
   return (
     // 순서는 시안의 '기본 하단바'를 따른다: 홈 / 내 도감 / 촬영 / 동네 / 마이페이지
     <MainTab.Navigator screenOptions={{ headerShown: false }} tabBar={(props) => <MainTabBar {...props} />}>
-      <MainTab.Screen name="HomeTab" component={HomeScreen} options={{ title: '홈' }} />
+      <MainTab.Screen name="HomeTab" component={HomeNavigator} options={{ title: '홈' }} />
       <MainTab.Screen name="CollectionTab" component={CatDexScreen} options={{ title: '내 도감' }} />
       <MainTab.Screen
         name="CaptureTab"
