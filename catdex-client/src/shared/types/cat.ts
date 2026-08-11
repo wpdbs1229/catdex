@@ -127,14 +127,6 @@ export interface DexPlaceholder {
   imageUrl?: string;
 }
 
-export interface HomeSummary {
-  myWeeklyCollected: number;
-  myTotalCollected: number;
-  sharedTodayDiscovered: number;
-  sharedTotalCats: number;
-  recentMyRediscovered: string;
-}
-
 export interface DexProgress {
   collected: number;
   total: number;

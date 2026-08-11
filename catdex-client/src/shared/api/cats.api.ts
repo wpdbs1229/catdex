@@ -16,7 +16,6 @@ import type {
   CaptureCatDraft,
   DexPlaceholder,
   DexProgress,
-  HomeSummary,
   PersonalityTag,
 } from '@/shared/types/cat';
 
@@ -88,26 +87,6 @@ interface CatMatchCandidateRow {
 
 function formatDate(value: string) {
   return value.replaceAll('-', '.');
-}
-
-function formatLocalDate(value: Date) {
-  const year = value.getFullYear();
-  const month = String(value.getMonth() + 1).padStart(2, '0');
-  const day = String(value.getDate()).padStart(2, '0');
-
-  return `${year}-${month}-${day}`;
-}
-
-function getWeekStartDate() {
-  const today = new Date();
-  const day = today.getDay();
-  const daysSinceMonday = day === 0 ? 6 : day - 1;
-  const weekStart = new Date(today);
-
-  weekStart.setHours(0, 0, 0, 0);
-  weekStart.setDate(today.getDate() - daysSinceMonday);
-
-  return formatLocalDate(weekStart);
 }
 
 async function getDisplayImageUrl(imageUrl: string | null) {
@@ -234,26 +213,6 @@ export async function fetchMyCats() {
       .filter((row): row is CatRow => row !== null)
       .map(mapCat),
   );
-}
-
-export async function fetchHomeSummary(): Promise<HomeSummary> {
-  const [sharedCats, myCats] = await Promise.all([fetchCats(), fetchMyCats()]);
-  const today = new Date().toISOString().slice(0, 10).replaceAll('-', '.');
-  const rediscovered = myCats.find((cat) => cat.encounterCount > 1);
-  const { count: weeklyCollected, error } = await supabase
-    .from('user_cat_collections')
-    .select('cat_id', { count: 'exact', head: true })
-    .gte('first_collected_at', getWeekStartDate());
-
-  throwIfSupabaseError(error);
-
-  return {
-    myWeeklyCollected: weeklyCollected ?? 0,
-    myTotalCollected: myCats.length,
-    sharedTodayDiscovered: sharedCats.filter((cat) => cat.firstSeenAt === today).length,
-    sharedTotalCats: sharedCats.length,
-    recentMyRediscovered: rediscovered?.name ?? '아직 없어요',
-  };
 }
 
 export async function fetchDexProgress(): Promise<DexProgress> {
