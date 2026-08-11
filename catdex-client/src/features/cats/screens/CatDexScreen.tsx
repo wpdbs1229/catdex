@@ -1,6 +1,6 @@
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { PawPrint, Search, SlidersHorizontal, X } from 'lucide-react-native';
+import { ClipboardList, PawPrint, Search, SlidersHorizontal, X } from 'lucide-react-native';
 import { useCallback, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
@@ -17,6 +17,7 @@ import {
 } from '@/features/cats/dex-filter';
 import { fetchDexPlaceholders, fetchMyCats } from '@/shared/api/cats.api';
 import { PolaroidCatCard } from '@/shared/components/PolaroidCatCard';
+import { CREW_COMPANY_NAME } from '@/shared/constants/crew.constants';
 import { loadFavoriteCatIds, saveFavoriteCatIds } from '@/shared/favorites/favorites-storage';
 import { nd, theme } from '@/shared/styles/theme';
 import type { Cat, DexPlaceholder } from '@/shared/types/cat';
@@ -130,7 +131,28 @@ export function CatDexScreen() {
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.screen}>
       <View style={styles.titleBar}>
-        <Text style={styles.title}>도감</Text>
+        <View style={styles.titleTexts}>
+          <Text style={styles.title}>내 고객</Text>
+          <Text style={styles.subtitle}>{CREW_COMPANY_NAME}</Text>
+        </View>
+        <Pressable
+          accessibilityLabel={isFilterOpen ? '필터 닫기' : '필터 열기'}
+          accessibilityRole="button"
+          accessibilityState={{ expanded: isFilterOpen }}
+          hitSlop={8}
+          onPress={() => setIsFilterOpen((previous) => !previous)}
+          style={({ pressed }) => [
+            styles.filterButton,
+            hasFilter && styles.filterButtonActive,
+            pressed && styles.pressed,
+          ]}
+        >
+          <SlidersHorizontal
+            color={hasFilter ? theme.colors.accent : nd.colors.ink}
+            size={20}
+            strokeWidth={2}
+          />
+        </Pressable>
       </View>
 
       <View style={styles.searchBar}>
@@ -139,25 +161,19 @@ export function CatDexScreen() {
           autoCapitalize="none"
           autoCorrect={false}
           onChangeText={setSearchQuery}
-          placeholder="내 도감에서 고양이를 찾아보세요"
+          placeholder="고객 이름을 검색해보세요"
           placeholderTextColor={nd.colors.sub}
           returnKeyType="search"
           style={styles.searchInput}
           value={searchQuery}
         />
-        <Pressable
-          accessibilityLabel={isFilterOpen ? '필터 닫기' : '필터 열기'}
-          accessibilityRole="button"
-          accessibilityState={{ expanded: isFilterOpen }}
-          hitSlop={10}
-          onPress={() => setIsFilterOpen((previous) => !previous)}
-        >
-          <SlidersHorizontal
-            color={hasFilter ? theme.colors.accent : nd.colors.ink}
-            size={20}
-            strokeWidth={1.8}
-          />
-        </Pressable>
+      </View>
+
+      <View style={styles.countRow}>
+        <ClipboardList color={theme.colors.primary} size={18} strokeWidth={2} />
+        <Text style={styles.countLabel}>
+          담당 고객 <Text style={styles.countValue}>{visibleCats.length}마리</Text>
+        </Text>
       </View>
 
       {hasFilter && !isFilterOpen ? (
@@ -252,15 +268,62 @@ const styles = StyleSheet.create({
     backgroundColor: nd.colors.bg,
   },
   titleBar: {
-    height: 56,
-    justifyContent: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 16,
+  },
+  titleTexts: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
   },
   title: {
-    fontSize: 20,
-    fontWeight: '600',
-    letterSpacing: -0.5,
+    fontSize: 28,
+    fontWeight: '800',
+    letterSpacing: -0.7,
     color: nd.colors.ink,
+  },
+  subtitle: {
+    fontSize: 15,
+    letterSpacing: -0.38,
+    color: nd.colors.sub,
+  },
+  /** 시안에서 필터는 검색바 안이 아니라 제목 오른쪽의 원형 버튼이다. */
+  filterButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: nd.colors.border,
+    backgroundColor: nd.colors.bg,
+  },
+  filterButtonActive: {
+    borderColor: theme.colors.accent,
+    backgroundColor: theme.colors.accentSoft,
+  },
+  pressed: {
+    opacity: 0.7,
+  },
+  countRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+  },
+  countLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+    letterSpacing: -0.38,
+    color: nd.colors.ink,
+  },
+  countValue: {
+    color: theme.colors.primary,
   },
   body: {
     flex: 1,
