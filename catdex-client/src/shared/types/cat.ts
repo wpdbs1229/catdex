@@ -40,7 +40,10 @@ export interface Cat {
   relationshipLevel: string;
   tags: string[];
   memo?: string;
+  /** 대표 이미지. 촬영으로 등록한 고양이는 배경을 지운 누끼다. */
   imageUrl?: string;
+  /** 누끼를 만들기 전의 원본 사진. 데모 데이터나 옛 기록에는 없다. */
+  originalPhotoUrl?: string;
 }
 
 export interface CatEncounter {
@@ -64,6 +67,7 @@ export interface CaptureCatDraft {
   memo: string;
   imageUrl?: string;
   cutoutImageUrl?: string;
+  originalPhotoUrl?: string;
   observationId?: string;
 }
 

@@ -42,6 +42,7 @@ interface CatRow {
   tags: string[];
   memo: string | null;
   image_url: string | null;
+  original_photo_url: string | null;
 }
 
 interface CatEncounterRow {
@@ -120,6 +121,7 @@ async function mapCat(row: CatRow): Promise<Cat> {
     tags: row.tags,
     memo: row.memo ?? undefined,
     imageUrl: await getDisplayImageUrl(row.image_url),
+    originalPhotoUrl: await getDisplayImageUrl(row.original_photo_url),
   };
 }
 
@@ -301,6 +303,7 @@ export async function createCat(draft: CaptureCatDraft) {
     p_image_url: draft.imageUrl ?? null,
     p_coat_colors: draft.coatColors,
     p_coat_pattern: draft.coatPattern,
+    p_original_photo_url: draft.originalPhotoUrl ?? null,
   });
 
   throwIfSupabaseError(error);

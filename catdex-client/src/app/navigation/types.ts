@@ -61,7 +61,10 @@ export type CaptureStackParamList = {
   /** 도감 추가하기 시트 (피그마 5_촬영 후 등록) */
   CaptureRegister: {
     cutoutUri: string;
+    /** 누끼 PNG의 스토리지 경로. 고양이 대표 이미지가 된다. */
     imageStoragePath: string;
+    /** 누끼를 만들기 전의 원본 사진 경로. */
+    originalStoragePath?: string;
     observationId?: string;
     regionName: string;
     colors: CoatColorId[];
