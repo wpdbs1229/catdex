@@ -105,15 +105,13 @@ export function HomeScreen() {
       <ScrollView contentContainerStyle={[styles.content, { paddingBottom: tabBarInset }]} showsVerticalScrollIndicator={false}>
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>대한냥냥공사 사원증</Text>
-          <View style={styles.sectionBody}>
-            <CrewIdCard
-              nickname={profile?.nickname ?? DEFAULT_PROFILE_NICKNAME}
-              profileImageUrl={profile?.profileImageUrl}
-              collected={crewStatus.collected}
-              joinedAt={profile?.createdAt}
-              rank={crewStatus.rank}
-            />
-          </View>
+          <CrewIdCard
+            nickname={profile?.nickname ?? DEFAULT_PROFILE_NICKNAME}
+            profileImageUrl={profile?.profileImageUrl}
+            collected={crewStatus.collected}
+            joinedAt={profile?.createdAt}
+            rank={crewStatus.rank}
+          />
         </View>
 
         <View style={styles.section}>
