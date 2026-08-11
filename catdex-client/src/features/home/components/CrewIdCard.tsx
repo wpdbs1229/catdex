@@ -244,8 +244,8 @@ function createStyles(screenWidth: number) {
   },
   emboss: {
     position: 'absolute',
-    right: s(10),
-    bottom: s(26),
+    right: s(6),
+    bottom: s(10),
   },
   embossLight: {
     position: 'absolute',
@@ -281,17 +281,15 @@ function createStyles(screenWidth: number) {
     letterSpacing: 0.8,
     color: colors.ink,
   },
-  // 밑줄을 행 자체에 붙여 글자와 같은 간격을 유지한다.
-  // 폭을 제한해 오른쪽 아래 발바닥 양각을 가로지르지 않게 한다.
+  // 시안처럼 구분선을 글자 위에 두고 폭 전체로 긋는다.
+  // 발바닥 양각은 마지막 선보다 아래에 놓아 겹치지 않게 한다.
   fieldRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    alignSelf: 'flex-start',
-    width: s(92),
     gap: s(5),
-    paddingBottom: s(4),
-    borderBottomWidth: 1,
-    borderBottomColor: colors.fieldRule,
+    paddingTop: s(7),
+    borderTopWidth: 1,
+    borderTopColor: colors.fieldRule,
   },
   fieldLabel: {
     fontSize: s(11),
