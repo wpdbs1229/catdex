@@ -1,4 +1,4 @@
-import { Globe, MapPin, MessageCircle } from 'lucide-react-native';
+import { ContactRound, MapPin, MessageCircle } from 'lucide-react-native';
 import { SectionTabBar } from '@/shared/components/SectionTabBar';
 
 export type ClientTab = 'roster' | 'map' | 'consult';
@@ -23,7 +23,7 @@ export function ClientTabBar({
     <SectionTabBar
       active={active}
       items={[
-        { id: 'roster', label: '고객 명부', icon: Globe, onPress: onOpenRoster },
+        { id: 'roster', label: '고객 명단', icon: ContactRound, onPress: onOpenRoster },
         { id: 'map', label: '고객 지도', icon: MapPin, onPress: onOpenMap },
         { id: 'consult', label: '고객 상담', icon: MessageCircle, onPress: onOpenConsult },
       ]}
