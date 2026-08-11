@@ -9,6 +9,7 @@ import { useTabBarInset } from '@/app/navigation/useTabBarInset';
 import { CatChatCard } from '@/features/home/components/CatChatCard';
 import { CrewIdCard } from '@/features/home/components/CrewIdCard';
 import { CrewProgressCard } from '@/features/home/components/CrewProgressCard';
+import { RankGuideModal } from '@/features/home/components/RankGuideModal';
 import { NotificationBell } from '@/features/notifications/components/NotificationBell';
 import { fetchMyProfile } from '@/shared/api/auth.api';
 import { checkInAndFetchCrewStatus, defaultCrewStatus, type CrewStatus } from '@/shared/api/crew.api';
@@ -44,6 +45,7 @@ export function HomeScreen() {
   const [profile, setProfile] = useState<AuthUser | null>(null);
   const [crewStatus, setCrewStatus] = useState<CrewStatus>(defaultCrewStatus);
   const [myCats, setMyCats] = useState<Cat[]>([]);
+  const [isRankGuideOpen, setIsRankGuideOpen] = useState(false);
   const { neighborhood, name: neighborhoodName, isDetecting, redetect } = useActiveNeighborhood();
   const tabBarInset = useTabBarInset();
 
@@ -113,7 +115,11 @@ export function HomeScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>인사고과</Text>
           <View style={styles.sectionBody}>
-            <CrewProgressCard onPressAttendance={() => navigation.navigate('Attendance')} status={crewStatus} />
+            <CrewProgressCard
+              onPressAttendance={() => navigation.navigate('Attendance')}
+              onPressPromotion={() => setIsRankGuideOpen(true)}
+              status={crewStatus}
+            />
           </View>
         </View>
 
@@ -135,6 +141,8 @@ export function HomeScreen() {
           )}
         </View>
       </ScrollView>
+
+      <RankGuideModal onClose={() => setIsRankGuideOpen(false)} status={crewStatus} visible={isRankGuideOpen} />
     </SafeAreaView>
   );
 }

@@ -8,6 +8,8 @@ interface CrewProgressCardProps {
   status: CrewStatus;
   /** 출근 칸을 누르면 출근 현황으로. 나머지 칸도 갈 곳이 생기면 같은 모양으로 붙인다. */
   onPressAttendance: () => void;
+  /** 승진 진행 줄을 누르면 승진 규칙 안내로 */
+  onPressPromotion: () => void;
 }
 
 // 주황은 사원증·하단바와 같은 토큰을 쓴다(nd.colors.accent).
@@ -42,7 +44,7 @@ function RowLabel({ icon, text }: { icon: ReactNode; text: string }) {
  * 사용자를 회사원, 고양이를 고객으로 두는 은유를 따른다. 출근은 연속이 아니라
  * 누적이라 하루 걸러도 줄지 않는다(길고양이는 매일 만날 수 있는 대상이 아니다).
  */
-export function CrewProgressCard({ status, onPressAttendance }: CrewProgressCardProps) {
+export function CrewProgressCard({ status, onPressAttendance, onPressPromotion }: CrewProgressCardProps) {
   const remaining = status.nextThreshold ? Math.max(0, status.nextThreshold - status.peak) : 0;
   const progress = getProgress(status);
 
@@ -83,8 +85,19 @@ export function CrewProgressCard({ status, onPressAttendance }: CrewProgressCard
 
       <View style={styles.divider} />
 
-      <View style={styles.section}>
-        <RowLabel icon={<PawPrint color={colors.accent} size={13} strokeWidth={2.4} />} text="승진 진행" />
+      <Pressable
+        accessibilityLabel="승진 규칙 보기"
+        accessibilityRole="button"
+        onPress={onPressPromotion}
+        style={({ pressed }) => [styles.section, pressed && styles.pressed]}
+      >
+        <View style={styles.sectionHead}>
+          <RowLabel icon={<PawPrint color={colors.accent} size={13} strokeWidth={2.4} />} text="승진 진행" />
+          <View style={styles.ruleHint}>
+            <Text style={styles.ruleHintText}>승진 규칙</Text>
+            <ChevronRight color={nd.colors.subtle} size={14} strokeWidth={2.2} />
+          </View>
+        </View>
         <View style={styles.track}>
           <View style={[styles.fill, { width: `${Math.round(progress * 100)}%` }]} />
         </View>
@@ -93,7 +106,7 @@ export function CrewProgressCard({ status, onPressAttendance }: CrewProgressCard
             ? `${status.nextRank} 승진까지 ${remaining}마리 남았어요.`
             : '더 오를 곳이 없습니다. 축하드립니다, 대표님.'}
         </Text>
-      </View>
+      </Pressable>
 
       <View style={styles.divider} />
 
@@ -203,6 +216,22 @@ const styles = StyleSheet.create({
   },
   section: {
     gap: 9,
+  },
+  sectionHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  ruleHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 1,
+  },
+  ruleHintText: {
+    fontSize: 12,
+    fontWeight: '600',
+    letterSpacing: -0.3,
+    color: nd.colors.subtle,
   },
   track: {
     height: 9,

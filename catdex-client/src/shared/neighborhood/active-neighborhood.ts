@@ -53,6 +53,7 @@ export async function setActiveNeighborhood(neighborhood: SavedNeighborhood) {
     syncMyNeighborhoods(
       saved.map((item) => item.name),
       neighborhood.name,
+      neighborhood.city,
     ).catch((error: unknown) => {
       console.warn('[neighborhood] server sync failed', error);
     });
