@@ -6,6 +6,7 @@ import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { RootStackParamList } from '@/app/navigation/types';
+import { useTabBarInset } from '@/app/navigation/useTabBarInset';
 import { fetchDexPlaceholders, fetchMyCats } from '@/shared/api/cats.api';
 import { PolaroidCatCard } from '@/shared/components/PolaroidCatCard';
 import { loadFavoriteCatIds, saveFavoriteCatIds } from '@/shared/favorites/favorites-storage';
@@ -35,6 +36,7 @@ export function CatDexScreen() {
   const [placeholders, setPlaceholders] = useState<DexPlaceholder[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [likedCatIds, setLikedCatIds] = useState<Set<string>>(() => new Set());
+  const tabBarInset = useTabBarInset();
 
   useFocusEffect(
     useCallback(() => {
@@ -105,7 +107,7 @@ export function CatDexScreen() {
         <Text style={styles.title}>도감</Text>
       </View>
 
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: tabBarInset }]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         <View style={styles.searchBar}>
           <Search color={nd.colors.ink} size={20} strokeWidth={1.8} />
           <TextInput
@@ -180,8 +182,7 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingTop: 4,
-    // 하단바가 떠 있으므로 마지막 줄이 가리지 않도록 띄운다.
-    paddingBottom: 128,
+    // 하단 여백은 useTabBarInset이 준다.
   },
   searchBar: {
     height: 48,

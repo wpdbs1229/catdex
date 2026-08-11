@@ -4,6 +4,7 @@ import type { ComponentType } from 'react';
 import { Image, Pressable, StyleSheet, Text, View, type ImageSourcePropType } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
+import { TAB_BAR_TOP_GAP } from '@/app/navigation/useTabBarInset';
 import { nd, theme } from '@/shared/styles/theme';
 
 type LucideIcon = ComponentType<{ color: string; size: number; fill?: string; strokeWidth?: number }>;
@@ -48,7 +49,8 @@ export function MainTabBar({ state, navigation }: BottomTabBarProps) {
   }
 
   // 탭바 컨테이너가 이미 16pt를 띄워 주므로, 홈 인디케이터를 비켜 갈 만큼만 더한다.
-  const bottomGap = Math.max(insets.bottom - 16, 8);
+  // 같은 계산을 useTabBarInset이 콘텐츠 여백용으로 다시 쓴다.
+  const bottomGap = Math.max(insets.bottom - TAB_BAR_TOP_GAP, 8);
 
   return (
     <View pointerEvents="box-none" style={[styles.wrap, { paddingBottom: bottomGap }]}>
@@ -91,7 +93,9 @@ export function MainTabBar({ state, navigation }: BottomTabBarProps) {
                 ) : (
                   <Image resizeMode="contain" source={image![isActive ? 1 : 0]} style={styles.imageIcon} />
                 )}
-                <Text numberOfLines={1} style={styles.label}>
+                {/* 큰 글자 설정에서도 '마이페이지'가 잘리지 않게 배율에 상한을 둔다.
+                    표준 탭바가 큰 글자에서 배치를 바꾸는 것과 같은 취지다. */}
+                <Text adjustsFontSizeToFit maxFontSizeMultiplier={1.3} numberOfLines={1} style={styles.label}>
                   {label}
                 </Text>
               </View>
@@ -110,7 +114,7 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     alignItems: 'center',
-    paddingTop: 16,
+    paddingTop: TAB_BAR_TOP_GAP,
   },
   // 시안: 335x60, 완전한 알약.
   // 배경은 시안이 흰색 60%지만 0.9로 올렸다. 시안 목업은 바 뒤가 밝은 폴라로이드라
@@ -120,13 +124,16 @@ const styles = StyleSheet.create({
     height: 60,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 2,
     borderRadius: 100,
     backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    // 알약 모서리까지 항목이 닿지 않도록 안쪽 여백만 준다.
+    paddingHorizontal: 6,
   },
+  // 시안은 항목이 60pt 고정이지만 그러면 5개(308pt)와 바(335pt) 사이에 남는
+  // 양 끝 13.5pt가 눌리지 않는다. 폭을 균등 분할해 틈을 없앤다.
+  // 아이콘·라벨은 항목 안에서 가운데 정렬이라 보이는 위치는 그대로다.
   item: {
-    width: 60,
+    flex: 1,
     height: 60,
     alignItems: 'center',
     justifyContent: 'center',
