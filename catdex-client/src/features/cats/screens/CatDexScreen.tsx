@@ -268,9 +268,7 @@ export function CatDexScreen() {
           onOpenConsult={() =>
             Alert.alert('고객 상담은 준비 중이에요', '고양이와의 대화는 다음 단계에서 열려요.')
           }
-          onOpenMap={() =>
-            Alert.alert('고객 지도는 준비 중이에요', '내 고객이 사는 곳을 지도로 보는 화면은 다음 단계에서 열려요.')
-          }
+          onOpenMap={() => navigation.navigate('ClientMap' as never)}
           onOpenRoster={() => undefined}
         />
       </View>

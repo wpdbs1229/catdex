@@ -22,6 +22,12 @@ export type MainTabParamList = {
   MyTab: undefined;
 };
 
+/** 고객 탭 안의 화면들. 전용 하단바가 남아야 해서 루트가 아니라 여기에 둔다. */
+export type ClientStackParamList = {
+  ClientRoster: undefined;
+  ClientMap: undefined;
+};
+
 export type MapStackParamList = {
   NeighborhoodDex: undefined;
   NeighborhoodMap: undefined;

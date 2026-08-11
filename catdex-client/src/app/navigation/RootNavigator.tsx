@@ -15,6 +15,7 @@ import { CaptureRegisterScreen } from '../../features/capture/screens/CaptureReg
 import { CaptureReviewScreen } from '../../features/capture/screens/CaptureReviewScreen';
 import { CatDetailScreen } from '../../features/cats/screens/CatDetailScreen';
 import { CatDexScreen } from '../../features/cats/screens/CatDexScreen';
+import { ClientMapScreen } from '../../features/cats/screens/ClientMapScreen';
 import { AttendanceMonthScreen } from '../../features/attendance/screens/AttendanceMonthScreen';
 import { AttendanceScreen } from '../../features/attendance/screens/AttendanceScreen';
 import { HomeScreen } from '../../features/home/screens/HomeScreen';
@@ -28,6 +29,7 @@ import type {
   CaptureStackParamList,
   HomeStackParamList,
   MainTabParamList,
+  ClientStackParamList,
   MapStackParamList,
   RootStackParamList,
 } from './types';
@@ -36,6 +38,7 @@ const RootStack = createNativeStackNavigator<RootStackParamList>();
 const MainTab = createBottomTabNavigator<MainTabParamList>();
 const CaptureStack = createNativeStackNavigator<CaptureStackParamList>();
 const MapStack = createNativeStackNavigator<MapStackParamList>();
+const ClientStack = createNativeStackNavigator<ClientStackParamList>();
 const HomeStack = createNativeStackNavigator<HomeStackParamList>();
 
 function CaptureNavigator() {
@@ -46,6 +49,15 @@ function CaptureNavigator() {
       <CaptureStack.Screen name="CaptureMatch" component={CaptureMatchScreen} />
       <CaptureStack.Screen name="CaptureRegister" component={CaptureRegisterScreen} />
     </CaptureStack.Navigator>
+  );
+}
+
+function ClientNavigator() {
+  return (
+    <ClientStack.Navigator screenOptions={{ headerShown: false, animation: 'fade' }}>
+      <ClientStack.Screen name="ClientRoster" component={CatDexScreen} />
+      <ClientStack.Screen name="ClientMap" component={ClientMapScreen} />
+    </ClientStack.Navigator>
   );
 }
 
@@ -74,7 +86,7 @@ function MainTabNavigator() {
     // 순서는 시안의 '기본 하단바'를 따른다: 홈 / 내 고객 / 촬영 / 동네 / 마이페이지
     <MainTab.Navigator screenOptions={{ headerShown: false }} tabBar={(props) => <MainTabBar {...props} />}>
       <MainTab.Screen name="HomeTab" component={HomeNavigator} options={{ title: '홈' }} />
-      <MainTab.Screen name="CollectionTab" component={CatDexScreen} options={{ title: '내 고객' }} />
+      <MainTab.Screen name="CollectionTab" component={ClientNavigator} options={{ title: '내 고객' }} />
       <MainTab.Screen
         name="CaptureTab"
         component={PlaceholderScreen}
