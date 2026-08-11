@@ -5,7 +5,7 @@ import { Image, Pressable, StyleSheet, Text, View, type ImageSourcePropType } fr
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { TAB_BAR_TOP_GAP } from '@/app/navigation/useTabBarInset';
-import { nd, theme } from '@/shared/styles/theme';
+import { createNdShadow, nd, theme } from '@/shared/styles/theme';
 
 type LucideIcon = ComponentType<{ color: string; size: number; fill?: string; strokeWidth?: number }>;
 
@@ -84,21 +84,18 @@ export function MainTabBar({ state, navigation }: BottomTabBarProps) {
                   navigation.navigate(route);
                 }
               }}
-              style={styles.item}
+              style={({ pressed }) => [styles.item, isActive && styles.itemActive, pressed && styles.pressed]}
             >
-              {isActive ? <View style={styles.selectedPill} /> : null}
-              <View style={styles.itemContent}>
-                {Icon ? (
-                  <Icon color={color} fill={isActive ? color : 'transparent'} size={24} strokeWidth={1.6} />
-                ) : (
-                  <Image resizeMode="contain" source={image![isActive ? 1 : 0]} style={styles.imageIcon} />
-                )}
-                {/* 큰 글자 설정에서도 '마이페이지'가 잘리지 않게 배율에 상한을 둔다.
-                    표준 탭바가 큰 글자에서 배치를 바꾸는 것과 같은 취지다. */}
-                <Text adjustsFontSizeToFit maxFontSizeMultiplier={1.3} numberOfLines={1} style={styles.label}>
-                  {label}
-                </Text>
-              </View>
+              {Icon ? (
+                <Icon color={color} fill={isActive ? color : 'transparent'} size={24} strokeWidth={isActive ? 2.2 : 1.8} />
+              ) : (
+                <Image resizeMode="contain" source={image![isActive ? 1 : 0]} style={styles.imageIcon} />
+              )}
+              {/* 큰 글자 설정에서도 '마이페이지'가 잘리지 않게 배율에 상한을 둔다.
+                  표준 탭바가 큰 글자에서 배치를 바꾸는 것과 같은 취지다. */}
+              <Text adjustsFontSizeToFit maxFontSizeMultiplier={1.3} numberOfLines={1} style={styles.label}>
+                {label}
+              </Text>
             </Pressable>
           );
         })}
@@ -116,50 +113,40 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingTop: TAB_BAR_TOP_GAP,
   },
-  // 시안: 335x60, 완전한 알약.
-  // 배경은 시안이 흰색 60%지만 0.9로 올렸다. 시안 목업은 바 뒤가 밝은 폴라로이드라
-  // 60%로도 읽히는데, 실제로는 어두운 고양이 사진이 오면 라벨이 묻힌다.
+  // 동네 하단바(NeighborhoodTabBar)와 같은 처리를 쓴다.
+  // 알약 안쪽에 4pt 여백을 두고 선택 배경을 항목 자체에 입히면, 첫·마지막
+  // 항목의 선택 표시가 바 가장자리에 붙는 문제가 구조적으로 생기지 않는다.
   bar: {
     width: 335,
-    height: 60,
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 100,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    borderRadius: nd.radius.pill,
+    backgroundColor: nd.colors.barBg,
+    padding: 4,
+    ...createNdShadow(0.12, 12),
   },
-  // 시안은 항목이 60pt 고정이지만 그러면 5개(308pt)와 바(335pt) 사이에 남는
-  // 양 끝 13.5pt가 눌리지 않는다. 폭을 균등 분할(67pt)해 틈을 없앴다.
-  // 아이콘·라벨은 항목 안에서 가운데 정렬이라 보이는 위치는 그대로다.
+  // 시안은 항목이 60pt 고정이지만 그러면 바 양 끝에 눌리지 않는 구간이 남는다.
+  // 폭을 균등 분할해 틈을 없앤다.
   item: {
     flex: 1,
-    height: 60,
+    height: 52,
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 2,
+    borderRadius: nd.radius.pill,
   },
-  // 선택된 항목 뒤의 회색 알약. 아이콘과 라벨을 함께 덮는다.
-  // 시안은 80pt지만 그건 항목이 60pt이고 바 양 끝에 13.5pt가 남을 때의 값이다.
-  // 항목을 균등 분할한 지금 80pt를 그대로 쓰면 첫·마지막 알약이 바 밖으로
-  // 1.7pt 밀려나 여백이 사라진다. 60pt면 시안과 같은 3.5pt 여백이 나온다.
-  selectedPill: {
-    position: 'absolute',
-    top: 4,
-    width: 60,
-    height: 52,
-    borderRadius: 100,
-    backgroundColor: 'rgba(17, 17, 17, 0.08)',
+  itemActive: {
+    backgroundColor: nd.colors.scrim,
   },
-  itemContent: {
-    alignItems: 'center',
-    gap: 0,
+  pressed: {
+    opacity: 0.84,
   },
   imageIcon: {
     width: 24,
     height: 24,
   },
   label: {
-    marginTop: 1,
     fontSize: 10,
-    lineHeight: 14,
     fontWeight: '500',
     letterSpacing: -0.25,
     color: nd.colors.ink,
