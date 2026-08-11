@@ -4,7 +4,7 @@ import { ChevronDown, MapPin } from 'lucide-react-native';
 import { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import type { RootStackParamList } from '@/app/navigation/types';
+import type { HomeStackParamList, RootStackParamList } from '@/app/navigation/types';
 import { useTabBarInset } from '@/app/navigation/useTabBarInset';
 import { CatChatCard } from '@/features/home/components/CatChatCard';
 import { CrewIdCard } from '@/features/home/components/CrewIdCard';
@@ -38,7 +38,8 @@ function getChatMessage(name: string, index: number) {
 }
 
 export function HomeScreen() {
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  // 홈 스택(출근 현황)과 루트 스택(알림함 등)을 둘 다 부르므로 합쳐서 받는다.
+  const navigation = useNavigation<NativeStackNavigationProp<HomeStackParamList & RootStackParamList>>();
   const [profile, setProfile] = useState<AuthUser | null>(null);
   const [crewStatus, setCrewStatus] = useState<CrewStatus>(defaultCrewStatus);
   const [myCats, setMyCats] = useState<Cat[]>([]);
@@ -111,7 +112,7 @@ export function HomeScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>인사고과</Text>
           <View style={styles.sectionBody}>
-            <CrewProgressCard status={crewStatus} />
+            <CrewProgressCard onPressAttendance={() => navigation.navigate('Attendance')} status={crewStatus} />
           </View>
         </View>
 

@@ -1,16 +1,19 @@
-import { CheckCircle2, PawPrint, RefreshCw } from 'lucide-react-native';
+import { CheckCircle2, ChevronRight, PawPrint, RefreshCw } from 'lucide-react-native';
 import type { ReactNode } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { CrewStatus } from '@/shared/api/crew.api';
 import { nd } from '@/shared/styles/theme';
 
 interface CrewProgressCardProps {
   status: CrewStatus;
+  /** 출근 칸을 누르면 출근 현황으로. 나머지 칸도 갈 곳이 생기면 같은 모양으로 붙인다. */
+  onPressAttendance: () => void;
 }
 
+// 주황은 사원증·하단바와 같은 토큰을 쓴다(nd.colors.accent).
 const colors = {
-  accent: '#E07C33',
-  accentSoft: '#FBEADC',
+  accent: nd.colors.accent,
+  accentSoft: nd.colors.primarySoft,
   divider: '#EDEBE8',
 };
 
@@ -39,24 +42,30 @@ function RowLabel({ icon, text }: { icon: ReactNode; text: string }) {
  * 사용자를 회사원, 고양이를 고객으로 두는 은유를 따른다. 출근은 연속이 아니라
  * 누적이라 하루 걸러도 줄지 않는다(길고양이는 매일 만날 수 있는 대상이 아니다).
  */
-export function CrewProgressCard({ status }: CrewProgressCardProps) {
+export function CrewProgressCard({ status, onPressAttendance }: CrewProgressCardProps) {
   const remaining = status.nextThreshold ? Math.max(0, status.nextThreshold - status.peak) : 0;
   const progress = getProgress(status);
 
   return (
     <View style={styles.card}>
       <View style={styles.topRow}>
-        <View style={styles.topCell}>
+        <Pressable
+          accessibilityLabel="출근 현황 보기"
+          accessibilityRole="button"
+          onPress={onPressAttendance}
+          style={({ pressed }) => [styles.topCell, pressed && styles.pressed]}
+        >
           <RowLabel icon={<PawPrint color={colors.accent} size={13} strokeWidth={2.4} />} text="출근" />
           <View style={styles.metricRow}>
             <Text style={styles.metric}>{status.attendanceDays}</Text>
             <Text style={styles.metricUnit}>일</Text>
+            <ChevronRight color={nd.colors.subtle} size={16} strokeWidth={2.2} style={styles.cellChevron} />
           </View>
           <View style={styles.checkRow}>
             <CheckCircle2 color={colors.accent} size={14} strokeWidth={2.4} />
             <Text style={styles.checkText}>오늘 출근 완료</Text>
           </View>
-        </View>
+        </Pressable>
 
         <View style={styles.topDivider} />
 
@@ -156,6 +165,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     color: nd.colors.sub,
+  },
+  cellChevron: {
+    marginLeft: 'auto',
+  },
+  pressed: {
+    opacity: 0.6,
   },
   checkRow: {
     flexDirection: 'row',

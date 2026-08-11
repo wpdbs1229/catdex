@@ -27,6 +27,18 @@ export type MapStackParamList = {
   NeighborhoodMap: undefined;
 };
 
+/**
+ * 홈 탭 안에서 미는 화면들. 루트 스택이 아니라 여기 두어야 하단바가 남는다.
+ * 시안(출근 현황)이 하단바를 그대로 보여 준다.
+ */
+export type HomeStackParamList = {
+  Home: undefined;
+  /** 인사고과 카드의 출근 칸에서 연다 */
+  Attendance: undefined;
+  /** 출근 현황의 '전체 기록 보기' */
+  AttendanceMonth: undefined;
+};
+
 export type CaptureStackParamList = {
   Camera: { lastCutoutUri?: string } | undefined;
   CaptureReview: { photoUri: string };
@@ -63,5 +75,10 @@ export type CaptureStackScreenProps<T extends keyof CaptureStackParamList> = Nat
 
 export type MapStackScreenProps<T extends keyof MapStackParamList> = NativeStackScreenProps<
   MapStackParamList,
+  T
+>;
+
+export type HomeStackScreenProps<T extends keyof HomeStackParamList> = NativeStackScreenProps<
+  HomeStackParamList,
   T
 >;
