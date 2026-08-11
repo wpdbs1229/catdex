@@ -6,7 +6,7 @@ import Vision
 // 촬영 사진 한 장에서 고양이 탐지와 누끼(배경 제거)를 수행한다.
 // 시각 임베딩은 이 모듈에서 만들지 않는다. iOS 전용 VNGenerateImageFeaturePrint를
 // 쓰면 Android와 값을 비교할 수 없어서, 크로스플랫폼 공용 모델을 붙이기 전까지
-// embedding 필드를 비워 둔다. 자세한 배경은 docs/domain-rules.md 참고.
+// embedding 필드를 비워 둔다.
 public class CatVisionModule: Module {
   public func definition() -> ModuleDefinition {
     Name("CatVision")

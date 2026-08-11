@@ -34,7 +34,7 @@ export interface CatVisionResult {
   sceneSamples: CatVisionSamples | null;
   // 시각 임베딩은 아직 채우지 않는다. iOS 전용 Vision Feature Print를 쓰면 Android와
   // 비교가 불가능해서, 두 플랫폼이 같은 모델을 쓰도록 정리한 뒤에 붙인다.
-  // 자세한 배경은 docs/domain-rules.md의 "온디바이스 비전 계약" 참고.
+  // 반환 계약과 여백 비율(0.18)은 플랫폼 구현이 달라도 동일하게 유지한다.
   embedding: number[];
   embeddingVersion: string | null;
   processingMs: number;
