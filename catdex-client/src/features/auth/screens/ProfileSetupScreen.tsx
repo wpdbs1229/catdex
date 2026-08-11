@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { DEFAULT_PROFILE_NICKNAME } from '@/shared/constants/profile.constants';
 import { nd } from '@/shared/styles/theme';
 import type { AuthUser, ProfileUpdateDraft } from '@/shared/types/auth';
+import { CREW_COMPANY_NAME } from '@/shared/constants/crew.constants';
 
 interface ProfileSetupScreenProps {
   user: AuthUser;
@@ -66,7 +67,7 @@ export function ProfileSetupScreen({ user, isSaving, onComplete }: ProfileSetupS
     <SafeAreaView edges={['top', 'right', 'bottom', 'left']} style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <Text style={styles.title}>대한냥냥공사 사원증</Text>
+          <Text style={styles.title}>{CREW_COMPANY_NAME} 사원증</Text>
           <Text style={styles.subtitle}>탐험을 시작하기 전, 나만의 사원증을 만들어요.</Text>
         </View>
 

@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import { Image, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { nd } from '@/shared/styles/theme';
+import { CREW_COMPANY_SHORT_NAME } from '@/shared/constants/crew.constants';
 
 const caseBack = require('../../../../assets/badge/case-back.png');
 const caseFront = require('../../../../assets/badge/case-front.png');
@@ -101,7 +102,7 @@ export function CrewIdCard({ nickname, profileImageUrl, rank, city, joinedAt }: 
         <View style={styles.sidebar}>
           <View style={styles.sidebarTop}>
             <CatMark width={logoWidth} />
-            <Text style={styles.brand}>냥냥공사</Text>
+            <Text style={styles.brand}>{CREW_COMPANY_SHORT_NAME}</Text>
           </View>
           <View style={styles.sidebarBottom}>
             <View style={styles.brandRule} />

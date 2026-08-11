@@ -19,6 +19,7 @@ import { nd } from '@/shared/styles/theme';
 import type { AuthUser } from '@/shared/types/auth';
 import type { Cat } from '@/shared/types/cat';
 import { imageForCatType } from '@/shared/utils/catImage';
+import { CREW_COMPANY_NAME } from '@/shared/constants/crew.constants';
 
 /**
  * 카드 순서대로 돌려쓰는 안내 문구.
@@ -99,7 +100,7 @@ export function HomeScreen() {
 
       <ScrollView contentContainerStyle={[styles.content, { paddingBottom: tabBarInset }]} showsVerticalScrollIndicator={false}>
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>대한냥냥공사 사원증</Text>
+          <Text style={styles.sectionTitle}>{CREW_COMPANY_NAME} 사원증</Text>
           <CrewIdCard
             nickname={profile?.nickname ?? DEFAULT_PROFILE_NICKNAME}
             profileImageUrl={profile?.profileImageUrl}
