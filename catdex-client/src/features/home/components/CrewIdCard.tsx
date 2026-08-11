@@ -1,7 +1,10 @@
 import { PawPrint } from 'lucide-react-native';
 import { Image, StyleSheet, Text, View } from 'react-native';
-import Svg, { Circle, Defs, Ellipse, LinearGradient, Path, Rect, Stop } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
 import { nd } from '@/shared/styles/theme';
+
+const caseBack = require('../../../../assets/badge/case-back.png');
+const caseFront = require('../../../../assets/badge/case-front.png');
 
 interface CrewIdCardProps {
   nickname: string;
@@ -14,23 +17,31 @@ interface CrewIdCardProps {
   joinedAt?: string;
 }
 
-/** 목업 비율 664:476. 폭을 고정하고 높이를 비율로 잡는다. */
-const CARD_WIDTH = 335;
-const CARD_HEIGHT = Math.round((CARD_WIDTH * 476) / 664);
-/** 주황 사이드바는 카드 폭의 14% */
-const SIDEBAR_WIDTH = Math.round(CARD_WIDTH * 0.14);
+/**
+ * 케이스 이미지는 1005x720이고 카드는 그 1/3로 그린다.
+ * 안쪽 창 좌표도 같은 비율로 줄인다(에셋의 IMPLEMENTATION_NOTES 기준).
+ */
+const SCALE = 3;
+const CARD_WIDTH = 1005 / SCALE;
+const CARD_HEIGHT = 720 / SCALE;
+const WINDOW = {
+  left: 79 / SCALE,
+  top: 145 / SCALE,
+  width: 774 / SCALE,
+  height: 492 / SCALE,
+  radius: 34 / SCALE,
+};
+/** 주황 사이드바는 창 폭의 16% (목업 기준) */
+const SIDEBAR_WIDTH = Math.round(WINDOW.width * 0.16);
 
 const colors = {
-  holder: '#E7E6E7',
-  holderGloss: '#FCFCFC',
   sheet: '#F9F8F6',
   orange: '#D3702D',
-  orangeDeep: '#D46229',
-  clip: '#E47D31',
-  clipBand: '#C96526',
   ink: '#1A1A1A',
   footer: '#929090',
   emboss: '#EFEDEA',
+  fieldRule: '#DED9D2',
+  footerRule: '#E7C9A9',
 };
 
 /** 가입 날짜·시각을 합쳐 계정마다 고정된 사번을 만든다. */
@@ -61,31 +72,21 @@ function CatMark({ size }: { size: number }) {
 }
 
 /**
- * 냥냥공사 사원증. 목업의 플라스틱 홀더 형태를 이미지 없이 코드로 그린다.
+ * 냥냥공사 사원증.
  *
- * RN에는 inner shadow가 없어 발바닥 양각은 밝은 발바닥과 어두운 발바닥을 1pt
- * 어긋나게 겹쳐 흉내 낸다. 플라스틱 광택도 실제 반사가 아니라 그라데이션이다.
+ * 투명 케이스와 꼬리 클립은 코드로 낼 수 없는 질감(굴절·입체 명암)이라 PNG 두
+ * 장으로 처리한다. 뒤판 -> 내용 -> 앞판 순으로 겹치면 카드가 케이스 안에 들어간
+ * 것처럼 보인다. 내용은 데이터가 바뀌므로 그대로 코드로 그린다.
  */
 export function CrewIdCard({ nickname, profileImageUrl, rank, collected, joinedAt }: CrewIdCardProps) {
   return (
-    <View style={styles.holder}>
-      <Svg height={CARD_HEIGHT} pointerEvents="none" style={StyleSheet.absoluteFill} width={CARD_WIDTH}>
-        <Defs>
-          <LinearGradient id="holderGloss" x1="0" x2="0.35" y1="0" y2="1">
-            <Stop offset="0" stopColor={colors.holderGloss} stopOpacity={1} />
-            <Stop offset="0.45" stopColor={colors.holderGloss} stopOpacity={0.15} />
-            <Stop offset="1" stopColor="#C9C7C8" stopOpacity={0.35} />
-          </LinearGradient>
-        </Defs>
-        <Rect fill="url(#holderGloss)" height={CARD_HEIGHT} rx={22} width={CARD_WIDTH} x={0} y={0} />
-      </Svg>
+    <View style={styles.card}>
+      <Image resizeMode="stretch" source={caseBack} style={styles.caseLayer} />
 
-      <View style={styles.lanyardSlot} />
-
-      <View style={styles.sheet}>
+      <View style={styles.window}>
         <View style={styles.sidebar}>
           <View style={styles.sidebarTop}>
-            <CatMark size={24} />
+            <CatMark size={21} />
             <Text style={styles.brand}>냥냥공사</Text>
             <Text style={styles.brandRoman}>NYANGGONGSA</Text>
           </View>
@@ -96,10 +97,10 @@ export function CrewIdCard({ nickname, profileImageUrl, rank, collected, joinedA
         </View>
 
         <View style={styles.body}>
-          {/* 발바닥 양각 워터마크 */}
+          {/* 발바닥 양각 워터마크. RN에 inner shadow가 없어 두 겹으로 흉내 낸다. */}
           <View pointerEvents="none" style={styles.emboss}>
-            <PawPrint color="#FFFFFF" size={54} strokeWidth={1.4} style={styles.embossLight} />
-            <PawPrint color={colors.emboss} size={54} strokeWidth={1.4} />
+            <PawPrint color="#FFFFFF" size={46} strokeWidth={1.4} style={styles.embossLight} />
+            <PawPrint color={colors.emboss} size={46} strokeWidth={1.4} />
           </View>
 
           <View style={styles.bodyTop}>
@@ -107,7 +108,7 @@ export function CrewIdCard({ nickname, profileImageUrl, rank, collected, joinedA
               <Image resizeMode="cover" source={{ uri: profileImageUrl }} style={styles.photo} />
             ) : (
               <View style={[styles.photo, styles.photoFallback]}>
-                <PawPrint color={nd.colors.subtle} size={30} strokeWidth={1.6} />
+                <PawPrint color={nd.colors.subtle} size={26} strokeWidth={1.6} />
               </View>
             )}
 
@@ -130,7 +131,7 @@ export function CrewIdCard({ nickname, profileImageUrl, rank, collected, joinedA
 
           <View style={styles.footerRule} />
           <View style={styles.footer}>
-            <PawPrint color={colors.orange} size={11} strokeWidth={2.2} />
+            <PawPrint color={colors.orange} size={9} strokeWidth={2.2} />
             <Text numberOfLines={1} style={styles.tagline}>
               고양이와 함께, 더 나은 내일을 만듭니다.
             </Text>
@@ -139,54 +140,47 @@ export function CrewIdCard({ nickname, profileImageUrl, rank, collected, joinedA
         </View>
       </View>
 
-      <View pointerEvents="none" style={styles.clip}>
-        <Svg height={74} viewBox="0 0 48 132" width={27}>
-          {/* 발가락 4개 + 발바닥 + 아래로 뻗은 팔 */}
-          <Circle cx={8} cy={26} fill={colors.clip} r={8} />
-          <Circle cx={19} cy={11} fill={colors.clip} r={9} />
-          <Circle cx={33} cy={12} fill={colors.clip} r={9} />
-          <Circle cx={42} cy={28} fill={colors.clip} r={7} />
-          <Ellipse cx={24} cy={48} fill={colors.clip} rx={19} ry={16} />
-          <Rect fill={colors.clip} height={78} rx={14} width={28} x={10} y={46} />
-          <Rect fill={colors.clipBand} height={15} rx={3} width={30} x={9} y={96} />
-        </Svg>
+      {/* 앞판이 카드 위를 덮어 케이스 안에 들어간 것처럼 보이게 한다. */}
+      <View pointerEvents="none" style={styles.caseLayer}>
+        <Image resizeMode="stretch" source={caseFront} style={styles.caseImage} />
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  holder: {
+  card: {
     width: CARD_WIDTH,
     height: CARD_HEIGHT,
-    borderRadius: 22,
-    backgroundColor: colors.holder,
-    paddingHorizontal: 14,
-    paddingTop: 38,
-    paddingBottom: 20,
-  },
-  lanyardSlot: {
-    position: 'absolute',
-    top: 16,
     alignSelf: 'center',
-    width: 62,
-    height: 11,
-    borderRadius: 6,
-    backgroundColor: '#D9D7D7',
   },
-  sheet: {
-    flex: 1,
+  caseLayer: {
+    ...StyleSheet.absoluteFillObject,
+    width: CARD_WIDTH,
+    height: CARD_HEIGHT,
+  },
+  caseImage: {
+    width: CARD_WIDTH,
+    height: CARD_HEIGHT,
+  },
+  // 케이스 앞판의 실제 창 위치
+  window: {
+    position: 'absolute',
+    left: WINDOW.left,
+    top: WINDOW.top,
+    width: WINDOW.width,
+    height: WINDOW.height,
     flexDirection: 'row',
-    borderRadius: 10,
+    borderRadius: WINDOW.radius,
     backgroundColor: colors.sheet,
     overflow: 'hidden',
   },
   sidebar: {
     width: SIDEBAR_WIDTH,
-    backgroundColor: colors.orange,
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 11,
+    backgroundColor: colors.orange,
+    paddingVertical: 9,
   },
   sidebarTop: {
     alignItems: 'center',
@@ -194,43 +188,43 @@ const styles = StyleSheet.create({
   },
   sidebarBottom: {
     alignItems: 'center',
-    gap: 5,
+    gap: 4,
   },
   brand: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '800',
     letterSpacing: -0.3,
     color: '#FFFFFF',
   },
   brandRoman: {
-    fontSize: 5,
+    fontSize: 4.5,
     fontWeight: '600',
-    letterSpacing: 0.3,
+    letterSpacing: 0.2,
     color: 'rgba(255, 255, 255, 0.85)',
   },
   brandRule: {
-    width: 18,
+    width: 16,
     height: 1,
     backgroundColor: 'rgba(255, 255, 255, 0.7)',
   },
   passLabel: {
-    fontSize: 6.5,
-    lineHeight: 9,
+    fontSize: 6,
+    lineHeight: 8.5,
     fontWeight: '700',
-    letterSpacing: 0.6,
+    letterSpacing: 0.5,
     textAlign: 'center',
     color: '#FFFFFF',
   },
   body: {
     flex: 1,
-    paddingHorizontal: 12,
-    paddingTop: 10,
-    paddingBottom: 7,
+    paddingHorizontal: 10,
+    paddingTop: 9,
+    paddingBottom: 6,
   },
   emboss: {
     position: 'absolute',
-    right: 14,
-    bottom: 30,
+    right: 10,
+    bottom: 26,
   },
   embossLight: {
     position: 'absolute',
@@ -241,12 +235,12 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
   },
   photo: {
-    width: 66,
-    height: 82,
-    borderRadius: 40,
+    width: 58,
+    height: 72,
+    borderRadius: 36,
     borderWidth: 1,
     borderColor: '#111111',
     backgroundColor: '#FFFFFF',
@@ -258,56 +252,51 @@ const styles = StyleSheet.create({
   fields: {
     flex: 1,
     minWidth: 0,
-    gap: 5,
+    gap: 4,
   },
   name: {
-    fontSize: 26,
+    fontSize: 22,
     fontWeight: '700',
-    letterSpacing: 1,
+    letterSpacing: 0.8,
     color: colors.ink,
   },
   fieldRule: {
     height: 1,
-    backgroundColor: '#DED9D2',
+    backgroundColor: colors.fieldRule,
   },
   fieldRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 5,
   },
   fieldLabel: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
     color: colors.ink,
   },
   fieldValue: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
     color: colors.ink,
   },
   footerRule: {
     height: 1,
-    backgroundColor: '#E7C9A9',
+    backgroundColor: colors.footerRule,
   },
   footer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingTop: 5,
+    gap: 3,
+    paddingTop: 4,
   },
   tagline: {
     flex: 1,
-    fontSize: 7,
+    fontSize: 6,
     color: colors.footer,
   },
   serial: {
-    fontSize: 7,
+    fontSize: 6,
     letterSpacing: 0.2,
     color: colors.footer,
-  },
-  clip: {
-    position: 'absolute',
-    right: -13,
-    top: '26%',
   },
 });
