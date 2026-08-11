@@ -5,6 +5,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { RootStackParamList } from '@/app/navigation/types';
+import { useTabBarInset } from '@/app/navigation/useTabBarInset';
 import { CatChatCard } from '@/features/home/components/CatChatCard';
 import { CrewIdCard } from '@/features/home/components/CrewIdCard';
 import { NotificationBell } from '@/features/notifications/components/NotificationBell';
@@ -66,6 +67,7 @@ export function HomeScreen() {
   const [placeholders, setPlaceholders] = useState<DexPlaceholder[]>([]);
   const [favoriteCatIds, setFavoriteCatIds] = useState<Set<string>>(() => new Set());
   const { name: neighborhoodName, isDetecting, redetect } = useActiveNeighborhood();
+  const tabBarInset = useTabBarInset();
 
   useFocusEffect(
     useCallback(() => {
@@ -138,7 +140,7 @@ export function HomeScreen() {
         <NotificationBell />
       </View>
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: tabBarInset }]} showsVerticalScrollIndicator={false}>
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>냥냥단 사원증</Text>
           <View style={styles.sectionBody}>
@@ -255,7 +257,6 @@ const styles = StyleSheet.create({
     opacity: 0.88,
   },
   content: {
-    paddingBottom: 128,
   },
   section: {
     marginTop: 16,
