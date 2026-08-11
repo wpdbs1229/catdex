@@ -155,12 +155,15 @@ export async function markNotificationsRead(eventIds?: string[]) {
  * 앱이 감지한 동네를 서버에 올린다. 발견 알림의 발송 대상이 여기서 정해진다.
  * 좌표는 보내지 않고 동네 이름만 보낸다.
  */
-export async function syncMyNeighborhoods(names: string[], activeName?: string) {
+export async function syncMyNeighborhoods(names: string[], activeName?: string, activeCity?: string) {
   assertSupabaseConfigured();
 
   const { error } = await supabase.rpc('sync_my_neighborhoods', {
     p_names: names,
     p_active_name: activeName ?? null,
+    // 지부 정원 현황을 세려면 서버가 시·도를 알아야 한다. 이미 올리고 있는
+    // 법정동보다 넓은 범위라 새로 드러나는 정보는 없다.
+    p_city: activeCity ?? null,
   });
 
   throwIfSupabaseError(error);
