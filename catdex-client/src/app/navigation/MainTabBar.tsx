@@ -126,11 +126,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderRadius: 100,
     backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    // 알약 모서리까지 항목이 닿지 않도록 안쪽 여백만 준다.
-    paddingHorizontal: 6,
   },
   // 시안은 항목이 60pt 고정이지만 그러면 5개(308pt)와 바(335pt) 사이에 남는
-  // 양 끝 13.5pt가 눌리지 않는다. 폭을 균등 분할해 틈을 없앤다.
+  // 양 끝 13.5pt가 눌리지 않는다. 폭을 균등 분할(67pt)해 틈을 없앴다.
   // 아이콘·라벨은 항목 안에서 가운데 정렬이라 보이는 위치는 그대로다.
   item: {
     flex: 1,
@@ -139,10 +137,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   // 선택된 항목 뒤의 회색 알약. 아이콘과 라벨을 함께 덮는다.
+  // 시안은 80pt지만 그건 항목이 60pt이고 바 양 끝에 13.5pt가 남을 때의 값이다.
+  // 항목을 균등 분할한 지금 80pt를 그대로 쓰면 첫·마지막 알약이 바 밖으로
+  // 1.7pt 밀려나 여백이 사라진다. 60pt면 시안과 같은 3.5pt 여백이 나온다.
   selectedPill: {
     position: 'absolute',
     top: 4,
-    width: 80,
+    width: 60,
     height: 52,
     borderRadius: 100,
     backgroundColor: 'rgba(17, 17, 17, 0.08)',
