@@ -5,7 +5,7 @@ import { nd } from '@/shared/styles/theme';
 interface CatChatCardProps {
   /** 고양이 사진. 없으면 발바닥 자리표시자를 쓴다. */
   imageSource?: ImageSourcePropType;
-  /** "페르의 이야기를 들어보세요."처럼 두 줄로 끊어 쓰는 안내 문구 */
+  /** "페르 고객님이 기다리고 있어요."처럼 두 줄로 끊어 쓰는 안내 문구 */
   message: string;
   onPress: () => void;
 }
@@ -34,7 +34,7 @@ export function CatChatCard({ imageSource, message, onPress }: CatChatCardProps)
         onPress={onPress}
         style={({ pressed }) => [styles.button, pressed && styles.pressed]}
       >
-        <Text style={styles.buttonText}>채팅 시작하기</Text>
+        <Text style={styles.buttonText}>상담 시작하기</Text>
       </Pressable>
     </View>
   );
