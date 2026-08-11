@@ -48,7 +48,7 @@ export function HomeScreen() {
   const [profile, setProfile] = useState<AuthUser | null>(null);
   const [crewStatus, setCrewStatus] = useState<CrewStatus>(defaultCrewStatus);
   const [myCats, setMyCats] = useState<Cat[]>([]);
-  const { name: neighborhoodName, isDetecting, redetect } = useActiveNeighborhood();
+  const { neighborhood, name: neighborhoodName, isDetecting, redetect } = useActiveNeighborhood();
   const tabBarInset = useTabBarInset();
 
   useFocusEffect(
@@ -108,7 +108,7 @@ export function HomeScreen() {
           <CrewIdCard
             nickname={profile?.nickname ?? DEFAULT_PROFILE_NICKNAME}
             profileImageUrl={profile?.profileImageUrl}
-            collected={crewStatus.collected}
+            city={neighborhood?.city}
             joinedAt={profile?.createdAt}
             rank={crewStatus.rank}
           />

@@ -12,8 +12,8 @@ interface CrewIdCardProps {
   /** 사원증 사진. 없으면 발바닥 자리표시자를 쓴다. */
   profileImageUrl?: string;
   rank: string;
-  /** 지금까지 모은 마릿수 */
-  collected: number;
+  /** 활동 동네의 시·군 이름. 지부 표기에 쓴다. */
+  city?: string;
   /** 가입 시각(ISO). 일련번호를 만드는 데 쓴다. */
   joinedAt?: string;
 }
@@ -55,6 +55,19 @@ function formatSerial(joinedAt?: string) {
   return `NYD-${date}-${time}`;
 }
 
+/** "부천시" -> "부천지부". 동네를 아직 못 찾았으면 본사 소속으로 둔다. */
+function formatBranch(city?: string) {
+  const trimmed = city?.trim();
+
+  if (!trimmed) {
+    return '본사';
+  }
+
+  const base = trimmed.replace(/(특별자치시|특별자치도|특별시|광역시|시|군|도)$/, '');
+
+  return `${base || trimmed}지부`;
+}
+
 /** 좌측 바의 고양이 머리 실루엣 */
 function CatMark({ size }: { size: number }) {
   return (
@@ -74,7 +87,7 @@ function CatMark({ size }: { size: number }) {
  * 장으로 처리한다. 뒤판 -> 내용 -> 앞판 순으로 겹치면 카드가 케이스 안에 들어간
  * 것처럼 보인다. 내용은 데이터가 바뀌므로 그대로 코드로 그린다.
  */
-export function CrewIdCard({ nickname, profileImageUrl, rank, collected, joinedAt }: CrewIdCardProps) {
+export function CrewIdCard({ nickname, profileImageUrl, rank, city, joinedAt }: CrewIdCardProps) {
   const { width: screenWidth } = useWindowDimensions();
   const styles = useMemo(() => createStyles(screenWidth), [screenWidth]);
 
@@ -116,15 +129,17 @@ export function CrewIdCard({ nickname, profileImageUrl, rank, collected, joinedA
                 {nickname}
               </Text>
               <View style={styles.fieldRow}>
-                <Text style={styles.fieldLabel}>수집:</Text>
-                <Text style={styles.fieldValue}>{collected}마리</Text>
+                <Text style={styles.fieldLabel}>지부:</Text>
+                <Text numberOfLines={1} style={styles.fieldValue}>
+                  {formatBranch(city)}
+                </Text>
               </View>
-              <View style={styles.fieldRule} />
               <View style={styles.fieldRow}>
                 <Text style={styles.fieldLabel}>직책:</Text>
-                <Text style={styles.fieldValue}>{rank}</Text>
+                <Text numberOfLines={1} style={styles.fieldValue}>
+                  {rank}
+                </Text>
               </View>
-              <View style={styles.fieldRule} />
             </View>
           </View>
 
@@ -267,15 +282,14 @@ function createStyles(screenWidth: number) {
     letterSpacing: 0.8,
     color: colors.ink,
   },
-  fieldRule: {
-    height: 1,
-    backgroundColor: colors.fieldRule,
-  },
+  // 밑줄을 행 자체에 붙여 글자와 항상 같은 폭·간격을 유지한다.
   fieldRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: s(5),
-    paddingBottom: s(5),
+    paddingBottom: s(4),
+    borderBottomWidth: 1,
+    borderBottomColor: colors.fieldRule,
   },
   fieldLabel: {
     fontSize: s(11),
