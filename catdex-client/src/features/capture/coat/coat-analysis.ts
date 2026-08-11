@@ -1,6 +1,6 @@
 import type { CatVisionSamples } from '../../../shared/native/catVision';
 import { decodeBase64 } from './base64';
-import type { CoatAnalysis, CoatColorId, CoatPatternId, CoatPatternMetrics } from './coat.types';
+import type { CoatAnalysis, CoatColorId, CoatPatternId, CoatPatternMetrics } from '@/shared/coat/coat.types';
 
 /**
  * 누끼 마스크 안의 픽셀만 보고 털색과 무늬를 추정한다.

@@ -1,4 +1,5 @@
 import { throwIfSupabaseError } from '@/shared/api/client';
+import type { CoatColorId, CoatPatternId } from '@/shared/coat/coat.types';
 import { assertSupabaseConfigured, supabase } from '@/shared/supabase/client';
 import { catFilters, coatOptions, personalityOptions } from '@/shared/constants/cat.constants';
 import { getRelationshipLevel } from '@/shared/utils/catPresentation';
@@ -29,6 +30,8 @@ interface CatRow {
   number: number;
   name: string;
   type: CatType;
+  coat_colors: CoatColorId[] | null;
+  coat_pattern: CoatPatternId | null;
   rarity: CatRarity;
   rarity_reasons: string[] | null;
   encounter_count: number;
@@ -105,6 +108,8 @@ async function mapCat(row: CatRow): Promise<Cat> {
     number: row.number,
     name: row.name,
     type: row.type,
+    coatColors: row.coat_colors ?? [],
+    coatPattern: row.coat_pattern,
     rarity: row.rarity,
     rarityReasons: row.rarity_reasons ?? [],
     encounterCount: row.encounter_count,
@@ -285,6 +290,8 @@ export async function createCat(draft: CaptureCatDraft) {
     p_region_name: draft.regionName,
     p_memo: draft.memo,
     p_image_url: draft.imageUrl ?? null,
+    p_coat_colors: draft.coatColors,
+    p_coat_pattern: draft.coatPattern,
   });
 
   throwIfSupabaseError(error);

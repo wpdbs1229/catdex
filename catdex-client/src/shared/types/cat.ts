@@ -1,3 +1,5 @@
+import type { CoatColorId, CoatPatternId } from '@/shared/coat/coat.types';
+
 export type CatType =
   | '치즈냥'
   | '고등어냥'
@@ -24,6 +26,12 @@ export interface Cat {
   number: number;
   name: string;
   type: CatType;
+  /**
+   * 등록할 때 고른 털색·무늬 원본. type은 이 둘을 deriveCatType으로 접은 값이라
+   * 되돌릴 수 없어서, 도감 필터가 쓸 수 있게 따로 남긴다.
+   */
+  coatColors: CoatColorId[];
+  coatPattern: CoatPatternId | null;
   rarity: CatRarity;
   rarityReasons: string[];
   encounterCount: number;
@@ -48,6 +56,8 @@ export interface CatEncounter {
 export interface CaptureCatDraft {
   name: string;
   type: CatType;
+  coatColors: CoatColorId[];
+  coatPattern: CoatPatternId | null;
   // 성격 태그 외에 '수컷'/'암컷', '품종:페르시안' 같은 속성 태그도 함께 담는다.
   tags: string[];
   regionName: string;
