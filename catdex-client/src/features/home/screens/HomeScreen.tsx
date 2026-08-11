@@ -11,7 +11,7 @@ import { CrewIdCard } from '@/features/home/components/CrewIdCard';
 import { CrewProgressCard } from '@/features/home/components/CrewProgressCard';
 import { NotificationBell } from '@/features/notifications/components/NotificationBell';
 import { fetchMyProfile } from '@/shared/api/auth.api';
-import { defaultCrewStatus, fetchMyCrewStatus, type CrewStatus } from '@/shared/api/crew.api';
+import { checkInAndFetchCrewStatus, defaultCrewStatus, type CrewStatus } from '@/shared/api/crew.api';
 import { fetchMyCats } from '@/shared/api/cats.api';
 import { DEFAULT_PROFILE_NICKNAME } from '@/shared/constants/profile.constants';
 import { useActiveNeighborhood } from '@/shared/neighborhood/useActiveNeighborhood';
@@ -55,7 +55,7 @@ export function HomeScreen() {
     useCallback(() => {
       let isActive = true;
 
-      Promise.all([fetchMyProfile(), fetchMyCats(), fetchMyCrewStatus()])
+      Promise.all([fetchMyProfile(), fetchMyCats(), checkInAndFetchCrewStatus()])
         .then(([nextProfile, nextCats, nextCrewStatus]) => {
           if (!isActive) {
             return;
