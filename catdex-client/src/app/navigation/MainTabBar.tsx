@@ -78,7 +78,12 @@ export function MainTabBar({ state, navigation }: BottomTabBarProps) {
               accessibilityState={{ selected: isActive }}
               key={route}
               onPress={() => {
-                const event = navigation.emit({ type: 'tabPress', target: route, canPreventDefault: true });
+                // tabPress는 라우트 '키'로 배달된다. 이름을 넣으면 아무 리스너에도 닿지
+                // 않아서, 촬영 탭이 전체 화면 카메라로 넘기는 리스너가 통째로 죽고
+                // 빈 자리표시자만 뜬다. 눌린 탭이 이미 활성일 때 스택을 뿌리로 되감는
+                // 기본 동작도 같은 이벤트를 타므로 함께 살아난다.
+                const target = state.routes.find((item) => item.name === route)?.key;
+                const event = navigation.emit({ type: 'tabPress', target, canPreventDefault: true });
 
                 if (!isActive && !event.defaultPrevented) {
                   navigation.navigate(route);
