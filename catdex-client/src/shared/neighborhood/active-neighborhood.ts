@@ -63,17 +63,28 @@ export async function setActiveNeighborhood(neighborhood: SavedNeighborhood) {
 }
 
 /**
- * 기록을 남기기 직전에 동네가 비어 있을 때 쓰는 마지막 시도.
- * 권한이 없거나 행정동을 못 읽으면 흐름을 막지 않고 null을 돌려준다.
+ * 이 만남을 어디서 기록할지.
+ *
+ * 활성 동네는 '내가 활동하는 근거지'(지부·발견 알림 대상)이지, '이 고양이를 만난
+ * 곳'이 아니다. 둘을 같은 값으로 쓰면 부천 사는 사람이 서울에서 찍은 고양이가
+ * 부천에 등록된다 — 지도에 엉뚱한 자리에 찍히고, 동일 개체 후보를 부천에서만
+ * 찾으니 서울에 이미 있는 그 고양이와 영영 매칭되지 않아 중복이 생긴다.
+ *
+ * 그래서 지금 서 있는 곳을 쓰되 **활성 동네로 저장하지 않는다.** 출장지에서
+ * 한 장 찍었다고 근거지가 따라 옮겨 가면 안 된다.
+ *
+ * 위치를 못 읽으면(권한 거부·실내 오차) 근거지로 대신한다. 대개 집 근처에서
+ * 찍으므로 '동네 미지정'으로 버리는 것보다 맞을 확률이 높다.
  */
-export async function detectAndSaveNeighborhood(): Promise<SavedNeighborhood | null> {
+export async function detectEncounterNeighborhood(): Promise<SavedNeighborhood | null> {
   try {
     const { neighborhood } = await detectCurrentNeighborhood();
 
-    return await setActiveNeighborhood(neighborhood);
+    return neighborhood;
   } catch (error) {
-    console.warn('[neighborhood] detect failed', error);
+    console.warn('[neighborhood] encounter detect failed, falling back to active', error);
 
-    return null;
+    return getActiveNeighborhood();
   }
 }
+

@@ -17,11 +17,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import type { RootStackScreenProps } from '@/app/navigation/types';
 import { fetchCatEncounters, fetchCats, fetchMyCats, recordCatEncounter, removeMyCatEncounter } from '@/shared/api/cats.api';
 import { getUserFacingError } from '@/shared/errors/user-facing-error';
-import {
-  detectAndSaveNeighborhood,
-  getActiveNeighborhood,
-  UNSET_REGION_NAME,
-} from '@/shared/neighborhood/active-neighborhood';
+import { detectEncounterNeighborhood, UNSET_REGION_NAME } from '@/shared/neighborhood/active-neighborhood';
 import { createNdShadow, nd } from '@/shared/styles/theme';
 import type { Cat, CatEncounter } from '@/shared/types/cat';
 import { imageForCatType } from '@/shared/utils/catImage';
@@ -125,10 +121,12 @@ export function CatDetailScreen({ navigation, route }: RootStackScreenProps<'Cat
     setIsSavingMemo(true);
 
     try {
-      const activeNeighborhood = (await getActiveNeighborhood()) ?? (await detectAndSaveNeighborhood());
+      // 재회도 만난 곳 기준이다. 지난번과 다른 동네에서 다시 만날 수 있다.
+      const encounterNeighborhood = await detectEncounterNeighborhood();
 
       await recordCatEncounter(cat.id, {
-        regionName: activeNeighborhood?.name ?? encounters[encounters.length - 1]?.regionName ?? UNSET_REGION_NAME,
+        regionName:
+          encounterNeighborhood?.name ?? encounters[encounters.length - 1]?.regionName ?? UNSET_REGION_NAME,
         memo,
       });
       setDraftMemo('');
