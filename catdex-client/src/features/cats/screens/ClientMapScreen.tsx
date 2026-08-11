@@ -17,7 +17,9 @@ import {
   type DexFilter,
 } from '@/features/cats/dex-filter';
 import { useClientMapData } from '@/features/cats/hooks/useClientMapData';
+import { useCurrentLocation } from '@/features/cats/hooks/useCurrentLocation';
 import { KakaoMapView } from '@/features/map/components/KakaoMapView';
+import { isMatchingNeighborhoodName } from '@/shared/neighborhood/neighborhood-match';
 import { useActiveNeighborhood } from '@/shared/neighborhood/useActiveNeighborhood';
 import { createNdShadow, nd, theme } from '@/shared/styles/theme';
 import type { Cat } from '@/shared/types/cat';
@@ -32,6 +34,14 @@ export function ClientMapScreen() {
   const hasFilter = !isDexFilterEmpty(filter);
   const filterLabels = describeDexFilter(filter);
   const { name: neighborhoodName, isDetecting, redetect } = useActiveNeighborhood();
+  const currentLocation = useCurrentLocation();
+
+  // 현재 동네에 내 고객이 있으면 거기를 중심으로 연다. 없으면 초점을 비워서
+  // 지도가 마커 전체를 담도록 한다. 고객이 멀리 있어도 어디 있는지는 보여야 한다.
+  const focusRegionId = useMemo(
+    () => regions.find((region) => isMatchingNeighborhoodName(region.name, neighborhoodName))?.id ?? null,
+    [neighborhoodName, regions],
+  );
   const [selectedRegion, setSelectedRegion] = useState<Region | null>(null);
   const [selectedCat, setSelectedCat] = useState<Cat | null>(null);
 
@@ -69,6 +79,8 @@ export function ClientMapScreen() {
           setSelectedCat(null);
           setSelectedRegion((previous) => (previous?.id === region.id ? null : region));
         }}
+        currentLocation={currentLocation}
+        focusRegionId={focusRegionId}
         regions={regions}
         selectedRegionId={selectedRegion?.id ?? null}
         style={styles.map}
