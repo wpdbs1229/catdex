@@ -10,7 +10,10 @@ import {
   type DexFilter,
   type DexPatternFilter,
 } from '@/features/cats/dex-filter';
+import { CoatPatternSwatch } from '@/shared/components/CoatPatternSwatch';
 import { nd, theme } from '@/shared/styles/theme';
+
+const SWATCH_SIZE = 24;
 
 interface DexFilterPanelProps {
   /** 패널을 열 때의 적용된 필터. 패널 안에서는 초안으로만 다룬다. */
@@ -20,9 +23,9 @@ interface DexFilterPanelProps {
   onApply: (next: DexFilter) => void;
 }
 
-/** 밝은 견본 위에서는 검은 체크라야 보인다. */
+/** 밝은 견본 위에서는 검은 체크라야 보인다. 기타는 옅은 회색이라 같이 묶는다. */
 function checkColorFor(id: DexColorFilter) {
-  return id === 'white' || id === 'cream' || id === 'lilac' || id === 'gray'
+  return id === 'white' || id === 'cream' || id === 'lilac' || id === 'gray' || id === OTHER_COAT
     ? nd.colors.ink
     : nd.colors.bg;
 }
@@ -97,8 +100,16 @@ export function DexFilterPanel({ filter, countFor, onApply }: DexFilterPanelProp
                 onPress={() => togglePattern(option.id)}
                 style={({ pressed }) => [styles.option, pressed && styles.optionPressed]}
               >
-                <View style={[styles.swatch, isSelected ? styles.swatchOn : styles.swatchOff]}>
-                  {isSelected ? <Check color={nd.colors.bg} size={14} strokeWidth={3} /> : null}
+                <View style={[styles.swatch, option.id === OTHER_COAT && styles.swatchOther]}>
+                  {option.id === OTHER_COAT ? null : (
+                    <CoatPatternSwatch pattern={option.id} size={SWATCH_SIZE} />
+                  )}
+                  {isSelected ? (
+                    // 무늬 위에서는 체크만으로 안 보인다. 어둡게 깔고 흰 체크를 얹는다.
+                    <View style={styles.swatchCheckOverlay}>
+                      <Check color={nd.colors.bg} size={14} strokeWidth={3} />
+                    </View>
+                  ) : null}
                 </View>
                 <Text style={[styles.optionLabel, isSelected && styles.optionLabelSelected]}>
                   {option.label}
@@ -123,6 +134,8 @@ export function DexFilterPanel({ filter, countFor, onApply }: DexFilterPanelProp
 
 const styles = StyleSheet.create({
   panel: {
+    // 패널이 화면(스크림 영역)을 넘지 않게 잡아 두면 안쪽 목록이 알아서 줄어든다.
+    maxHeight: '100%',
     marginTop: 12,
     marginHorizontal: 16,
     borderRadius: 16,
@@ -138,8 +151,9 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   scroll: {
-    // 목록이 길어도 하단 CTA가 화면 밖으로 밀리지 않게 잘라 둔다. 시안의 스크롤바와 같은 의도다.
-    maxHeight: 240,
+    // 고정 높이를 주지 않는다. 시안에서 패널이 작았던 건 키보드가 올라와 있었기 때문이고,
+    // 키보드가 없으면 그만큼 더 보여야 한다. 남는 공간만큼 늘고 모자라면 줄어든다.
+    flexShrink: 1,
   },
   scrollBody: {
     paddingHorizontal: 20,
@@ -169,25 +183,25 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   swatch: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: SWATCH_SIZE,
+    height: SWATCH_SIZE,
+    borderRadius: SWATCH_SIZE / 2,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: nd.colors.border,
+    // 무늬 SVG가 원 밖으로 나가지 않게 자른다.
+    overflow: 'hidden',
   },
+  /** 디자인시스템의 "기타"는 무늬 없는 옅은 원이다. */
   swatchOther: {
     backgroundColor: nd.colors.field,
-    borderStyle: 'dashed',
-    borderColor: nd.colors.subtle,
   },
-  swatchOn: {
-    backgroundColor: nd.colors.ink,
-    borderColor: nd.colors.ink,
-  },
-  swatchOff: {
-    backgroundColor: nd.colors.bg,
+  swatchCheckOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(17, 17, 17, 0.45)',
   },
   optionLabel: {
     flex: 1,
