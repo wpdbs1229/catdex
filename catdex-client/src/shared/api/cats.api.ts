@@ -2,6 +2,7 @@ import { throwIfSupabaseError } from '@/shared/api/client';
 import type { CoatColorId, CoatPatternId } from '@/shared/coat/coat.types';
 import { assertSupabaseConfigured, supabase } from '@/shared/supabase/client';
 import { catFilters, coatOptions, personalityOptions } from '@/shared/constants/cat.constants';
+import { getActiveNeighborhood } from '@/shared/neighborhood/active-neighborhood';
 import { getRelationshipLevel } from '@/shared/utils/catPresentation';
 import type {
   Cat,
@@ -283,7 +284,15 @@ export function fetchCatOptions(): Promise<CatOptionsResponse> {
 export async function createCat(draft: CaptureCatDraft) {
   assertSupabaseConfigured();
 
+  // 구역 중심 좌표를 함께 보낸다. 없으면 서버가 기본 좌표로 만들고,
+  // 나중에 좌표가 들어올 때 스스로 고친다. 이 값은 내 위치가 아니라
+  // 동네 이름을 지오코딩해서 얻은 동네 중심이다.
+  const neighborhood = await getActiveNeighborhood().catch(() => null);
+  const isSameRegion = neighborhood?.name === draft.regionName;
+
   const { data, error } = await supabase.rpc('create_cat', {
+    p_region_lat: isSameRegion ? neighborhood.lat : null,
+    p_region_lng: isSameRegion ? neighborhood.lng : null,
     p_name: draft.name,
     p_type: draft.type,
     p_tags: draft.tags,
