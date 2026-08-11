@@ -5,7 +5,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import type { RootStackParamList } from '@/app/navigation/types';
+import type { ClientStackParamList, RootStackParamList } from '@/app/navigation/types';
 import { useTabBarInset } from '@/app/navigation/useTabBarInset';
 import { ClientTabBar } from '@/features/cats/components/ClientTabBar';
 import { DexFilterPanel } from '@/features/cats/components/DexFilterPanel';
@@ -41,7 +41,7 @@ function catMatchesSearch(cat: Cat, query: string) {
 }
 
 export function CatDexScreen() {
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const navigation = useNavigation<NativeStackNavigationProp<ClientStackParamList & RootStackParamList>>();
   const [cats, setCats] = useState<Cat[]>([]);
   const [placeholders, setPlaceholders] = useState<DexPlaceholder[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -268,7 +268,7 @@ export function CatDexScreen() {
           onOpenConsult={() =>
             Alert.alert('고객 상담은 준비 중이에요', '고양이와의 대화는 다음 단계에서 열려요.')
           }
-          onOpenMap={() => navigation.navigate('ClientMap' as never)}
+          onOpenMap={() => navigation.navigate('ClientMap')}
           onOpenRoster={() => undefined}
         />
       </View>
