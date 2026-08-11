@@ -7,6 +7,8 @@ interface CrewIdCardProps {
   /** 사원증 사진. 없으면 발바닥 자리표시자를 쓴다. */
   profileImageUrl?: string;
   rank: string;
+  /** 지금까지 모은 마릿수 */
+  collected: number;
 }
 
 /**
@@ -14,7 +16,7 @@ interface CrewIdCardProps {
  * 시안은 손글씨 폰트(Ownglyph)를 쓰지만 프로젝트에 폰트 자산이 없어 시스템
  * 폰트로 그리고 자간·크기만 시안 값을 따른다.
  */
-export function CrewIdCard({ nickname, profileImageUrl, rank }: CrewIdCardProps) {
+export function CrewIdCard({ nickname, profileImageUrl, rank, collected }: CrewIdCardProps) {
   return (
     <View style={styles.card}>
       <View style={styles.lanyardSlot} />
@@ -38,9 +40,11 @@ export function CrewIdCard({ nickname, profileImageUrl, rank }: CrewIdCardProps)
             <PawPrint color="#000000" size={24} strokeWidth={1.8} style={styles.pawMark} />
           </View>
 
+          {/* 시안은 여기가 '회사: 냥냥단'인데 모든 사용자가 같은 값이라 정보가 없다.
+              카드 구조를 그대로 두고 수집 마릿수로 바꿨다. */}
           <View style={styles.fieldRow}>
-            <Text style={styles.fieldLabel}>회사:</Text>
-            <Text style={styles.fieldValue}>냥냥단</Text>
+            <Text style={styles.fieldLabel}>수집:</Text>
+            <Text style={styles.fieldValue}>{collected}마리</Text>
           </View>
           <View style={styles.divider} />
 

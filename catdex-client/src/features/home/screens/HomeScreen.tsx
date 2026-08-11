@@ -8,34 +8,17 @@ import type { RootStackParamList } from '@/app/navigation/types';
 import { useTabBarInset } from '@/app/navigation/useTabBarInset';
 import { CatChatCard } from '@/features/home/components/CatChatCard';
 import { CrewIdCard } from '@/features/home/components/CrewIdCard';
+import { CrewProgressCard } from '@/features/home/components/CrewProgressCard';
 import { NotificationBell } from '@/features/notifications/components/NotificationBell';
 import { fetchMyProfile } from '@/shared/api/auth.api';
-import { fetchDexPlaceholders, fetchMyCats } from '@/shared/api/cats.api';
-import { PolaroidCatCard } from '@/shared/components/PolaroidCatCard';
+import { defaultCrewStatus, fetchMyCrewStatus, type CrewStatus } from '@/shared/api/crew.api';
+import { fetchMyCats } from '@/shared/api/cats.api';
 import { DEFAULT_PROFILE_NICKNAME } from '@/shared/constants/profile.constants';
-import { loadFavoriteCatIds, saveFavoriteCatIds } from '@/shared/favorites/favorites-storage';
 import { useActiveNeighborhood } from '@/shared/neighborhood/useActiveNeighborhood';
 import { nd } from '@/shared/styles/theme';
 import type { AuthUser } from '@/shared/types/auth';
-import type { Cat, DexPlaceholder } from '@/shared/types/cat';
+import type { Cat } from '@/shared/types/cat';
 import { imageForCatType } from '@/shared/utils/catImage';
-import { formatNyanTagLabel } from '@/shared/utils/catPresentation';
-
-/**
- * 사원증 직책. 서버에 직책 개념이 없어서 내가 모은 고양이 수로 정한다.
- * 시안의 "대장"은 가장 높은 단계에 해당한다.
- */
-function getCrewRank(collectedCount: number) {
-  if (collectedCount >= 15) {
-    return '대장';
-  }
-
-  if (collectedCount >= 5) {
-    return '대원';
-  }
-
-  return '수습';
-}
 
 /** 받침이 있으면 "과", 없으면 "와". */
 function withParticle(name: string) {
@@ -63,9 +46,8 @@ function getChatMessage(name: string, index: number) {
 export function HomeScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [profile, setProfile] = useState<AuthUser | null>(null);
+  const [crewStatus, setCrewStatus] = useState<CrewStatus>(defaultCrewStatus);
   const [myCats, setMyCats] = useState<Cat[]>([]);
-  const [placeholders, setPlaceholders] = useState<DexPlaceholder[]>([]);
-  const [favoriteCatIds, setFavoriteCatIds] = useState<Set<string>>(() => new Set());
   const { name: neighborhoodName, isDetecting, redetect } = useActiveNeighborhood();
   const tabBarInset = useTabBarInset();
 
@@ -73,16 +55,15 @@ export function HomeScreen() {
     useCallback(() => {
       let isActive = true;
 
-      Promise.all([fetchMyProfile(), fetchMyCats(), fetchDexPlaceholders(), loadFavoriteCatIds()])
-        .then(([nextProfile, nextCats, nextPlaceholders, nextFavorites]) => {
+      Promise.all([fetchMyProfile(), fetchMyCats(), fetchMyCrewStatus()])
+        .then(([nextProfile, nextCats, nextCrewStatus]) => {
           if (!isActive) {
             return;
           }
 
           setProfile(nextProfile);
           setMyCats(nextCats);
-          setPlaceholders(nextPlaceholders);
-          setFavoriteCatIds(nextFavorites);
+          setCrewStatus(nextCrewStatus);
         })
         .catch((error: unknown) => {
           console.warn('[home] load failed', error);
@@ -94,28 +75,9 @@ export function HomeScreen() {
     }, []),
   );
 
-  const favoriteCats = useMemo(() => myCats.filter((cat) => favoriteCatIds.has(cat.id)), [favoriteCatIds, myCats]);
   const chatCats = useMemo(() => myCats.slice(0, 3), [myCats]);
 
-  const toggleFavorite = (catId: string) => {
-    setFavoriteCatIds((previous) => {
-      const next = new Set(previous);
 
-      if (next.has(catId)) {
-        next.delete(catId);
-      } else {
-        next.add(catId);
-      }
-
-      saveFavoriteCatIds(next).catch((error: unknown) => {
-        console.warn('[home] favorite save failed', error);
-      });
-
-      return next;
-    });
-  };
-
-  const openCatDetail = (catId: string) => navigation.navigate('CatDetail', { catId });
 
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.screen}>
@@ -147,8 +109,16 @@ export function HomeScreen() {
             <CrewIdCard
               nickname={profile?.nickname ?? DEFAULT_PROFILE_NICKNAME}
               profileImageUrl={profile?.profileImageUrl}
-              rank={getCrewRank(myCats.length)}
+              collected={crewStatus.collected}
+              rank={crewStatus.rank}
             />
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>냥냥단 승급까지</Text>
+          <View style={styles.sectionBody}>
+            <CrewProgressCard status={crewStatus} />
           </View>
         </View>
 
@@ -167,52 +137,6 @@ export function HomeScreen() {
             </ScrollView>
           ) : (
             <Text style={styles.emptyText}>도감에 고양이를 등록하면 대화 상대가 생겨요.</Text>
-          )}
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>즐겨찾기한 고양이</Text>
-          {favoriteCats.length > 0 ? (
-            <ScrollView contentContainerStyle={styles.row} horizontal showsHorizontalScrollIndicator={false}>
-              {favoriteCats.map((cat) => (
-                <View key={cat.id} style={styles.cardSlot}>
-                  <PolaroidCatCard
-                    imageSource={imageForCatType(cat.type, cat.imageUrl)}
-                    liked
-                    onPress={() => openCatDetail(cat.id)}
-                    onToggleLike={() => toggleFavorite(cat.id)}
-                    tagLabel={formatNyanTagLabel(cat.name, cat.firstSeenAt)}
-                  />
-                </View>
-              ))}
-            </ScrollView>
-          ) : (
-            <Text style={styles.emptyText}>도감에서 하트를 누르면 여기에 모여요.</Text>
-          )}
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>미확인 동네 고양이</Text>
-          {placeholders.length > 0 ? (
-            <ScrollView contentContainerStyle={styles.row} horizontal showsHorizontalScrollIndicator={false}>
-              {placeholders.map((placeholder) => (
-                <View key={placeholder.id} style={styles.cardSlot}>
-                  <PolaroidCatCard
-                    imageSource={imageForCatType(placeholder.type, placeholder.imageUrl)}
-                    // 제보 단계라 이름이 없다. 시안의 "이름_날짜" 자리에는 지역명 대신
-                    // 길이가 비슷한 털색을 넣는다. (지역명은 "부천시 중동 근처"처럼 길어 잘린다.)
-                    tagLabel={
-                      placeholder.sightedAt
-                        ? formatNyanTagLabel(placeholder.type, placeholder.sightedAt)
-                        : placeholder.type
-                    }
-                    tagTone="muted"
-                  />
-                </View>
-              ))}
-            </ScrollView>
-          ) : (
-            <Text style={styles.emptyText}>아직 제보된 동네 고양이가 없어요.</Text>
           )}
         </View>
       </ScrollView>
@@ -276,10 +200,6 @@ const styles = StyleSheet.create({
   row: {
     gap: 8,
     paddingHorizontal: 20,
-  },
-  cardSlot: {
-    width: 165,
-    height: 178,
   },
   emptyText: {
     paddingHorizontal: 28,
