@@ -71,10 +71,10 @@ function HomeNavigator() {
 
 function MainTabNavigator() {
   return (
-    // 순서는 시안의 '기본 하단바'를 따른다: 홈 / 내 도감 / 촬영 / 동네 / 마이페이지
+    // 순서는 시안의 '기본 하단바'를 따른다: 홈 / 내 고객 / 촬영 / 동네 / 마이페이지
     <MainTab.Navigator screenOptions={{ headerShown: false }} tabBar={(props) => <MainTabBar {...props} />}>
       <MainTab.Screen name="HomeTab" component={HomeNavigator} options={{ title: '홈' }} />
-      <MainTab.Screen name="CollectionTab" component={CatDexScreen} options={{ title: '내 도감' }} />
+      <MainTab.Screen name="CollectionTab" component={CatDexScreen} options={{ title: '내 고객' }} />
       <MainTab.Screen
         name="CaptureTab"
         component={PlaceholderScreen}
