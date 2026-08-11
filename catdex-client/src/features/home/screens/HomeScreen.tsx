@@ -20,24 +20,18 @@ import type { AuthUser } from '@/shared/types/auth';
 import type { Cat } from '@/shared/types/cat';
 import { imageForCatType } from '@/shared/utils/catImage';
 
-/** 받침이 있으면 "과", 없으면 "와". */
-function withParticle(name: string) {
-  const lastCharacter = name.at(-1) ?? '';
-  const code = lastCharacter.charCodeAt(0);
-
-  if (Number.isNaN(code) || code < 0xac00 || code > 0xd7a3) {
-    return '와';
-  }
-
-  return (code - 0xac00) % 28 === 0 ? '와' : '과';
-}
-
-/** 시안의 세 가지 안내 문구를 카드 순서대로 돌려쓴다. */
+/**
+ * 카드 순서대로 돌려쓰는 안내 문구.
+ *
+ * 시안은 "대화"였지만 화면 위쪽(사원증·인사고과)과 같은 회사원 은유로 맞춰
+ * 고객 상담 어투를 쓴다. 세 문구를 돌려쓰는 건 시안 그대로다 - 카드가 나란히
+ * 서기 때문에 같은 문장이 세 번 반복되면 문구가 아니라 버그로 읽힌다.
+ */
 function getChatMessage(name: string, index: number) {
   const messages = [
-    `${name}의 이야기를 들어보세요.`,
-    `${name}${withParticle(name)} 특별한 대화를 시작해 보세요.`,
-    `${name}${withParticle(name)} 언제든 대화해 보세요.`,
+    `${name} 고객님이 기다리고 있어요.`,
+    `${name} 고객님이 상담을 요청했어요.`,
+    `${name} 고객님의 이야기를 들어보세요.`,
   ];
 
   return messages[index % messages.length];
@@ -122,7 +116,7 @@ export function HomeScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>고양이랑 대화 하실래요?</Text>
+          <Text style={styles.sectionTitle}>오늘의 고객 상담</Text>
           {chatCats.length > 0 ? (
             <ScrollView contentContainerStyle={styles.row} horizontal showsHorizontalScrollIndicator={false}>
               {chatCats.map((cat, index) => (
@@ -130,12 +124,12 @@ export function HomeScreen() {
                   imageSource={imageForCatType(cat.type, cat.imageUrl)}
                   key={cat.id}
                   message={getChatMessage(cat.name, index)}
-                  onPress={() => Alert.alert('대화는 준비 중이에요', '고양이와의 채팅은 다음 단계에서 열려요.')}
+                  onPress={() => Alert.alert('상담은 준비 중이에요', '냥고객님과의 상담은 다음 단계에서 열려요.')}
                 />
               ))}
             </ScrollView>
           ) : (
-            <Text style={styles.emptyText}>도감에 고양이를 등록하면 대화 상대가 생겨요.</Text>
+            <Text style={styles.emptyText}>도감에 고양이를 등록하면 상담할 고객이 생겨요.</Text>
           )}
         </View>
       </ScrollView>
