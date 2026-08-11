@@ -40,8 +40,8 @@ export function CrewProgressCard({ status }: CrewProgressCardProps) {
 
       <Text style={styles.caption}>
         {status.nextRank
-          ? `${status.nextRank}까지 ${remaining}마리 남았어요.`
-          : '최고 직책이에요. 계속 모아 보세요!'}
+          ? `${status.nextRank} 승진까지 ${remaining}마리 남았어요.`
+          : '더 오를 곳이 없습니다. 축하드립니다, 대표님.'}
       </Text>
     </View>
   );

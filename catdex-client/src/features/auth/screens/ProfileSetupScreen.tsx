@@ -66,7 +66,7 @@ export function ProfileSetupScreen({ user, isSaving, onComplete }: ProfileSetupS
     <SafeAreaView edges={['top', 'right', 'bottom', 'left']} style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <Text style={styles.title}>냥냥단 사원증</Text>
+          <Text style={styles.title}>대한냥냥공사 사원증</Text>
           <Text style={styles.subtitle}>탐험을 시작하기 전, 나만의 사원증을 만들어요.</Text>
         </View>
 
