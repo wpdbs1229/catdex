@@ -19,5 +19,3 @@ export const coatOptions: CatType[] = [
 export const personalityOptions: PersonalityTag[] = ['애교많음', '겁많음', '느긋함', '활발함'];
 
 export const catFilters: CatFilter[] = ['전체', ...coatOptions, '희귀'];
-
-export const totalDexCount = 100;

@@ -113,7 +113,6 @@ export interface CatReportDraft {
 
 export interface DexPlaceholder {
   id: string;
-  number: number;
   type: CatType;
   rarity: CatRarity;
   clueTitle?: string;
@@ -125,9 +124,4 @@ export interface DexPlaceholder {
   reportCount?: number;
   behaviorHint?: string;
   imageUrl?: string;
-}
-
-export interface DexProgress {
-  collected: number;
-  total: number;
 }
