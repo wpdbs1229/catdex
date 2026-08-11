@@ -29,7 +29,7 @@ import kotlin.math.roundToInt
 // 촬영 사진 한 장에서 고양이 탐지와 누끼(배경 제거)를 수행한다.
 // iOS CatVisionModule.swift와 반환 계약, 여백 비율, 털색 판정 기준을 동일하게 맞춘다.
 // 시각 임베딩은 이 모듈에서 만들지 않는다. 크로스플랫폼 공용 모델을 붙이기 전까지
-// embedding 필드를 비워 둔다. 배경은 docs/domain-rules.md 참고.
+// embedding 필드를 비워 둔다.
 class CatVisionModule : Module() {
   override fun definition() = ModuleDefinition {
     Name("CatVision")
