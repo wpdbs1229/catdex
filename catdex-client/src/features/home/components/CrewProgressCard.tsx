@@ -1,4 +1,4 @@
-import { CheckCircle2, ChevronRight, PawPrint, RefreshCw } from 'lucide-react-native';
+import { CheckCircle2, ChevronRight, PawPrint, Plane, RefreshCw } from 'lucide-react-native';
 import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { CrewStatus } from '@/shared/api/crew.api';
@@ -20,6 +20,23 @@ const colors = {
   accentSoft: nd.colors.primarySoft,
   divider: '#EDEBE8',
 };
+
+/**
+ * 출장 줄에 쓸 한 줄.
+ *
+ * 위치를 믿을 수 있게 된 뒤의 기록만 세므로, 시작 직후에는 비어 있는 게 정상이다.
+ * 그때 '0회'라고 쓰면 실패처럼 읽히니 아직 없다고만 말한다.
+ */
+function formatAway(status: CrewStatus) {
+  if (status.awayEncounters === 0 || !status.awayLatestRegion) {
+    return '아직 출장 기록이 없어요';
+  }
+
+  const others = status.awayRegionCount - 1;
+  const place = others > 0 ? `${status.awayLatestRegion} 외 ${others}곳` : status.awayLatestRegion;
+
+  return `${place} ${status.awayEncounters}회`;
+}
 
 /** 다음 직책까지의 진행률. 최고 직책이면 1. */
 function getProgress(status: CrewStatus) {
@@ -129,6 +146,15 @@ export function CrewProgressCard({
           {status.topReunionCat
             ? `${status.topReunionCat} 고객 ${status.topReunionCount}회 재회`
             : '아직 다시 만난 고객이 없어요'}
+        </Text>
+      </View>
+
+      <View style={styles.divider} />
+
+      <View style={styles.reunionRow}>
+        <RowLabel icon={<Plane color={colors.accent} size={13} strokeWidth={2.4} />} text="출장 기록" />
+        <Text numberOfLines={1} style={styles.reunionText}>
+          {formatAway(status)}
         </Text>
       </View>
     </View>
