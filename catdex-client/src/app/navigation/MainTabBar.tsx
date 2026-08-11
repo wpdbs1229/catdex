@@ -5,7 +5,7 @@ import { Image, Pressable, StyleSheet, Text, View, type ImageSourcePropType } fr
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { TAB_BAR_TOP_GAP } from '@/app/navigation/useTabBarInset';
-import { createNdShadow, nd, theme } from '@/shared/styles/theme';
+import { createNdShadow, nd } from '@/shared/styles/theme';
 
 type LucideIcon = ComponentType<{ color: string; size: number; fill?: string; strokeWidth?: number }>;
 
@@ -69,7 +69,7 @@ export function MainTabBar({ state, navigation }: BottomTabBarProps) {
       <View style={styles.bar}>
         {items.map(({ route, label, icon: Icon, image }) => {
           const isActive = activeRoute === route;
-          const color = isActive ? theme.colors.accent : nd.colors.ink;
+          const color = isActive ? nd.colors.accent : nd.colors.ink;
 
           return (
             <Pressable
