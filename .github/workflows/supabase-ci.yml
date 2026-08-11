@@ -1,0 +1,57 @@
+name: Supabase CI
+
+on:
+  pull_request:
+    paths:
+      - "supabase/migrations/**"
+      - ".github/workflows/supabase-ci.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "supabase/migrations/**"
+      - ".github/workflows/supabase-ci.yml"
+
+jobs:
+  migrations:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # 두 사람이 서로 다른 브랜치에서 같은 날 마이그레이션을 만들면 파일명이
+      # 달라 git이 충돌을 내지 않는다. 버전이 겹치면 db push가 뒤엣것을 이미
+      # 적용된 것으로 보고 조용히 건너뛴다. 그 사고를 여기서 막는다.
+      - name: 마이그레이션 버전 검사
+        run: |
+          cd supabase/migrations
+          status=0
+
+          # 1) 파일명 규칙: Supabase CLI는 <숫자>_이름.sql 이 아니면 건너뛴다.
+          bad_names=$(ls *.sql | grep -vE '^[0-9]+_[^/]+\.sql$' || true)
+          if [ -n "$bad_names" ]; then
+            echo "::error::파일명이 <버전>_이름.sql 형식이 아닙니다. CLI가 조용히 건너뜁니다:"
+            echo "$bad_names" | sed 's/^/  /'
+            status=1
+          fi
+
+          # 2) 버전 중복
+          dupes=$(ls *.sql | sed 's/_.*//' | sort | uniq -d || true)
+          if [ -n "$dupes" ]; then
+            echo "::error::버전이 겹칩니다. db push가 뒤엣것을 건너뜁니다:"
+            for v in $dupes; do
+              echo "  $v"
+              ls "$v"_*.sql | sed 's/^/    /'
+            done
+            status=1
+          fi
+
+          if [ "$status" -eq 0 ]; then
+            echo "마이그레이션 $(ls *.sql | wc -l | tr -d ' ')개, 문제 없음"
+          else
+            echo
+            echo "새 마이그레이션은 'supabase migration new <이름>'으로 만드세요."
+            echo "CLI가 UTC 초 단위 버전을 찍어 주므로 손으로 정시를 고르다 겹치는 일이 없습니다."
+          fi
+          exit $status
