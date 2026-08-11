@@ -4,7 +4,7 @@ import { ChevronDown, ListFilter, MapPin } from 'lucide-react-native';
 import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import type { RootStackParamList } from '@/app/navigation/types';
+import type { ClientStackParamList, RootStackParamList } from '@/app/navigation/types';
 import { ClientCatSheet } from '@/features/cats/components/ClientCatSheet';
 import { ClientRegionSheet } from '@/features/cats/components/ClientRegionSheet';
 import { ClientTabBar } from '@/features/cats/components/ClientTabBar';
@@ -16,7 +16,7 @@ import type { Cat } from '@/shared/types/cat';
 import type { Region } from '@/shared/types/region';
 
 export function ClientMapScreen() {
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const navigation = useNavigation<NativeStackNavigationProp<ClientStackParamList & RootStackParamList>>();
   const insets = useSafeAreaInsets();
   const { regions, catsByRegionId, isLoading } = useClientMapData();
   const { name: neighborhoodName, isDetecting, redetect } = useActiveNeighborhood();
@@ -46,7 +46,9 @@ export function ClientMapScreen() {
     [catsByRegionId, selectedRegion],
   );
 
-  const goRoster = () => navigation.navigate('Main', { screen: 'CollectionTab' } as never);
+  // 이미 CollectionTab 안이라 탭을 다시 가리켜 봐야 아무 일도 일어나지 않는다.
+  // 같은 스택의 명단 화면으로 돌아가야 한다.
+  const goRoster = () => navigation.navigate('ClientRoster');
 
   return (
     <View style={styles.screen}>
@@ -117,7 +119,7 @@ export function ClientMapScreen() {
         <View style={[styles.tabBarWrap, { paddingBottom: Math.max(insets.bottom, 12) }]}>
           <ClientTabBar
             active="map"
-            onHome={() => navigation.navigate('Main', { screen: 'HomeTab' } as never)}
+            onHome={() => navigation.getParent()?.navigate('HomeTab' as never)}
             onOpenConsult={() =>
               Alert.alert('고객 상담은 준비 중이에요', '고양이와의 대화는 다음 단계에서 열려요.')
             }
