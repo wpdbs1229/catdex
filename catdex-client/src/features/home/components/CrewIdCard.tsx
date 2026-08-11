@@ -1,13 +1,10 @@
 import { PawPrint } from 'lucide-react-native';
-import { Image, StyleSheet, Text, View, type ImageSourcePropType } from 'react-native';
+import { Image, StyleSheet, Text, View } from 'react-native';
 import { nd } from '@/shared/styles/theme';
-
-const defaultAvatar = require('../../../../assets/illustrations/default-profile-avatar.png');
-const hangingCat = require('../../../../assets/illustrations/id-card-hanging-cat.png');
 
 interface CrewIdCardProps {
   nickname: string;
-  /** 사원증 사진. 없으면 기본 아바타를 쓴다. */
+  /** 사원증 사진. 없으면 발바닥 자리표시자를 쓴다. */
   profileImageUrl?: string;
   rank: string;
 }
@@ -18,14 +15,18 @@ interface CrewIdCardProps {
  * 폰트로 그리고 자간·크기만 시안 값을 따른다.
  */
 export function CrewIdCard({ nickname, profileImageUrl, rank }: CrewIdCardProps) {
-  const avatarSource: ImageSourcePropType = profileImageUrl ? { uri: profileImageUrl } : defaultAvatar;
-
   return (
     <View style={styles.card}>
       <View style={styles.lanyardSlot} />
 
       <View style={styles.body}>
-        <Image resizeMode="cover" source={avatarSource} style={styles.avatar} />
+        {profileImageUrl ? (
+          <Image resizeMode="cover" source={{ uri: profileImageUrl }} style={styles.avatar} />
+        ) : (
+          <View style={[styles.avatar, styles.avatarFallback]}>
+            <PawPrint color={nd.colors.subtle} size={40} strokeWidth={1.6} />
+          </View>
+        )}
 
         <View style={styles.info}>
           <View style={styles.nameRow}>
@@ -51,12 +52,6 @@ export function CrewIdCard({ nickname, profileImageUrl, rank }: CrewIdCardProps)
         </View>
       </View>
 
-      {/* 카드 오른쪽 위에 걸터앉은 고양이. 시안(285:4453)의 회전값과 위치를 그대로 쓴다.
-          작은 흰 사각형은 고양이 앞발이 걸치는 자리의 카드 테두리를 지우는 조각이다. */}
-      <View pointerEvents="none" style={styles.hangingCat}>
-        <View style={styles.borderGap} />
-        <Image resizeMode="contain" source={hangingCat} style={styles.hangingCatImage} />
-      </View>
     </View>
   );
 }
@@ -68,7 +63,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#000000',
     backgroundColor: nd.colors.card,
-    // 고양이가 카드 위·오른쪽으로 걸쳐 나가므로 잘라내지 않는다.
+    overflow: 'hidden',
   },
   lanyardSlot: {
     position: 'absolute',
@@ -88,6 +83,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 20,
     paddingTop: 12,
+  },
+  avatarFallback: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   avatar: {
     width: 120,
@@ -135,27 +134,5 @@ const styles = StyleSheet.create({
   divider: {
     height: 1,
     backgroundColor: '#000000',
-  },
-  // 시안의 110px 상자를 32.19도 돌려 카드 오른쪽 위 모서리에 걸치게 한다.
-  // 원본 그림은 -31.7도로 누워 있고 시안의 고양이는 -3.3도라, 시계방향 회전이 맞다.
-  hangingCat: {
-    position: 'absolute',
-    right: -34.3,
-    top: -62.5,
-    width: 110,
-    height: 110,
-    transform: [{ rotate: '32.19deg' }],
-  },
-  hangingCatImage: {
-    width: '100%',
-    height: '100%',
-  },
-  borderGap: {
-    position: 'absolute',
-    left: 35,
-    top: 60,
-    width: 16,
-    height: 9,
-    backgroundColor: '#FFFFFF',
   },
 });

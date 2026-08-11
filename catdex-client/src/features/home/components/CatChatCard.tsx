@@ -1,8 +1,10 @@
+import { PawPrint } from 'lucide-react-native';
 import { Image, Pressable, StyleSheet, Text, View, type ImageSourcePropType } from 'react-native';
 import { nd } from '@/shared/styles/theme';
 
 interface CatChatCardProps {
-  imageSource: ImageSourcePropType;
+  /** 고양이 사진. 없으면 발바닥 자리표시자를 쓴다. */
+  imageSource?: ImageSourcePropType;
   /** "페르의 이야기를 들어보세요."처럼 두 줄로 끊어 쓰는 안내 문구 */
   message: string;
   onPress: () => void;
@@ -14,7 +16,13 @@ export function CatChatCard({ imageSource, message, onPress }: CatChatCardProps)
     <View style={styles.card}>
       <View style={styles.head}>
         <View style={styles.avatarFrame}>
-          <Image resizeMode="cover" source={imageSource} style={styles.avatar} />
+          {imageSource ? (
+            <Image resizeMode="cover" source={imageSource} style={styles.avatar} />
+          ) : (
+            <View style={styles.avatarFallback}>
+              <PawPrint color={nd.colors.subtle} size={20} strokeWidth={1.6} />
+            </View>
+          )}
         </View>
         <Text numberOfLines={2} style={styles.message}>
           {message}
@@ -52,6 +60,12 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(17, 17, 17, 0.1)',
     backgroundColor: '#FFFFFF',
     overflow: 'hidden',
+  },
+  avatarFallback: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   avatar: {
     width: '100%',

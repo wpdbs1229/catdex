@@ -1,7 +1,7 @@
 import * as ImagePicker from 'expo-image-picker';
-import { Camera } from 'lucide-react-native';
+import { Camera, PawPrint } from 'lucide-react-native';
 import { useState } from 'react';
-import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type ImageSourcePropType } from 'react-native';
+import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { DEFAULT_PROFILE_NICKNAME } from '@/shared/constants/profile.constants';
 import { nd } from '@/shared/styles/theme';
@@ -12,10 +12,6 @@ interface ProfileSetupScreenProps {
   isSaving: boolean;
   onComplete: (draft: ProfileUpdateDraft) => Promise<void> | void;
 }
-
-const illustrations = {
-  profile: require('../../../../assets/illustrations/default-profile-avatar.png'),
-} satisfies Record<string, ImageSourcePropType>;
 
 export function ProfileSetupScreen({ user, isSaving, onComplete }: ProfileSetupScreenProps) {
   const [nickname, setNickname] = useState(user.providerProfile?.nickname ?? DEFAULT_PROFILE_NICKNAME);
@@ -76,7 +72,13 @@ export function ProfileSetupScreen({ user, isSaving, onComplete }: ProfileSetupS
 
         <View style={styles.avatarWrap}>
           <Pressable accessibilityLabel="사원증 사진 선택" disabled={isSaving} onPress={handlePickImage}>
-            <Image resizeMode="cover" source={previewImage ? { uri: previewImage } : illustrations.profile} style={styles.avatar} />
+            {previewImage ? (
+              <Image resizeMode="cover" source={{ uri: previewImage }} style={styles.avatar} />
+            ) : (
+              <View style={[styles.avatar, styles.avatarFallback]}>
+                <PawPrint color={nd.colors.subtle} size={44} strokeWidth={1.6} />
+              </View>
+            )}
             <View style={styles.cameraBadge}>
               <Camera color="#FFFFFF" size={18} strokeWidth={1.8} />
             </View>
@@ -143,6 +145,10 @@ const styles = StyleSheet.create({
   avatarWrap: {
     marginTop: 32,
     alignItems: 'center',
+  },
+  avatarFallback: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   avatar: {
     width: 120,

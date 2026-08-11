@@ -5,7 +5,8 @@ import { createNdShadow, nd } from '@/shared/styles/theme';
 const paperTexture = require('../../../assets/textures/crumpled-paper.jpg');
 
 interface PolaroidCatCardProps {
-  imageSource: ImageSourcePropType;
+  /** 대표 사진. 없으면 발바닥 자리표시자를 보여준다. */
+  imageSource?: ImageSourcePropType;
   tagLabel: string;
   onPress?: () => void;
   liked?: boolean;
@@ -34,8 +35,10 @@ export function PolaroidCatCard({
     >
       <View style={styles.photoFrame}>
         <Image resizeMode="cover" source={paperTexture} style={styles.paper} />
-        <Image resizeMode="contain" source={imageSource} style={[styles.photo, locked && styles.lockedPhoto]} />
-        {locked ? (
+        {imageSource ? (
+          <Image resizeMode="contain" source={imageSource} style={[styles.photo, locked && styles.lockedPhoto]} />
+        ) : null}
+        {locked || !imageSource ? (
           <View style={styles.lockedOverlay}>
             <PawPrint color={nd.colors.subtle} size={28} />
           </View>
