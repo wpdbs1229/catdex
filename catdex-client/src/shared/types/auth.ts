@@ -7,6 +7,8 @@ export interface AuthUser {
   provider: AuthProvider;
   profileImageUrl?: string;
   profileSetupCompleted: boolean;
+  /** 가입 시각(ISO). 사원증 일련번호를 만드는 데 쓴다. */
+  createdAt?: string;
   providerProfile?: {
     nickname?: string;
     profileImageUrl?: string;

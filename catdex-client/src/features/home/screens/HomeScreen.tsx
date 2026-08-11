@@ -110,6 +110,7 @@ export function HomeScreen() {
               nickname={profile?.nickname ?? DEFAULT_PROFILE_NICKNAME}
               profileImageUrl={profile?.profileImageUrl}
               collected={crewStatus.collected}
+              joinedAt={profile?.createdAt}
               rank={crewStatus.rank}
             />
           </View>

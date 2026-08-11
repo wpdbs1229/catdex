@@ -137,6 +137,7 @@ function toAuthUser(user: User, fallbackProvider: AuthProvider): AuthUser {
     provider,
     profileImageUrl: getProfileImageUrl(user),
     profileSetupCompleted: isProfileSetupCompleted(user),
+    createdAt: user.created_at,
     providerProfile:
       providerProfile.nickname || providerProfile.profileImageUrl
         ? providerProfile
