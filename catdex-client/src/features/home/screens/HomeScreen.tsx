@@ -11,6 +11,7 @@ import { CatChatCard } from '@/features/home/components/CatChatCard';
 import { CrewIdCard } from '@/features/home/components/CrewIdCard';
 import { CrewProgressCard } from '@/features/home/components/CrewProgressCard';
 import { RankGuideModal } from '@/features/home/components/RankGuideModal';
+import { NeighborhoodSheet } from '@/shared/neighborhood/NeighborhoodSheet';
 import { NotificationBell } from '@/features/notifications/components/NotificationBell';
 import { fetchMyProfile } from '@/shared/api/auth.api';
 import { checkInAndFetchCrewStatus, defaultCrewStatus, type CrewStatus } from '@/shared/api/crew.api';
@@ -47,7 +48,8 @@ export function HomeScreen() {
   const [crewStatus, setCrewStatus] = useState<CrewStatus>(defaultCrewStatus);
   const [myCats, setMyCats] = useState<Cat[]>([]);
   const [isRankGuideOpen, setIsRankGuideOpen] = useState(false);
-  const { neighborhood, name: neighborhoodName, isDetecting, redetect } = useActiveNeighborhood();
+  const [isNeighborhoodSheetOpen, setIsNeighborhoodSheetOpen] = useState(false);
+  const { neighborhood, name: neighborhoodName, isDetecting, redetect, refresh } = useActiveNeighborhood();
   const tabBarInset = useTabBarInset();
 
   useFocusEffect(
@@ -82,10 +84,9 @@ export function HomeScreen() {
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.screen}>
       <View style={styles.headerRow}>
         <Pressable
-          accessibilityLabel="현재 위치로 동네 다시 확인"
+          accessibilityLabel="내 동네 목록 열기"
           accessibilityRole="button"
-          disabled={isDetecting}
-          onPress={redetect}
+          onPress={() => setIsNeighborhoodSheetOpen(true)}
           style={({ pressed }) => [styles.locationChip, pressed && styles.pressed]}
         >
           <View style={styles.locationIcon}>
@@ -149,6 +150,17 @@ export function HomeScreen() {
       </ScrollView>
 
       <RankGuideModal onClose={() => setIsRankGuideOpen(false)} status={crewStatus} visible={isRankGuideOpen} />
+
+      <NeighborhoodSheet
+        activeId={neighborhood?.id}
+        isDetecting={isDetecting}
+        onAddCurrent={() => {
+          void redetect();
+        }}
+        onChanged={refresh}
+        onClose={() => setIsNeighborhoodSheetOpen(false)}
+        visible={isNeighborhoodSheetOpen}
+      />
     </SafeAreaView>
   );
 }
