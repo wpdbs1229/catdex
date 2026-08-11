@@ -1,6 +1,6 @@
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { ClipboardList, PawPrint, Search, SlidersHorizontal, X } from 'lucide-react-native';
+import { ClipboardList, MapPin, PawPrint, Search, SlidersHorizontal, X } from 'lucide-react-native';
 import { useCallback, useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
@@ -9,6 +9,7 @@ import type { ClientStackParamList, RootStackParamList } from '@/app/navigation/
 import { useTabBarInset } from '@/app/navigation/useTabBarInset';
 import { ClientTabBar } from '@/features/cats/components/ClientTabBar';
 import { DexFilterPanel } from '@/features/cats/components/DexFilterPanel';
+import { formatMapRegionName } from '@/features/map/map-region-label';
 import {
   describeDexFilter,
   emptyDexFilter,
@@ -42,6 +43,10 @@ function catMatchesSearch(cat: Cat, query: string) {
 
 export function CatDexScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<ClientStackParamList & RootStackParamList>>();
+  // 지도에서 구역을 골라 들어오면 그 구역 고객만 남긴다.
+  const route = useRoute<RouteProp<ClientStackParamList, 'ClientRoster'>>();
+  const regionName = route.params?.regionName;
+  const regionCatIds = route.params?.catIds;
   const [cats, setCats] = useState<Cat[]>([]);
   const [placeholders, setPlaceholders] = useState<DexPlaceholder[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -74,13 +79,16 @@ export function CatDexScreen() {
   );
 
   const normalizedSearchQuery = normalizeSearchText(searchQuery);
-  const visibleCats = useMemo(
-    () =>
-      cats.filter(
-        (cat) => catMatchesSearch(cat, normalizedSearchQuery) && matchesDexFilter(cat, filter),
-      ),
-    [cats, filter, normalizedSearchQuery],
-  );
+  const visibleCats = useMemo(() => {
+    const inRegion = regionCatIds ? new Set(regionCatIds) : null;
+
+    return cats.filter(
+      (cat) =>
+        (!inRegion || inRegion.has(cat.id)) &&
+        catMatchesSearch(cat, normalizedSearchQuery) &&
+        matchesDexFilter(cat, filter),
+    );
+  }, [cats, filter, normalizedSearchQuery, regionCatIds]);
   const hasSearchQuery = normalizedSearchQuery.length > 0;
   const hasFilter = !isDexFilterEmpty(filter);
   // 잠금 카드는 아직 내 고양이가 아니라 컬러·패턴 기록이 없다. 걸러 봐야 늘 빠지므로 숨긴다.
@@ -177,6 +185,24 @@ export function CatDexScreen() {
           담당 고객 <Text style={styles.countValue}>{visibleCats.length}마리</Text>
         </Text>
       </View>
+
+      {regionName ? (
+        <View style={styles.appliedRow}>
+          <View style={[styles.appliedChip, styles.regionChip]}>
+            <MapPin color={theme.colors.primary} size={13} strokeWidth={2} />
+            <Text style={styles.appliedChipLabel}>{formatMapRegionName(regionName)}</Text>
+          </View>
+          <Pressable
+            accessibilityLabel="구역 해제"
+            accessibilityRole="button"
+            hitSlop={10}
+            onPress={() => navigation.setParams({ regionName: undefined, catIds: undefined })}
+            style={styles.appliedClear}
+          >
+            <X color={nd.colors.sub} size={14} strokeWidth={2} />
+          </Pressable>
+        </View>
+      ) : null}
 
       {hasFilter && !isFilterOpen ? (
         <View style={styles.appliedRow}>
@@ -360,6 +386,12 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingHorizontal: 16,
     paddingTop: 12,
+  },
+  regionChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: theme.colors.primarySoft,
   },
   appliedChip: {
     paddingHorizontal: 10,
