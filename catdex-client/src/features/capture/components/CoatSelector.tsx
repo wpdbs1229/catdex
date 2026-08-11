@@ -2,7 +2,7 @@ import { Check } from 'lucide-react-native';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { captureColors } from '../capture.theme';
-import { CoatPatternSwatch } from './CoatPatternSwatch';
+import { CoatPatternSwatch } from '@/shared/components/CoatPatternSwatch';
 import {
   COAT_COLORS,
   COAT_PATTERNS,
