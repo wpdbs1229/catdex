@@ -91,6 +91,7 @@ export function CrewIdCard({ nickname, profileImageUrl, rank, city, joinedAt }: 
   const { width: screenWidth } = useWindowDimensions();
   const styles = useMemo(() => createStyles(screenWidth), [screenWidth]);
   const logoWidth = styles.catMarkBox.width;
+  const stampPawSize = styles.embossPaw.width;
 
   return (
     <View style={styles.card}>
@@ -111,8 +112,10 @@ export function CrewIdCard({ nickname, profileImageUrl, rank, city, joinedAt }: 
         <View style={styles.body}>
           {/* 발바닥 양각 워터마크. RN에 inner shadow가 없어 두 겹으로 흉내 낸다. */}
           <View pointerEvents="none" style={styles.emboss}>
-            <PawPrint color="#FFFFFF" size={46} strokeWidth={1.4} style={styles.embossLight} />
-            <PawPrint color={colors.emboss} size={46} strokeWidth={1.4} />
+            <View style={[styles.embossRing, styles.embossRingLight]} />
+            <View style={styles.embossRing} />
+            <PawPrint color="#FFFFFF" size={stampPawSize} strokeWidth={1.4} style={styles.embossPawLight} />
+            <PawPrint color={colors.emboss} size={stampPawSize} strokeWidth={1.4} style={styles.embossPaw} />
           </View>
 
           <View style={styles.bodyTop}>
@@ -134,7 +137,7 @@ export function CrewIdCard({ nickname, profileImageUrl, rank, city, joinedAt }: 
                   {formatBranch(city)}
                 </Text>
               </View>
-              <View style={styles.fieldRow}>
+              <View style={[styles.fieldRow, styles.fieldRowLast]}>
                 <Text style={styles.fieldLabel}>직책:</Text>
                 <Text numberOfLines={1} style={styles.fieldValue}>
                   {rank}
@@ -170,6 +173,7 @@ function createStyles(screenWidth: number) {
   const sidebarWidth = toCard(ASSET.windowW) * 0.16;
   // 글자·여백은 335pt 기준 값을 같은 비율로 키운다.
   const s = (value: number) => (value * cardWidth) / BASE_WIDTH;
+  const stampSize = s(52);
 
   return StyleSheet.create({
   card: {
@@ -242,15 +246,34 @@ function createStyles(screenWidth: number) {
     paddingTop: s(9),
     paddingBottom: s(6),
   },
+  // 원 테두리 + 발바닥을 밝은 겹과 어두운 겹으로 그려 양각처럼 보이게 한다.
   emboss: {
     position: 'absolute',
     right: s(6),
-    bottom: s(10),
+    bottom: s(26),
+    width: stampSize,
+    height: stampSize,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  embossLight: {
-    position: 'absolute',
+  embossRing: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: stampSize / 2,
+    borderWidth: 1.4,
+    borderColor: colors.emboss,
+  },
+  embossRingLight: {
     left: 1.5,
     top: 1.5,
+    borderColor: '#FFFFFF',
+  },
+  embossPaw: {
+    width: stampSize * 0.56,
+  },
+  embossPawLight: {
+    position: 'absolute',
+    left: stampSize * 0.22 + 1.5,
+    top: stampSize * 0.22 + 1.5,
   },
   bodyTop: {
     flex: 1,
@@ -290,6 +313,10 @@ function createStyles(screenWidth: number) {
     paddingTop: s(7),
     borderTopWidth: 1,
     borderTopColor: colors.fieldRule,
+  },
+  // 직책 줄은 오른쪽 발바닥 도장에 닿지 않게 절반만 긋는다.
+  fieldRowLast: {
+    width: '55%',
   },
   fieldLabel: {
     fontSize: s(11),
