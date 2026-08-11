@@ -25,6 +25,8 @@ import { formatNyanTagLabel } from '@/shared/utils/catPresentation';
 interface StoredObservation {
   observationId: string;
   cutoutImageUrl: string;
+  /** 누끼를 만들기 전의 원본. 등록 시 고양이에 함께 저장한다. */
+  originalImageUrl: string;
   regionName: string;
 }
 
@@ -76,6 +78,7 @@ export function CaptureMatchScreen({ navigation, route }: CaptureStackScreenProp
         setObservation({
           observationId: nextObservation.id,
           cutoutImageUrl: nextObservation.cutoutImageUrl,
+          originalImageUrl: nextObservation.originalImageUrl,
           regionName,
         });
         setCandidates(nextCandidates);
@@ -107,6 +110,7 @@ export function CaptureMatchScreen({ navigation, route }: CaptureStackScreenProp
     navigation.navigate('CaptureRegister', {
       cutoutUri: cutoutUri ?? photoUri,
       imageStoragePath: observation.cutoutImageUrl,
+      originalStoragePath: observation.originalImageUrl,
       observationId: observation.observationId,
       regionName: observation.regionName,
       colors,

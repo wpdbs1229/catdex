@@ -24,7 +24,8 @@ type GenderKey = '수컷' | '암컷';
 
 export function CaptureRegisterScreen({ navigation, route }: CaptureStackScreenProps<'CaptureRegister'>) {
   const insets = useSafeAreaInsets();
-  const { cutoutUri, imageStoragePath, observationId, regionName, colors, pattern } = route.params;
+  const { cutoutUri, imageStoragePath, originalStoragePath, observationId, regionName, colors, pattern } =
+    route.params;
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [breed, setBreed] = useState('');
@@ -60,6 +61,7 @@ export function CaptureRegisterScreen({ navigation, route }: CaptureStackScreenP
         memo: description.trim(),
         imageUrl: imageStoragePath,
         cutoutImageUrl: imageStoragePath,
+        originalPhotoUrl: originalStoragePath,
       };
       const cat = await createCat(draft);
 
