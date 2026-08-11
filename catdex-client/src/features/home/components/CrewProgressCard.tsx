@@ -10,6 +10,8 @@ interface CrewProgressCardProps {
   onPressAttendance: () => void;
   /** 승진 진행 줄을 누르면 승진 규칙 안내로 */
   onPressPromotion: () => void;
+  /** 수집 칸을 누르면 그 마릿수의 실물인 '내 고객' 목록으로 */
+  onPressCollection: () => void;
 }
 
 // 주황은 사원증·하단바와 같은 토큰을 쓴다(nd.colors.accent).
@@ -44,7 +46,12 @@ function RowLabel({ icon, text }: { icon: ReactNode; text: string }) {
  * 사용자를 회사원, 고양이를 고객으로 두는 은유를 따른다. 출근은 연속이 아니라
  * 누적이라 하루 걸러도 줄지 않는다(길고양이는 매일 만날 수 있는 대상이 아니다).
  */
-export function CrewProgressCard({ status, onPressAttendance, onPressPromotion }: CrewProgressCardProps) {
+export function CrewProgressCard({
+  status,
+  onPressAttendance,
+  onPressPromotion,
+  onPressCollection,
+}: CrewProgressCardProps) {
   const remaining = status.nextThreshold ? Math.max(0, status.nextThreshold - status.peak) : 0;
   const progress = getProgress(status);
 
@@ -71,7 +78,12 @@ export function CrewProgressCard({ status, onPressAttendance, onPressPromotion }
 
         <View style={styles.topDivider} />
 
-        <View style={styles.topCell}>
+        <Pressable
+          accessibilityLabel="담당 고객 목록 보기"
+          accessibilityRole="button"
+          onPress={onPressCollection}
+          style={({ pressed }) => [styles.topCell, pressed && styles.pressed]}
+        >
           <RowLabel icon={<PawPrint color={colors.accent} size={13} strokeWidth={2.4} />} text="수집" />
           <View style={styles.metricRow}>
             <Text style={styles.metric}>{status.collected}</Text>
@@ -79,8 +91,9 @@ export function CrewProgressCard({ status, onPressAttendance, onPressPromotion }
             <View style={styles.rankChip}>
               <Text style={styles.rankChipText}>{status.rank}</Text>
             </View>
+            <ChevronRight color={nd.colors.subtle} size={16} strokeWidth={2.2} />
           </View>
-        </View>
+        </Pressable>
       </View>
 
       <View style={styles.divider} />
