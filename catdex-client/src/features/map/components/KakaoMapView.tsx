@@ -20,10 +20,22 @@ type KakaoMapBridgeMessage =
       message?: string;
     };
 
+export interface MapPoint {
+  lat: number;
+  lng: number;
+}
+
 interface KakaoMapViewProps {
   regions: Region[];
   selectedRegionId: string | null;
   onSelectRegion: (region: Region) => void;
+  /**
+   * 아무것도 고르지 않았을 때 중심으로 삼을 구역.
+   * 주지 않으면 모든 마커가 한 화면에 들어오도록 맞춘다.
+   */
+  focusRegionId?: string | null;
+  /** 현재 위치 점. 저장하지 않고 화면에만 찍는다. */
+  currentLocation?: MapPoint | null;
   style?: StyleProp<ViewStyle>;
 }
 
@@ -77,13 +89,25 @@ function serializeRegions(regions: Region[]) {
   ).replace(/</g, '\\u003c');
 }
 
-function createMapHtml(appKey: string, regions: Region[], selectedRegionId: string | null) {
+function createMapHtml(
+  appKey: string,
+  regions: Region[],
+  selectedRegionId: string | null,
+  focusRegionId: string | null,
+  currentLocation: MapPoint | null,
+) {
   const encodedAppKey = encodeURIComponent(appKey);
   const serializedRegions = serializeRegions(regions);
   const serializedSelectedRegionId = JSON.stringify(selectedRegionId);
-  const selectedRegion = regions.find((region) => region.id === selectedRegionId) ?? regions[0];
-  const centerLat = selectedRegion?.lat ?? 0;
-  const centerLng = selectedRegion?.lng ?? 0;
+  const serializedCurrentLocation = JSON.stringify(currentLocation);
+  // 고른 구역 > 초점 구역 순으로 중심을 잡는다. 둘 다 없으면 아래에서 전체를 맞춘다.
+  const anchorRegion =
+    regions.find((region) => region.id === selectedRegionId) ??
+    regions.find((region) => region.id === focusRegionId) ??
+    null;
+  const shouldFitAll = anchorRegion === null && regions.length > 0;
+  const centerLat = anchorRegion?.lat ?? currentLocation?.lat ?? regions[0]?.lat ?? 0;
+  const centerLng = anchorRegion?.lng ?? currentLocation?.lng ?? regions[0]?.lng ?? 0;
 
   return `<!DOCTYPE html>
 <html lang="ko">
@@ -115,6 +139,14 @@ function createMapHtml(appKey: string, regions: Region[], selectedRegionId: stri
         text-align: center;
       }
 
+      .here-dot {
+        width: 18px;
+        height: 18px;
+        border-radius: 9px;
+        background: #2C7BF2;
+        border: 3px solid #ffffff;
+        box-shadow: 0 0 0 6px rgba(44, 123, 242, 0.22);
+      }
       .cat-marker {
         position: relative;
         display: flex;
@@ -225,6 +257,31 @@ function createMapHtml(appKey: string, regions: Region[], selectedRegionId: stri
                 overlay.setMap(map);
               });
 
+              var here = ${serializedCurrentLocation};
+
+              if (here) {
+                var dot = document.createElement('div');
+                dot.className = 'here-dot';
+                new kakao.maps.CustomOverlay({
+                  position: new kakao.maps.LatLng(here.lat, here.lng),
+                  content: dot,
+                  zIndex: 1
+                }).setMap(map);
+              }
+
+              // 초점 구역이 없으면 내 고객 마커가 모두 들어오도록 맞춘다.
+              // 현재 위치도 함께 넣어야 "내가 어디에 있고 고객이 어디 있는지"가 한눈에 보인다.
+              if (${shouldFitAll ? 'true' : 'false'}) {
+                var bounds = new kakao.maps.LatLngBounds();
+                regions.forEach(function (region) {
+                  bounds.extend(new kakao.maps.LatLng(region.lat, region.lng));
+                });
+                if (here) {
+                  bounds.extend(new kakao.maps.LatLng(here.lat, here.lng));
+                }
+                map.setBounds(bounds, 80, 80, 80, 80);
+              }
+
               didFinish = true;
               window.clearTimeout(readyTimeoutId);
               postMessage({ type: 'MAP_READY' });
@@ -252,13 +309,26 @@ function normalizeBaseUrl(origin: string) {
   return origin.endsWith('/') ? origin : `${origin}/`;
 }
 
-export function KakaoMapView({ regions, selectedRegionId, onSelectRegion, style }: KakaoMapViewProps) {
+export function KakaoMapView({
+  regions,
+  selectedRegionId,
+  onSelectRegion,
+  focusRegionId = null,
+  currentLocation = null,
+  style,
+}: KakaoMapViewProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [hasLoadFailed, setHasLoadFailed] = useState(false);
   const appKey = process.env.EXPO_PUBLIC_KAKAO_MAP_APP_KEY?.trim();
   const kakaoMapWebOrigin = process.env.EXPO_PUBLIC_KAKAO_MAP_WEB_ORIGIN?.trim() ?? '';
   const kakaoMapWebBaseUrl = kakaoMapWebOrigin ? normalizeBaseUrl(kakaoMapWebOrigin) : undefined;
-  const html = useMemo(() => (appKey && regions.length > 0 ? createMapHtml(appKey, regions, selectedRegionId) : ''), [appKey, regions, selectedRegionId]);
+  const html = useMemo(
+    () =>
+      appKey && regions.length > 0
+        ? createMapHtml(appKey, regions, selectedRegionId, focusRegionId, currentLocation)
+        : '',
+    [appKey, currentLocation, focusRegionId, regions, selectedRegionId],
+  );
 
   useEffect(() => {
     setHasLoadFailed(false);
