@@ -1,5 +1,6 @@
 import { PawPrint } from 'lucide-react-native';
-import { Image, StyleSheet, Text, View } from 'react-native';
+import { useMemo } from 'react';
+import { Image, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { nd } from '@/shared/styles/theme';
 
@@ -18,21 +19,16 @@ interface CrewIdCardProps {
 }
 
 /**
- * 케이스 이미지는 1005x720이고 카드는 그 1/3로 그린다.
- * 안쪽 창 좌표도 같은 비율로 줄인다(에셋의 IMPLEMENTATION_NOTES 기준).
+ * 케이스 이미지 원본 크기와 그 안쪽 창 좌표(에셋의 IMPLEMENTATION_NOTES 기준).
+ * 카드 폭이 정해지면 나머지는 전부 같은 비율로 따라간다.
  */
-const SCALE = 3;
-const CARD_WIDTH = 1005 / SCALE;
-const CARD_HEIGHT = 720 / SCALE;
-const WINDOW = {
-  left: 79 / SCALE,
-  top: 145 / SCALE,
-  width: 774 / SCALE,
-  height: 492 / SCALE,
-  radius: 34 / SCALE,
-};
-/** 주황 사이드바는 창 폭의 16% (목업 기준) */
-const SIDEBAR_WIDTH = Math.round(WINDOW.width * 0.16);
+const ASSET = { width: 1005, height: 720, windowX: 79, windowY: 145, windowW: 774, windowH: 492, radius: 34 };
+/** 화면 양옆 여백. 카드는 남는 폭을 최대한 쓴다. */
+const SIDE_MARGIN = 16;
+/** 태블릿에서 지나치게 커지지 않게 상한을 둔다. */
+const MAX_WIDTH = 460;
+/** 글자 크기 기준. 이 폭일 때의 값이 아래 스타일의 숫자다. */
+const BASE_WIDTH = 335;
 
 const colors = {
   sheet: '#F9F8F6',
@@ -79,6 +75,9 @@ function CatMark({ size }: { size: number }) {
  * 것처럼 보인다. 내용은 데이터가 바뀌므로 그대로 코드로 그린다.
  */
 export function CrewIdCard({ nickname, profileImageUrl, rank, collected, joinedAt }: CrewIdCardProps) {
+  const { width: screenWidth } = useWindowDimensions();
+  const styles = useMemo(() => createStyles(screenWidth), [screenWidth]);
+
   return (
     <View style={styles.card}>
       <Image resizeMode="stretch" source={caseBack} style={styles.caseLayer} />
@@ -148,68 +147,76 @@ export function CrewIdCard({ nickname, profileImageUrl, rank, collected, joinedA
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(screenWidth: number) {
+  const cardWidth = Math.min(screenWidth - SIDE_MARGIN * 2, MAX_WIDTH);
+  const cardHeight = (cardWidth * ASSET.height) / ASSET.width;
+  // 케이스 원본 좌표를 카드 폭에 맞춰 환산한다.
+  const toCard = (assetValue: number) => (assetValue * cardWidth) / ASSET.width;
+  // 글자·여백은 335pt 기준 값을 같은 비율로 키운다.
+  const s = (value: number) => (value * cardWidth) / BASE_WIDTH;
+
+  return StyleSheet.create({
   card: {
-    width: CARD_WIDTH,
-    height: CARD_HEIGHT,
+    width: cardWidth,
+    height: cardHeight,
     alignSelf: 'center',
   },
   caseLayer: {
     ...StyleSheet.absoluteFillObject,
-    width: CARD_WIDTH,
-    height: CARD_HEIGHT,
+    width: cardWidth,
+    height: cardHeight,
   },
   caseImage: {
-    width: CARD_WIDTH,
-    height: CARD_HEIGHT,
+    width: cardWidth,
+    height: cardHeight,
   },
   // 케이스 앞판의 실제 창 위치
   window: {
     position: 'absolute',
-    left: WINDOW.left,
-    top: WINDOW.top,
-    width: WINDOW.width,
-    height: WINDOW.height,
+    left: toCard(ASSET.windowX),
+    top: toCard(ASSET.windowY),
+    width: toCard(ASSET.windowW),
+    height: toCard(ASSET.windowH),
     flexDirection: 'row',
-    borderRadius: WINDOW.radius,
+    borderRadius: toCard(ASSET.radius),
     backgroundColor: colors.sheet,
     overflow: 'hidden',
   },
   sidebar: {
-    width: SIDEBAR_WIDTH,
+    width: toCard(ASSET.windowW) * 0.16,
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: colors.orange,
-    paddingVertical: 9,
+    paddingVertical: s(9),
   },
   sidebarTop: {
     alignItems: 'center',
-    gap: 2,
+    gap: s(2),
   },
   sidebarBottom: {
     alignItems: 'center',
-    gap: 4,
+    gap: s(4),
   },
   brand: {
-    fontSize: 10,
+    fontSize: s(10),
     fontWeight: '800',
     letterSpacing: -0.3,
     color: '#FFFFFF',
   },
   brandRoman: {
-    fontSize: 4.5,
+    fontSize: s(4.5),
     fontWeight: '600',
     letterSpacing: 0.2,
     color: 'rgba(255, 255, 255, 0.85)',
   },
   brandRule: {
-    width: 16,
+    width: s(16),
     height: 1,
     backgroundColor: 'rgba(255, 255, 255, 0.7)',
   },
   passLabel: {
-    fontSize: 6,
-    lineHeight: 8.5,
+    fontSize: s(6),
+    lineHeight: s(8.5),
     fontWeight: '700',
     letterSpacing: 0.5,
     textAlign: 'center',
@@ -217,14 +224,14 @@ const styles = StyleSheet.create({
   },
   body: {
     flex: 1,
-    paddingHorizontal: 10,
-    paddingTop: 9,
-    paddingBottom: 6,
+    paddingHorizontal: s(13),
+    paddingTop: s(9),
+    paddingBottom: s(6),
   },
   emboss: {
     position: 'absolute',
-    right: 10,
-    bottom: 26,
+    right: s(10),
+    bottom: s(26),
   },
   embossLight: {
     position: 'absolute',
@@ -235,12 +242,12 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: s(16),
   },
   photo: {
-    width: 58,
-    height: 72,
-    borderRadius: 36,
+    width: s(58),
+    height: s(72),
+    borderRadius: s(36),
     borderWidth: 1,
     borderColor: '#111111',
     backgroundColor: '#FFFFFF',
@@ -252,10 +259,10 @@ const styles = StyleSheet.create({
   fields: {
     flex: 1,
     minWidth: 0,
-    gap: 4,
+    gap: s(9),
   },
   name: {
-    fontSize: 22,
+    fontSize: s(22),
     fontWeight: '700',
     letterSpacing: 0.8,
     color: colors.ink,
@@ -267,15 +274,16 @@ const styles = StyleSheet.create({
   fieldRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: s(5),
+    paddingBottom: s(5),
   },
   fieldLabel: {
-    fontSize: 11,
+    fontSize: s(11),
     fontWeight: '700',
     color: colors.ink,
   },
   fieldValue: {
-    fontSize: 11,
+    fontSize: s(11),
     fontWeight: '600',
     color: colors.ink,
   },
@@ -286,17 +294,18 @@ const styles = StyleSheet.create({
   footer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 3,
-    paddingTop: 4,
+    gap: s(3),
+    paddingTop: s(4),
   },
   tagline: {
     flex: 1,
-    fontSize: 6,
+    fontSize: s(6),
     color: colors.footer,
   },
   serial: {
-    fontSize: 6,
+    fontSize: s(6),
     letterSpacing: 0.2,
     color: colors.footer,
   },
-});
+  });
+}
