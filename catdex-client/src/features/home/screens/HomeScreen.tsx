@@ -1,10 +1,11 @@
+import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ChevronDown, MapPin } from 'lucide-react-native';
 import { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import type { HomeStackParamList, RootStackParamList } from '@/app/navigation/types';
+import type { HomeStackParamList, MainTabParamList, RootStackParamList } from '@/app/navigation/types';
 import { useTabBarInset } from '@/app/navigation/useTabBarInset';
 import { CatChatCard } from '@/features/home/components/CatChatCard';
 import { CrewIdCard } from '@/features/home/components/CrewIdCard';
@@ -117,6 +118,11 @@ export function HomeScreen() {
           <View style={styles.sectionBody}>
             <CrewProgressCard
               onPressAttendance={() => navigation.navigate('Attendance')}
+              // 수집 마릿수의 실물은 '내 고객' 탭이다. 도감이 들고 있는 필터 상태는
+              // 건드리지 않고 탭만 옮긴다.
+              onPressCollection={() =>
+                navigation.getParent<BottomTabNavigationProp<MainTabParamList>>()?.navigate('CollectionTab')
+              }
               onPressPromotion={() => setIsRankGuideOpen(true)}
               status={crewStatus}
             />
