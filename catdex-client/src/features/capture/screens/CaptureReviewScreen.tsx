@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { processCatPhoto, type CatVisionResult } from '../../../shared/native/catVision';
 import { analyzeCoat } from '../coat/coat-analysis';
-import type { CoatColorId, CoatPatternId, CoatPatternMetrics } from '../coat/coat.types';
+import type { CoatColorId, CoatPatternId, CoatPatternMetrics } from '@/shared/coat/coat.types';
 import { CoatSelector } from '../components/CoatSelector';
 import { CutoutCanvas } from '../components/CutoutCanvas';
 import { captureColors, captureSpacing } from '../capture.theme';

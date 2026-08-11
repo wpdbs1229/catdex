@@ -1,6 +1,6 @@
 import Svg, { Circle, ClipPath, Defs, G, Path, Rect } from 'react-native-svg';
 
-import type { CoatPatternId } from '../coat/coat.types';
+import type { CoatPatternId } from '@/shared/coat/coat.types';
 
 interface CoatPatternSwatchProps {
   pattern: CoatPatternId;

@@ -1,5 +1,5 @@
 import type { CatType } from '@/shared/types/cat';
-import type { CoatColorId, CoatPatternId } from '@/features/capture/coat/coat.types';
+import type { CoatColorId, CoatPatternId } from '@/shared/coat/coat.types';
 
 /**
  * 촬영 화면에서 고른 컬러/패턴 조합을 기존 도감 분류(CatType)로 변환한다.

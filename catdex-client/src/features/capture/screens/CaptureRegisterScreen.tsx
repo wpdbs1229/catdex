@@ -53,6 +53,8 @@ export function CaptureRegisterScreen({ navigation, route }: CaptureStackScreenP
       const draft: CaptureCatDraft = {
         name: name.trim(),
         type: deriveCatType(colors, pattern),
+        coatColors: colors,
+        coatPattern: pattern,
         tags,
         regionName,
         memo: description.trim(),

@@ -1,6 +1,7 @@
 import { throwIfSupabaseError } from '@/shared/api/client';
+import type { CoatColorId, CoatPatternId } from '@/shared/coat/coat.types';
 import { assertSupabaseConfigured, supabase } from '@/shared/supabase/client';
-import { catFilters, coatOptions, personalityOptions, totalDexCount } from '@/shared/constants/cat.constants';
+import { catFilters, coatOptions, personalityOptions } from '@/shared/constants/cat.constants';
 import { getRelationshipLevel } from '@/shared/utils/catPresentation';
 import type {
   Cat,
@@ -15,7 +16,6 @@ import type {
   CatProfileUpdateDraft,
   CaptureCatDraft,
   DexPlaceholder,
-  DexProgress,
   PersonalityTag,
 } from '@/shared/types/cat';
 
@@ -30,6 +30,8 @@ interface CatRow {
   number: number;
   name: string;
   type: CatType;
+  coat_colors: CoatColorId[] | null;
+  coat_pattern: CoatPatternId | null;
   rarity: CatRarity;
   rarity_reasons: string[] | null;
   encounter_count: number;
@@ -106,6 +108,8 @@ async function mapCat(row: CatRow): Promise<Cat> {
     number: row.number,
     name: row.name,
     type: row.type,
+    coatColors: row.coat_colors ?? [],
+    coatPattern: row.coat_pattern,
     rarity: row.rarity,
     rarityReasons: row.rarity_reasons ?? [],
     encounterCount: row.encounter_count,
@@ -215,19 +219,9 @@ export async function fetchMyCats() {
   );
 }
 
-export async function fetchDexProgress(): Promise<DexProgress> {
-  const cats = await fetchMyCats();
-
-  return {
-    collected: cats.length,
-    total: totalDexCount,
-  };
-}
-
-async function mapSightingPlaceholder(row: CatSightingRow, index: number): Promise<DexPlaceholder> {
+async function mapSightingPlaceholder(row: CatSightingRow): Promise<DexPlaceholder> {
   return {
     id: row.id,
-    number: totalDexCount - index,
     type: row.coat_type,
     rarity: 2,
     regionHint: row.region_name,
@@ -296,6 +290,8 @@ export async function createCat(draft: CaptureCatDraft) {
     p_region_name: draft.regionName,
     p_memo: draft.memo,
     p_image_url: draft.imageUrl ?? null,
+    p_coat_colors: draft.coatColors,
+    p_coat_pattern: draft.coatPattern,
   });
 
   throwIfSupabaseError(error);
@@ -484,7 +480,7 @@ export async function createCatSighting(draft: Pick<CaptureCatDraft, 'type' | 'r
 
   throwIfSupabaseError(error);
 
-  return mapSightingPlaceholder(data as CatSightingRow, 0);
+  return mapSightingPlaceholder(data as CatSightingRow);
 }
 
 export async function recordCatEncounter(catId: string, payload: Pick<CatEncounter, 'regionName' | 'memo'> & { imageUrl?: string }) {

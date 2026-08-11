@@ -8,7 +8,7 @@ import {
   COAT_PATTERNS,
   type CoatColorId,
   type CoatPatternId,
-} from '../coat/coat.types';
+} from '@/shared/coat/coat.types';
 
 interface CoatSelectorProps {
   colors: CoatColorId[];

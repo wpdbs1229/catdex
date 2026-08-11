@@ -1,5 +1,5 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import type { CoatColorId, CoatPatternId } from '@/features/capture/coat/coat.types';
+import type { CoatColorId, CoatPatternId } from '@/shared/coat/coat.types';
 import type { CatVisionBoundingBox } from '@/shared/native/catVision';
 
 export type RootStackParamList = {
