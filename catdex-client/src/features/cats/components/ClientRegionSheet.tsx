@@ -9,11 +9,12 @@ import { imageForCatType } from '@/shared/utils/catImage';
 interface ClientRegionSheetProps {
   region: Region;
   cats: Cat[];
-  onSeeNearby: () => void;
+  onSelectCat: (cat: Cat) => void;
+  onOpenRoster: () => void;
 }
 
 /** 구역 마커를 눌렀을 때 뜨는 시트. 시안 2번. */
-export function ClientRegionSheet({ region, cats, onSeeNearby }: ClientRegionSheetProps) {
+export function ClientRegionSheet({ region, cats, onSelectCat, onOpenRoster }: ClientRegionSheetProps) {
   return (
     <View style={styles.sheet}>
       <View style={styles.handle} />
@@ -27,9 +28,18 @@ export function ClientRegionSheet({ region, cats, onSeeNearby }: ClientRegionShe
         showsHorizontalScrollIndicator={false}
       >
         {cats.map((cat) => (
-          <View key={cat.id} style={styles.catSlot}>
+          <Pressable
+            accessibilityLabel={`${cat.name} 고객 상세`}
+            accessibilityRole="button"
+            key={cat.id}
+            onPress={() => onSelectCat(cat)}
+            style={({ pressed }) => [styles.catSlot, pressed && styles.pressed]}
+          >
             <Image resizeMode="contain" source={imageForCatType(cat.type, cat.imageUrl)} style={styles.catImage} />
-          </View>
+            <Text numberOfLines={1} style={styles.catName}>
+              {cat.name}
+            </Text>
+          </Pressable>
         ))}
       </ScrollView>
 
@@ -39,12 +49,12 @@ export function ClientRegionSheet({ region, cats, onSeeNearby }: ClientRegionShe
       </View>
 
       <Pressable
-        accessibilityLabel="근처 고객 보기"
+        accessibilityLabel="이 구역 고객 명부 보기"
         accessibilityRole="button"
-        onPress={onSeeNearby}
+        onPress={onOpenRoster}
         style={({ pressed }) => [styles.cta, pressed && styles.pressed]}
       >
-        <Text style={styles.ctaLabel}>근처 고객 보기</Text>
+        <Text style={styles.ctaLabel}>이 구역 고객 명부 보기</Text>
       </Pressable>
     </View>
   );
@@ -85,13 +95,18 @@ const styles = StyleSheet.create({
   },
   catSlot: {
     width: 96,
-    height: 116,
     alignItems: 'center',
-    justifyContent: 'flex-end',
+    gap: 4,
+  },
+  catName: {
+    fontSize: 13,
+    fontWeight: '600',
+    letterSpacing: -0.33,
+    color: nd.colors.ink,
   },
   catImage: {
     width: '100%',
-    height: '100%',
+    height: 104,
   },
   privacyRow: {
     flexDirection: 'row',

@@ -24,7 +24,8 @@ export type MainTabParamList = {
 
 /** 고객 탭 안의 화면들. 전용 하단바가 남아야 해서 루트가 아니라 여기에 둔다. */
 export type ClientStackParamList = {
-  ClientRoster: undefined;
+  /** 지도에서 구역을 골라 들어오면 그 구역 고객만 남긴다. */
+  ClientRoster: { regionName?: string; catIds?: string[] } | undefined;
   ClientMap: undefined;
 };
 

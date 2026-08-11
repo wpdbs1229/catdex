@@ -60,7 +60,7 @@ export function ClientMapScreen() {
 
   // 이미 CollectionTab 안이라 탭을 다시 가리켜 봐야 아무 일도 일어나지 않는다.
   // 같은 스택의 명단 화면으로 돌아가야 한다.
-  const goRoster = () => navigation.navigate('ClientRoster');
+  const goRoster = () => navigation.navigate('ClientRoster', undefined);
 
   return (
     <View style={styles.screen}>
@@ -175,7 +175,13 @@ export function ClientMapScreen() {
         ) : selectedRegion ? (
           <ClientRegionSheet
             cats={selectedRegionCats}
-            onSeeNearby={() => setSelectedCat(selectedRegionCats[0] ?? null)}
+            onOpenRoster={() =>
+              navigation.navigate('ClientRoster', {
+                regionName: selectedRegion.name,
+                catIds: selectedRegionCats.map((cat) => cat.id),
+              })
+            }
+            onSelectCat={(cat) => navigation.navigate('CatDetail', { catId: cat.id })}
             region={selectedRegion}
           />
         ) : null}
