@@ -1,11 +1,11 @@
 import { PawPrint } from 'lucide-react-native';
 import { useMemo } from 'react';
 import { Image, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
 import { nd } from '@/shared/styles/theme';
 
 const caseBack = require('../../../../assets/badge/case-back.png');
 const caseFront = require('../../../../assets/badge/case-front.png');
-const catMark = require('../../../../assets/badge/cat-mark.png');
 
 interface CrewIdCardProps {
   nickname: string;
@@ -32,7 +32,7 @@ const BASE_WIDTH = 335;
 
 const colors = {
   sheet: '#F9F8F6',
-  orange: '#D3702D',
+  orange: '#E07C33',
   ink: '#1A1A1A',
   footer: '#929090',
   emboss: '#EFEDEA',
@@ -53,6 +53,18 @@ function formatSerial(joinedAt?: string) {
   const time = `${pad(joined.getHours())}${pad(joined.getMinutes())}`;
 
   return `NYD-${date}-${time}`;
+}
+
+/** 좌측 바의 고양이 머리. 시안 실루엣을 좌우 대칭 곡선으로 옮겼다. */
+function CatMark({ width }: { width: number }) {
+  return (
+    <Svg height={(width * 38) / 40} viewBox="0 0 40 38" width={width}>
+      <Path
+        d="M3.4 1 Q3.4 0.2 4.4 0.2 L7 0.2 Q8.2 0.2 9.2 1.8 L12.4 5.6 Q12.8 6.1 13.5 6.1 L25.5 6.1 Q26.2 6.1 26.6 5.6 L29.8 1.8 Q30.8 0.2 32 0.2 L34.6 0.2 Q35.6 0.2 35.6 1 C35.6 4 36.8 10 37.8 14 C39.2 18 39.6 21 39.6 25 C39.6 31.5 34.5 37.6 28 37.6 L12 37.6 C5.5 37.6 0.4 31.5 0.4 25 C0.4 21 0.8 18 2.2 14 C3.2 10 3.4 4 3.4 1 Z"
+        fill="#FFFFFF"
+      />
+    </Svg>
+  );
 }
 
 /** "부천시" -> "부천지부". 동네를 아직 못 찾았으면 본사 소속으로 둔다. */
@@ -78,6 +90,7 @@ function formatBranch(city?: string) {
 export function CrewIdCard({ nickname, profileImageUrl, rank, city, joinedAt }: CrewIdCardProps) {
   const { width: screenWidth } = useWindowDimensions();
   const styles = useMemo(() => createStyles(screenWidth), [screenWidth]);
+  const logoWidth = styles.catMarkBox.width;
 
   return (
     <View style={styles.card}>
@@ -86,9 +99,8 @@ export function CrewIdCard({ nickname, profileImageUrl, rank, city, joinedAt }: 
       <View style={styles.window}>
         <View style={styles.sidebar}>
           <View style={styles.sidebarTop}>
-            <Image resizeMode="contain" source={catMark} style={styles.catMark} />
+            <CatMark width={logoWidth} />
             <Text style={styles.brand}>냥냥공사</Text>
-            <Text style={styles.brandRoman}>NYANGGONGSA</Text>
           </View>
           <View style={styles.sidebarBottom}>
             <View style={styles.brandRule} />
@@ -155,6 +167,7 @@ function createStyles(screenWidth: number) {
   const cardHeight = (cardWidth * ASSET.height) / ASSET.width;
   // 케이스 원본 좌표를 카드 폭에 맞춰 환산한다.
   const toCard = (assetValue: number) => (assetValue * cardWidth) / ASSET.width;
+  const sidebarWidth = toCard(ASSET.windowW) * 0.16;
   // 글자·여백은 335pt 기준 값을 같은 비율로 키운다.
   const s = (value: number) => (value * cardWidth) / BASE_WIDTH;
 
@@ -186,36 +199,30 @@ function createStyles(screenWidth: number) {
     overflow: 'hidden',
   },
   sidebar: {
-    width: toCard(ASSET.windowW) * 0.16,
-    alignItems: 'center',
+    width: sidebarWidth,
+    alignItems: 'flex-start',
+    paddingLeft: sidebarWidth * 0.16,
     justifyContent: 'space-between',
     backgroundColor: colors.orange,
     paddingTop: s(13),
     paddingBottom: s(20),
   },
   sidebarTop: {
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: s(5),
   },
   sidebarBottom: {
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: s(11),
   },
-  catMark: {
-    width: s(24),
-    height: s(23),
+  catMarkBox: {
+    width: sidebarWidth * 0.62,
   },
   brand: {
     fontSize: s(10),
     fontWeight: '800',
     letterSpacing: -0.3,
     color: '#FFFFFF',
-  },
-  brandRoman: {
-    fontSize: s(4.5),
-    fontWeight: '600',
-    letterSpacing: 0.2,
-    color: 'rgba(255, 255, 255, 0.85)',
   },
   brandRule: {
     width: s(16),
@@ -227,7 +234,6 @@ function createStyles(screenWidth: number) {
     lineHeight: s(8.5),
     fontWeight: '700',
     letterSpacing: 0.5,
-    textAlign: 'center',
     color: '#FFFFFF',
   },
   body: {
@@ -275,10 +281,13 @@ function createStyles(screenWidth: number) {
     letterSpacing: 0.8,
     color: colors.ink,
   },
-  // 밑줄을 행 자체에 붙여 글자와 항상 같은 폭·간격을 유지한다.
+  // 밑줄을 행 자체에 붙여 글자와 같은 간격을 유지한다.
+  // 폭을 제한해 오른쪽 아래 발바닥 양각을 가로지르지 않게 한다.
   fieldRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    alignSelf: 'flex-start',
+    width: s(92),
     gap: s(5),
     paddingBottom: s(4),
     borderBottomWidth: 1,
