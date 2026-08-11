@@ -2,11 +2,12 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ClipboardList, PawPrint, Search, SlidersHorizontal, X } from 'lucide-react-native';
 import { useCallback, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { RootStackParamList } from '@/app/navigation/types';
 import { useTabBarInset } from '@/app/navigation/useTabBarInset';
+import { ClientTabBar } from '@/features/cats/components/ClientTabBar';
 import { DexFilterPanel } from '@/features/cats/components/DexFilterPanel';
 import {
   describeDexFilter,
@@ -48,6 +49,7 @@ export function CatDexScreen() {
   const [filter, setFilter] = useState<DexFilter>(emptyDexFilter);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const tabBarInset = useTabBarInset();
+  const insets = useSafeAreaInsets();
 
   useFocusEffect(
     useCallback(() => {
@@ -258,11 +260,31 @@ export function CatDexScreen() {
           </View>
         ) : null}
       </View>
+
+      <View style={[styles.tabBarWrap, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+        <ClientTabBar
+          active="roster"
+          onHome={() => navigation.getParent()?.navigate('HomeTab' as never)}
+          onOpenConsult={() =>
+            Alert.alert('고객 상담은 준비 중이에요', '고양이와의 대화는 다음 단계에서 열려요.')
+          }
+          onOpenMap={() =>
+            Alert.alert('고객 지도는 준비 중이에요', '내 고객이 사는 곳을 지도로 보는 화면은 다음 단계에서 열려요.')
+          }
+          onOpenRoster={() => undefined}
+        />
+      </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  tabBarWrap: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
   screen: {
     flex: 1,
     backgroundColor: nd.colors.bg,

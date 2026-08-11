@@ -20,7 +20,7 @@ interface TabItem {
 
 /**
  * 피그마 '기본 하단바'(72:466). 항목 순서와 라벨이 시안 그대로다.
- * 홈과 내 도감은 lucide 글리프가 시안과 달라 내보낸 자산을 쓴다.
+ * 홈과 내 고객은 lucide 글리프가 시안과 달라 내보낸 자산을 쓴다.
  */
 const items: TabItem[] = [
   {
@@ -30,7 +30,7 @@ const items: TabItem[] = [
   },
   {
     route: 'CollectionTab',
-    label: '내 도감',
+    label: '내 고객',
     image: [require('../../../assets/icons/tab-dex.png'), require('../../../assets/icons/tab-dex-active.png')],
   },
   { route: 'CaptureTab', label: '촬영', icon: Camera },
@@ -42,9 +42,11 @@ export function MainTabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   const activeRoute = state.routes[state.index]?.name;
 
-  // 동네 흐름은 시안의 전용 하단 바(지도/동네 도감/커뮤니티)를 쓴다.
+  // 동네와 고객 흐름은 각자 전용 하단 바를 쓴다.
+  //   MapTab        -> NeighborhoodTabBar (지도/동네 도감/커뮤니티)
+  //   CollectionTab -> ClientTabBar (고객 명부/고객 지도/고객 상담)
   // 커스텀 탭바에서는 tabBarStyle이 먹지 않으므로 여기서 직접 숨긴다.
-  if (activeRoute === 'MapTab') {
+  if (activeRoute === 'MapTab' || activeRoute === 'CollectionTab') {
     return null;
   }
 
