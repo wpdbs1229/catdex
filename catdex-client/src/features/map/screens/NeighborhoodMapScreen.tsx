@@ -4,6 +4,7 @@ import { ChevronDown, MapPin, PawPrint } from 'lucide-react-native';
 import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTabBarBottomGap } from '@/app/navigation/useTabBarInset';
 import type { MapStackParamList, RootStackParamList } from '@/app/navigation/types';
 import { KakaoMapView } from '@/features/map/components/KakaoMapView';
 import { NeighborhoodTabBar } from '@/features/map/components/NeighborhoodTabBar';
@@ -33,6 +34,7 @@ function getRegionCatCount(region: Region) {
 export function NeighborhoodMapScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<MapStackParamList & RootStackParamList>>();
   const insets = useSafeAreaInsets();
+  const tabBarBottomGap = useTabBarBottomGap();
   const { cats, regions, neighborhoodName, hasNeighborhood, isDetectingNeighborhood, redetectNeighborhood } =
     useNeighborhoodData();
   const catById = useMemo(() => new Map(cats.map((cat) => [cat.id, cat])), [cats]);
@@ -152,7 +154,7 @@ export function NeighborhoodMapScreen() {
         ) : null}
       </View>
 
-      <View style={[styles.tabBarWrap, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+      <View style={[styles.tabBarWrap, { paddingBottom: tabBarBottomGap }]}>
         <NeighborhoodTabBar
           active="map"
           onHome={() => navigation.getParent()?.navigate('HomeTab' as never)}

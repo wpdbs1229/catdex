@@ -4,6 +4,7 @@ import { ChevronDown, ListFilter, MapPin, X } from 'lucide-react-native';
 import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTabBarBottomGap } from '@/app/navigation/useTabBarInset';
 import type { ClientStackParamList, RootStackParamList } from '@/app/navigation/types';
 import { ClientCatSheet } from '@/features/cats/components/ClientCatSheet';
 import { ClientRegionSheet } from '@/features/cats/components/ClientRegionSheet';
@@ -28,6 +29,7 @@ import type { Region } from '@/shared/types/region';
 export function ClientMapScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<ClientStackParamList & RootStackParamList>>();
   const insets = useSafeAreaInsets();
+  const tabBarBottomGap = useTabBarBottomGap();
   const [filter, setFilter] = useState<DexFilter>(emptyDexFilter);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const { myCats, regions, catsByRegionId, isLoading } = useClientMapData(filter);
@@ -198,7 +200,7 @@ export function ClientMapScreen() {
           />
         ) : null}
 
-        <View style={[styles.tabBarWrap, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+        <View style={[styles.tabBarWrap, { paddingBottom: tabBarBottomGap }]}>
           <ClientTabBar
             active="map"
             onHome={() => navigation.getParent()?.navigate('HomeTab' as never)}
