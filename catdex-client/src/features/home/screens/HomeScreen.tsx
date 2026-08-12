@@ -2,13 +2,13 @@ import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ChevronDown, MapPin } from 'lucide-react-native';
-import { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, Alert, Animated, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { HomeStackParamList, MainTabParamList, RootStackParamList } from '@/app/navigation/types';
 import { useTabBarInset } from '@/app/navigation/useTabBarInset';
 import { CatChatCard } from '@/features/home/components/CatChatCard';
-import { CrewIdCard } from '@/features/home/components/CrewIdCard';
+import { CrewIdCard, MAX_PULL, PULL_TRAVEL } from '@/features/home/components/CrewIdCard';
 import { CrewProgressCard } from '@/features/home/components/CrewProgressCard';
 import { RankGuideModal } from '@/features/home/components/RankGuideModal';
 import { NeighborhoodSheet } from '@/shared/neighborhood/NeighborhoodSheet';
@@ -49,6 +49,19 @@ export function HomeScreen() {
   const [myCats, setMyCats] = useState<Cat[]>([]);
   const [isRankGuideOpen, setIsRankGuideOpen] = useState(false);
   const [isNeighborhoodSheetOpen, setIsNeighborhoodSheetOpen] = useState(false);
+
+  // 위에서 아래로 당긴 양(오버스크롤). 사원증이 끈에 끌려 내려가는 데 쓴다.
+  // 손을 놓으면 스크롤뷰가 알아서 제자리로 튕겨 돌아오므로 따로 되돌릴 필요가 없다.
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const pull = useMemo(
+    () =>
+      scrollY.interpolate({
+        inputRange: [-PULL_TRAVEL, 0],
+        outputRange: [MAX_PULL, 0],
+        extrapolate: 'clamp',
+      }),
+    [scrollY],
+  );
   const { neighborhood, name: neighborhoodName, isDetecting, redetect, refresh } = useActiveNeighborhood();
   const tabBarInset = useTabBarInset();
 
@@ -102,7 +115,12 @@ export function HomeScreen() {
         <NotificationBell />
       </View>
 
-      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: tabBarInset }]} showsVerticalScrollIndicator={false}>
+      <Animated.ScrollView
+        contentContainerStyle={[styles.content, { paddingBottom: tabBarInset }]}
+        onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: true })}
+        scrollEventThrottle={16}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{CREW_COMPANY_NAME} 사원증</Text>
           <CrewIdCard
@@ -110,6 +128,7 @@ export function HomeScreen() {
             profileImageUrl={profile?.profileImageUrl}
             city={neighborhood?.city}
             joinedAt={profile?.createdAt}
+            pull={pull}
             rank={crewStatus.rank}
           />
         </View>
@@ -147,7 +166,7 @@ export function HomeScreen() {
             <Text style={styles.emptyText}>도감에 고양이를 등록하면 상담할 고객이 생겨요.</Text>
           )}
         </View>
-      </ScrollView>
+      </Animated.ScrollView>
 
       <RankGuideModal onClose={() => setIsRankGuideOpen(false)} status={crewStatus} visible={isRankGuideOpen} />
 

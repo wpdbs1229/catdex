@@ -1,6 +1,6 @@
 import { PawPrint } from 'lucide-react-native';
 import { useMemo } from 'react';
-import { Image, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Animated, Image, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { nd } from '@/shared/styles/theme';
 import { CREW_COMPANY_SHORT_NAME } from '@/shared/constants/crew.constants';
@@ -18,6 +18,14 @@ interface CrewIdCardProps {
   city?: string;
   /** 가입 시각(ISO). 일련번호를 만드는 데 쓴다. */
   joinedAt?: string;
+  /**
+   * 0~MAX_PULL. 화면을 위에서 아래로 당긴 만큼 사원증이 끈에 끌려 내려간다.
+   *
+   * 제스처를 따로 잡지 않고 스크롤이 넘긴 값을 그대로 쓴다. 스크롤뷰 안에서
+   * PanResponder로 아래 방향을 가로채면 iOS 네이티브 스크롤이 먼저 가져가
+   * 화면만 통째로 튕긴다.
+   */
+  pull?: Animated.AnimatedInterpolation<number> | Animated.Value;
 }
 
 /**
@@ -49,7 +57,25 @@ const LANYARD_WIDTH_RATIO = 0.5;
  * 끈이 화면 밖으로 이어지는 것처럼 읽혀서, 실제로 목에 건 것처럼 보이면서
  * 자리는 훨씬 덜 먹는다.
  */
-const LANYARD_VISIBLE_RATIO = 0.85;
+const LANYARD_VISIBLE_RATIO = 0.6;
+/**
+ * 사원증을 끌어내릴 수 있는 최대 거리(pt).
+ *
+ * 목에 건 사원증을 잡아당기면 끈이 딸려 나왔다가 놓으면 제자리로 돌아간다.
+ * 평소에는 끈을 조금만 보여 두고, 당겼을 때만 길이가 드러나게 한다.
+ */
+export const MAX_PULL = 80;
+
+/**
+ * 이만큼 오버스크롤하면 끈이 최대로 늘어난다.
+ *
+ * MAX_PULL보다 작게 둔다. iOS 고무줄 스크롤이 손가락 움직임을 크게 깎아서
+ * (220pt를 끌어도 30pt쯤만 넘어온다) 1:1로 매기면 끈이 거의 안 늘어난다.
+ */
+export const PULL_TRAVEL = 48;
+
+/** 아무것도 받지 못했을 때 쓸 정지값 */
+const NO_PULL = new Animated.Value(0);
 
 const colors = {
   sheet: '#F9F8F6',
@@ -108,21 +134,25 @@ function formatBranch(city?: string) {
  * 장으로 처리한다. 뒤판 -> 내용 -> 앞판 순으로 겹치면 카드가 케이스 안에 들어간
  * 것처럼 보인다. 내용은 데이터가 바뀌므로 그대로 코드로 그린다.
  */
-export function CrewIdCard({ nickname, profileImageUrl, rank, city, joinedAt }: CrewIdCardProps) {
+export function CrewIdCard({ nickname, profileImageUrl, rank, city, joinedAt, pull }: CrewIdCardProps) {
   const { width: screenWidth } = useWindowDimensions();
   const styles = useMemo(() => createStyles(screenWidth), [screenWidth]);
   const logoWidth = styles.catMarkBox.width;
   const stampPawSize = styles.embossPaw.width;
+
+  const pullValue = pull ?? NO_PULL;
 
   return (
     <View style={styles.hanger}>
       {/* 카드보다 먼저 그려 뒤로 보낸다. 슬롯이 뚫려 있어 구멍으로 끈이 비친다.
           창이 끈 위쪽을 잘라 화면 밖으로 이어지는 것처럼 만든다. */}
       <View style={styles.lanyardWindow}>
-        <Image resizeMode="contain" source={lanyard} style={styles.lanyard} />
+        <Animated.View style={{ transform: [{ translateY: Animated.add(pullValue, -MAX_PULL) }] }}>
+          <Image resizeMode="contain" source={lanyard} style={styles.lanyard} />
+        </Animated.View>
       </View>
 
-      <View style={styles.card}>
+      <Animated.View style={[styles.card, { transform: [{ translateY: pullValue }] }]}>
         <Image resizeMode="stretch" source={caseBack} style={styles.caseLayer} />
 
       <View style={styles.window}>
@@ -189,7 +219,7 @@ export function CrewIdCard({ nickname, profileImageUrl, rank, city, joinedAt }: 
         <View pointerEvents="none" style={styles.caseLayer}>
           <Image resizeMode="stretch" source={caseFront} style={styles.caseImage} />
         </View>
-      </View>
+      </Animated.View>
     </View>
   );
 }
@@ -209,9 +239,11 @@ function createStyles(screenWidth: number) {
   hanger: {
     alignItems: 'center',
   },
+  // 당겼을 때 드러날 길이까지 미리 확보해 둔다. 그만큼 카드를 끌어올리므로
+  // 쉬고 있을 때의 자리는 창을 키우기 전과 같다.
   lanyardWindow: {
     width: lanyardWidth,
-    height: cardHeight * LANYARD_VISIBLE_RATIO,
+    height: cardHeight * LANYARD_VISIBLE_RATIO + MAX_PULL,
     overflow: 'hidden',
     justifyContent: 'flex-end',
   },
@@ -223,7 +255,7 @@ function createStyles(screenWidth: number) {
   card: {
     width: cardWidth,
     height: cardHeight,
-    marginTop: -cardHeight * SLOT_CENTER_RATIO,
+    marginTop: -cardHeight * SLOT_CENTER_RATIO - MAX_PULL,
   },
   caseLayer: {
     ...StyleSheet.absoluteFillObject,
