@@ -1,17 +1,24 @@
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { ChevronDown, MapPin, PawPrint, Search, SlidersHorizontal } from 'lucide-react-native';
-import { useMemo, useState } from 'react';
+import { ChevronDown, MapPin, PawPrint, Search, SlidersHorizontal, X } from 'lucide-react-native';
+import { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { MapStackParamList, RootStackParamList } from '@/app/navigation/types';
+import { DexFilterPanel } from '@/features/cats/components/DexFilterPanel';
+import {
+  describeDexFilter,
+  emptyDexFilter,
+  isDexFilterEmpty,
+  matchesDexFilter,
+  type DexFilter,
+} from '@/features/cats/dex-filter';
 import { NeighborhoodTabBar } from '@/features/map/components/NeighborhoodTabBar';
 import { useNeighborhoodData } from '@/features/map/hooks/useNeighborhoodData';
 import { NotificationBell } from '@/features/notifications/components/NotificationBell';
 import { PolaroidCatCard } from '@/shared/components/PolaroidCatCard';
-import { catFilters } from '@/shared/constants/cat.constants';
-import { nd } from '@/shared/styles/theme';
-import type { Cat, CatFilter } from '@/shared/types/cat';
+import { nd, theme } from '@/shared/styles/theme';
+import type { Cat } from '@/shared/types/cat';
 import { catPhotoSource } from '@/shared/utils/catImage';
 import { formatNyanTagLabel } from '@/shared/utils/catPresentation';
 
@@ -37,17 +44,8 @@ function catMatchesSearch(cat: Cat, query: string) {
     .includes(query);
 }
 
-function matchesCatFilter(cat: Cat, selectedFilter: CatFilter) {
-  if (selectedFilter === '전체') {
-    return true;
-  }
-
-  if (selectedFilter === '희귀') {
-    return cat.rarity >= 4;
-  }
-
-  return cat.type === selectedFilter;
-}
+/** 시안의 "희귀" 칩. 컬러·패턴과 달리 별 개수로 거르므로 필터 패널 밖에 둔다. */
+const RARE_RARITY_THRESHOLD = 4;
 
 export function NeighborhoodDexScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<MapStackParamList & RootStackParamList>>();
@@ -55,7 +53,9 @@ export function NeighborhoodDexScreen() {
   const { cats, myCatIds, regions, neighborhoodName, hasNeighborhood, isDetectingNeighborhood, redetectNeighborhood } =
     useNeighborhoodData();
   const [selectedScope, setSelectedScope] = useState<NeighborhoodScope>('all');
-  const [selectedFilter, setSelectedFilter] = useState<CatFilter>('전체');
+  const [filter, setFilter] = useState<DexFilter>(emptyDexFilter);
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [rareOnly, setRareOnly] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
   const normalizedSearchQuery = normalizeSearchText(searchQuery);
@@ -70,8 +70,26 @@ export function NeighborhoodDexScreen() {
     [myCatIds, neighborhoodCats, selectedScope],
   );
   const visibleCats = useMemo(
-    () => scopedCats.filter((cat) => matchesCatFilter(cat, selectedFilter) && catMatchesSearch(cat, normalizedSearchQuery)),
-    [normalizedSearchQuery, scopedCats, selectedFilter],
+    () =>
+      scopedCats.filter(
+        (cat) =>
+          matchesDexFilter(cat, filter) &&
+          (!rareOnly || cat.rarity >= RARE_RARITY_THRESHOLD) &&
+          catMatchesSearch(cat, normalizedSearchQuery),
+      ),
+    [filter, normalizedSearchQuery, rareOnly, scopedCats],
+  );
+  // 패널 CTA의 마릿수는 지금 화면에 걸린 조건(범위·검색어·희귀)까지 반영해야
+  // 버튼 숫자와 적용 후 화면이 어긋나지 않는다.
+  const countForFilter = useCallback(
+    (draft: DexFilter) =>
+      scopedCats.filter(
+        (cat) =>
+          matchesDexFilter(cat, draft) &&
+          (!rareOnly || cat.rarity >= RARE_RARITY_THRESHOLD) &&
+          catMatchesSearch(cat, normalizedSearchQuery),
+      ).length,
+    [normalizedSearchQuery, rareOnly, scopedCats],
   );
   const gridRows = useMemo(() => {
     const rows: Cat[][] = [];
@@ -83,6 +101,9 @@ export function NeighborhoodDexScreen() {
     return rows;
   }, [visibleCats]);
   const hasSearchQuery = normalizedSearchQuery.length > 0;
+  const hasCoatFilter = !isDexFilterEmpty(filter);
+  const hasFilter = hasCoatFilter || rareOnly;
+  const filterLabels = describeDexFilter(filter);
 
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.screen}>
@@ -119,68 +140,126 @@ export function NeighborhoodDexScreen() {
         })}
       </View>
 
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-        <Text style={styles.sectionTitle}>동네 고양이 도감</Text>
+      <View style={styles.body}>
+        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+          <Text style={styles.sectionTitle}>동네 고양이 도감</Text>
 
-        <View style={styles.searchBar}>
-          <Search color={nd.colors.ink} size={20} strokeWidth={1.8} />
-          <TextInput
-            autoCapitalize="none"
-            autoCorrect={false}
-            onChangeText={setSearchQuery}
-            placeholder="동네 도감에서 이름이나 특징 찾기"
-            placeholderTextColor={nd.colors.sub}
-            returnKeyType="search"
-            style={styles.searchInput}
-            value={searchQuery}
-          />
-          <SlidersHorizontal color={nd.colors.ink} size={20} strokeWidth={1.8} />
-        </View>
+          <View style={styles.searchBar}>
+            <Search color={nd.colors.ink} size={20} strokeWidth={1.8} />
+            <TextInput
+              autoCapitalize="none"
+              autoCorrect={false}
+              onChangeText={setSearchQuery}
+              placeholder="동네 도감에서 이름이나 특징 찾기"
+              placeholderTextColor={nd.colors.sub}
+              returnKeyType="search"
+              style={styles.searchInput}
+              value={searchQuery}
+            />
+            <Pressable
+              accessibilityLabel={isFilterOpen ? '필터 닫기' : '컬러·패턴 필터 열기'}
+              accessibilityRole="button"
+              accessibilityState={{ expanded: isFilterOpen }}
+              hitSlop={8}
+              onPress={() => setIsFilterOpen((previous) => !previous)}
+            >
+              <SlidersHorizontal
+                color={hasCoatFilter ? theme.colors.accent : nd.colors.ink}
+                size={20}
+                strokeWidth={1.8}
+              />
+            </Pressable>
+          </View>
 
-        <ScrollView contentContainerStyle={styles.filterRow} horizontal showsHorizontalScrollIndicator={false}>
-          {catFilters.map((filter) => {
-            const isSelected = selectedFilter === filter;
+          <View style={styles.filterRow}>
+            <Pressable
+              accessibilityLabel="희귀한 고양이만 보기"
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: rareOnly }}
+              onPress={() => setRareOnly((previous) => !previous)}
+              style={[styles.filterChip, rareOnly && styles.filterChipActive]}
+            >
+              <Text style={[styles.filterText, rareOnly && styles.filterTextActive]}>희귀</Text>
+            </Pressable>
 
-            return (
-              <Pressable key={filter} onPress={() => setSelectedFilter(filter)} style={[styles.filterChip, isSelected && styles.filterChipActive]}>
-                <Text style={[styles.filterText, isSelected && styles.filterTextActive]}>{filter}</Text>
+            {filterLabels.map((label) => (
+              <View key={label} style={styles.appliedChip}>
+                <Text style={styles.appliedChipLabel}>{label}</Text>
+              </View>
+            ))}
+
+            {hasFilter ? (
+              <Pressable
+                accessibilityLabel="필터 해제"
+                accessibilityRole="button"
+                hitSlop={10}
+                onPress={() => {
+                  setFilter(emptyDexFilter);
+                  setRareOnly(false);
+                }}
+                style={styles.appliedClear}
+              >
+                <X color={nd.colors.sub} size={14} strokeWidth={2} />
               </Pressable>
-            );
-          })}
+            ) : null}
+          </View>
+
+          <View style={styles.grid}>
+            {gridRows.map((row) => (
+              <View key={row[0].id} style={styles.gridRow}>
+                {row.map((cat) => (
+                  <PolaroidCatCard
+                    imageSource={catPhotoSource(cat.imageUrl)}
+                    key={cat.id}
+                    onPress={() => navigation.navigate('CatDetail', { catId: cat.id })}
+                    tagLabel={formatNyanTagLabel(cat.name, cat.firstSeenAt)}
+                  />
+                ))}
+                {row.length === 1 ? <View style={styles.gridSpacer} /> : null}
+              </View>
+            ))}
+          </View>
+
+          {visibleCats.length === 0 ? (
+            <View style={styles.emptyState}>
+              <PawPrint color={nd.colors.subtle} size={38} />
+              <Text style={styles.emptyTitle}>
+                {hasSearchQuery || hasFilter
+                  ? '조건에 맞는 고양이가 없어요'
+                  : hasNeighborhood
+                    ? '아직 동네에 기록된 고양이가 없어요'
+                    : '동네를 아직 못 찾았어요'}
+              </Text>
+              <Text style={styles.emptyText}>
+                {hasSearchQuery || hasFilter
+                  ? '다른 이름이나 털색으로 다시 찾아보세요.'
+                  : hasNeighborhood
+                    ? '첫 고양이를 기록하면 동네 도감이 채워져요.'
+                    : '위쪽 동네 칩을 눌러 현재 위치로 동네를 확인해 주세요.'}
+              </Text>
+            </View>
+          ) : null}
         </ScrollView>
 
-        <View style={styles.grid}>
-          {gridRows.map((row) => (
-            <View key={row[0].id} style={styles.gridRow}>
-              {row.map((cat) => (
-                <PolaroidCatCard
-                  imageSource={catPhotoSource(cat.imageUrl)}
-                  key={cat.id}
-                  onPress={() => navigation.navigate('CatDetail', { catId: cat.id })}
-                  tagLabel={formatNyanTagLabel(cat.name, cat.firstSeenAt)}
-                />
-              ))}
-              {row.length === 1 ? <View style={styles.gridSpacer} /> : null}
-            </View>
-          ))}
-        </View>
-
-        {visibleCats.length === 0 ? (
-          <View style={styles.emptyState}>
-            <PawPrint color={nd.colors.subtle} size={38} />
-            <Text style={styles.emptyTitle}>
-              {hasSearchQuery ? '검색 결과가 없어요' : hasNeighborhood ? '아직 동네에 기록된 고양이가 없어요' : '동네를 아직 못 찾았어요'}
-            </Text>
-            <Text style={styles.emptyText}>
-              {hasSearchQuery
-                ? '다른 이름이나 특징으로 다시 찾아보세요.'
-                : hasNeighborhood
-                  ? '첫 고양이를 기록하면 동네 도감이 채워져요.'
-                  : '위쪽 동네 칩을 눌러 현재 위치로 동네를 확인해 주세요.'}
-            </Text>
+        {isFilterOpen ? (
+          <View style={StyleSheet.absoluteFill}>
+            <Pressable
+              accessibilityLabel="필터 닫기"
+              accessibilityRole="button"
+              onPress={() => setIsFilterOpen(false)}
+              style={styles.scrim}
+            />
+            <DexFilterPanel
+              countFor={countForFilter}
+              filter={filter}
+              onApply={(next) => {
+                setFilter(next);
+                setIsFilterOpen(false);
+              }}
+            />
           </View>
         ) : null}
-      </ScrollView>
+      </View>
 
       <View style={[styles.tabBarWrap, { paddingBottom: Math.max(insets.bottom, 12) }]}>
         <NeighborhoodTabBar
@@ -285,10 +364,38 @@ const styles = StyleSheet.create({
     letterSpacing: -0.35,
     color: nd.colors.ink,
   },
+  body: {
+    flex: 1,
+  },
+  scrim: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: nd.colors.scrim,
+  },
   filterRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
     gap: 6,
     paddingHorizontal: 16,
     paddingTop: 12,
+  },
+  appliedChip: {
+    height: 28,
+    justifyContent: 'center',
+    paddingHorizontal: 10,
+    borderRadius: 14,
+    backgroundColor: nd.colors.field,
+  },
+  appliedChipLabel: {
+    fontSize: 12,
+    letterSpacing: -0.3,
+    color: nd.colors.ink,
+  },
+  appliedClear: {
+    width: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   filterChip: {
     height: 40,
