@@ -4,9 +4,9 @@ import { ClipboardList, MapPin, PawPrint, Search, SlidersHorizontal, X } from 'l
 import { useCallback, useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import type { ClientStackParamList, RootStackParamList } from '@/app/navigation/types';
-import { useTabBarInset } from '@/app/navigation/useTabBarInset';
+import { useTabBarBottomGap, useTabBarInset } from '@/app/navigation/useTabBarInset';
 import { ClientTabBar } from '@/features/cats/components/ClientTabBar';
 import { DexFilterPanel } from '@/features/cats/components/DexFilterPanel';
 import { formatMapRegionName } from '@/features/map/map-region-label';
@@ -55,7 +55,7 @@ export function CatDexScreen() {
   const [filter, setFilter] = useState<DexFilter>(emptyDexFilter);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const tabBarInset = useTabBarInset();
-  const insets = useSafeAreaInsets();
+  const tabBarBottomGap = useTabBarBottomGap();
 
   useFocusEffect(
     useCallback(() => {
@@ -291,7 +291,7 @@ export function CatDexScreen() {
         ) : null}
       </View>
 
-      <View style={[styles.tabBarWrap, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+      <View style={[styles.tabBarWrap, { paddingBottom: tabBarBottomGap }]}>
         <ClientTabBar
           active="roster"
           onHome={() => navigation.getParent()?.navigate('HomeTab' as never)}

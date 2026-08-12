@@ -2,9 +2,8 @@ import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { Camera, Compass, User } from 'lucide-react-native';
 import type { ComponentType } from 'react';
 import { Image, Pressable, StyleSheet, Text, View, type ImageSourcePropType } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
-import { TAB_BAR_TOP_GAP } from '@/app/navigation/useTabBarInset';
+import { TAB_BAR_TOP_GAP, useTabBarBottomGap } from '@/app/navigation/useTabBarInset';
 import { createNdShadow, nd } from '@/shared/styles/theme';
 
 type LucideIcon = ComponentType<{ color: string; size: number; fill?: string; strokeWidth?: number }>;
@@ -39,7 +38,7 @@ const items: TabItem[] = [
 ];
 
 export function MainTabBar({ state, navigation }: BottomTabBarProps) {
-  const insets = useSafeAreaInsets();
+  const bottomGap = useTabBarBottomGap();
   const activeRoute = state.routes[state.index]?.name;
 
   // 동네와 고객 흐름은 각자 전용 하단 바를 쓴다.
@@ -49,10 +48,6 @@ export function MainTabBar({ state, navigation }: BottomTabBarProps) {
   if (activeRoute === 'MapTab' || activeRoute === 'CollectionTab') {
     return null;
   }
-
-  // 탭바 컨테이너가 이미 16pt를 띄워 주므로, 홈 인디케이터를 비켜 갈 만큼만 더한다.
-  // 같은 계산을 useTabBarInset이 콘텐츠 여백용으로 다시 쓴다.
-  const bottomGap = Math.max(insets.bottom - TAB_BAR_TOP_GAP, 8);
 
   return (
     <View pointerEvents="box-none" style={[styles.wrap, { paddingBottom: bottomGap }]}>

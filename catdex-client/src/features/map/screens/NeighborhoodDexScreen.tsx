@@ -3,8 +3,9 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ChevronDown, MapPin, PawPrint, Search, SlidersHorizontal, X } from 'lucide-react-native';
 import { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import type { MapStackParamList, RootStackParamList } from '@/app/navigation/types';
+import { useTabBarBottomGap } from '@/app/navigation/useTabBarInset';
 import { DexFilterPanel } from '@/features/cats/components/DexFilterPanel';
 import {
   describeDexFilter,
@@ -49,7 +50,7 @@ const RARE_RARITY_THRESHOLD = 4;
 
 export function NeighborhoodDexScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<MapStackParamList & RootStackParamList>>();
-  const insets = useSafeAreaInsets();
+  const tabBarBottomGap = useTabBarBottomGap();
   const { cats, myCatIds, regions, neighborhoodName, hasNeighborhood, isDetectingNeighborhood, redetectNeighborhood } =
     useNeighborhoodData();
   const [selectedScope, setSelectedScope] = useState<NeighborhoodScope>('all');
@@ -261,7 +262,7 @@ export function NeighborhoodDexScreen() {
         ) : null}
       </View>
 
-      <View style={[styles.tabBarWrap, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+      <View style={[styles.tabBarWrap, { paddingBottom: tabBarBottomGap }]}>
         <NeighborhoodTabBar
           active="dex"
           onHome={() => navigation.getParent()?.navigate('HomeTab' as never)}
