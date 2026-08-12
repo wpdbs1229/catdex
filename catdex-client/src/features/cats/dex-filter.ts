@@ -1,5 +1,10 @@
 import { COAT_COLORS, type CoatColorId, type CoatPatternId } from '@/shared/coat/coat.types';
-import type { Cat } from '@/shared/types/cat';
+
+/** 개체(Cat)와 미확인 목격(DexPlaceholder)이 함께 만족하는 최소 모양. */
+interface CoatBearing {
+  coatColors: CoatColorId[];
+  coatPattern: CoatPatternId | null;
+}
 
 /**
  * 시안(3_도감_필터)의 "기타". 목록에 없는 색이 아니라 **기록이 없는** 고양이를 뜻한다.
@@ -71,29 +76,29 @@ export function isDexFilterEmpty(filter: DexFilter) {
   return countDexFilterSelections(filter) === 0;
 }
 
-function matchesColors(cat: Cat, selected: DexColorFilter[]) {
+function matchesColors(coat: CoatBearing, selected: DexColorFilter[]) {
   if (selected.length === 0) {
     return true;
   }
 
   return selected.some((value) =>
-    value === OTHER_COAT ? cat.coatColors.length === 0 : cat.coatColors.includes(value),
+    value === OTHER_COAT ? coat.coatColors.length === 0 : coat.coatColors.includes(value),
   );
 }
 
-function matchesPatterns(cat: Cat, selected: DexPatternFilter[]) {
+function matchesPatterns(coat: CoatBearing, selected: DexPatternFilter[]) {
   if (selected.length === 0) {
     return true;
   }
 
   return selected.some((value) =>
-    value === OTHER_COAT ? cat.coatPattern === null : cat.coatPattern === value,
+    value === OTHER_COAT ? coat.coatPattern === null : coat.coatPattern === value,
   );
 }
 
 /** 같은 축 안에서는 OR, 축끼리는 AND. 컬러를 둘 고르면 둘 중 하나만 맞아도 걸린다. */
-export function matchesDexFilter(cat: Cat, filter: DexFilter) {
-  return matchesColors(cat, filter.colors) && matchesPatterns(cat, filter.patterns);
+export function matchesDexFilter(coat: CoatBearing, filter: DexFilter) {
+  return matchesColors(coat, filter.colors) && matchesPatterns(coat, filter.patterns);
 }
 
 export function describeDexFilter(filter: DexFilter) {

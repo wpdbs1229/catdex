@@ -19,6 +19,7 @@ import {
 } from '@/features/cats/dex-filter';
 import { fetchDexPlaceholders, fetchMyCats } from '@/shared/api/cats.api';
 import { PolaroidCatCard } from '@/shared/components/PolaroidCatCard';
+import { describeCoat } from '@/shared/coat/coat-label';
 import { CREW_COMPANY_NAME } from '@/shared/constants/crew.constants';
 import { loadFavoriteCatIds, saveFavoriteCatIds } from '@/shared/favorites/favorites-storage';
 import { nd, theme } from '@/shared/styles/theme';
@@ -91,8 +92,11 @@ export function CatDexScreen() {
   }, [cats, filter, normalizedSearchQuery, regionCatIds]);
   const hasSearchQuery = normalizedSearchQuery.length > 0;
   const hasFilter = !isDexFilterEmpty(filter);
-  // 잠금 카드는 아직 내 고양이가 아니라 컬러·패턴 기록이 없다. 걸러 봐야 늘 빠지므로 숨긴다.
-  const lockedPlaceholders = hasSearchQuery || hasFilter ? [] : placeholders.slice(0, 2);
+  // 잠금 카드도 목격에 적힌 컬러·패턴으로 함께 걸러진다.
+  // 다만 이름이 없어서 검색어에는 걸릴 수 없으니, 검색 중일 때만 통째로 뺀다.
+  const lockedPlaceholders = hasSearchQuery
+    ? []
+    : placeholders.filter((placeholder) => matchesDexFilter(placeholder, filter)).slice(0, 2);
   const filterLabels = describeDexFilter(filter);
 
   // 패널의 CTA가 초안 기준 마릿수를 보여준다. 검색어가 걸려 있으면 그것까지 반영해야
@@ -243,7 +247,7 @@ export function CatDexScreen() {
                       imageSource={catPhotoSource(entry.placeholder.imageUrl)}
                       key={entry.key}
                       locked
-                      tagLabel="아직 만나지 못했어요"
+                      tagLabel={`${describeCoat(entry.placeholder.coatColors, entry.placeholder.coatPattern)}_아직 만나지 못했어요`}
                     />
                   ) : null,
                 )}

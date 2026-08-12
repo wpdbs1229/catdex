@@ -128,6 +128,9 @@ export interface CatReportDraft {
 export interface DexPlaceholder {
   id: string;
   type: CatType;
+  /** 개체와 같은 두 축. 목격 카드도 컬러·무늬 필터에 걸린다. */
+  coatColors: CoatColorId[];
+  coatPattern: CoatPatternId | null;
   rarity: CatRarity;
   clueTitle?: string;
   clue?: string;

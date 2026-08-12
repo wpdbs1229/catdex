@@ -66,6 +66,8 @@ interface CatSightingRow {
   id: string;
   region_name: string;
   coat_type: CatType;
+  coat_colors: CoatColorId[] | null;
+  coat_pattern: CoatPatternId | null;
   behavior_hint: string;
   image_url: string | null;
   sighted_at: string;
@@ -226,6 +228,8 @@ async function mapSightingPlaceholder(row: CatSightingRow): Promise<DexPlacehold
   return {
     id: row.id,
     type: row.coat_type,
+    coatColors: row.coat_colors ?? [],
+    coatPattern: row.coat_pattern,
     rarity: 2,
     regionHint: row.region_name,
     sightedAt: formatDate(row.sighted_at),
@@ -251,7 +255,7 @@ export async function fetchDexPlaceholders(): Promise<DexPlaceholder[]> {
 
   const { data, error } = await supabase
     .from('cat_sightings')
-    .select('id, region_name, coat_type, behavior_hint, image_url, sighted_at')
+    .select('id, region_name, coat_type, coat_colors, coat_pattern, behavior_hint, image_url, sighted_at')
     .eq('status', 'open')
     .order('created_at', { ascending: false })
     .limit(6);
@@ -480,7 +484,9 @@ export async function resolveCatObservation(observationId: string, catId: string
   throwIfSupabaseError(error);
 }
 
-export async function createCatSighting(draft: Pick<CaptureCatDraft, 'type' | 'regionName' | 'memo'> & { imageUrl?: string }) {
+export async function createCatSighting(
+  draft: Pick<CaptureCatDraft, 'type' | 'coatColors' | 'coatPattern' | 'regionName' | 'memo'> & { imageUrl?: string },
+) {
   assertSupabaseConfigured();
 
   const { data, error } = await supabase.rpc('create_cat_sighting', {
@@ -488,6 +494,8 @@ export async function createCatSighting(draft: Pick<CaptureCatDraft, 'type' | 'r
     p_coat_type: draft.type,
     p_behavior_hint: draft.memo,
     p_image_url: draft.imageUrl ?? null,
+    p_coat_colors: draft.coatColors,
+    p_coat_pattern: draft.coatPattern,
   });
 
   throwIfSupabaseError(error);
