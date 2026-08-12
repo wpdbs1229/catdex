@@ -7,6 +7,7 @@ import { CREW_COMPANY_SHORT_NAME } from '@/shared/constants/crew.constants';
 
 const caseBack = require('../../../../assets/badge/case-back.png');
 const caseFront = require('../../../../assets/badge/case-front.png');
+const lanyard = require('../../../../assets/badge/lanyard.png');
 
 interface CrewIdCardProps {
   nickname: string;
@@ -30,6 +31,25 @@ const SIDE_MARGIN = 16;
 const MAX_WIDTH = 460;
 /** 글자 크기 기준. 이 폭일 때의 값이 아래 스타일의 숫자다. */
 const BASE_WIDTH = 335;
+
+/** 목걸이 끈 원본 크기 (배경을 지우고 내용에 맞춰 자른 뒤) */
+const LANYARD = { width: 600, height: 832 };
+/**
+ * 케이스 앞판에 뚫린 슬롯의 세로 중심. 끈 끝(투명 고리)이 이 자리에서 끝나야
+ * 구멍에 꿴 것처럼 보인다. 앞판·뒤판 모두 이 자리가 비어 있어서, 끈을 카드
+ * 뒤에 두면 구멍 사이로 끈이 비친다.
+ */
+const SLOT_CENTER_RATIO = 107 / 720;
+/** 카드 폭 대비 끈 폭. 끈이 카드보다 좁아야 카드가 주인공으로 남는다. */
+const LANYARD_WIDTH_RATIO = 0.5;
+/**
+ * 카드 높이 대비 '보이는' 끈 길이.
+ *
+ * 끈 전체를 그리면 V자가 통째로 들어앉아 사원증보다 커진다. 위쪽을 잘라 두면
+ * 끈이 화면 밖으로 이어지는 것처럼 읽혀서, 실제로 목에 건 것처럼 보이면서
+ * 자리는 훨씬 덜 먹는다.
+ */
+const LANYARD_VISIBLE_RATIO = 0.85;
 
 const colors = {
   sheet: '#F9F8F6',
@@ -95,8 +115,15 @@ export function CrewIdCard({ nickname, profileImageUrl, rank, city, joinedAt }: 
   const stampPawSize = styles.embossPaw.width;
 
   return (
-    <View style={styles.card}>
-      <Image resizeMode="stretch" source={caseBack} style={styles.caseLayer} />
+    <View style={styles.hanger}>
+      {/* 카드보다 먼저 그려 뒤로 보낸다. 슬롯이 뚫려 있어 구멍으로 끈이 비친다.
+          창이 끈 위쪽을 잘라 화면 밖으로 이어지는 것처럼 만든다. */}
+      <View style={styles.lanyardWindow}>
+        <Image resizeMode="contain" source={lanyard} style={styles.lanyard} />
+      </View>
+
+      <View style={styles.card}>
+        <Image resizeMode="stretch" source={caseBack} style={styles.caseLayer} />
 
       <View style={styles.window}>
         <View style={styles.sidebar}>
@@ -158,9 +185,10 @@ export function CrewIdCard({ nickname, profileImageUrl, rank, city, joinedAt }: 
         </View>
       </View>
 
-      {/* 앞판이 카드 위를 덮어 케이스 안에 들어간 것처럼 보이게 한다. */}
-      <View pointerEvents="none" style={styles.caseLayer}>
-        <Image resizeMode="stretch" source={caseFront} style={styles.caseImage} />
+        {/* 앞판이 카드 위를 덮어 케이스 안에 들어간 것처럼 보이게 한다. */}
+        <View pointerEvents="none" style={styles.caseLayer}>
+          <Image resizeMode="stretch" source={caseFront} style={styles.caseImage} />
+        </View>
       </View>
     </View>
   );
@@ -175,12 +203,27 @@ function createStyles(screenWidth: number) {
   // 글자·여백은 335pt 기준 값을 같은 비율로 키운다.
   const s = (value: number) => (value * cardWidth) / BASE_WIDTH;
   const stampSize = s(52);
+  const lanyardWidth = cardWidth * LANYARD_WIDTH_RATIO;
 
   return StyleSheet.create({
+  hanger: {
+    alignItems: 'center',
+  },
+  lanyardWindow: {
+    width: lanyardWidth,
+    height: cardHeight * LANYARD_VISIBLE_RATIO,
+    overflow: 'hidden',
+    justifyContent: 'flex-end',
+  },
+  lanyard: {
+    width: lanyardWidth,
+    height: (lanyardWidth * LANYARD.height) / LANYARD.width,
+  },
+  // 끈 끝이 슬롯에 닿도록 카드를 그만큼 끌어올린다.
   card: {
     width: cardWidth,
     height: cardHeight,
-    alignSelf: 'center',
+    marginTop: -cardHeight * SLOT_CENTER_RATIO,
   },
   caseLayer: {
     ...StyleSheet.absoluteFillObject,
