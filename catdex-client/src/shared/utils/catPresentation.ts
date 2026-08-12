@@ -122,6 +122,7 @@ export function getRarityGuide(cat: Cat) {
   return [
     `${describeCoat(cat.coatColors, cat.coatPattern)} 기본 희귀도와 도감 내 분포를 기준으로 산정했어요.`,
     '동네에서 같은 털색이 적거나 전체 도감에서 드문 털색이면 별이 올라가요.',
+    '많이 수집할수록 도달할 수 있는 최대 별이 올라가요. 10마리에 4성, 30마리에 5성이 열려요.',
     '다시 만난 횟수는 희귀도가 아니라 관계 레벨에 반영돼요.',
   ];
 }
