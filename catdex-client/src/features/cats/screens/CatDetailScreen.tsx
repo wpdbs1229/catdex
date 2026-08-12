@@ -24,7 +24,7 @@ import {
 } from '@/shared/neighborhood/active-neighborhood';
 import { createNdShadow, nd } from '@/shared/styles/theme';
 import type { Cat, CatEncounter } from '@/shared/types/cat';
-import { imageForCatType } from '@/shared/utils/catImage';
+import { catPhotoSource } from '@/shared/utils/catImage';
 import { getAffinityFromRelationship, sortEncountersByDateAsc } from '@/shared/utils/catPresentation';
 
 const paperTexture = require('../../../../assets/textures/crumpled-paper.jpg');
@@ -196,8 +196,8 @@ export function CatDetailScreen({ navigation, route }: RootStackScreenProps<'Cat
             <View style={styles.catCard}>
               <Image resizeMode="cover" source={paperTexture} style={styles.cardPaper} />
 
-              {imageForCatType(cat.type, cat.imageUrl) ? (
-                <Image resizeMode="contain" source={imageForCatType(cat.type, cat.imageUrl)!} style={styles.catPhoto} />
+              {catPhotoSource(cat.imageUrl) ? (
+                <Image resizeMode="contain" source={catPhotoSource(cat.imageUrl)!} style={styles.catPhoto} />
               ) : (
                 <View style={[styles.catPhoto, styles.catPhotoFallback]}>
                   <PawPrint color={nd.colors.subtle} size={44} />

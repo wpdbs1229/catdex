@@ -19,7 +19,7 @@ import {
 } from '@/shared/neighborhood/active-neighborhood';
 import { createNdShadow, nd } from '@/shared/styles/theme';
 import type { CatMatchCandidate } from '@/shared/types/cat';
-import { imageForCatType } from '@/shared/utils/catImage';
+import { catPhotoSource } from '@/shared/utils/catImage';
 import { formatNyanTagLabel } from '@/shared/utils/catPresentation';
 
 interface StoredObservation {
@@ -220,7 +220,7 @@ export function CaptureMatchScreen({ navigation, route }: CaptureStackScreenProp
                 {candidates.map((candidate) => (
                   <View key={candidate.cat.id} style={styles.candidateCard}>
                     <PolaroidCatCard
-                      imageSource={imageForCatType(candidate.cat.type, candidate.cat.imageUrl)}
+                      imageSource={catPhotoSource(candidate.cat.imageUrl)}
                       onPress={isSubmitting ? undefined : () => handleSelectCandidate(candidate)}
                       tagLabel={formatNyanTagLabel(candidate.cat.name, candidate.cat.firstSeenAt)}
                     />

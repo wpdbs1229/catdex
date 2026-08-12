@@ -12,7 +12,7 @@ import { formatMapRegionName } from '@/features/map/map-region-label';
 import { createNdShadow, nd } from '@/shared/styles/theme';
 import type { Cat } from '@/shared/types/cat';
 import type { Region } from '@/shared/types/region';
-import { imageForCatType } from '@/shared/utils/catImage';
+import { catPhotoSource } from '@/shared/utils/catImage';
 
 function getRegionCats(region: Region | null, catById: Map<string, Cat>, catByName: Map<string, Cat>) {
   if (!region) {
@@ -121,8 +121,8 @@ export function NeighborhoodMapScreen() {
                     onPress={() => navigation.navigate('CatDetail', { catId: cat.id })}
                     style={({ pressed }) => [styles.regionCatItem, pressed && styles.pressed]}
                   >
-                    {imageForCatType(cat.type, cat.imageUrl) ? (
-                      <Image resizeMode="contain" source={imageForCatType(cat.type, cat.imageUrl)!} style={styles.regionCatImage} />
+                    {catPhotoSource(cat.imageUrl) ? (
+                      <Image resizeMode="contain" source={catPhotoSource(cat.imageUrl)!} style={styles.regionCatImage} />
                     ) : (
                       <View style={[styles.regionCatImage, styles.regionCatFallback]}>
                         <PawPrint color={nd.colors.subtle} size={22} />

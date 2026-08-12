@@ -12,7 +12,7 @@ import { PolaroidCatCard } from '@/shared/components/PolaroidCatCard';
 import { catFilters } from '@/shared/constants/cat.constants';
 import { nd } from '@/shared/styles/theme';
 import type { Cat, CatFilter } from '@/shared/types/cat';
-import { imageForCatType } from '@/shared/utils/catImage';
+import { catPhotoSource } from '@/shared/utils/catImage';
 import { formatNyanTagLabel } from '@/shared/utils/catPresentation';
 
 type NeighborhoodScope = 'all' | 'mine';
@@ -154,7 +154,7 @@ export function NeighborhoodDexScreen() {
             <View key={row[0].id} style={styles.gridRow}>
               {row.map((cat) => (
                 <PolaroidCatCard
-                  imageSource={imageForCatType(cat.type, cat.imageUrl)}
+                  imageSource={catPhotoSource(cat.imageUrl)}
                   key={cat.id}
                   onPress={() => navigation.navigate('CatDetail', { catId: cat.id })}
                   tagLabel={formatNyanTagLabel(cat.name, cat.firstSeenAt)}

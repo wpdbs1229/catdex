@@ -23,7 +23,7 @@ import { CREW_COMPANY_NAME } from '@/shared/constants/crew.constants';
 import { loadFavoriteCatIds, saveFavoriteCatIds } from '@/shared/favorites/favorites-storage';
 import { nd, theme } from '@/shared/styles/theme';
 import type { Cat, DexPlaceholder } from '@/shared/types/cat';
-import { imageForCatType } from '@/shared/utils/catImage';
+import { catPhotoSource } from '@/shared/utils/catImage';
 import { formatNyanTagLabel } from '@/shared/utils/catPresentation';
 
 function normalizeSearchText(value: string) {
@@ -231,7 +231,7 @@ export function CatDexScreen() {
                 {row.map((entry) =>
                   entry.cat ? (
                     <PolaroidCatCard
-                      imageSource={imageForCatType(entry.cat.type, entry.cat.imageUrl)}
+                      imageSource={catPhotoSource(entry.cat.imageUrl)}
                       key={entry.key}
                       liked={likedCatIds.has(entry.cat.id)}
                       onPress={() => navigation.navigate('CatDetail', { catId: entry.cat!.id })}
@@ -240,7 +240,7 @@ export function CatDexScreen() {
                     />
                   ) : entry.placeholder ? (
                     <PolaroidCatCard
-                      imageSource={imageForCatType(entry.placeholder.type, entry.placeholder.imageUrl)}
+                      imageSource={catPhotoSource(entry.placeholder.imageUrl)}
                       key={entry.key}
                       locked
                       tagLabel="아직 만나지 못했어요"

@@ -19,7 +19,7 @@ import { useActiveNeighborhood } from '@/shared/neighborhood/useActiveNeighborho
 import { nd } from '@/shared/styles/theme';
 import type { AuthUser } from '@/shared/types/auth';
 import type { Cat } from '@/shared/types/cat';
-import { imageForCatType } from '@/shared/utils/catImage';
+import { catPhotoSource } from '@/shared/utils/catImage';
 import { CREW_COMPANY_NAME } from '@/shared/constants/crew.constants';
 
 /**
@@ -129,7 +129,7 @@ export function HomeScreen() {
             <ScrollView contentContainerStyle={styles.row} horizontal showsHorizontalScrollIndicator={false}>
               {chatCats.map((cat, index) => (
                 <CatChatCard
-                  imageSource={imageForCatType(cat.type, cat.imageUrl)}
+                  imageSource={catPhotoSource(cat.imageUrl)}
                   key={cat.id}
                   message={getChatMessage(cat.name, index)}
                   onPress={() => Alert.alert('상담은 준비 중이에요', '냥고객님과의 상담은 다음 단계에서 열려요.')}

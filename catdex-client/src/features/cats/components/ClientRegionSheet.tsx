@@ -4,7 +4,7 @@ import { formatMapRegionName } from '@/features/map/map-region-label';
 import { nd, theme } from '@/shared/styles/theme';
 import type { Cat } from '@/shared/types/cat';
 import type { Region } from '@/shared/types/region';
-import { imageForCatType } from '@/shared/utils/catImage';
+import { catPhotoSource } from '@/shared/utils/catImage';
 
 interface ClientRegionSheetProps {
   region: Region;
@@ -35,7 +35,7 @@ export function ClientRegionSheet({ region, cats, onSelectCat, onOpenRoster }: C
             onPress={() => onSelectCat(cat)}
             style={({ pressed }) => [styles.catSlot, pressed && styles.pressed]}
           >
-            <Image resizeMode="contain" source={imageForCatType(cat.type, cat.imageUrl)} style={styles.catImage} />
+            <Image resizeMode="contain" source={catPhotoSource(cat.imageUrl)} style={styles.catImage} />
             <Text numberOfLines={1} style={styles.catName}>
               {cat.name}
             </Text>

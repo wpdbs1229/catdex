@@ -3,7 +3,7 @@ import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { formatMapRegionName } from '@/features/map/map-region-label';
 import { nd, theme } from '@/shared/styles/theme';
 import type { Cat } from '@/shared/types/cat';
-import { imageForCatType } from '@/shared/utils/catImage';
+import { catPhotoSource } from '@/shared/utils/catImage';
 
 interface ClientCatSheetProps {
   cat: Cat;
@@ -24,7 +24,7 @@ export function ClientCatSheet({ cat, regionName, onOpenDetail, onStartConsult }
   return (
     <View style={styles.sheet}>
       <View style={styles.row}>
-        <Image resizeMode="contain" source={imageForCatType(cat.type, cat.imageUrl)} style={styles.photo} />
+        <Image resizeMode="contain" source={catPhotoSource(cat.imageUrl)} style={styles.photo} />
 
         <View style={styles.info}>
           <Text numberOfLines={1} style={styles.name}>
