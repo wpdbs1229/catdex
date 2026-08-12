@@ -1,15 +1,17 @@
+import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ChevronDown, MapPin } from 'lucide-react-native';
 import { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import type { HomeStackParamList, RootStackParamList } from '@/app/navigation/types';
+import type { HomeStackParamList, MainTabParamList, RootStackParamList } from '@/app/navigation/types';
 import { useTabBarInset } from '@/app/navigation/useTabBarInset';
 import { CatChatCard } from '@/features/home/components/CatChatCard';
 import { CrewIdCard } from '@/features/home/components/CrewIdCard';
 import { CrewProgressCard } from '@/features/home/components/CrewProgressCard';
 import { RankGuideModal } from '@/features/home/components/RankGuideModal';
+import { NeighborhoodSheet } from '@/shared/neighborhood/NeighborhoodSheet';
 import { NotificationBell } from '@/features/notifications/components/NotificationBell';
 import { fetchMyProfile } from '@/shared/api/auth.api';
 import { checkInAndFetchCrewStatus, defaultCrewStatus, type CrewStatus } from '@/shared/api/crew.api';
@@ -46,7 +48,8 @@ export function HomeScreen() {
   const [crewStatus, setCrewStatus] = useState<CrewStatus>(defaultCrewStatus);
   const [myCats, setMyCats] = useState<Cat[]>([]);
   const [isRankGuideOpen, setIsRankGuideOpen] = useState(false);
-  const { neighborhood, name: neighborhoodName, isDetecting, redetect } = useActiveNeighborhood();
+  const [isNeighborhoodSheetOpen, setIsNeighborhoodSheetOpen] = useState(false);
+  const { neighborhood, name: neighborhoodName, isDetecting, redetect, refresh } = useActiveNeighborhood();
   const tabBarInset = useTabBarInset();
 
   useFocusEffect(
@@ -81,10 +84,9 @@ export function HomeScreen() {
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.screen}>
       <View style={styles.headerRow}>
         <Pressable
-          accessibilityLabel="현재 위치로 동네 다시 확인"
+          accessibilityLabel="내 동네 목록 열기"
           accessibilityRole="button"
-          disabled={isDetecting}
-          onPress={redetect}
+          onPress={() => setIsNeighborhoodSheetOpen(true)}
           style={({ pressed }) => [styles.locationChip, pressed && styles.pressed]}
         >
           <View style={styles.locationIcon}>
@@ -117,6 +119,11 @@ export function HomeScreen() {
           <View style={styles.sectionBody}>
             <CrewProgressCard
               onPressAttendance={() => navigation.navigate('Attendance')}
+              // 수집 마릿수의 실물은 '내 고객' 탭이다. 도감이 들고 있는 필터 상태는
+              // 건드리지 않고 탭만 옮긴다.
+              onPressCollection={() =>
+                navigation.getParent<BottomTabNavigationProp<MainTabParamList>>()?.navigate('CollectionTab')
+              }
               onPressPromotion={() => setIsRankGuideOpen(true)}
               status={crewStatus}
             />
@@ -143,6 +150,17 @@ export function HomeScreen() {
       </ScrollView>
 
       <RankGuideModal onClose={() => setIsRankGuideOpen(false)} status={crewStatus} visible={isRankGuideOpen} />
+
+      <NeighborhoodSheet
+        activeId={neighborhood?.id}
+        isDetecting={isDetecting}
+        onAddCurrent={() => {
+          void redetect();
+        }}
+        onChanged={refresh}
+        onClose={() => setIsNeighborhoodSheetOpen(false)}
+        visible={isNeighborhoodSheetOpen}
+      />
     </SafeAreaView>
   );
 }

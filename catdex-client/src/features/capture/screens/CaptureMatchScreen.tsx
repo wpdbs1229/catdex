@@ -12,11 +12,7 @@ import {
 } from '@/shared/api/cats.api';
 import { PolaroidCatCard } from '@/shared/components/PolaroidCatCard';
 import { getUserFacingError } from '@/shared/errors/user-facing-error';
-import {
-  detectAndSaveNeighborhood,
-  getActiveNeighborhood,
-  UNSET_REGION_NAME,
-} from '@/shared/neighborhood/active-neighborhood';
+import { detectEncounterNeighborhood, UNSET_REGION_NAME } from '@/shared/neighborhood/active-neighborhood';
 import { createNdShadow, nd } from '@/shared/styles/theme';
 import type { CatMatchCandidate } from '@/shared/types/cat';
 import { catPhotoSource } from '@/shared/utils/catImage';
@@ -46,15 +42,14 @@ export function CaptureMatchScreen({ navigation, route }: CaptureStackScreenProp
 
     (async () => {
       try {
-        // 저장된 동네가 없으면 여기서 현재 위치로 한 번 확인한다.
-        // (동네가 비어 있으면 관찰 기록이 전부 '동네 미지정'으로 쌓인다.)
-        const activeNeighborhood = (await getActiveNeighborhood()) ?? (await detectAndSaveNeighborhood());
-        const regionName = activeNeighborhood?.name ?? UNSET_REGION_NAME;
-
-        const [originalUpload, cutoutUpload] = await Promise.all([
+        // 만난 곳은 지금 서 있는 곳이다. 저장된 근거지를 쓰면 출장지에서 찍은
+        // 고양이가 근거지에 등록된다. 위치 조회가 느리므로 업로드와 함께 돌린다.
+        const [encounterNeighborhood, originalUpload, cutoutUpload] = await Promise.all([
+          detectEncounterNeighborhood(),
           uploadCatObservationImage(photoUri, 'original'),
           uploadCatObservationImage(cutoutUri ?? photoUri, 'cutout'),
         ]);
+        const regionName = encounterNeighborhood?.name ?? UNSET_REGION_NAME;
         const nextObservation = await createCatObservation({
           originalImageUrl: originalUpload.imageUrl,
           cutoutImageUrl: cutoutUpload.imageUrl,

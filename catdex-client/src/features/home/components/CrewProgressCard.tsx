@@ -1,4 +1,4 @@
-import { CheckCircle2, ChevronRight, PawPrint, RefreshCw } from 'lucide-react-native';
+import { CheckCircle2, ChevronRight, PawPrint, Plane, RefreshCw } from 'lucide-react-native';
 import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { CrewStatus } from '@/shared/api/crew.api';
@@ -10,6 +10,8 @@ interface CrewProgressCardProps {
   onPressAttendance: () => void;
   /** 승진 진행 줄을 누르면 승진 규칙 안내로 */
   onPressPromotion: () => void;
+  /** 수집 칸을 누르면 그 마릿수의 실물인 '내 고객' 목록으로 */
+  onPressCollection: () => void;
 }
 
 // 주황은 사원증·하단바와 같은 토큰을 쓴다(nd.colors.accent).
@@ -18,6 +20,23 @@ const colors = {
   accentSoft: nd.colors.primarySoft,
   divider: '#EDEBE8',
 };
+
+/**
+ * 출장 줄에 쓸 한 줄.
+ *
+ * 위치를 믿을 수 있게 된 뒤의 기록만 세므로, 시작 직후에는 비어 있는 게 정상이다.
+ * 그때 '0회'라고 쓰면 실패처럼 읽히니 아직 없다고만 말한다.
+ */
+function formatAway(status: CrewStatus) {
+  if (status.awayEncounters === 0 || !status.awayLatestRegion) {
+    return '아직 출장 기록이 없어요';
+  }
+
+  const others = status.awayRegionCount - 1;
+  const place = others > 0 ? `${status.awayLatestRegion} 외 ${others}곳` : status.awayLatestRegion;
+
+  return `${place} ${status.awayEncounters}회`;
+}
 
 /** 다음 직책까지의 진행률. 최고 직책이면 1. */
 function getProgress(status: CrewStatus) {
@@ -44,7 +63,12 @@ function RowLabel({ icon, text }: { icon: ReactNode; text: string }) {
  * 사용자를 회사원, 고양이를 고객으로 두는 은유를 따른다. 출근은 연속이 아니라
  * 누적이라 하루 걸러도 줄지 않는다(길고양이는 매일 만날 수 있는 대상이 아니다).
  */
-export function CrewProgressCard({ status, onPressAttendance, onPressPromotion }: CrewProgressCardProps) {
+export function CrewProgressCard({
+  status,
+  onPressAttendance,
+  onPressPromotion,
+  onPressCollection,
+}: CrewProgressCardProps) {
   const remaining = status.nextThreshold ? Math.max(0, status.nextThreshold - status.peak) : 0;
   const progress = getProgress(status);
 
@@ -71,7 +95,12 @@ export function CrewProgressCard({ status, onPressAttendance, onPressPromotion }
 
         <View style={styles.topDivider} />
 
-        <View style={styles.topCell}>
+        <Pressable
+          accessibilityLabel="담당 고객 목록 보기"
+          accessibilityRole="button"
+          onPress={onPressCollection}
+          style={({ pressed }) => [styles.topCell, pressed && styles.pressed]}
+        >
           <RowLabel icon={<PawPrint color={colors.accent} size={13} strokeWidth={2.4} />} text="수집" />
           <View style={styles.metricRow}>
             <Text style={styles.metric}>{status.collected}</Text>
@@ -79,8 +108,9 @@ export function CrewProgressCard({ status, onPressAttendance, onPressPromotion }
             <View style={styles.rankChip}>
               <Text style={styles.rankChipText}>{status.rank}</Text>
             </View>
+            <ChevronRight color={nd.colors.subtle} size={16} strokeWidth={2.2} />
           </View>
-        </View>
+        </Pressable>
       </View>
 
       <View style={styles.divider} />
@@ -116,6 +146,15 @@ export function CrewProgressCard({ status, onPressAttendance, onPressPromotion }
           {status.topReunionCat
             ? `${status.topReunionCat} 고객 ${status.topReunionCount}회 재회`
             : '아직 다시 만난 고객이 없어요'}
+        </Text>
+      </View>
+
+      <View style={styles.divider} />
+
+      <View style={styles.reunionRow}>
+        <RowLabel icon={<Plane color={colors.accent} size={13} strokeWidth={2.4} />} text="출장 기록" />
+        <Text numberOfLines={1} style={styles.reunionText}>
+          {formatAway(status)}
         </Text>
       </View>
     </View>

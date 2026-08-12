@@ -73,11 +73,25 @@ export function useActiveNeighborhood() {
     }, [detect]),
   );
 
+  const refresh = useCallback(() => {
+    getActiveNeighborhood()
+      .then((saved) => {
+        if (isMountedRef.current) {
+          setNeighborhood(saved);
+        }
+      })
+      .catch((error: unknown) => {
+        console.warn('[neighborhood] refresh failed', error);
+      });
+  }, []);
+
   return {
     neighborhood,
     name: neighborhood?.name ?? UNSET_NEIGHBORHOOD_NAME,
     isDetecting,
-    /** 칩을 눌러 다시 감지할 때 쓴다. 실패하면 이유를 알린다. */
+    /** 현재 위치를 새 동네로 잡는다. 실패하면 이유를 알린다. */
     redetect: () => detect(),
+    /** 목록에서 다른 동네를 고른 뒤 헤더를 다시 읽는다. */
+    refresh,
   };
 }

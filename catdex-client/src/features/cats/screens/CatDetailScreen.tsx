@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowUp, Heart, Mic, PawPrint } from 'lucide-react-native';
+import { ArrowLeft, ArrowUp, Heart, Mic, PawPrint, Plane } from 'lucide-react-native';
 import { useCallback, useMemo, useState } from 'react';
 import {
   Alert,
@@ -18,8 +18,9 @@ import type { RootStackScreenProps } from '@/app/navigation/types';
 import { fetchCatEncounters, fetchCats, fetchMyCats, recordCatEncounter, removeMyCatEncounter } from '@/shared/api/cats.api';
 import { getUserFacingError } from '@/shared/errors/user-facing-error';
 import {
-  detectAndSaveNeighborhood,
-  getActiveNeighborhood,
+  detectEncounterNeighborhood,
+  isEncounterLocationTrusted,
+  getHomeRegionNames,
   UNSET_REGION_NAME,
 } from '@/shared/neighborhood/active-neighborhood';
 import { createNdShadow, nd } from '@/shared/styles/theme';
@@ -81,6 +82,8 @@ export function CatDetailScreen({ navigation, route }: RootStackScreenProps<'Cat
   const [showAllEntries, setShowAllEntries] = useState(false);
   const [draftMemo, setDraftMemo] = useState('');
   const [isSavingMemo, setIsSavingMemo] = useState(false);
+  // 어떤 만남이 출장인지 가르는 기준. 근거지를 모르면 아무 표시도 하지 않는다.
+  const [homeRegionNames, setHomeRegionNames] = useState<Set<string>>(new Set());
 
   const reload = useCallback(async () => {
     const [allCats, myCats, nextEncounters] = await Promise.all([
@@ -96,6 +99,10 @@ export function CatDetailScreen({ navigation, route }: RootStackScreenProps<'Cat
 
   useFocusEffect(
     useCallback(() => {
+      getHomeRegionNames()
+        .then(setHomeRegionNames)
+        .catch(() => setHomeRegionNames(new Set()));
+
       reload().catch((error: unknown) => {
         console.warn('[cat-detail] load failed', error);
       });
@@ -125,10 +132,12 @@ export function CatDetailScreen({ navigation, route }: RootStackScreenProps<'Cat
     setIsSavingMemo(true);
 
     try {
-      const activeNeighborhood = (await getActiveNeighborhood()) ?? (await detectAndSaveNeighborhood());
+      // 재회도 만난 곳 기준이다. 지난번과 다른 동네에서 다시 만날 수 있다.
+      const encounterNeighborhood = await detectEncounterNeighborhood();
 
       await recordCatEncounter(cat.id, {
-        regionName: activeNeighborhood?.name ?? encounters[encounters.length - 1]?.regionName ?? UNSET_REGION_NAME,
+        regionName:
+          encounterNeighborhood?.name ?? encounters[encounters.length - 1]?.regionName ?? UNSET_REGION_NAME,
         memo,
       });
       setDraftMemo('');
@@ -139,6 +148,20 @@ export function CatDetailScreen({ navigation, route }: RootStackScreenProps<'Cat
       setIsSavingMemo(false);
     }
   };
+
+  /**
+   * 이 만남이 출장인지.
+   *
+   * 근거지 밖에서 만난 건을 출장으로 본다. 근거지를 아직 모르거나 만난 곳이
+   * '동네 미지정'이면 판단할 수 없으므로 아무 표시도 하지 않는다 - 모르는 것을
+   * 출장이라고 부르면 실제 출장과 구분이 안 된다.
+   */
+  const isAwayEncounter = (encounter: CatEncounter) =>
+    homeRegionNames.size > 0 &&
+    // 위치를 믿을 수 있게 된 뒤의 기록만 판정한다.
+    isEncounterLocationTrusted(encounter.seenAt) &&
+    encounter.regionName !== UNSET_REGION_NAME &&
+    !homeRegionNames.has(encounter.regionName);
 
   const handleRemoveEncounter = (encounter: CatEncounter) => {
     Alert.alert('기록 삭제', '이 만남 기록을 삭제할까요?', [
@@ -264,7 +287,15 @@ export function CatDetailScreen({ navigation, route }: RootStackScreenProps<'Cat
                     <Pressable delayLongPress={450} onLongPress={() => handleRemoveEncounter(encounter)} style={styles.diaryBubble}>
                       <Text style={styles.diaryText}>{encounter.memo}</Text>
                     </Pressable>
-                    <Text style={styles.diaryDate}>{formatShortDate(encounter.seenAt)}</Text>
+                    <View style={styles.diaryMeta}>
+                      <Text style={styles.diaryDate}>{formatShortDate(encounter.seenAt)}</Text>
+                      {isAwayEncounter(encounter) ? (
+                        <View style={styles.awayChip}>
+                          <Plane color={nd.colors.accent} size={10} strokeWidth={2.4} />
+                          <Text style={styles.awayChipText}>출장 · {encounter.regionName}</Text>
+                        </View>
+                      ) : null}
+                    </View>
                   </View>
                 ))
               )}
@@ -538,6 +569,25 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingHorizontal: 28,
     paddingVertical: 6,
+  },
+  diaryMeta: {
+    alignItems: 'flex-start',
+    gap: 4,
+  },
+  awayChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    borderRadius: nd.radius.pill,
+    backgroundColor: nd.colors.primarySoft,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+  },
+  awayChipText: {
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: -0.25,
+    color: nd.colors.accent,
   },
   diaryBubble: {
     flexShrink: 1,
