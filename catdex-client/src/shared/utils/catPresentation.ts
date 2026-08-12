@@ -1,3 +1,4 @@
+import { describeCoat } from '@/shared/coat/coat-label';
 import type { Cat, CatEncounter, CatRarity, CatType } from '@/shared/types/cat';
 
 export type CatIllustrationKey = 'orange' | 'dark' | 'tuxedo' | 'gray';
@@ -119,7 +120,7 @@ export function getRarityGuide(cat: Cat) {
   }
 
   return [
-    `${cat.type} 기본 희귀도와 도감 내 분포를 기준으로 산정했어요.`,
+    `${describeCoat(cat.coatColors, cat.coatPattern)} 기본 희귀도와 도감 내 분포를 기준으로 산정했어요.`,
     '동네에서 같은 털색이 적거나 전체 도감에서 드문 털색이면 별이 올라가요.',
     '다시 만난 횟수는 희귀도가 아니라 관계 레벨에 반영돼요.',
   ];
