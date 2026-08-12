@@ -1,36 +1,27 @@
 import { throwIfSupabaseError } from '@/shared/api/client';
+import { deriveCatType } from '@/shared/coat/coat-to-cat-type';
 import type { CoatColorId, CoatPatternId } from '@/shared/coat/coat.types';
 import { assertSupabaseConfigured, supabase } from '@/shared/supabase/client';
-import { catFilters, coatOptions, personalityOptions } from '@/shared/constants/cat.constants';
 import { getActiveNeighborhood } from '@/shared/neighborhood/active-neighborhood';
 import { getRelationshipLevel } from '@/shared/utils/catPresentation';
 import type {
   Cat,
   CatEncounter,
-  CatFilter,
   CatMatchCandidate,
   CatMatchMethod,
   CatObservation,
   CatReportDraft,
   CatRarity,
-  CatType,
   CatProfileUpdateDraft,
   CaptureCatDraft,
-  DexPlaceholder,
   PersonalityTag,
+  DexPlaceholder,
 } from '@/shared/types/cat';
-
-export interface CatOptionsResponse {
-  filters: CatFilter[];
-  coatTypes: CatType[];
-  personalityTags: PersonalityTag[];
-}
 
 interface CatRow {
   id: string;
   number: number;
   name: string;
-  type: CatType;
   coat_colors: CoatColorId[] | null;
   coat_pattern: CoatPatternId | null;
   rarity: CatRarity;
@@ -65,7 +56,6 @@ interface UserCatCollectionRow {
 interface CatSightingRow {
   id: string;
   region_name: string;
-  coat_type: CatType;
   coat_colors: CoatColorId[] | null;
   coat_pattern: CoatPatternId | null;
   behavior_hint: string;
@@ -107,12 +97,15 @@ async function getDisplayImageUrl(imageUrl: string | null) {
 }
 
 async function mapCat(row: CatRow): Promise<Cat> {
+  const coatColors = row.coat_colors ?? [];
+
   return {
     id: row.id,
     number: row.number,
     name: row.name,
-    type: row.type,
-    coatColors: row.coat_colors ?? [],
+    // 도감 이름은 저장하지 않고 컬러·무늬에서 만든다.
+    type: deriveCatType(coatColors, row.coat_pattern),
+    coatColors,
     coatPattern: row.coat_pattern,
     rarity: row.rarity,
     rarityReasons: row.rarity_reasons ?? [],
@@ -153,22 +146,15 @@ export async function removeMyCatEncounter(encounterId: string) {
   return data as { catRemoved: boolean; myRemainingCount: number };
 }
 
-export async function fetchCats(filter: CatFilter = '전체') {
+export async function fetchCats() {
   assertSupabaseConfigured();
 
-  let query = supabase
+  const { data, error } = await supabase
     .from('cats')
     .select('*')
     .order('last_seen_at', { ascending: false })
     .order('number', { ascending: true });
 
-  if (filter === '희귀') {
-    query = query.gte('rarity', 4);
-  } else if (filter !== '전체') {
-    query = query.eq('type', filter);
-  }
-
-  const { data, error } = await query;
   throwIfSupabaseError(error);
 
   return Promise.all(((data ?? []) as CatRow[]).map(mapCat));
@@ -225,10 +211,12 @@ export async function fetchMyCats() {
 }
 
 async function mapSightingPlaceholder(row: CatSightingRow): Promise<DexPlaceholder> {
+  const coatColors = row.coat_colors ?? [];
+
   return {
     id: row.id,
-    type: row.coat_type,
-    coatColors: row.coat_colors ?? [],
+    type: deriveCatType(coatColors, row.coat_pattern),
+    coatColors,
     coatPattern: row.coat_pattern,
     rarity: 2,
     regionHint: row.region_name,
@@ -255,7 +243,7 @@ export async function fetchDexPlaceholders(): Promise<DexPlaceholder[]> {
 
   const { data, error } = await supabase
     .from('cat_sightings')
-    .select('id, region_name, coat_type, coat_colors, coat_pattern, behavior_hint, image_url, sighted_at')
+    .select('id, region_name, coat_colors, coat_pattern, behavior_hint, image_url, sighted_at')
     .eq('status', 'open')
     .order('created_at', { ascending: false })
     .limit(6);
@@ -279,14 +267,6 @@ export async function fetchCatEncounters(catId: string) {
   return Promise.all(((data ?? []) as CatEncounterRow[]).map(mapEncounter));
 }
 
-export function fetchCatOptions(): Promise<CatOptionsResponse> {
-  return Promise.resolve({
-    filters: catFilters,
-    coatTypes: coatOptions,
-    personalityTags: personalityOptions,
-  });
-}
-
 export async function createCat(draft: CaptureCatDraft) {
   assertSupabaseConfigured();
 
@@ -300,7 +280,6 @@ export async function createCat(draft: CaptureCatDraft) {
     p_region_lat: isSameRegion ? neighborhood.lat : null,
     p_region_lng: isSameRegion ? neighborhood.lng : null,
     p_name: draft.name,
-    p_type: draft.type,
     p_tags: draft.tags,
     p_region_name: draft.regionName,
     p_memo: draft.memo,
@@ -485,13 +464,12 @@ export async function resolveCatObservation(observationId: string, catId: string
 }
 
 export async function createCatSighting(
-  draft: Pick<CaptureCatDraft, 'type' | 'coatColors' | 'coatPattern' | 'regionName' | 'memo'> & { imageUrl?: string },
+  draft: Pick<CaptureCatDraft, 'coatColors' | 'coatPattern' | 'regionName' | 'memo'> & { imageUrl?: string },
 ) {
   assertSupabaseConfigured();
 
   const { data, error } = await supabase.rpc('create_cat_sighting', {
     p_region_name: draft.regionName,
-    p_coat_type: draft.type,
     p_behavior_hint: draft.memo,
     p_image_url: draft.imageUrl ?? null,
     p_coat_colors: draft.coatColors,

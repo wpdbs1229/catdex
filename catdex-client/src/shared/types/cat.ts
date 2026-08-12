@@ -19,17 +19,16 @@ export type CatRarity = 1 | 2 | 3 | 4 | 5;
 
 export type PersonalityTag = '애교많음' | '겁많음' | '느긋함' | '활발함';
 
-export type CatFilter = '전체' | CatType | '희귀';
-
 export interface Cat {
   id: string;
   number: number;
   name: string;
-  type: CatType;
   /**
-   * 등록할 때 고른 털색·무늬 원본. type은 이 둘을 deriveCatType으로 접은 값이라
-   * 되돌릴 수 없어서, 도감 필터가 쓸 수 있게 따로 남긴다.
+   * 도감이 부르는 이름("고등어냥"). 저장하지 않고 아래 두 축에서 읽을 때마다
+   * 만든다(deriveCatType). 표시 전용이라 거르기·희귀도는 원본을 봐야 한다.
    */
+  type: CatType;
+  /** 등록할 때 고른 털색·무늬 원본. 거르기와 희귀도가 보는 값이다. */
   coatColors: CoatColorId[];
   coatPattern: CoatPatternId | null;
   rarity: CatRarity;
@@ -58,7 +57,6 @@ export interface CatEncounter {
 
 export interface CaptureCatDraft {
   name: string;
-  type: CatType;
   coatColors: CoatColorId[];
   coatPattern: CoatPatternId | null;
   // 성격 태그 외에 '수컷'/'암컷', '품종:페르시안' 같은 속성 태그도 함께 담는다.
@@ -107,7 +105,12 @@ export interface CatObservation {
   matchedCatId?: string;
 }
 
-export type CatMatchMethod = 'neighborhood_recent' | 'visual_embedding' | 'manual';
+export type CatMatchMethod =
+  | 'neighborhood_recent'
+  /** 동네 후보 중 털색까지 겹친 경우. 서버가 코트 힌트와 컬러를 맞춰 본다. */
+  | 'neighborhood_recent_coat'
+  | 'visual_embedding'
+  | 'manual';
 
 export interface CatMatchCandidate {
   cat: Cat;

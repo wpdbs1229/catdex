@@ -14,7 +14,6 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { CaptureStackScreenProps } from '@/app/navigation/types';
-import { deriveCatType } from '@/features/capture/coat/coat-to-cat-type';
 import { createCat, resolveCatObservation } from '@/shared/api/cats.api';
 import { getUserFacingError } from '@/shared/errors/user-facing-error';
 import { createNdShadow, nd } from '@/shared/styles/theme';
@@ -53,7 +52,6 @@ export function CaptureRegisterScreen({ navigation, route }: CaptureStackScreenP
 
       const draft: CaptureCatDraft = {
         name: name.trim(),
-        type: deriveCatType(colors, pattern),
         coatColors: colors,
         coatPattern: pattern,
         tags,
