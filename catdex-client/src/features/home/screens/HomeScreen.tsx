@@ -125,6 +125,12 @@ export function HomeScreen() {
         </View>
 
         <View style={styles.section}>
+          <Text style={styles.sectionTitle}>오늘의 고객 상담</Text>
+          <View style={styles.sectionBody}>
+            <SupportRoomEntryCard onPress={openSupportRoom} room={room} />
+          </View>
+        </View>
+        <View style={styles.section}>
           <Text style={styles.sectionTitle}>인사고과</Text>
           <View style={styles.sectionBody}>
             <CrewProgressCard
@@ -140,12 +146,6 @@ export function HomeScreen() {
           </View>
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>오늘의 고객 상담</Text>
-          <View style={styles.sectionBody}>
-            <SupportRoomEntryCard onPress={openSupportRoom} room={room} />
-          </View>
-        </View>
       </Animated.ScrollView>
 
       <RankGuideModal onClose={() => setIsRankGuideOpen(false)} status={crewStatus} visible={isRankGuideOpen} />

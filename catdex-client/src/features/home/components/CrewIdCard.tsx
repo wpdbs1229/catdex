@@ -33,8 +33,14 @@ interface CrewIdCardProps {
  * 카드 폭이 정해지면 나머지는 전부 같은 비율로 따라간다.
  */
 const ASSET = { width: 1005, height: 720, windowX: 79, windowY: 145, windowW: 774, windowH: 492, radius: 34 };
-/** 화면 양옆 여백. 카드는 남는 폭을 최대한 쓴다. */
-const SIDE_MARGIN = 16;
+/**
+ * 화면 양옆 여백.
+ *
+ * 넓게 쓰면 사원증이 첫 화면을 다 먹어서 그 아래 고객지원실 진입 카드가 스크롤
+ * 밖으로 밀린다. 앱을 켰을 때 '새 장면이 생겼어요'가 보여야 하므로 사원증을
+ * 조금 줄여 자리를 내준다.
+ */
+const SIDE_MARGIN = 44;
 /** 태블릿에서 지나치게 커지지 않게 상한을 둔다. */
 const MAX_WIDTH = 460;
 /** 글자 크기 기준. 이 폭일 때의 값이 아래 스타일의 숫자다. */
@@ -57,7 +63,11 @@ const LANYARD_WIDTH_RATIO = 0.5;
  * 끈이 화면 밖으로 이어지는 것처럼 읽혀서, 실제로 목에 건 것처럼 보이면서
  * 자리는 훨씬 덜 먹는다.
  */
-const LANYARD_VISIBLE_RATIO = 0.6;
+/**
+ * 0.56 아래로 내리면 고양이 클립의 귀가 잘려 덩어리처럼 보인다.
+ * 자리를 더 줄여야 하면 끈이 아니라 카드 폭(SIDE_MARGIN)을 건드린다.
+ */
+const LANYARD_VISIBLE_RATIO = 0.58;
 /**
  * 사원증을 끌어내릴 수 있는 최대 거리(pt).
  *
