@@ -239,6 +239,14 @@ export const SUPPORT_ROOM_ICONS = {
 
 export const SUPPORT_ROOM_BACKGROUND = require('../../../assets/support-room/environment/support-room-clean-wide.webp');
 
+/**
+ * 홈 진입 카드용 미리보기.
+ *
+ * 3859×2166 원본을 홈 카드에 그대로 넣지 않는다. 카드 크기에 맞춰 잘라 낸
+ * 전용 이미지라 12KB면 끝난다.
+ */
+export const SUPPORT_ROOM_HOME_PREVIEW = require('../../../assets/support-room/home-preview.webp');
+
 /** 자동 선택 후보. point_reserved가 빠져 있다. */
 export const SELECTABLE_CHARACTER_KEYS: readonly SelectableCharacterAssetKey[] = [
   'bicolor_cow',

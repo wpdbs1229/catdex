@@ -7,48 +7,31 @@ import { ActivityIndicator, Animated, Pressable, ScrollView, StyleSheet, Text, V
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { HomeStackParamList, MainTabParamList, RootStackParamList } from '@/app/navigation/types';
 import { useTabBarInset } from '@/app/navigation/useTabBarInset';
-import { CatChatCard } from '@/features/home/components/CatChatCard';
 import { CrewIdCard, MAX_PULL, PULL_TRAVEL } from '@/features/home/components/CrewIdCard';
 import { CrewProgressCard } from '@/features/home/components/CrewProgressCard';
 import { RankGuideModal } from '@/features/home/components/RankGuideModal';
+import { SupportRoomEntryCard } from '@/features/support-room/SupportRoomEntryCard';
+import { loadRoom } from '@/features/support-room/support-room.storage';
+import type { RoomState } from '@/features/support-room/support-room.domain';
 import { NeighborhoodSheet } from '@/shared/neighborhood/NeighborhoodSheet';
 import { NotificationBell } from '@/features/notifications/components/NotificationBell';
 import { fetchMyProfile } from '@/shared/api/auth.api';
 import { checkInAndFetchCrewStatus, defaultCrewStatus, type CrewStatus } from '@/shared/api/crew.api';
-import { fetchMyCats } from '@/shared/api/cats.api';
 import { DEFAULT_PROFILE_NICKNAME } from '@/shared/constants/profile.constants';
 import { useActiveNeighborhood } from '@/shared/neighborhood/useActiveNeighborhood';
 import { nd } from '@/shared/styles/theme';
 import type { AuthUser } from '@/shared/types/auth';
-import type { Cat } from '@/shared/types/cat';
-import { catPhotoSource } from '@/shared/utils/catImage';
 import { CREW_COMPANY_NAME } from '@/shared/constants/crew.constants';
-
-/**
- * 카드 순서대로 돌려쓰는 안내 문구.
- *
- * 시안은 "대화"였지만 화면 위쪽(사원증·인사고과)과 같은 회사원 은유로 맞춰
- * 고객 상담 어투를 쓴다. 세 문구를 돌려쓰는 건 시안 그대로다 - 카드가 나란히
- * 서기 때문에 같은 문장이 세 번 반복되면 문구가 아니라 버그로 읽힌다.
- */
-function getChatMessage(name: string, index: number) {
-  const messages = [
-    `${name} 고객님이 기다리고 있어요.`,
-    `${name} 고객님이 상담을 요청했어요.`,
-    `${name} 고객님의 이야기를 들어보세요.`,
-  ];
-
-  return messages[index % messages.length];
-}
 
 export function HomeScreen() {
   // 홈 스택(출근 현황)과 루트 스택(알림함 등)을 둘 다 부르므로 합쳐서 받는다.
   const navigation = useNavigation<NativeStackNavigationProp<HomeStackParamList & RootStackParamList>>();
   const [profile, setProfile] = useState<AuthUser | null>(null);
   const [crewStatus, setCrewStatus] = useState<CrewStatus>(defaultCrewStatus);
-  const [myCats, setMyCats] = useState<Cat[]>([]);
   const [isRankGuideOpen, setIsRankGuideOpen] = useState(false);
   const [isNeighborhoodSheetOpen, setIsNeighborhoodSheetOpen] = useState(false);
+  // 진입 카드가 무엇을 말할지는 방 상태가 정한다. 여기서는 읽기만 하고 정산하지 않는다.
+  const [room, setRoom] = useState<RoomState | null>(null);
 
   // 위에서 아래로 당긴 양(오버스크롤). 사원증이 끈에 끌려 내려가는 데 쓴다.
   // 손을 놓으면 스크롤뷰가 알아서 제자리로 튕겨 돌아오므로 따로 되돌릴 필요가 없다.
@@ -69,15 +52,15 @@ export function HomeScreen() {
     useCallback(() => {
       let isActive = true;
 
-      Promise.all([fetchMyProfile(), fetchMyCats(), checkInAndFetchCrewStatus()])
-        .then(([nextProfile, nextCats, nextCrewStatus]) => {
+      Promise.all([fetchMyProfile(), checkInAndFetchCrewStatus(), loadRoom()])
+        .then(([nextProfile, nextCrewStatus, storedRoom]) => {
           if (!isActive) {
             return;
           }
 
           setProfile(nextProfile);
-          setMyCats(nextCats);
           setCrewStatus(nextCrewStatus);
+          setRoom(storedRoom.room);
         })
         .catch((error: unknown) => {
           console.warn('[home] load failed', error);
@@ -89,7 +72,6 @@ export function HomeScreen() {
     }, []),
   );
 
-  const chatCats = useMemo(() => myCats.slice(0, 3), [myCats]);
 
   // 고객 상담은 고객 탭 안에 있다. 탭을 옮긴 뒤 그 스택의 화면을 연다.
   const openSupportRoom = useCallback(() => {
@@ -158,21 +140,9 @@ export function HomeScreen() {
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>오늘의 고객 상담</Text>
-          {chatCats.length > 0 ? (
-            <ScrollView contentContainerStyle={styles.row} horizontal showsHorizontalScrollIndicator={false}>
-              {chatCats.map((cat, index) => (
-                <CatChatCard
-                  imageSource={catPhotoSource(cat.imageUrl)}
-                  key={cat.id}
-                  message={getChatMessage(cat.name, index)}
-                  // 홈 카드와 고객 상담 탭은 같은 고객지원실로 들어간다.
-                  onPress={openSupportRoom}
-                />
-              ))}
-            </ScrollView>
-          ) : (
-            <Text style={styles.emptyText}>도감에 고양이를 등록하면 상담할 고객이 생겨요.</Text>
-          )}
+          <View style={styles.sectionBody}>
+            <SupportRoomEntryCard onPress={openSupportRoom} room={room} />
+          </View>
         </View>
       </Animated.ScrollView>
 

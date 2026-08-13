@@ -199,7 +199,6 @@ export function SupportRoomScreen() {
 
   const reload = useCallback(async () => {
     const [loadedRoom, myCats] = await Promise.all([loadRoom(), fetchMyCats()]);
-    console.warn('[temp] room=', JSON.stringify(loadedRoom?.room?.installedProps), 'records=', typeof loadedRoom?.room?.records, 'cats=', myCats.length, 'first=', JSON.stringify(myCats[0] && {c: myCats[0].coatColors, p: myCats[0].coatPattern}));
     const roomCats: RoomCat[] = myCats.map((cat) => ({
       id: cat.id,
       name: cat.name,
