@@ -30,16 +30,14 @@ import { PropSheet } from '@/features/support-room/PropSheet';
 import {
   acknowledgeScenes,
   installProp,
-  SCENE_INTERVAL_MS,
-  settleScenes,
-  unlockedProps,
   unreadCount,
   ZONES,
   type RoomCat,
   type Scene,
   type ZoneId,
 } from '@/features/support-room/support-room.domain';
-import { loadRoom, saveRoom, type StoredRoom } from '@/features/support-room/support-room.storage';
+import { saveRoom, type StoredRoom } from '@/features/support-room/support-room.storage';
+import { syncRoom } from '@/features/support-room/support-room.service';
 import { trackSupportRoom } from '@/features/support-room/support-room.analytics';
 import { fetchMyCats } from '@/shared/api/cats.api';
 import { nd } from '@/shared/styles/theme';
@@ -198,70 +196,39 @@ export function SupportRoomScreen() {
   );
 
   const reload = useCallback(async () => {
-    const [loadedRoom, myCats] = await Promise.all([loadRoom(), fetchMyCats()]);
-    const roomCats: RoomCat[] = myCats.map((cat) => ({
-      id: cat.id,
-      name: cat.name,
-      coatColors: cat.coatColors,
-      coatPattern: cat.coatPattern,
-    }));
+    const sync = await syncRoom();
 
-    const settled = settleScenes({
-      state: loadedRoom.room,
-      cats: roomCats,
-      now: Date.now(),
-      pick: (candidates) => candidates[Math.floor(Math.random() * candidates.length)],
-      makeSceneId: (scheduledAt, catId, propId) => `${scheduledAt}-${catId}-${propId}`,
-    });
-    const next: StoredRoom = { ...loadedRoom, room: settled };
-
-    // 화면에 보여 주기 전에 저장한다. 여기서 앱이 죽어도 같은 장면이 두 번
-    // 생기거나 사라지지 않는다.
-    await saveRoom(next);
-    setStored(next);
-    setCats(roomCats);
-
-    const unlockedBefore = unlockedProps(loadedRoom.room.discoveredCombinations.length);
-    const unlockedAfter = unlockedProps(settled.discoveredCombinations.length);
+    setStored(sync.stored);
+    setCats(sync.cats);
 
     trackSupportRoom({
       name: 'support_room_open',
-      sceneCount: settled.pendingScenes.length,
-      unreadCount: unreadCount(settled),
+      sceneCount: sync.stored.room.pendingScenes.length,
+      unreadCount: unreadCount(sync.stored.room),
     });
 
-    if (loadedRoom.room.nextScheduledAt !== null) {
-      trackSupportRoom({
-        name: 'support_room_return',
-        hoursSinceLastOpen: Math.max(
-          0,
-          Math.round((Date.now() - (loadedRoom.room.nextScheduledAt - SCENE_INTERVAL_MS)) / SCENE_INTERVAL_MS),
-        ),
-      });
+    if (sync.hoursSinceLastSettle !== null) {
+      trackSupportRoom({ name: 'support_room_return', hoursSinceLastOpen: sync.hoursSinceLastSettle });
     }
 
-    for (const scene of settled.pendingScenes) {
-      if (!loadedRoom.room.pendingScenes.some((old) => old.id === scene.id)) {
-        trackSupportRoom({ name: 'support_room_first_scene_seen', zoneId: scene.zoneId, propId: scene.propId });
+    for (const scene of sync.newScenes) {
+      trackSupportRoom({ name: 'support_room_first_scene_seen', zoneId: scene.zoneId, propId: scene.propId });
 
-        if (scene.isFirstSeen) {
-          trackSupportRoom({
-            name: 'support_record_discovered',
-            propId: scene.propId,
-            discoveredTotal: settled.discoveredCombinations.length,
-          });
-        }
-      }
-    }
-
-    for (const propId of unlockedAfter) {
-      if (!unlockedBefore.includes(propId)) {
+      if (scene.isFirstSeen) {
         trackSupportRoom({
-          name: 'support_prop_unlocked',
-          propId,
-          discoveredTotal: settled.discoveredCombinations.length,
+          name: 'support_record_discovered',
+          propId: scene.propId,
+          discoveredTotal: sync.stored.room.discoveredCombinations.length,
         });
       }
+    }
+
+    for (const propId of sync.newlyUnlocked) {
+      trackSupportRoom({
+        name: 'support_prop_unlocked',
+        propId,
+        discoveredTotal: sync.stored.room.discoveredCombinations.length,
+      });
     }
   }, []);
 

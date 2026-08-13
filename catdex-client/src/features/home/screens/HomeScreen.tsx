@@ -11,7 +11,7 @@ import { CrewIdCard, MAX_PULL, PULL_TRAVEL } from '@/features/home/components/Cr
 import { CrewProgressCard } from '@/features/home/components/CrewProgressCard';
 import { RankGuideModal } from '@/features/home/components/RankGuideModal';
 import { SupportRoomEntryCard } from '@/features/support-room/SupportRoomEntryCard';
-import { loadRoom } from '@/features/support-room/support-room.storage';
+import { syncRoom } from '@/features/support-room/support-room.service';
 import type { RoomState } from '@/features/support-room/support-room.domain';
 import { NeighborhoodSheet } from '@/shared/neighborhood/NeighborhoodSheet';
 import { NotificationBell } from '@/features/notifications/components/NotificationBell';
@@ -52,15 +52,17 @@ export function HomeScreen() {
     useCallback(() => {
       let isActive = true;
 
-      Promise.all([fetchMyProfile(), checkInAndFetchCrewStatus(), loadRoom()])
-        .then(([nextProfile, nextCrewStatus, storedRoom]) => {
+      // 홈에서도 정산한다. 방에 들어가야만 장면이 생기면, 들어오게 만들
+      // 새 장면 배지가 영영 뜨지 않는다.
+      Promise.all([fetchMyProfile(), checkInAndFetchCrewStatus(), syncRoom()])
+        .then(([nextProfile, nextCrewStatus, roomSync]) => {
           if (!isActive) {
             return;
           }
 
           setProfile(nextProfile);
           setCrewStatus(nextCrewStatus);
-          setRoom(storedRoom.room);
+          setRoom(roomSync.stored.room);
         })
         .catch((error: unknown) => {
           console.warn('[home] load failed', error);
