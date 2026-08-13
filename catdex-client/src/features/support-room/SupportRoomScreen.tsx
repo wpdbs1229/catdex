@@ -23,10 +23,15 @@ import {
   PROP_IMAGES,
   SUPPORT_ROOM_BACKGROUND,
   SUPPORT_ROOM_ICONS,
+  type PropId,
 } from '@/features/support-room/support-room.assets';
+import { ConsultationLogSheet } from '@/features/support-room/ConsultationLogSheet';
+import { PropSheet } from '@/features/support-room/PropSheet';
 import {
-  MAX_PENDING_SCENES,
+  acknowledgeScenes,
+  installProp,
   settleScenes,
+  unreadCount,
   ZONES,
   type RoomCat,
   type Scene,
@@ -148,6 +153,7 @@ export function SupportRoomScreen() {
   const [cats, setCats] = useState<RoomCat[]>([]);
   const [phase, setPhase] = useState<LoadPhase>('loading');
   const [bubble, setBubble] = useState<{ sceneId: string; text: string } | null>(null);
+  const [openSheet, setOpenSheet] = useState<'log' | 'props' | null>(null);
   const [motionEnabled, setMotionEnabled] = useState(true);
   const scrollRef = useRef<ScrollView>(null);
   const [scrollX, setScrollX] = useState(0);
@@ -188,6 +194,7 @@ export function SupportRoomScreen() {
 
   const reload = useCallback(async () => {
     const [loadedRoom, myCats] = await Promise.all([loadRoom(), fetchMyCats()]);
+    console.warn('[temp] room=', JSON.stringify(loadedRoom?.room?.installedProps), 'records=', typeof loadedRoom?.room?.records, 'cats=', myCats.length, 'first=', JSON.stringify(myCats[0] && {c: myCats[0].coatColors, p: myCats[0].coatPattern}));
     const roomCats: RoomCat[] = myCats.map((cat) => ({
       id: cat.id,
       name: cat.name,
@@ -244,6 +251,7 @@ export function SupportRoomScreen() {
   }, [phase, scale, stored, viewportWidth]);
 
   const scenes = stored?.room.pendingScenes ?? [];
+  const unread = stored ? unreadCount(stored.room) : 0;
   const activeProps = useMemo(() => {
     // 행동 장면이 있는 슬롯은 그림에 비품이 함께 그려져 있으므로 독립 비품을 숨긴다.
     const busy = new Set(scenes.filter((scene) => scene.behaviorId !== 'idle').map((scene) => scene.zoneId));
@@ -277,6 +285,33 @@ export function SupportRoomScreen() {
     return { left, right };
   }, [scenes, scale, scrollX, viewportWidth]);
 
+  /** 저장과 화면 상태를 한 번에 바꾼다. 둘이 어긋나면 다시 들어왔을 때 되돌아간다. */
+  const commit = useCallback((next: StoredRoom) => {
+    setStored(next);
+    void saveRoom(next);
+  }, []);
+
+  const openLog = useCallback(() => {
+    if (!stored) {
+      return;
+    }
+
+    // 여는 순간 방을 비우고 새 기록을 읽음으로 바꾼다. 기록 자체는 남는다.
+    setOpenSheet('log');
+    commit({ ...stored, room: acknowledgeScenes(stored.room) });
+  }, [commit, stored]);
+
+  const selectProp = useCallback(
+    (zoneId: ZoneId, propId: PropId) => {
+      if (!stored) {
+        return;
+      }
+
+      commit({ ...stored, room: installProp(stored.room, zoneId, propId) });
+    },
+    [commit, stored],
+  );
+
   const openRoster = () => navigation.navigate('ClientRoster');
   const openMap = () => navigation.navigate('ClientMap');
 
@@ -290,20 +325,22 @@ export function SupportRoomScreen() {
         <View style={styles.headerRight}>
           <Text style={styles.visitCount}>방문 중 {scenes.length}</Text>
           <Pressable
-            accessibilityLabel={`상담 기록, 새 기록 ${scenes.filter((scene) => scene.isFirstSeen).length}개`}
+            accessibilityLabel={`상담 기록, 새 기록 ${unread}개`}
             accessibilityRole="button"
+            onPress={openLog}
             style={({ pressed }) => [styles.hudButton, pressed && styles.pressed]}
           >
             <Image resizeMode="contain" source={SUPPORT_ROOM_ICONS.icon_consultation_log} style={styles.hudIcon} />
-            {scenes.length > 0 ? (
+            {unread > 0 ? (
               <View style={styles.badge}>
-                <Text style={styles.badgeText}>{scenes.length}</Text>
+                <Text style={styles.badgeText}>{unread}</Text>
               </View>
             ) : null}
           </Pressable>
           <Pressable
             accessibilityLabel="비품 바꾸기"
             accessibilityRole="button"
+            onPress={() => setOpenSheet('props')}
             style={({ pressed }) => [styles.hudButton, pressed && styles.pressed]}
           >
             <Image resizeMode="contain" source={SUPPORT_ROOM_ICONS.icon_supply_box} style={styles.hudIcon} />
@@ -447,6 +484,21 @@ export function SupportRoomScreen() {
           </>
         ) : null}
       </View>
+
+      <ConsultationLogSheet
+        onClose={() => setOpenSheet(null)}
+        records={stored?.room.records ?? []}
+        visible={openSheet === 'log'}
+      />
+
+      {stored ? (
+        <PropSheet
+          onClose={() => setOpenSheet(null)}
+          onSelect={selectProp}
+          room={stored.room}
+          visible={openSheet === 'props'}
+        />
+      ) : null}
 
       <View style={[styles.tabBarWrap, { paddingBottom: tabBarBottomGap }]}>
         <ClientTabBar

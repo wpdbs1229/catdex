@@ -82,6 +82,7 @@ export function MainTabBar({ state, navigation }: BottomTabBarProps) {
                 const target = state.routes.find((item) => item.name === route)?.key;
                 const event = navigation.emit({ type: 'tabPress', target, canPreventDefault: true });
 
+
                 if (!isActive && !event.defaultPrevented) {
                   navigation.navigate(route);
                 }

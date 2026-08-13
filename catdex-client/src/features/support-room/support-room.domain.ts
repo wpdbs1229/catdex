@@ -82,12 +82,36 @@ export interface Scene {
   isFirstSeen: boolean;
 }
 
+/**
+ * 영구 상담기록.
+ *
+ * 처음 본 catId:propId 조합만 남는다. 같은 조합을 다시 봐도 방에는 나타나지만
+ * 기록은 늘지 않는다 - 늘어나면 목록이 같은 이야기로 채워져 새 기록을 찾는
+ * 재미가 사라진다.
+ */
+export interface ConsultationRecord {
+  id: string;
+  scheduledAt: number;
+  catId: string;
+  catNameSnapshot: string;
+  coatColorsSnapshot: CoatColorId[];
+  coatPatternSnapshot: CoatPatternId | null;
+  characterAssetKeySnapshot: CharacterAssetKey;
+  characterMatchRuleIdSnapshot: CharacterMatchRuleId;
+  propId: PropId;
+  behaviorId: BehaviorId;
+  combinationKey: string;
+  status: 'unread' | 'read';
+}
+
 export interface RoomState {
   installedProps: Record<ZoneId, PropId>;
   /** 아직 확인하지 않은 장면 */
   pendingScenes: Scene[];
-  /** 지금까지 처음 본 catId:propId 조합 */
+  /** 지금까지 처음 본 catId:propId 조합. 해금 진행도가 이 수를 본다 */
   discoveredCombinations: string[];
+  /** 영구 상담기록. 최신이 뒤에 붙는다 */
+  records: ConsultationRecord[];
   /** 다음 장면이 생길 시각. 아직 한 번도 정산하지 않았으면 null */
   nextScheduledAt: number | null;
 }
@@ -116,6 +140,7 @@ export function createInitialRoomState(): RoomState {
     installedProps: { ...STARTER_PROPS },
     pendingScenes: [],
     discoveredCombinations: [],
+    records: [],
     nextScheduledAt: null,
   };
 }
@@ -147,8 +172,11 @@ export function settleScenes({ state, cats, now, pick, makeSceneId }: SettleInpu
   const installed = Object.values(state.installedProps);
   const discovered = new Set(state.discoveredCombinations);
   const pending = [...state.pendingScenes];
+  const records = [...state.records];
   // 한 번에 여러 건을 정산해도 같은 고양이가 두 번 나오지 않게 한다.
   const usedCatIds = new Set(pending.map((scene) => scene.catId));
+  // 구역당 한 마리다. 슬롯이 하나뿐이라 두 마리가 같은 비품을 쓸 수 없다.
+  const usedZones = new Set(pending.map((scene) => scene.zoneId));
 
   const createSceneAt = (scheduledAt: number) => {
     const combos: Array<{ cat: RoomCat; propId: PropId }> = [];
@@ -159,6 +187,10 @@ export function settleScenes({ state, cats, now, pick, makeSceneId }: SettleInpu
       }
 
       for (const propId of installed) {
+        if (usedZones.has(zoneOfProp(propId))) {
+          continue;
+        }
+
         combos.push({ cat, propId });
       }
     }
@@ -174,8 +206,17 @@ export function settleScenes({ state, cats, now, pick, makeSceneId }: SettleInpu
     const combinationKey = combinationKeyOf(chosen.cat.id, chosen.propId);
 
     usedCatIds.add(chosen.cat.id);
+    usedZones.add(zoneOfProp(chosen.propId));
 
-    return {
+    const isFirstSeen = !discovered.has(combinationKey);
+
+    // 조합을 본 순간 발견으로 친다. 시트를 열어야 발견되는 것으로 두면, 시트를
+    // 열지 않는 동안 같은 조합이 몇 번이고 '처음'으로 잡혀 기록이 겹친다.
+    if (isFirstSeen) {
+      discovered.add(combinationKey);
+    }
+
+    const scene = {
       id: makeSceneId(scheduledAt, chosen.cat.id, chosen.propId),
       scheduledAt,
       catId: chosen.cat.id,
@@ -188,8 +229,27 @@ export function settleScenes({ state, cats, now, pick, makeSceneId }: SettleInpu
       behaviorId: BEHAVIOR_BY_PROP[chosen.propId],
       zoneId: zoneOfProp(chosen.propId),
       combinationKey,
-      isFirstSeen: !discovered.has(combinationKey),
+      isFirstSeen,
     } satisfies Scene;
+
+    if (isFirstSeen) {
+      records.push({
+        id: scene.id,
+        scheduledAt: scene.scheduledAt,
+        catId: scene.catId,
+        catNameSnapshot: scene.catNameSnapshot,
+        coatColorsSnapshot: scene.coatColorsSnapshot,
+        coatPatternSnapshot: scene.coatPatternSnapshot,
+        characterAssetKeySnapshot: scene.characterAssetKeySnapshot,
+        characterMatchRuleIdSnapshot: scene.characterMatchRuleIdSnapshot,
+        propId: scene.propId,
+        behaviorId: scene.behaviorId,
+        combinationKey,
+        status: 'unread',
+      });
+    }
+
+    return scene;
   };
 
   // 처음 들어온 사람에게는 기다리지 않고 한 건을 보여 준다.
@@ -199,6 +259,8 @@ export function settleScenes({ state, cats, now, pick, makeSceneId }: SettleInpu
     return {
       ...state,
       pendingScenes: scene ? [...pending, scene] : pending,
+      discoveredCombinations: [...discovered],
+      records,
       nextScheduledAt: now + SCENE_INTERVAL_MS,
     };
   }
@@ -222,7 +284,13 @@ export function settleScenes({ state, cats, now, pick, makeSceneId }: SettleInpu
     next = now + SCENE_INTERVAL_MS;
   }
 
-  return { ...state, pendingScenes: pending, nextScheduledAt: next };
+  return {
+    ...state,
+    pendingScenes: pending,
+    discoveredCombinations: [...discovered],
+    records,
+    nextScheduledAt: next,
+  };
 }
 
 /**
@@ -231,28 +299,25 @@ export function settleScenes({ state, cats, now, pick, makeSceneId }: SettleInpu
  * 처음 본 조합만 발견 목록에 더한다. 같은 조합을 다시 봐도 방에는 보이지만
  * 해금 진행도는 오르지 않는다.
  */
-export function acknowledgeScenes(state: RoomState): {
-  state: RoomState;
-  newlyDiscovered: string[];
-} {
-  const discovered = new Set(state.discoveredCombinations);
-  const newlyDiscovered: string[] = [];
-
-  for (const scene of state.pendingScenes) {
-    if (!discovered.has(scene.combinationKey)) {
-      discovered.add(scene.combinationKey);
-      newlyDiscovered.push(scene.combinationKey);
-    }
-  }
-
+/**
+ * 상담기록을 열었을 때.
+ *
+ * 방을 비우고 새 기록을 읽음으로 바꾼다. 기록 자체는 지우지 않는다 - 읽었다고
+ * 사라지면 다시 볼 수가 없다.
+ */
+export function acknowledgeScenes(state: RoomState): RoomState {
   return {
-    state: {
-      ...state,
-      pendingScenes: [],
-      discoveredCombinations: [...discovered],
-    },
-    newlyDiscovered,
+    ...state,
+    pendingScenes: [],
+    records: state.records.map((record) =>
+      record.status === 'unread' ? { ...record, status: 'read' as const } : record,
+    ),
   };
+}
+
+/** 아직 읽지 않은 기록 수. 클립보드 배지가 보는 값이다. */
+export function unreadCount(state: RoomState): number {
+  return state.records.filter((record) => record.status === 'unread').length;
 }
 
 /** 슬롯의 비품을 바꾼다. 잠긴 비품과 다른 구역의 비품은 받지 않는다. */
@@ -267,5 +332,11 @@ export function installProp(state: RoomState, zoneId: ZoneId, propId: PropId): R
     return state;
   }
 
-  return { ...state, installedProps: { ...state.installedProps, [zoneId]: propId } };
+  return {
+    ...state,
+    installedProps: { ...state.installedProps, [zoneId]: propId },
+    // 바꾼 구역에 서 있던 고양이는 내린다. 새 비품과 짝이 맞지 않는 그림이
+    // 남기 때문이다. 이미 남긴 기록은 건드리지 않는다.
+    pendingScenes: state.pendingScenes.filter((scene) => scene.zoneId !== zoneId),
+  };
 }
