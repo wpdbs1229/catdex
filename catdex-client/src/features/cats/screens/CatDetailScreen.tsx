@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import type { RootStackScreenProps } from '@/app/navigation/types';
 import { fetchCatEncounters, fetchCats, fetchMyCats, recordCatEncounter, removeMyCatEncounter } from '@/shared/api/cats.api';
+import { deriveCatType } from '@/shared/coat/coat-to-cat-type';
 import { getUserFacingError } from '@/shared/errors/user-facing-error';
 import {
   detectEncounterNeighborhood,
@@ -253,7 +254,7 @@ export function CatDetailScreen({ navigation, route }: RootStackScreenProps<'Cat
                   <View style={styles.metaCell}>
                     <Text style={styles.metaLabel}>품종</Text>
                     <Text numberOfLines={1} style={styles.metaValue}>
-                      {getBreedLabel(cat.tags, cat.type)}
+                      {getBreedLabel(cat.tags, deriveCatType(cat.coatColors, cat.coatPattern))}
                     </Text>
                   </View>
                   <View style={styles.metaDivider} />
