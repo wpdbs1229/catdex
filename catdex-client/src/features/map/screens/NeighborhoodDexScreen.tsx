@@ -19,6 +19,7 @@ import { useNeighborhoodData } from '@/features/map/hooks/useNeighborhoodData';
 import { NotificationBell } from '@/features/notifications/components/NotificationBell';
 import { PolaroidCatCard } from '@/shared/components/PolaroidCatCard';
 import { nd, theme } from '@/shared/styles/theme';
+import { deriveCatType } from '@/shared/coat/coat-to-cat-type';
 import type { Cat } from '@/shared/types/cat';
 import { catPhotoSource } from '@/shared/utils/catImage';
 import { formatNyanTagLabel } from '@/shared/utils/catPresentation';
@@ -39,7 +40,7 @@ function catMatchesSearch(cat: Cat, query: string) {
     return true;
   }
 
-  return [cat.name, cat.type, cat.relationshipLevel, cat.memo ?? '', ...cat.tags]
+  return [cat.name, deriveCatType(cat.coatColors, cat.coatPattern), cat.relationshipLevel, cat.memo ?? '', ...cat.tags]
     .join(' ')
     .toLowerCase()
     .includes(query);

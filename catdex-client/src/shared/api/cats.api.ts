@@ -1,5 +1,4 @@
 import { throwIfSupabaseError } from '@/shared/api/client';
-import { deriveCatType } from '@/shared/coat/coat-to-cat-type';
 import type { CoatColorId, CoatPatternId } from '@/shared/coat/coat.types';
 import { assertSupabaseConfigured, supabase } from '@/shared/supabase/client';
 import { getActiveNeighborhood } from '@/shared/neighborhood/active-neighborhood';
@@ -104,7 +103,6 @@ async function mapCat(row: CatRow): Promise<Cat> {
     number: row.number,
     name: row.name,
     // 도감 이름은 저장하지 않고 컬러·무늬에서 만든다.
-    type: deriveCatType(coatColors, row.coat_pattern),
     coatColors,
     coatPattern: row.coat_pattern,
     rarity: row.rarity,
@@ -215,7 +213,6 @@ async function mapSightingPlaceholder(row: CatSightingRow): Promise<DexPlacehold
 
   return {
     id: row.id,
-    type: deriveCatType(coatColors, row.coat_pattern),
     coatColors,
     coatPattern: row.coat_pattern,
     rarity: 2,

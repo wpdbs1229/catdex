@@ -23,6 +23,7 @@ import { describeCoat } from '@/shared/coat/coat-label';
 import { CREW_COMPANY_NAME } from '@/shared/constants/crew.constants';
 import { loadFavoriteCatIds, saveFavoriteCatIds } from '@/shared/favorites/favorites-storage';
 import { nd, theme } from '@/shared/styles/theme';
+import { deriveCatType } from '@/shared/coat/coat-to-cat-type';
 import type { Cat, DexPlaceholder } from '@/shared/types/cat';
 import { catPhotoSource } from '@/shared/utils/catImage';
 import { formatNyanTagLabel } from '@/shared/utils/catPresentation';
@@ -36,7 +37,7 @@ function catMatchesSearch(cat: Cat, query: string) {
     return true;
   }
 
-  return [cat.name, cat.type, cat.relationshipLevel, cat.memo ?? '', ...cat.tags]
+  return [cat.name, deriveCatType(cat.coatColors, cat.coatPattern), cat.relationshipLevel, cat.memo ?? '', ...cat.tags]
     .join(' ')
     .toLowerCase()
     .includes(query);

@@ -24,11 +24,12 @@ export interface Cat {
   number: number;
   name: string;
   /**
-   * 도감이 부르는 이름("고등어냥"). 저장하지 않고 아래 두 축에서 읽을 때마다
-   * 만든다(deriveCatType). 표시 전용이라 거르기·희귀도는 원본을 봐야 한다.
+   * 털색·무늬 원본. 이 개체를 설명하는 단 하나의 축이다.
+   *
+   * 예전에는 여기서 접은 이름("고등어냥")을 Cat.type으로 들고 다녔지만, 같은
+   * 개체를 두 가지로 설명하는 셈이라 어느 쪽이 진짜인지 계속 헷갈렸다. 이름이
+   * 필요한 자리에서만 deriveCatType(coatColors, coatPattern)으로 만들어 쓴다.
    */
-  type: CatType;
-  /** 등록할 때 고른 털색·무늬 원본. 거르기와 희귀도가 보는 값이다. */
   coatColors: CoatColorId[];
   coatPattern: CoatPatternId | null;
   rarity: CatRarity;
@@ -130,7 +131,6 @@ export interface CatReportDraft {
 
 export interface DexPlaceholder {
   id: string;
-  type: CatType;
   /** 개체와 같은 두 축. 목격 카드도 컬러·무늬 필터에 걸린다. */
   coatColors: CoatColorId[];
   coatPattern: CoatPatternId | null;
