@@ -30,7 +30,9 @@ import { PropSheet } from '@/features/support-room/PropSheet';
 import {
   acknowledgeScenes,
   installProp,
+  SCENE_INTERVAL_MS,
   settleScenes,
+  unlockedProps,
   unreadCount,
   ZONES,
   type RoomCat,
@@ -38,6 +40,7 @@ import {
   type ZoneId,
 } from '@/features/support-room/support-room.domain';
 import { loadRoom, saveRoom, type StoredRoom } from '@/features/support-room/support-room.storage';
+import { trackSupportRoom } from '@/features/support-room/support-room.analytics';
 import { fetchMyCats } from '@/shared/api/cats.api';
 import { nd } from '@/shared/styles/theme';
 
@@ -157,6 +160,8 @@ export function SupportRoomScreen() {
   const [motionEnabled, setMotionEnabled] = useState(true);
   const scrollRef = useRef<ScrollView>(null);
   const [scrollX, setScrollX] = useState(0);
+  // 같은 구역에서 스크롤을 흔들 때마다 이벤트가 쏟아지지 않게 마지막 구역을 기억한다.
+  const lastZoneRef = useRef<ZoneId | null>(null);
 
   useEffect(() => {
     AccessibilityInfo.isReduceMotionEnabled()
@@ -216,6 +221,49 @@ export function SupportRoomScreen() {
     await saveRoom(next);
     setStored(next);
     setCats(roomCats);
+
+    const unlockedBefore = unlockedProps(loadedRoom.room.discoveredCombinations.length);
+    const unlockedAfter = unlockedProps(settled.discoveredCombinations.length);
+
+    trackSupportRoom({
+      name: 'support_room_open',
+      sceneCount: settled.pendingScenes.length,
+      unreadCount: unreadCount(settled),
+    });
+
+    if (loadedRoom.room.nextScheduledAt !== null) {
+      trackSupportRoom({
+        name: 'support_room_return',
+        hoursSinceLastOpen: Math.max(
+          0,
+          Math.round((Date.now() - (loadedRoom.room.nextScheduledAt - SCENE_INTERVAL_MS)) / SCENE_INTERVAL_MS),
+        ),
+      });
+    }
+
+    for (const scene of settled.pendingScenes) {
+      if (!loadedRoom.room.pendingScenes.some((old) => old.id === scene.id)) {
+        trackSupportRoom({ name: 'support_room_first_scene_seen', zoneId: scene.zoneId, propId: scene.propId });
+
+        if (scene.isFirstSeen) {
+          trackSupportRoom({
+            name: 'support_record_discovered',
+            propId: scene.propId,
+            discoveredTotal: settled.discoveredCombinations.length,
+          });
+        }
+      }
+    }
+
+    for (const propId of unlockedAfter) {
+      if (!unlockedBefore.includes(propId)) {
+        trackSupportRoom({
+          name: 'support_prop_unlocked',
+          propId,
+          discoveredTotal: settled.discoveredCombinations.length,
+        });
+      }
+    }
   }, []);
 
   useFocusEffect(
@@ -265,6 +313,8 @@ export function SupportRoomScreen() {
     (zoneId: ZoneId) => {
       const target = ROOM.zoneCenterX[zoneId] * scale - viewportWidth / 2;
 
+      trackSupportRoom({ name: 'support_room_minimap_tap', zoneId });
+      trackSupportRoom({ name: 'support_room_zone_view', zoneId });
       scrollRef.current?.scrollTo({ x: Math.max(0, target), animated: motionEnabled });
 
       if (stored) {
@@ -298,6 +348,11 @@ export function SupportRoomScreen() {
 
     // 여는 순간 방을 비우고 새 기록을 읽음으로 바꾼다. 기록 자체는 남는다.
     setOpenSheet('log');
+    trackSupportRoom({
+      name: 'support_log_open',
+      recordCount: stored.room.records.length,
+      unreadCount: unreadCount(stored.room),
+    });
     commit({ ...stored, room: acknowledgeScenes(stored.room) });
   }, [commit, stored]);
 
@@ -307,7 +362,13 @@ export function SupportRoomScreen() {
         return;
       }
 
-      commit({ ...stored, room: installProp(stored.room, zoneId, propId) });
+      const next = installProp(stored.room, zoneId, propId);
+
+      if (next.installedProps[zoneId] === propId && stored.room.installedProps[zoneId] !== propId) {
+        trackSupportRoom({ name: 'support_prop_changed', zoneId, propId });
+      }
+
+      commit({ ...stored, room: next });
     },
     [commit, stored],
   );
@@ -384,7 +445,29 @@ export function SupportRoomScreen() {
         ) : (
           <ScrollView
             horizontal
-            onScroll={(event) => setScrollX(event.nativeEvent.contentOffset.x)}
+            onScroll={(event) => {
+              const offset = event.nativeEvent.contentOffset.x;
+
+              setScrollX(offset);
+
+              // 화면 한가운데가 어느 구역에 있는지로 판단한다.
+              const centerX = (offset + viewportWidth / 2) / scale;
+              const zoneId: ZoneId =
+                centerX < 1286 ? 'reception' : centerX < 2573 ? 'work' : 'records';
+
+              if (lastZoneRef.current !== zoneId) {
+                lastZoneRef.current = zoneId;
+                trackSupportRoom({ name: 'support_room_zone_view', zoneId });
+
+                if (stored) {
+                  // 다음에 들어올 때 여기서 시작한다. 저장은 이동이 끝난 뒤에만 한다.
+                  const next = { ...stored, view: { ...stored.view, lastZoneId: zoneId } };
+
+                  setStored(next);
+                  void saveRoom(next);
+                }
+              }
+            }}
             ref={scrollRef}
             scrollEventThrottle={32}
             showsHorizontalScrollIndicator={false}
