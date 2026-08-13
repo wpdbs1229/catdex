@@ -16,6 +16,7 @@ import { CaptureReviewScreen } from '../../features/capture/screens/CaptureRevie
 import { CatDetailScreen } from '../../features/cats/screens/CatDetailScreen';
 import { CatDexScreen } from '../../features/cats/screens/CatDexScreen';
 import { ClientMapScreen } from '../../features/cats/screens/ClientMapScreen';
+import { SupportRoomScreen } from '../../features/support-room/SupportRoomScreen';
 import { AttendanceMonthScreen } from '../../features/attendance/screens/AttendanceMonthScreen';
 import { AttendanceScreen } from '../../features/attendance/screens/AttendanceScreen';
 import { HomeScreen } from '../../features/home/screens/HomeScreen';
@@ -57,6 +58,7 @@ function ClientNavigator() {
     <ClientStack.Navigator screenOptions={{ headerShown: false, animation: 'fade' }}>
       <ClientStack.Screen name="ClientRoster" component={CatDexScreen} />
       <ClientStack.Screen name="ClientMap" component={ClientMapScreen} />
+      <ClientStack.Screen name="ClientSupportRoom" component={SupportRoomScreen} />
     </ClientStack.Navigator>
   );
 }

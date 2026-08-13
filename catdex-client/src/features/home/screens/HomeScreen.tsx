@@ -3,7 +3,7 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ChevronDown, MapPin } from 'lucide-react-native';
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Animated, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Animated, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { HomeStackParamList, MainTabParamList, RootStackParamList } from '@/app/navigation/types';
 import { useTabBarInset } from '@/app/navigation/useTabBarInset';
@@ -91,6 +91,13 @@ export function HomeScreen() {
 
   const chatCats = useMemo(() => myCats.slice(0, 3), [myCats]);
 
+  // 고객 상담은 고객 탭 안에 있다. 탭을 옮긴 뒤 그 스택의 화면을 연다.
+  const openSupportRoom = useCallback(() => {
+    navigation
+      .getParent<BottomTabNavigationProp<MainTabParamList>>()
+      ?.navigate('CollectionTab', { screen: 'ClientSupportRoom' });
+  }, [navigation]);
+
 
 
   return (
@@ -158,7 +165,8 @@ export function HomeScreen() {
                   imageSource={catPhotoSource(cat.imageUrl)}
                   key={cat.id}
                   message={getChatMessage(cat.name, index)}
-                  onPress={() => Alert.alert('상담은 준비 중이에요', '냥고객님과의 상담은 다음 단계에서 열려요.')}
+                  // 홈 카드와 고객 상담 탭은 같은 고객지원실로 들어간다.
+                  onPress={openSupportRoom}
                 />
               ))}
             </ScrollView>
