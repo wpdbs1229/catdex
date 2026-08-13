@@ -8,9 +8,9 @@
     "userInterfaceStyle": "light",
     "icon": "./assets/icon.png",
     "splash": {
-      "image": "./assets/backgrounds/login-neighborhood-cats-bg-v2.png",
+      "image": "./assets/backgrounds/splash-walk-to-work.png",
       "resizeMode": "cover",
-      "backgroundColor": "#FFF1D8"
+      "backgroundColor": "#FBF3E9"
     },
     "assetBundlePatterns": [
       "**/*"
@@ -26,18 +26,18 @@
         ]
       },
       "splash": {
-        "image": "./assets/backgrounds/login-neighborhood-cats-bg-v2.png",
+        "image": "./assets/backgrounds/splash-walk-to-work.png",
         "resizeMode": "cover",
-        "backgroundColor": "#FFF1D8"
+        "backgroundColor": "#FBF3E9"
       }
     },
     "android": {
       "package": "com.persimmontree.catdex",
       "icon": "./assets/icon.png",
       "splash": {
-        "image": "./assets/backgrounds/login-neighborhood-cats-bg-v2.png",
+        "image": "./assets/backgrounds/splash-walk-to-work.png",
         "resizeMode": "cover",
-        "backgroundColor": "#FFF1D8"
+        "backgroundColor": "#FBF3E9"
       },
       "permissions": [
         "android.permission.ACCESS_COARSE_LOCATION",
