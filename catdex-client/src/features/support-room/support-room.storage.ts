@@ -4,6 +4,7 @@ import {
   createInitialRoomState,
   MAX_PENDING_SCENES,
   STARTER_PROPS,
+  type ConsultationRecord,
   type RoomState,
   type Scene,
   type ZoneId,
@@ -11,7 +12,13 @@ import {
 import type { PropId } from '@/features/support-room/support-room.assets';
 
 const STORAGE_PREFIX = 'catdex.supportRoom';
-const SCHEMA_VERSION = 1;
+/**
+ * 저장 모양이 바뀌면 올린다.
+ *
+ * 2: 상담기록(records)을 더했다. 1로 저장된 방은 발견 조합만 있고 기록이 없어,
+ *    그대로 살리면 이미 발견한 조합이 영영 기록을 남기지 못한다. 새로 시작한다.
+ */
+const SCHEMA_VERSION = 2;
 
 /** 화면이 기억하는 마지막 자리. 다시 들어왔을 때 보던 곳에서 시작한다. */
 export interface ViewState {
@@ -112,12 +119,25 @@ function reviveStoredRoom(raw: unknown): StoredRoom {
     ? room.discoveredCombinations.filter((key): key is string => typeof key === 'string')
     : [];
 
+  // 기록은 개수 제한이 없다. 모양이 어긋난 항목만 버리고 나머지는 그대로 살린다.
+  const records = Array.isArray(room.records)
+    ? (room.records.filter(
+        (record) =>
+          record &&
+          typeof record === 'object' &&
+          typeof (record as ConsultationRecord).id === 'string' &&
+          typeof (record as ConsultationRecord).combinationKey === 'string' &&
+          isPropId((record as ConsultationRecord).propId),
+      ) as ConsultationRecord[])
+    : [];
+
   return {
     schemaVersion: SCHEMA_VERSION,
     room: {
       installedProps,
       pendingScenes,
       discoveredCombinations: [...new Set(discovered)],
+      records,
       nextScheduledAt: typeof room.nextScheduledAt === 'number' ? room.nextScheduledAt : null,
     },
     view: {
