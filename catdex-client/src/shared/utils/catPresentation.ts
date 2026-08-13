@@ -89,6 +89,25 @@ export function getAffinity(cat: Cat, today: Date = new Date()) {
   return Math.max(Math.round(base * AFFINITY_FLOOR_RATIO), Math.round(faded));
 }
 
+/**
+ * 친밀도 게이지를 눌렀을 때 발바닥이 물고 나오는 한마디.
+ *
+ * 숫자를 그대로 보여주는 대신 고양이가 할 법한 말로 옮긴다. 게이지 길이만으로는
+ * 73과 61이 얼마나 다른지 알기 어렵지만, "누구세요?"와 "왜 이제 왔냥!" 사이라면
+ * 지금 이 고양이와 어디쯤 와 있는지 한눈에 잡힌다.
+ */
+export function getAffinityMessage(affinity: number) {
+  if (affinity >= 67) {
+    return '왜 이제 왔냥!';
+  }
+
+  if (affinity >= 34) {
+    return '친해지는 중...';
+  }
+
+  return '누구세요?';
+}
+
 export function getRarityStars(rarity: CatRarity) {
   return Array.from({ length: 5 }, (_, index) => index < rarity);
 }

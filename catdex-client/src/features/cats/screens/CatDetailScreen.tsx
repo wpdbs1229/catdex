@@ -1,7 +1,8 @@
 import { ArrowLeft, ArrowUp, Heart, Mic, PawPrint, Plane } from 'lucide-react-native';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
+  Animated,
   Image,
   KeyboardAvoidingView,
   Platform,
@@ -27,7 +28,7 @@ import {
 import { createNdShadow, nd } from '@/shared/styles/theme';
 import type { Cat, CatEncounter } from '@/shared/types/cat';
 import { catPhotoSource } from '@/shared/utils/catImage';
-import { getAffinity, sortEncountersByDateAsc } from '@/shared/utils/catPresentation';
+import { getAffinity, getAffinityMessage, sortEncountersByDateAsc } from '@/shared/utils/catPresentation';
 
 const paperTexture = require('../../../../assets/textures/crumpled-paper.jpg');
 
@@ -73,6 +74,16 @@ function getGenderSymbol(tags: string[]) {
 
 const AFFINITY_TRACK_WIDTH = 120;
 const AFFINITY_KNOB_SIZE = 32;
+/** 발바닥 아이콘 크기. 접혔을 때 노브 한가운데 오도록 여백을 잡는다. */
+const AFFINITY_PAW_SIZE = 15;
+/** 발바닥과 글자 사이, 그리고 글자 뒤 여백. */
+const AFFINITY_LABEL_GAP = 8;
+const AFFINITY_LABEL_TAIL = 14;
+/** 카드 오른쪽 위 털색 점 자리. 말풍선이 여기까지 밀고 들어오지 않게 한다. */
+const AFFINITY_DOTS_RESERVE = 94;
+const AFFINITY_ROW_LEFT = 16;
+/** 손을 떼고 이만큼 뒤에 저절로 접힌다. */
+const AFFINITY_LABEL_HOLD_MS = 1800;
 
 export function CatDetailScreen({ navigation, route }: RootStackScreenProps<'CatDetail'>) {
   const insets = useSafeAreaInsets();
@@ -81,6 +92,10 @@ export function CatDetailScreen({ navigation, route }: RootStackScreenProps<'Cat
   // 내가 만난 적 있는 고양이인지. 아니면 화면의 만남 횟수가 남들 것까지 합친
   // 값이라 친밀도로 셀 수 없다.
   const [isMyCat, setIsMyCat] = useState(false);
+  const [cardWidth, setCardWidth] = useState(0);
+  const [labelWidth, setLabelWidth] = useState(0);
+  const labelProgress = useRef(new Animated.Value(0)).current;
+  const collapseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [encounters, setEncounters] = useState<CatEncounter[]>([]);
   const [liked, setLiked] = useState(false);
   const [showAllEntries, setShowAllEntries] = useState(false);
@@ -129,6 +144,70 @@ export function CatDetailScreen({ navigation, route }: RootStackScreenProps<'Cat
     AFFINITY_TRACK_WIDTH - AFFINITY_KNOB_SIZE / 2,
     Math.max(-AFFINITY_KNOB_SIZE / 2, (affinity / 100) * AFFINITY_TRACK_WIDTH - AFFINITY_KNOB_SIZE / 2),
   );
+  const affinityMessage = getAffinityMessage(affinity);
+
+  // 펼친 말풍선의 폭은 글자 폭에서 나온다. 글자 폭을 모르는 첫 프레임에는
+  // 접힌 채로 두고, 재본 뒤부터 펼친다.
+  const expandedWidth = AFFINITY_KNOB_SIZE + AFFINITY_LABEL_GAP + labelWidth + AFFINITY_LABEL_TAIL;
+  // 게이지가 오른쪽 끝에 있으면 그 자리에서 펼칠 수 없다. 털색 점에 닿기 전에
+  // 말풍선이 왼쪽으로 물러나고, 발바닥도 같이 끌려온다.
+  const expandedRightLimit = Math.max(
+    AFFINITY_TRACK_WIDTH,
+    cardWidth - AFFINITY_ROW_LEFT - AFFINITY_DOTS_RESERVE,
+  );
+  const expandedLeft = Math.max(
+    -AFFINITY_KNOB_SIZE / 2,
+    Math.min(knobOffset, expandedRightLimit - expandedWidth),
+  );
+
+  const collapseAffinityLabel = useCallback(() => {
+    if (collapseTimer.current) {
+      clearTimeout(collapseTimer.current);
+      collapseTimer.current = null;
+    }
+
+    Animated.timing(labelProgress, {
+      toValue: 0,
+      duration: 160,
+      useNativeDriver: false,
+    }).start();
+  }, [labelProgress]);
+
+  const toggleAffinityLabel = useCallback(() => {
+    if (collapseTimer.current) {
+      collapseAffinityLabel();
+      return;
+    }
+
+    Animated.spring(labelProgress, {
+      toValue: 1,
+      damping: 18,
+      stiffness: 220,
+      mass: 0.7,
+      useNativeDriver: false,
+    }).start();
+
+    collapseTimer.current = setTimeout(collapseAffinityLabel, AFFINITY_LABEL_HOLD_MS);
+  }, [collapseAffinityLabel, labelProgress]);
+
+  // 화면을 떠날 때 남은 타이머가 펼침 상태를 되살리지 않게 한다.
+  useEffect(() => () => {
+    if (collapseTimer.current) {
+      clearTimeout(collapseTimer.current);
+    }
+  }, []);
+
+  // 글자 폭을 재기 전에는 펼쳐도 보여줄 게 없다.
+  const canExpandLabel = labelWidth > 0;
+  const knobLeft = canExpandLabel
+    ? labelProgress.interpolate({ inputRange: [0, 1], outputRange: [knobOffset, expandedLeft] })
+    : knobOffset;
+  const knobWidth = canExpandLabel
+    ? labelProgress.interpolate({ inputRange: [0, 1], outputRange: [AFFINITY_KNOB_SIZE, expandedWidth] })
+    : AFFINITY_KNOB_SIZE;
+  // 노브가 거의 다 벌어진 뒤에 글자가 들어온다. 같이 나오면 글자가 테두리를 뚫고
+  // 나오는 것처럼 보인다.
+  const labelOpacity = labelProgress.interpolate({ inputRange: [0, 0.6, 1], outputRange: [0, 0, 1] });
 
   const handleSubmitMemo = async () => {
     const memo = draftMemo.trim();
@@ -224,8 +303,15 @@ export function CatDetailScreen({ navigation, route }: RootStackScreenProps<'Cat
       >
         {cat ? (
           <>
-            <View style={styles.catCard}>
+            <View onLayout={(event) => setCardWidth(event.nativeEvent.layout.width)} style={styles.catCard}>
               <Image resizeMode="cover" source={paperTexture} style={styles.cardPaper} />
+
+              {/* 말풍선 폭을 재는 용도. 보이지 않고 누를 수도 없다. */}
+              <View pointerEvents="none" style={styles.affinityLabelRuler}>
+                <Text onLayout={(event) => setLabelWidth(Math.ceil(event.nativeEvent.layout.width))} style={styles.affinityLabelRulerText}>
+                  {affinityMessage}
+                </Text>
+              </View>
 
               {catPhotoSource(cat.imageUrl) ? (
                 <Image resizeMode="contain" source={catPhotoSource(cat.imageUrl)!} style={styles.catPhoto} />
@@ -239,9 +325,23 @@ export function CatDetailScreen({ navigation, route }: RootStackScreenProps<'Cat
                 <View style={styles.affinityTrack}>
                   <View style={[styles.affinityFill, { width: Math.max(8, (affinity / 100) * AFFINITY_TRACK_WIDTH) }]} />
                 </View>
-                <View style={[styles.affinityKnob, { left: knobOffset }]}>
-                  <PawPrint color="#FF4D6D" size={15} style={styles.affinityPaw} />
-                </View>
+                <Animated.View style={[styles.affinityKnob, { left: knobLeft, width: knobWidth }]}>
+                  <Pressable
+                    accessibilityHint="이 고양이와 얼마나 친해졌는지 한마디로 보여줘요"
+                    accessibilityLabel={`친밀도 ${affinity}점`}
+                    accessibilityRole="button"
+                    onPress={toggleAffinityLabel}
+                    style={styles.affinityKnobPress}
+                  >
+                    <PawPrint color="#FF4D6D" size={AFFINITY_PAW_SIZE} style={styles.affinityPaw} />
+                    <Animated.Text
+                      numberOfLines={1}
+                      style={[styles.affinityLabel, { opacity: labelOpacity, width: labelWidth || undefined }]}
+                    >
+                      {affinityMessage}
+                    </Animated.Text>
+                  </Pressable>
+                </Animated.View>
               </View>
 
               <View style={styles.coatDots}>
@@ -453,17 +553,41 @@ const styles = StyleSheet.create({
   affinityKnob: {
     position: 'absolute',
     top: 0,
-    width: AFFINITY_KNOB_SIZE,
     height: AFFINITY_KNOB_SIZE,
-    alignItems: 'center',
-    justifyContent: 'center',
     borderRadius: AFFINITY_KNOB_SIZE / 2,
     borderWidth: 1,
     borderColor: '#FF4D6D',
     backgroundColor: '#FFFFFF',
+    // 벌어지는 중에 글자가 테두리 밖으로 새지 않게 잘라낸다.
+    overflow: 'hidden',
+  },
+  affinityKnobPress: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    // 접혔을 때 발바닥이 원 한가운데 오는 여백.
+    paddingLeft: (AFFINITY_KNOB_SIZE - AFFINITY_PAW_SIZE) / 2 - 1,
   },
   affinityPaw: {
     transform: [{ rotate: '10deg' }],
+  },
+  affinityLabel: {
+    marginLeft: AFFINITY_LABEL_GAP,
+    color: nd.colors.ink,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  affinityLabelRuler: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    opacity: 0,
+    // 카드 폭에 걸려 줄바꿈되면 재는 값이 실제 한 줄 폭보다 좁아진다.
+    alignItems: 'flex-start',
+  },
+  affinityLabelRulerText: {
+    fontSize: 13,
+    fontWeight: '600',
   },
   coatDots: {
     position: 'absolute',
