@@ -296,9 +296,7 @@ export function CatDexScreen() {
         <ClientTabBar
           active="roster"
           onHome={() => navigation.getParent()?.navigate('HomeTab' as never)}
-          onOpenConsult={() =>
-            Alert.alert('고객 상담은 준비 중이에요', '고양이와의 대화는 다음 단계에서 열려요.')
-          }
+          onOpenConsult={() => navigation.navigate('ClientSupportRoom')}
           onOpenMap={() => navigation.navigate('ClientMap')}
           onOpenRoster={() => undefined}
         />

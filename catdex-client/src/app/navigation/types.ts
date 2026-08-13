@@ -1,3 +1,4 @@
+import type { NavigatorScreenParams } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { CoatColorId, CoatPatternId } from '@/shared/coat/coat.types';
 import type { CatVisionBoundingBox } from '@/shared/native/catVision';
@@ -18,7 +19,8 @@ export type MainTabParamList = {
   HomeTab: undefined;
   MapTab: undefined;
   CaptureTab: undefined;
-  CollectionTab: undefined;
+  /** 고객 탭은 스택이다. 홈에서 고객지원실을 바로 열 수 있어야 해서 중첩을 밝힌다. */
+  CollectionTab: NavigatorScreenParams<ClientStackParamList> | undefined;
   MyTab: undefined;
 };
 
@@ -27,6 +29,8 @@ export type ClientStackParamList = {
   /** 지도에서 구역을 골라 들어오면 그 구역 고객만 남긴다. */
   ClientRoster: { regionName?: string; catIds?: string[] } | undefined;
   ClientMap: undefined;
+  /** 고객 상담 = 고객지원실. 방치형 방문 화면이다. */
+  ClientSupportRoom: undefined;
 };
 
 export type MapStackParamList = {
