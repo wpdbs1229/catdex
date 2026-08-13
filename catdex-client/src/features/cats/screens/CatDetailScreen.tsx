@@ -78,6 +78,9 @@ export function CatDetailScreen({ navigation, route }: RootStackScreenProps<'Cat
   const insets = useSafeAreaInsets();
   const { catId } = route.params;
   const [cat, setCat] = useState<Cat | null>(null);
+  // 내가 만난 적 있는 고양이인지. 아니면 화면의 만남 횟수가 남들 것까지 합친
+  // 값이라 친밀도로 셀 수 없다.
+  const [isMyCat, setIsMyCat] = useState(false);
   const [encounters, setEncounters] = useState<CatEncounter[]>([]);
   const [liked, setLiked] = useState(false);
   const [showAllEntries, setShowAllEntries] = useState(false);
@@ -92,9 +95,13 @@ export function CatDetailScreen({ navigation, route }: RootStackScreenProps<'Cat
       fetchMyCats(),
       fetchCatEncounters(catId),
     ]);
-    const nextCat = [...myCats, ...allCats].find((candidate) => candidate.id === catId) ?? null;
+    // 내 수집본이 있으면 그쪽을 쓴다. 만남 횟수·마지막 만남이 내 기록 기준이라
+    // 친밀도를 나와의 관계로 셀 수 있다. 없으면 모든 사용자 합산본만 남는다.
+    const mine = myCats.find((candidate) => candidate.id === catId) ?? null;
+    const nextCat = mine ?? allCats.find((candidate) => candidate.id === catId) ?? null;
 
     setCat(nextCat);
+    setIsMyCat(Boolean(mine));
     setEncounters(nextEncounters);
   }, [catId]);
 
@@ -117,7 +124,7 @@ export function CatDetailScreen({ navigation, route }: RootStackScreenProps<'Cat
   );
   const visibleEncounters = showAllEntries ? sortedEncounters : sortedEncounters.slice(-3);
   const hasMoreEntries = sortedEncounters.length > visibleEncounters.length;
-  const affinity = cat ? getAffinity(cat) : 0;
+  const affinity = cat && isMyCat ? getAffinity(cat) : 0;
   const knobOffset = Math.min(
     AFFINITY_TRACK_WIDTH - AFFINITY_KNOB_SIZE / 2,
     Math.max(-AFFINITY_KNOB_SIZE / 2, (affinity / 100) * AFFINITY_TRACK_WIDTH - AFFINITY_KNOB_SIZE / 2),
