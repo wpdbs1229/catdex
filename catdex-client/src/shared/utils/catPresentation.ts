@@ -27,33 +27,23 @@ export function formatNyanTagLabel(name: string, date: string) {
   return `${name}_${parsed.getFullYear()}.${month}.${day}`;
 }
 
-export function getAffinityFromRelationship(cat: Cat) {
-  const relationMap: Record<string, number> = {
-    '첫 만남': 22,
-    '살짝 경계 중': 46,
-    '동네 친구': 74,
-    '낮잠 장인': 65,
-    '골목 대장': 88,
-    '미스터리 손님': 28,
-  };
+/**
+ * 한 번 더 만날 때마다 남은 거리의 이만큼씩 좁혀진다.
+ * 작을수록 빨리 친해진다.
+ */
+const AFFINITY_REMAINING_PER_MEETING = 0.75;
 
-  return relationMap[cat.relationshipLevel] ?? Math.min(24 + cat.encounterCount * 10, 92);
-}
-
-export function getRelationshipLevel(encounterCount: number) {
-  if (encounterCount >= 7) {
-    return '골목 대장';
-  }
-
-  if (encounterCount >= 4) {
-    return '동네 친구';
-  }
-
-  if (encounterCount >= 2) {
-    return '살짝 경계 중';
-  }
-
-  return '첫 만남';
+/**
+ * 친밀도(0~100). 오직 만난 횟수에서 나온다.
+ *
+ * 예전에는 관계 레벨 이름('첫 만남', '골목 대장'…)마다 숫자를 박아뒀지만,
+ * 등급 안에서는 몇 번을 더 만나도 게이지가 그대로라 기록한 보람이 없었다.
+ * 이제는 만날 때마다 반드시 오르되, 남은 거리의 일정 비율씩만 좁혀서
+ * 초반 재회는 크게, 나중 재회는 완만하게 반영한다.
+ * (1회 25 · 3회 58 · 5회 76 · 10회 94 · 20회 100)
+ */
+export function getAffinity(cat: Cat) {
+  return Math.round(100 * (1 - AFFINITY_REMAINING_PER_MEETING ** cat.encounterCount));
 }
 
 export function getRarityStars(rarity: CatRarity) {
@@ -81,6 +71,6 @@ export function getRarityGuide(cat: Cat) {
     `${describeCoat(cat.coatColors, cat.coatPattern)} 기본 희귀도와 도감 내 분포를 기준으로 산정했어요.`,
     '동네에서 같은 털색이 적거나 전체 도감에서 드문 털색이면 별이 올라가요.',
     '많이 수집할수록 도달할 수 있는 최대 별이 올라가요. 10마리에 4성, 30마리에 5성이 열려요.',
-    '다시 만난 횟수는 희귀도가 아니라 관계 레벨에 반영돼요.',
+    '다시 만난 횟수는 희귀도가 아니라 친밀도에 반영돼요.',
   ];
 }

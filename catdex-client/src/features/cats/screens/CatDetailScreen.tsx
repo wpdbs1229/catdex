@@ -27,7 +27,7 @@ import {
 import { createNdShadow, nd } from '@/shared/styles/theme';
 import type { Cat, CatEncounter } from '@/shared/types/cat';
 import { catPhotoSource } from '@/shared/utils/catImage';
-import { getAffinityFromRelationship, sortEncountersByDateAsc } from '@/shared/utils/catPresentation';
+import { getAffinity, sortEncountersByDateAsc } from '@/shared/utils/catPresentation';
 
 const paperTexture = require('../../../../assets/textures/crumpled-paper.jpg');
 
@@ -117,7 +117,7 @@ export function CatDetailScreen({ navigation, route }: RootStackScreenProps<'Cat
   );
   const visibleEncounters = showAllEntries ? sortedEncounters : sortedEncounters.slice(-3);
   const hasMoreEntries = sortedEncounters.length > visibleEncounters.length;
-  const affinity = cat ? getAffinityFromRelationship(cat) : 0;
+  const affinity = cat ? getAffinity(cat) : 0;
   const knobOffset = Math.min(
     AFFINITY_TRACK_WIDTH - AFFINITY_KNOB_SIZE / 2,
     Math.max(-AFFINITY_KNOB_SIZE / 2, (affinity / 100) * AFFINITY_TRACK_WIDTH - AFFINITY_KNOB_SIZE / 2),
