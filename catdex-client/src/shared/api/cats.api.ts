@@ -2,7 +2,6 @@ import { throwIfSupabaseError } from '@/shared/api/client';
 import type { CoatColorId, CoatPatternId } from '@/shared/coat/coat.types';
 import { assertSupabaseConfigured, supabase } from '@/shared/supabase/client';
 import { getActiveNeighborhood } from '@/shared/neighborhood/active-neighborhood';
-import { getRelationshipLevel } from '@/shared/utils/catPresentation';
 import type {
   Cat,
   CatEncounter,
@@ -28,7 +27,6 @@ interface CatRow {
   encounter_count: number;
   first_seen_at: string;
   last_seen_at: string;
-  relationship_level: string;
   tags: string[];
   memo: string | null;
   image_url: string | null;
@@ -110,7 +108,6 @@ async function mapCat(row: CatRow): Promise<Cat> {
     encounterCount: row.encounter_count,
     firstSeenAt: formatDate(row.first_seen_at),
     lastSeenAt: formatDate(row.last_seen_at),
-    relationshipLevel: row.relationship_level,
     tags: row.tags,
     memo: row.memo ?? undefined,
     imageUrl: await getDisplayImageUrl(row.image_url),
@@ -197,10 +194,6 @@ export async function fetchMyCats() {
           encounter_count: row.encounter_count,
           first_seen_at: row.first_collected_at,
           last_seen_at: row.last_seen_at,
-          // 관계 레벨도 내 만남 횟수 기준으로 재계산한다.
-          // (cats.relationship_level은 모든 사용자 합산 기준이라
-          // "발견 횟수 5회 · 골목 대장(7회 이상)"처럼 짝이 안 맞게 보인다.)
-          relationship_level: getRelationshipLevel(row.encounter_count),
         };
       })
       .filter((row): row is CatRow => row !== null)

@@ -37,7 +37,6 @@ export interface Cat {
   encounterCount: number;
   firstSeenAt: string;
   lastSeenAt: string;
-  relationshipLevel: string;
   tags: string[];
   memo?: string;
   /** 대표 이미지. 촬영으로 등록한 고양이는 배경을 지운 누끼다. */

@@ -37,7 +37,7 @@ function catMatchesSearch(cat: Cat, query: string) {
     return true;
   }
 
-  return [cat.name, deriveCatType(cat.coatColors, cat.coatPattern), cat.relationshipLevel, cat.memo ?? '', ...cat.tags]
+  return [cat.name, deriveCatType(cat.coatColors, cat.coatPattern), cat.memo ?? '', ...cat.tags]
     .join(' ')
     .toLowerCase()
     .includes(query);
