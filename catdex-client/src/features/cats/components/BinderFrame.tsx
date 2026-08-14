@@ -53,7 +53,13 @@ export function BinderFrame({
     <View onLayout={(event) => setSize(event.nativeEvent.layout)} style={styles.frame}>
       {width > 0 && height > 0 ? (
         <View style={{ width, height }}>
-          <Image resizeMode="stretch" source={albumBackground} style={StyleSheet.absoluteFill} />
+          {/* absoluteFill로는 원본 크기(852pt)로 그려져 배경만 두 배로 커졌다.
+              크기를 못 박아야 컨테이너에 맞게 눌린다. */}
+          <Image
+            resizeMode="stretch"
+            source={albumBackground}
+            style={{ position: 'absolute', top: 0, left: 0, width, height }}
+          />
 
           {slots.slice(0, 6).map((slot, index) => {
             const [x0, x1] = SLOT_XS[index % 2];
