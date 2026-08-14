@@ -7,8 +7,15 @@ export type RootStackParamList = {
   Main: undefined;
   /** 촬영은 탭 위에 전체 화면으로 덮는다. 탭바가 프리뷰를 가리지 않게 하기 위함이다. */
   CaptureFlow: undefined;
-  /** 도감 기록 상세도 탭바 없이 전체 화면으로 덮는다. (피그마 4_도감_기록o) */
-  CatDetail: { catId: string };
+  /**
+   * 도감 기록 상세도 탭바 없이 전체 화면으로 덮는다. (피그마 4_도감_기록o)
+   *
+   * siblingIds는 옆으로 넘길 때 따라갈 순서다. 도감이 화면에 늘어놓고 있던
+   * 목록을 그대로 넘겨준다 - 필터를 걸고 들어왔는데 넘기니 걸러냈던 고양이가
+   * 나오면 방금 본 화면과 어긋난다. 지도·알림처럼 목록이 없는 곳에서 들어오면
+   * 비워두고, 상세가 같은 거처 전체로 알아서 채운다.
+   */
+  CatDetail: { catId: string; siblingIds?: string[] };
   /** 헤더 벨에서 여는 알림함. 시안에 없어 새로 그린 화면이다. */
   NotificationInbox: undefined;
   /** 피그마 마이페이지_알림 */

@@ -7,10 +7,14 @@ import {
   PawPrint,
   Plane,
 } from 'lucide-react-native';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
+  Animated,
+  Easing,
+  Keyboard,
   KeyboardAvoidingView,
+  PanResponder,
   Platform,
   Pressable,
   ScrollView,
@@ -82,10 +86,10 @@ function getAffinityLabel(affinity: number) {
 export function CatDetailScreen({ navigation, route }: RootStackScreenProps<'CatDetail'>) {
   const insets = useSafeAreaInsets();
   const { width: windowWidth } = useWindowDimensions();
-  const { catId } = route.params;
-  const [cat, setCat] = useState<Cat | null>(null);
-  const [availableCats, setAvailableCats] = useState<Cat[]>([]);
-  const [isMyCat, setIsMyCat] = useState(false);
+  const { catId: initialCatId, siblingIds } = route.params;
+  // 옆으로 넘겨도 화면은 그대로 두고 보고 있는 개체만 바꾼다.
+  const [catId, setCatId] = useState(initialCatId);
+  const [roster, setRoster] = useState<{ all: Cat[]; mine: Cat[] }>({ all: [], mine: [] });
   const [encounters, setEncounters] = useState<CatEncounter[]>([]);
   const [liked, setLiked] = useState(false);
   const [showAllEntries, setShowAllEntries] = useState(false);
@@ -93,22 +97,41 @@ export function CatDetailScreen({ navigation, route }: RootStackScreenProps<'Cat
   const [isSavingMemo, setIsSavingMemo] = useState(false);
   const [homeRegionNames, setHomeRegionNames] = useState<Set<string>>(new Set());
 
-  const reload = useCallback(async () => {
-    const [allCats, myCats, nextEncounters, favoriteIds] = await Promise.all([
-      fetchCats(),
-      fetchMyCats(),
-      fetchCatEncounters(catId),
+  const cat = useMemo(
+    () =>
+      roster.mine.find((candidate) => candidate.id === catId) ??
+      roster.all.find((candidate) => candidate.id === catId) ??
+      null,
+    [roster, catId],
+  );
+  const isMyCat = useMemo(
+    () => roster.mine.some((candidate) => candidate.id === catId),
+    [roster, catId],
+  );
+  const availableCats = roster.mine.length > 0 ? roster.mine : roster.all;
+
+  /** 목록. 화면에 들어올 때 한 번만 받는다. 카드를 넘길 때마다 받으면 버벅인다. */
+  const loadRoster = useCallback(async () => {
+    const [all, mine] = await Promise.all([fetchCats(), fetchMyCats()]);
+
+    setRoster({ all, mine });
+  }, []);
+
+  /** 보고 있는 개체에만 딸린 것. 카드를 넘길 때마다 이것만 새로 받는다. */
+  const loadSelected = useCallback(async (id: string) => {
+    const [nextEncounters, favoriteIds] = await Promise.all([
+      fetchCatEncounters(id),
       loadFavoriteCatIds(),
     ]);
-    const mine = myCats.find((candidate) => candidate.id === catId) ?? null;
-    const nextCat = mine ?? allCats.find((candidate) => candidate.id === catId) ?? null;
 
-    setCat(nextCat);
-    setAvailableCats(myCats.length > 0 ? myCats : allCats);
-    setIsMyCat(Boolean(mine));
     setEncounters(nextEncounters);
-    setLiked(favoriteIds.has(catId));
-  }, [catId]);
+    setLiked(favoriteIds.has(id));
+  }, []);
+
+  const reload = useCallback(
+    () => Promise.all([loadRoster(), loadSelected(catId)]).then(() => undefined),
+    [catId, loadRoster, loadSelected],
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -116,11 +139,19 @@ export function CatDetailScreen({ navigation, route }: RootStackScreenProps<'Cat
         .then(setHomeRegionNames)
         .catch(() => setHomeRegionNames(new Set()));
 
-      reload().catch((error: unknown) => {
-        console.warn('[cat-detail] load failed', error);
+      loadRoster().catch((error: unknown) => {
+        console.warn('[cat-detail] roster load failed', error);
       });
-    }, [reload]),
+    }, [loadRoster]),
   );
+
+  useEffect(() => {
+    // 앞 카드의 일기가 새 카드 이름 아래 남아 있으면 남의 기록으로 읽힌다.
+    setEncounters([]);
+    loadSelected(catId).catch((error: unknown) => {
+      console.warn('[cat-detail] load failed', error);
+    });
+  }, [catId, loadSelected]);
 
   const sortedEncounters = useMemo(
     () => sortEncountersByDateAsc(encounters.filter((encounter) => encounter.memo.trim().length > 0)),
@@ -134,24 +165,133 @@ export function CatDetailScreen({ navigation, route }: RootStackScreenProps<'Cat
   const dossierHeight = dossierWidth * CUSTOMER_DOSSIER_ASPECT_RATIO;
   const peekWidth = dossierWidth * 0.76;
 
-  const sameHabitatCats = useMemo(() => {
+  /**
+   * 옆으로 넘길 때 따라갈 순서.
+   *
+   * 도감에서 들어왔으면 그 화면이 늘어놓고 있던 목록을 그대로 쓴다. 필터를
+   * 걸고 들어왔는데 넘기니 걸러냈던 고양이가 나오면 방금 본 화면과 어긋난다.
+   * 지도·알림처럼 목록 없이 들어온 경우에만 같은 거처 전체로 채운다.
+   */
+  const siblings = useMemo(() => {
     if (!cat) {
       return [];
+    }
+
+    if (siblingIds && siblingIds.length > 0) {
+      const byId = new Map(availableCats.map((candidate) => [candidate.id, candidate]));
+      // 넘겨받은 뒤 지워진 고양이가 있을 수 있으므로 실재하는 것만 남긴다.
+      const ordered = siblingIds
+        .map((id) => byId.get(id))
+        .filter((candidate): candidate is Cat => Boolean(candidate));
+
+      if (ordered.some((candidate) => candidate.id === cat.id)) {
+        return ordered;
+      }
     }
 
     return availableCats
       .filter((candidate) => candidate.habitat === cat.habitat)
       .sort((left, right) => left.number - right.number);
-  }, [availableCats, cat]);
-  const selectedIndex = sameHabitatCats.findIndex((candidate) => candidate.id === cat?.id);
-  const previousCat = selectedIndex > 0 ? sameHabitatCats[selectedIndex - 1] : null;
-  const nextCat = selectedIndex >= 0 && selectedIndex < sameHabitatCats.length - 1
-    ? sameHabitatCats[selectedIndex + 1]
+  }, [availableCats, cat, siblingIds]);
+  const selectedIndex = siblings.findIndex((candidate) => candidate.id === cat?.id);
+  const previousCat = selectedIndex > 0 ? siblings[selectedIndex - 1] : null;
+  const nextCat = selectedIndex >= 0 && selectedIndex < siblings.length - 1
+    ? siblings[selectedIndex + 1]
     : null;
 
-  const openCat = (next: Cat) => {
-    navigation.replace('CatDetail', { catId: next.id });
-  };
+  /**
+   * 카드를 바꾼다. 화면을 새로 띄우지 않고 이 화면 안에서 갈아끼운다 -
+   * navigation.replace를 쓰면 넘길 때마다 화면이 통째로 다시 마운트돼서
+   * 손을 따라 움직이던 카드가 툭 끊긴다. 뒤로가기는 그대로 도감으로 간다.
+   */
+  const openCat = useCallback(
+    (next: Cat) => {
+      if (next.id === catId) {
+        return;
+      }
+
+      Keyboard.dismiss();
+      setShowAllEntries(false);
+      setCatId(next.id);
+    },
+    [catId],
+  );
+
+  /**
+   * 카드 넘김 제스처.
+   *
+   * 카드 무대에서만 가로 손짓을 받는다. 아래 기록은 세로로 넘겨 읽는 자리라
+   * 거기까지 가로를 먹으면 스크롤과 싸운다.
+   *
+   * 메모를 쓰던 중이면 넘기지 않는다. 넘기는 순간 초안이 다른 고양이의 기록이
+   * 되거나 그대로 사라진다 - 눌러서 저장하거나 지우는 건 사용자가 정할 일이다.
+   */
+  const dragX = useRef(new Animated.Value(0)).current;
+  const isSwitchingCard = useRef(false);
+  const hasDraftMemo = draftMemo.trim().length > 0;
+  const swipeStride = dossierWidth + peekWidth * 0.38;
+
+  const canSwipeTo = useCallback(
+    (dx: number) => Boolean(dx < 0 ? nextCat : previousCat),
+    [nextCat, previousCat],
+  );
+
+  const settleSwipe = useCallback(
+    (target: Cat | null, direction: number) => {
+      if (!target) {
+        Animated.spring(dragX, { toValue: 0, useNativeDriver: true, bounciness: 6 }).start(() => {
+          isSwitchingCard.current = false;
+        });
+        return;
+      }
+
+      Animated.timing(dragX, {
+        toValue: direction * swipeStride,
+        duration: 190,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }).start(() => {
+        openCat(target);
+        // 새 카드는 반대편에서 들어와 제자리에 앉는다.
+        dragX.setValue(-direction * swipeStride * 0.5);
+        Animated.spring(dragX, { toValue: 0, useNativeDriver: true, bounciness: 4 }).start(() => {
+          isSwitchingCard.current = false;
+        });
+      });
+    },
+    [dragX, openCat, swipeStride],
+  );
+
+  const cardPan = useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponder: (_, gesture) =>
+          !isSwitchingCard.current &&
+          !hasDraftMemo &&
+          !isSavingMemo &&
+          Math.abs(gesture.dx) > 12 &&
+          Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.4 &&
+          canSwipeTo(gesture.dx),
+        onPanResponderMove: (_, gesture) => {
+          // 끝 카드에서는 뻑뻑하게 끌려 더 갈 곳이 없음을 손으로 알린다.
+          dragX.setValue(canSwipeTo(gesture.dx) ? gesture.dx : gesture.dx * 0.22);
+        },
+        onPanResponderRelease: (_, gesture) => {
+          const goingNext = gesture.dx < 0;
+          const target = goingNext ? nextCat : previousCat;
+          const committed =
+            Math.abs(gesture.dx) > dossierWidth * 0.24 || Math.abs(gesture.vx) > 0.5;
+
+          isSwitchingCard.current = true;
+          settleSwipe(committed ? target : null, goingNext ? -1 : 1);
+        },
+        onPanResponderTerminate: () => {
+          isSwitchingCard.current = true;
+          settleSwipe(null, 0);
+        },
+      }),
+    [canSwipeTo, dossierWidth, dragX, hasDraftMemo, isSavingMemo, nextCat, previousCat, settleSwipe],
+  );
 
   const handleToggleLike = async () => {
     const favoriteIds = await loadFavoriteCatIds();
@@ -258,7 +398,13 @@ export function CatDetailScreen({ navigation, route }: RootStackScreenProps<'Cat
       >
         {cat ? (
           <>
-            <View style={[styles.caseStage, { height: dossierHeight + 12 }]}>
+            <Animated.View
+              style={[
+                styles.caseStage,
+                { height: dossierHeight + 12, transform: [{ translateX: dragX }] },
+              ]}
+              {...cardPan.panHandlers}
+            >
               {previousCat ? (
                 <Pressable
                   accessibilityLabel={`이전 고객 ${previousCat.name}`}
@@ -295,7 +441,7 @@ export function CatDetailScreen({ navigation, route }: RootStackScreenProps<'Cat
                   width={dossierWidth}
                 />
               </View>
-            </View>
+            </Animated.View>
 
             <View style={styles.summaryRow}>
               <View style={styles.summaryChip}>

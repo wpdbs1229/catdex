@@ -315,7 +315,14 @@ export function CatDexScreen() {
                 liked={likedCatIds.has(cat.id)}
                 name={cat.name}
                 number={cat.number}
-                onPress={() => navigation.navigate('CatDetail', { catId: cat.id })}
+                onPress={() =>
+                  navigation.navigate('CatDetail', {
+                    catId: cat.id,
+                    // 지금 화면에 늘어놓은 순서 그대로 넘겨준다. 상세에서 옆으로
+                    // 넘길 때 탭·검색·필터가 그대로 이어진다.
+                    siblingIds: visibleCats.map((visible) => visible.id),
+                  })
+                }
                 onToggleLike={() => toggleLike(cat.id)}
               />
             )),
