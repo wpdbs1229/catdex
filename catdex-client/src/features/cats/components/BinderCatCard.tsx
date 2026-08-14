@@ -6,6 +6,7 @@ import { CAT_HABITAT_LABELS, type CatHabitat } from '@/shared/cats/habitat';
 import { createNdShadow, nd, theme } from '@/shared/styles/theme';
 
 const paperTexture = require('../../../../assets/textures/crumpled-paper.jpg');
+const vinylPocket = require('../../../../assets/binder/vinyl-pocket.png');
 
 /** 하트 리본이 덮는 모서리 크기. */
 const RIBBON_SIZE = 52;
@@ -68,9 +69,9 @@ export function BinderCatCard({
           </View>
         </View>
 
-        {/* 비닐 속지. 눌림을 가리지 않게 터치는 통과시킨다. */}
+        {/* 비닐 주머니. 눌림을 가리지 않게 터치는 통과시킨다. */}
         <View pointerEvents="none" style={styles.vinyl}>
-          <View style={styles.vinylSheen} />
+          <Image resizeMode="stretch" source={vinylPocket} style={styles.vinylImage} />
         </View>
 
         {liked ? (
@@ -102,12 +103,8 @@ export function BinderCatCard({
 const styles = StyleSheet.create({
   sleeve: {
     flex: 1,
-    borderRadius: 14,
+    // 테두리·반사는 비닐 이미지가 갖고 있다. 여기서 겹쳐 그리면 두 겹이 된다.
     padding: 3,
-    // 속지 자체의 얇은 테두리
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.75)',
-    backgroundColor: 'rgba(255, 255, 255, 0.34)',
   },
   card: {
     flex: 1,
@@ -177,21 +174,17 @@ const styles = StyleSheet.create({
     letterSpacing: -0.3,
     color: nd.colors.ink,
   },
+  /** 카드보다 살짝 넉넉하게 덮어 주머니 테두리가 카드 밖으로 나오게 한다. */
   vinyl: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: 11,
-    backgroundColor: 'rgba(255, 255, 255, 0.07)',
-    overflow: 'hidden',
-  },
-  /** 왼쪽 위에서 비스듬히 떨어지는 반사 한 줄. */
-  vinylSheen: {
     position: 'absolute',
-    top: -60,
-    left: -40,
-    width: 46,
-    height: 300,
-    backgroundColor: 'rgba(255, 255, 255, 0.30)',
-    transform: [{ rotate: '24deg' }],
+    top: -3,
+    left: -3,
+    right: -3,
+    bottom: -3,
+  },
+  vinylImage: {
+    width: '100%',
+    height: '100%',
   },
   ribbon: {
     position: 'absolute',

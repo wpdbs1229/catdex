@@ -1,57 +1,156 @@
 import { ChevronRight } from 'lucide-react-native';
 import type { ReactNode } from 'react';
+import { useState } from 'react';
 import { Image, Pressable, StyleSheet, View } from 'react-native';
-import { createNdShadow, nd } from '@/shared/styles/theme';
+import { nd } from '@/shared/styles/theme';
 
-const leatherTexture = require('../../../../assets/binder/leather-texture.webp');
-const binderRing = require('../../../../assets/binder/binder-ring.webp');
+const backgroundTop = require('../../../../assets/binder/binder-background-top.png');
+const backgroundMiddle = require('../../../../assets/binder/binder-background-middle.png');
+const backgroundBottom = require('../../../../assets/binder/binder-background-bottom.png');
+const binderPage = require('../../../../assets/binder/binder-page.png');
+const ringBack = require('../../../../assets/binder/binder-ring-back.png');
+const ringFront = require('../../../../assets/binder/binder-ring-front.png');
 const pageCurl = require('../../../../assets/binder/page-curl.webp');
 
-/** 왼쪽에 물리는 링 개수. */
-const RING_COUNT = 5;
+/**
+ * 에셋 원본 기하. 배경 768x1632, 속지 768x1536이 같은 폭으로 맞물린다.
+ * 배경은 위 480 / 가운데 64 / 아래 480으로 잘라, 화면이 길든 짧든 가죽 테두리는
+ * 그대로 두고 가운데만 늘린다. 통짜로 늘리면 박음질과 모서리가 눌린다.
+ */
+const SLICE_RATIO = 480 / 768;
+/** 속지가 배경 위에서 차지하는 세로 구간(잘린 위/아래 조각 안에서의 위치). */
+const PAGE_TOP_IN_SLICE = 48 / 480;
+/** 속지 구멍 중심. 왼쪽에서의 가로 비율과, 속지 안에서의 세로 비율 여섯 개. */
+const HOLE_X = 0.129;
+const HOLE_YS = [0.145, 0.271, 0.396, 0.571, 0.693, 0.82];
+/** 카드를 놓는 자리. 구멍보다 오른쪽에서 시작해 속지 오른쪽 끝 앞에서 멈춘다. */
+const CARDS_LEFT = 0.2;
+const CARDS_RIGHT = 0.93;
+/** 링 가로 크기(속지 폭 기준)와 원본 비율. */
+const RING_WIDTH = 0.155;
+const RING_ASPECT = 360 / 160;
 
 interface BinderFrameProps {
   children: ReactNode;
   /** 넘길 다음 장이 있으면 오른쪽 아래 모서리가 접힌다. */
   hasNextPage?: boolean;
   onNextPage?: () => void;
+  /** 떠 있는 하단바가 가리는 높이. 바인더는 그 아래까지 내려가고 모서리만 피한다. */
+  bottomInset?: number;
 }
 
 /**
- * 고객 도감의 바인더.
+ * 고객 도감의 링 바인더.
  *
- * 가죽은 스티치가 없는 결 텍스처만 깔고 박음질은 여기서 그린다. 스티치까지 든
- * 이미지 한 장을 화면 비율에 맞춰 늘리면 박음질 두께와 모서리가 눌리고,
- * 안드로이드에는 9-slice가 없어 손쓸 방법이 없다.
+ * 쌓는 순서가 곧 입체감이다. 가죽 표지 → 링 뒤쪽 → 구멍 뚫린 속지 → 링 앞쪽.
+ * 속지의 구멍이 실제로 뚫려 있어서, 뒤에 둔 링이 그 구멍으로 비쳐 보이고 앞쪽
+ * 조각이 종이를 물고 올라온다. 이 두 겹이 "끼워져 있다"와 "얹어놨다"를 가른다.
  */
-export function BinderFrame({ children, hasNextPage = false, onNextPage }: BinderFrameProps) {
+export function BinderFrame({
+  children,
+  hasNextPage = false,
+  onNextPage,
+  bottomInset = 0,
+}: BinderFrameProps) {
+  const [size, setSize] = useState({ width: 0, height: 0 });
+  const { width, height } = size;
+
+  const sliceHeight = width * SLICE_RATIO;
+  const pageTop = sliceHeight * PAGE_TOP_IN_SLICE;
+  const pageBottom = height - sliceHeight * PAGE_TOP_IN_SLICE;
+  const pageHeight = Math.max(0, pageBottom - pageTop);
+
+  const ringWidth = width * RING_WIDTH;
+  const ringHeight = ringWidth / RING_ASPECT;
+
+  const isMeasured = width > 0 && pageHeight > 0;
+
   return (
-    <View style={styles.binder}>
-      <Image resizeMode="repeat" source={leatherTexture} style={styles.leather} />
-      <View pointerEvents="none" style={styles.stitch} />
+    <View
+      onLayout={(event) => setSize(event.nativeEvent.layout)}
+      style={styles.binder}
+    >
+      {/* 가죽 표지. 위·아래 조각은 그대로 두고 가운데만 늘어난다. */}
+      <View style={styles.cover}>
+        <Image resizeMode="stretch" source={backgroundTop} style={{ width: '100%', height: sliceHeight }} />
+        <Image resizeMode="stretch" source={backgroundMiddle} style={styles.coverMiddle} />
+        <Image resizeMode="stretch" source={backgroundBottom} style={{ width: '100%', height: sliceHeight }} />
+      </View>
 
-      <View style={styles.page}>
-        {children}
+      {isMeasured ? (
+        <>
+          {/* 링 뒤쪽 - 속지 구멍으로 비쳐 보인다. */}
+          {HOLE_YS.map((ratio) => (
+            <Image
+              key={`back-${ratio}`}
+              resizeMode="stretch"
+              source={ringBack}
+              style={[
+                styles.ring,
+                {
+                  width: ringWidth,
+                  height: ringHeight,
+                  left: width * HOLE_X - ringWidth / 2,
+                  top: pageTop + pageHeight * ratio - ringHeight / 2,
+                },
+              ]}
+            />
+          ))}
 
-        {hasNextPage ? (
-          <Pressable
-            accessibilityLabel="다음 장"
-            accessibilityRole="button"
-            onPress={onNextPage}
-            style={styles.curlButton}
+          <Image
+            resizeMode="stretch"
+            source={binderPage}
+            style={[styles.page, { top: pageTop, height: pageHeight }]}
+          />
+
+          {/* 링 앞쪽 - 종이를 물고 올라온다. */}
+          {HOLE_YS.map((ratio) => (
+            <Image
+              key={`front-${ratio}`}
+              resizeMode="stretch"
+              source={ringFront}
+              style={[
+                styles.ring,
+                {
+                  width: ringWidth,
+                  height: ringHeight,
+                  left: width * HOLE_X - ringWidth / 2,
+                  top: pageTop + pageHeight * ratio - ringHeight / 2,
+                },
+              ]}
+            />
+          ))}
+
+          <View
+            style={[
+              styles.cards,
+              {
+                left: width * CARDS_LEFT,
+                width: width * (CARDS_RIGHT - CARDS_LEFT),
+                top: pageTop + 14,
+                bottom: Math.max(height - pageBottom + 14, bottomInset),
+              },
+            ]}
           >
-            <Image source={pageCurl} style={styles.curl} />
-            <ChevronRight color={nd.colors.sub} size={18} strokeWidth={2.4} style={styles.curlChevron} />
-          </Pressable>
-        ) : null}
-      </View>
+            {children}
+          </View>
 
-      {/* 링은 속지 왼쪽 끝을 물고 있어야 해서 페이지 위에 얹는다. */}
-      <View pointerEvents="none" style={styles.rings}>
-        {Array.from({ length: RING_COUNT }, (_, index) => (
-          <Image key={index} resizeMode="contain" source={binderRing} style={styles.ring} />
-        ))}
-      </View>
+          {hasNextPage ? (
+            <Pressable
+              accessibilityLabel="다음 장"
+              accessibilityRole="button"
+              onPress={onNextPage}
+              style={[
+                styles.curlButton,
+                { right: width * (1 - CARDS_RIGHT), bottom: Math.max(height - pageBottom, bottomInset) },
+              ]}
+            >
+              <Image source={pageCurl} style={styles.curl} />
+              <ChevronRight color={nd.colors.sub} size={18} strokeWidth={2.4} style={styles.curlChevron} />
+            </Pressable>
+          ) : null}
+        </>
+      ) : null}
     </View>
   );
 }
@@ -60,54 +159,27 @@ const styles = StyleSheet.create({
   binder: {
     flex: 1,
     overflow: 'hidden',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    backgroundColor: '#F3E7D3',
   },
-  leather: {
+  cover: {
     ...StyleSheet.absoluteFillObject,
-    width: undefined,
-    height: undefined,
   },
-  /** 가장자리를 따라 도는 박음질. */
-  stitch: {
-    position: 'absolute',
-    top: 9,
-    left: 9,
-    right: 9,
-    bottom: 0,
-    borderRadius: 14,
-    borderWidth: 1.5,
-    borderStyle: 'dashed',
-    borderColor: 'rgba(180, 150, 110, 0.45)',
+  coverMiddle: {
+    flex: 1,
+    width: '100%',
   },
   page: {
-    flex: 1,
-    marginTop: 20,
-    marginLeft: 34,
-    marginRight: 16,
-    borderRadius: 10,
-    backgroundColor: '#FCF9F2',
-    overflow: 'hidden',
-    ...createNdShadow(0.12, 10),
-  },
-  rings: {
     position: 'absolute',
-    top: 20,
-    bottom: 0,
-    left: 6,
-    width: 46,
-    justifyContent: 'space-evenly',
-    alignItems: 'flex-start',
+    left: 0,
+    right: 0,
   },
   ring: {
-    width: 46,
-    height: 25,
+    position: 'absolute',
+  },
+  cards: {
+    position: 'absolute',
   },
   curlButton: {
     position: 'absolute',
-    right: 0,
-    bottom: 0,
     width: 56,
     height: 64,
     alignItems: 'flex-end',
