@@ -17,7 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import type { ClientStackParamList, RootStackParamList } from '@/app/navigation/types';
 import { useTabBarBottomGap, useTabBarInset } from '@/app/navigation/useTabBarInset';
 import { BinderCatCard } from '@/features/cats/components/BinderCatCard';
-import { BinderFrame } from '@/features/cats/components/BinderFrame';
+import { BAKED_TOP_MARGIN_RATIO, BinderFrame } from '@/features/cats/components/BinderFrame';
 import { ClientTabBar } from '@/features/cats/components/ClientTabBar';
 import { DexFilterPanel } from '@/features/cats/components/DexFilterPanel';
 import { HabitatTabs } from '@/features/cats/components/HabitatTabs';
@@ -85,6 +85,8 @@ export function CatDexScreen() {
   const [habitat, setHabitat] = useState<CatHabitat>(DEFAULT_CAT_HABITAT);
   const [pageIndex, setPageIndex] = useState(0);
   const [pageWidth, setPageWidth] = useState(0);
+  // 바인더 위 조각에 흰 여백이 구워져 있어, 탭을 그만큼 내려 가죽에 붙인다.
+  const [bodyWidth, setBodyWidth] = useState(0);
   const pagerRef = useRef<ScrollView>(null);
   const tabBarInset = useTabBarInset();
   const tabBarBottomGap = useTabBarBottomGap();
@@ -278,8 +280,12 @@ export function CatDexScreen() {
       </View>
 
       {/* 바인더는 화면 아래까지 내려가고 하단바가 그 위에 뜬다. 아래를 비워두면
-          바인더가 잘린 자리에 흰 띠가 남는다. */}
-      <View style={styles.body}>
+          바인더가 잘린 자리에 흰 띠가 남는다. 위로는 구워진 흰 여백만큼 탭 밑으로
+          끌어올려 가죽이 탭 바로 아래에서 시작하게 한다. */}
+      <View
+        onLayout={(event) => setBodyWidth(event.nativeEvent.layout.width)}
+        style={[styles.body, bodyWidth > 0 && { marginTop: -bodyWidth * BAKED_TOP_MARGIN_RATIO + 2 }]}
+      >
         <BinderFrame
           bottomInset={tabBarInset}
           hasNextPage={pageIndex < pages.length - 1}
@@ -303,6 +309,7 @@ export function CatDexScreen() {
                         <View key={row[0].id} style={styles.pageRow}>
                           {row.map((cat) => (
                             <BinderCatCard
+                              featured={cat.id === pageCats[0].id}
                               habitat={cat.habitat}
                               imageSource={catPhotoSource(cat.imageUrl)}
                               key={cat.id}
@@ -485,19 +492,22 @@ const styles = StyleSheet.create({
   },
   tabsRow: {
     paddingTop: 18,
+    // 탭이 바인더 가죽 위에 얹혀야 하므로 바인더보다 위 레이어에 둔다.
+    zIndex: 2,
   },
   pager: {
     flex: 1,
   },
-  /** 카드 자리는 BinderFrame이 속지 안쪽으로 잡아준다. 여기서는 간격만 준다. */
+  /** 카드 자리는 BinderFrame이 속지 안쪽으로 잡아준다. 간격을 좁혀 카드가
+      정사각형이 아니라 세로로 길쭉해지게 한다. */
   page: {
     flex: 1,
-    gap: 9,
+    gap: 6,
   },
   pageRow: {
     flex: 1,
     flexDirection: 'row',
-    gap: 9,
+    gap: 6,
   },
   rowSpacer: {
     flex: 1,

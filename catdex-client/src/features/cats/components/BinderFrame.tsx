@@ -18,6 +18,8 @@ const pageCurl = require('../../../../assets/binder/page-curl.webp');
  * 그대로 두고 가운데만 늘린다. 통짜로 늘리면 박음질과 모서리가 눌린다.
  */
 const SLICE_RATIO = 480 / 768;
+/** 위 조각에 구워진 흰 여백. 탭이 이 위에 겹쳐 앉아야 가죽에 붙어 보인다. */
+export const BAKED_TOP_MARGIN_RATIO = 102 / 768;
 /** 속지가 배경 위에서 차지하는 세로 구간(잘린 위/아래 조각 안에서의 위치). */
 const PAGE_TOP_IN_SLICE = 48 / 480;
 /** 속지 구멍 중심. 왼쪽에서의 가로 비율과, 속지 안에서의 세로 비율 여섯 개. */
@@ -26,9 +28,12 @@ const HOLE_YS = [0.145, 0.271, 0.396, 0.571, 0.693, 0.82];
 /** 카드를 놓는 자리. 구멍보다 오른쪽에서 시작해 속지 오른쪽 끝 앞에서 멈춘다. */
 const CARDS_LEFT = 0.2;
 const CARDS_RIGHT = 0.93;
-/** 링 가로 크기(속지 폭 기준)와 원본 비율. */
-const RING_WIDTH = 0.155;
-const RING_ASPECT = 360 / 160;
+/**
+ * 링 크기. 원본 이미지 비율(2.25)대로 걸면 종이에 붙은 길고 가는 클립처럼
+ * 보여서, 폭을 줄이고 세로를 당겨 짧고 굵은 금속 링으로 만든다.
+ */
+const RING_WIDTH = 0.105;
+const RING_ASPECT = 1.5;
 
 interface BinderFrameProps {
   children: ReactNode;
@@ -127,28 +132,30 @@ export function BinderFrame({
               {
                 left: width * CARDS_LEFT,
                 width: width * (CARDS_RIGHT - CARDS_LEFT),
-                top: pageTop + 14,
-                bottom: Math.max(height - pageBottom + 14, bottomInset),
+                top: pageTop + 8,
+                bottom: Math.max(height - pageBottom + 8, bottomInset),
               },
             ]}
           >
             {children}
           </View>
 
-          {hasNextPage ? (
-            <Pressable
-              accessibilityLabel="다음 장"
-              accessibilityRole="button"
-              onPress={onNextPage}
-              style={[
-                styles.curlButton,
-                { right: width * (1 - CARDS_RIGHT), bottom: Math.max(height - pageBottom, bottomInset) },
-              ]}
-            >
-              <Image source={pageCurl} style={styles.curl} />
+          {/* 종이 말림은 늘 보인다. 다음 장이 있을 때만 눌러서 넘어간다. */}
+          <Pressable
+            accessibilityLabel="다음 장"
+            accessibilityRole="button"
+            disabled={!hasNextPage}
+            onPress={onNextPage}
+            style={[
+              styles.curlButton,
+              { right: width * (1 - CARDS_RIGHT), bottom: Math.max(height - pageBottom, bottomInset) },
+            ]}
+          >
+            <Image source={pageCurl} style={styles.curl} />
+            {hasNextPage ? (
               <ChevronRight color={nd.colors.sub} size={18} strokeWidth={2.4} style={styles.curlChevron} />
-            </Pressable>
-          ) : null}
+            ) : null}
+          </Pressable>
         </>
       ) : null}
     </View>
