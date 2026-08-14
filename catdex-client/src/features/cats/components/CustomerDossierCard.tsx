@@ -1,18 +1,38 @@
-import { Cat as CatIcon, Image as ImageIcon, MapPin, Signpost } from 'lucide-react-native';
+import { Cat as CatIcon, Image as ImageIcon, MapPin, Signpost, Star } from 'lucide-react-native';
 import { Image, StyleSheet, Text, View } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
 import { CAT_HABITAT_LABELS } from '@/shared/cats/habitat';
 import { deriveCatType } from '@/shared/coat/coat-to-cat-type';
 import { nd, theme } from '@/shared/styles/theme';
 import type { Cat, CatEncounter } from '@/shared/types/cat';
 import { catPhotoSource } from '@/shared/utils/catImage';
+import { getRarityLabel } from '@/shared/utils/catPresentation';
 
 const clearCase = require('../../../../assets/customer-dossier/nyangdogam-clear-case.png');
 const agencyBadge = require('../../../../assets/customer-dossier/agency-banner-reference.png');
-const fileBadge = require('../../../../assets/customer-dossier/file-banner-reference.png');
 const officialSeal = require('../../../../assets/customer-dossier/official-paw-seal-reference.png');
 const crumpledPaper = require('../../../../assets/textures/crumpled-paper.jpg');
 
 export const CUSTOMER_DOSSIER_ASPECT_RATIO = 1647 / 955;
+
+/**
+ * 희귀도 리본.
+ *
+ * 시안에서 오려낸 래스터를 쓰다가 코드로 옮겼다. 오려낸 그림에는 지운 글자
+ * 자국(내부의 13.7%가 흰 얼룩)과 원본 사진의 담벼락·잎사귀가 아래 가장자리에
+ * 그대로 구워져 있었다. 시안 위에서는 배경이 비슷해 안 보였지만 흰 카드 위에
+ * 얹으니 주황이 물 빠져 보이고 밑단에 회색 얼룩이 남았다.
+ *
+ * 좌표는 시안 원본(304x400)에서 잰 값 그대로다. 위 모서리 반지름 24,
+ * 본체는 y=316까지, 그 아래 오른쪽으로 접힌 꼬리가 (227,316)에서 오른쪽
+ * 아래 끝까지 이어진다.
+ */
+const RIBBON_VIEWBOX = { width: 304, height: 400 };
+const RIBBON_PATH = 'M24 0 H280 A24 24 0 0 1 304 24 V400 L227 316 H0 V24 A24 24 0 0 1 24 0 Z';
+/** 접힌 꼬리. 살짝 그늘져야 접힌 것으로 보인다. */
+const RIBBON_FOLD_PATH = 'M227 316 H304 V400 Z';
+/** 시안 리본에서 얼룩을 뺀 순수 주황의 중앙값. */
+const RIBBON_COLOR = '#E17E37';
 
 interface CustomerDossierCardProps {
   affinityLabel: string;
@@ -50,7 +70,7 @@ export function CustomerDossierCard({ affinityLabel, cat, encounters, width }: C
   const photoSource = cutoutPhotoSource(cat);
   const customerNumber = String(cat.number).padStart(3, '0');
   const agencyBadgeWidth = width * 0.168;
-  const fileBadgeWidth = width * 0.17;
+  const rarityBadgeWidth = width * 0.17;
   const officialSealWidth = width * 0.19;
 
   return (
@@ -142,19 +162,35 @@ export function CustomerDossierCard({ affinityLabel, cat, encounters, width }: C
           },
         ]}
       />
-      <Image
-        resizeMode="contain"
-        source={fileBadge}
+      <View
+        accessibilityLabel={`발견 희귀도 ${cat.rarity}성, ${getRarityLabel(cat.rarity)}`}
         style={[
-          styles.fileBadge,
+          styles.rarityBadge,
           {
             right: width * 0.044,
             top: height * 0.078,
-            width: fileBadgeWidth,
-            height: fileBadgeWidth * (400 / 304),
+            width: rarityBadgeWidth,
+            height: rarityBadgeWidth * (400 / 304),
           },
         ]}
-      />
+      >
+        <Svg
+          height="100%"
+          style={StyleSheet.absoluteFill}
+          viewBox={`0 0 ${RIBBON_VIEWBOX.width} ${RIBBON_VIEWBOX.height}`}
+          width="100%"
+        >
+          <Path d={RIBBON_PATH} fill={RIBBON_COLOR} />
+          <Path d={RIBBON_FOLD_PATH} fill="#000000" fillOpacity={0.08} />
+        </Svg>
+        <View style={styles.rarityBadgeContent}>
+          <Text style={styles.rarityBadgeTitle}>희귀도</Text>
+          <View style={styles.rarityValueRow}>
+            <Star color="#FFFFFF" fill="#FFFFFF" size={9} strokeWidth={2} />
+            <Text style={styles.rarityBadgeValue}>{cat.rarity}성</Text>
+          </View>
+        </View>
+      </View>
     </View>
   );
 }
@@ -341,8 +377,49 @@ const styles = StyleSheet.create({
   agencyBadge: {
     position: 'absolute',
   },
-  fileBadge: {
+  rarityBadge: {
     position: 'absolute',
+    // 시안처럼 카드 위에 얹힌 리본으로 보이려면 그림자가 있어야 한다. 흰 카드
+    // 위에서는 그림자 없이 주황만 있으면 인쇄된 무늬처럼 납작해 보인다.
+    shadowColor: '#7C4A1E',
+    shadowOpacity: 0.28,
+    shadowRadius: 5,
+    shadowOffset: { width: -1, height: 3 },
+    elevation: 5,
+  },
+  rarityBadgeContent: {
+    position: 'absolute',
+    top: '18%',
+    left: '7%',
+    right: '7%',
+    alignItems: 'center',
+  },
+  rarityBadgeTitle: {
+    fontSize: 10.5,
+    lineHeight: 14,
+    fontWeight: '700',
+    letterSpacing: -0.45,
+    color: '#FFFFFF',
+    textShadowColor: 'rgba(119, 55, 20, 0.22)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 1,
+  },
+  rarityValueRow: {
+    marginTop: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 2,
+  },
+  rarityBadgeValue: {
+    fontSize: 10.5,
+    lineHeight: 13,
+    fontWeight: '700',
+    letterSpacing: -0.35,
+    color: '#FFFFFF',
+    textShadowColor: 'rgba(119, 55, 20, 0.22)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 1,
   },
   officialSeal: {
     position: 'absolute',
