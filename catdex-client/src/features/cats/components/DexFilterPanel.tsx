@@ -221,7 +221,8 @@ const styles = StyleSheet.create({
     borderRadius: nd.radius.input,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: theme.colors.accent,
+    // 기본 동작 버튼은 주황이다. 코랄 레드는 좋아요처럼 시선을 끄는 자리에만 쓴다.
+    backgroundColor: theme.colors.primary,
   },
   ctaPressed: {
     opacity: 0.88,
