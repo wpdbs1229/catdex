@@ -68,14 +68,23 @@ export function BinderCatCard({
           </View>
         </View>
 
-        {liked ? (
-          <View pointerEvents="none" style={styles.ribbon}>
-            <Svg height={RIBBON_SIZE} width={RIBBON_SIZE}>
-              <Path d={`M0 0 H${RIBBON_SIZE} V${RIBBON_SIZE} Z`} fill={theme.colors.primary} />
-            </Svg>
-            <Heart color="#FFFFFF" fill="#FFFFFF" size={13} style={styles.ribbonHeart} />
-          </View>
-        ) : null}
+        {/* 찜 리본. 안 찜한 카드에도 흐린 접힘을 보여줘야 여기가 눌리는 자리인 걸
+            안다 - 찜했을 때만 그리면 기능이 있는지조차 알 수 없다. */}
+        <View pointerEvents="none" style={styles.ribbon}>
+          <Svg height={RIBBON_SIZE} width={RIBBON_SIZE}>
+            <Path
+              d={`M0 0 H${RIBBON_SIZE} V${RIBBON_SIZE} Z`}
+              fill={liked ? theme.colors.primary : 'rgba(23, 23, 26, 0.05)'}
+            />
+          </Svg>
+          <Heart
+            color={liked ? '#FFFFFF' : nd.colors.sub}
+            fill={liked ? '#FFFFFF' : 'transparent'}
+            size={13}
+            strokeWidth={2}
+            style={styles.ribbonHeart}
+          />
+        </View>
       </Pressable>
 
       {onToggleLike ? (
