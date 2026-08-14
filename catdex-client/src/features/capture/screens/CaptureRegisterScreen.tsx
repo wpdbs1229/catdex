@@ -16,7 +16,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { CaptureStackScreenProps } from '@/app/navigation/types';
 import { createCat, resolveCatObservation } from '@/shared/api/cats.api';
 import { getUserFacingError } from '@/shared/errors/user-facing-error';
-import { createNdShadow, nd } from '@/shared/styles/theme';
+import { HabitatIcon } from '@/shared/cats/HabitatIcon';
+import { CAT_HABITAT_LABELS, CAT_HABITATS, DEFAULT_CAT_HABITAT, type CatHabitat } from '@/shared/cats/habitat';
+import { createNdShadow, nd, theme } from '@/shared/styles/theme';
 import type { CaptureCatDraft } from '@/shared/types/cat';
 
 type GenderKey = '수컷' | '암컷';
@@ -29,6 +31,9 @@ export function CaptureRegisterScreen({ navigation, route }: CaptureStackScreenP
   const [description, setDescription] = useState('');
   const [breed, setBreed] = useState('');
   const [selectedGender, setSelectedGender] = useState<GenderKey | null>(null);
+  // 거처는 비워둘 수 없다. 등록 뒤에는 바꿀 수 없는 공유값이라 고르지 않고
+  // 넘어가면 남들에게도 틀린 값이 남는다. 가장 흔한 길냥이에서 시작한다.
+  const [selectedHabitat, setSelectedHabitat] = useState<CatHabitat>(DEFAULT_CAT_HABITAT);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const canSubmit = name.trim().length > 0 && !isSubmitting;
 
@@ -54,6 +59,7 @@ export function CaptureRegisterScreen({ navigation, route }: CaptureStackScreenP
         name: name.trim(),
         coatColors: colors,
         coatPattern: pattern,
+        habitat: selectedHabitat,
         tags,
         regionName,
         memo: description.trim(),
@@ -135,6 +141,33 @@ export function CaptureRegisterScreen({ navigation, route }: CaptureStackScreenP
               style={styles.input}
               value={breed}
             />
+            <View style={styles.habitatRow}>
+              {CAT_HABITATS.map((habitat) => {
+                const isSelected = selectedHabitat === habitat;
+
+                return (
+                  <Pressable
+                    accessibilityLabel={CAT_HABITAT_LABELS[habitat]}
+                    accessibilityRole="radio"
+                    accessibilityState={{ selected: isSelected }}
+                    disabled={isSubmitting}
+                    key={habitat}
+                    onPress={() => setSelectedHabitat(habitat)}
+                    style={[styles.habitatButton, isSelected && styles.habitatButtonSelected]}
+                  >
+                    <HabitatIcon
+                      color={isSelected ? theme.colors.primary : nd.colors.sub}
+                      habitat={habitat}
+                      size={18}
+                    />
+                    <Text style={[styles.habitatLabel, isSelected && styles.habitatLabelSelected]}>
+                      {CAT_HABITAT_LABELS[habitat]}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
             <View style={styles.genderRow}>
               {(['수컷', '암컷'] as GenderKey[]).map((gender) => {
                 const isSelected = selectedGender === gender;
@@ -276,6 +309,34 @@ const styles = StyleSheet.create({
     fontSize: 14,
     letterSpacing: -0.35,
     color: nd.colors.ink,
+  },
+  habitatRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  habitatButton: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    paddingVertical: 13,
+    borderRadius: nd.radius.input,
+    borderWidth: 1,
+    borderColor: nd.colors.border,
+    backgroundColor: '#FFFFFF',
+  },
+  habitatButtonSelected: {
+    borderColor: theme.colors.primary,
+    backgroundColor: theme.colors.primarySoft,
+  },
+  habitatLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    letterSpacing: -0.3,
+    color: nd.colors.sub,
+  },
+  habitatLabelSelected: {
+    color: theme.colors.primary,
   },
   genderRow: {
     flexDirection: 'row',
