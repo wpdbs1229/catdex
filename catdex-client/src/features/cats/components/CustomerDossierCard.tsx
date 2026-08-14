@@ -155,8 +155,9 @@ export function CustomerDossierCard({ affinityLabel, cat, encounters, width }: C
         style={[
           styles.agencyBadge,
           {
-            left: width * 0.062,
-            top: height * 0.078,
+            // 배지는 카드 모서리에 물려야 한다. 카드와 같은 여백을 쓴다.
+            left: width * 0.0639,
+            top: height * 0.0814,
             width: agencyBadgeWidth,
             height: agencyBadgeWidth * (428 / 332),
           },
@@ -167,8 +168,11 @@ export function CustomerDossierCard({ affinityLabel, cat, encounters, width }: C
         style={[
           styles.rarityBadge,
           {
-            right: width * 0.044,
-            top: height * 0.078,
+            // 리본의 오른쪽·위가 카드 모서리와 정확히 겹쳐야 카드에 물린 탭으로
+            // 보인다. 예전 값(4.4%)은 카드 테두리를 2% 넘어가 케이스 테 위에
+            // 걸쳐 떠 있었다.
+            right: width * 0.0670,
+            top: height * 0.0814,
             width: rarityBadgeWidth,
             height: rarityBadgeWidth * (400 / 304),
           },
@@ -232,12 +236,18 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
+  /**
+   * 케이스 에셋(955x1647)에서 잰 속지 창 그대로다. 가운데 선에서 투명 구간을
+   * 재면 위 134, 아래 1559, 왼 61, 오른 891 - 비율로 8.14% / 5.34% / 6.39% /
+   * 6.70%. 예전 값은 위가 0.3% 높아 카드의 주황 테두리가 케이스 테에 먹혀
+   * 윗변만 사라져 보였다.
+   */
   card: {
     position: 'absolute',
-    left: '6.4%',
-    right: '6.4%',
-    top: '7.8%',
-    bottom: '4.5%',
+    left: '6.39%',
+    right: '6.70%',
+    top: '8.14%',
+    bottom: '5.34%',
     borderRadius: 16,
     borderWidth: 2,
     borderColor: theme.colors.primary,
