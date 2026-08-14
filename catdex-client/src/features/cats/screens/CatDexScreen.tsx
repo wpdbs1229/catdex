@@ -277,8 +277,14 @@ export function CatDexScreen() {
         <HabitatTabs onChange={setHabitat} value={habitat} />
       </View>
 
-      <View style={[styles.body, { paddingBottom: tabBarInset }]}>
-        <BinderFrame hasNextPage={pageIndex < pages.length - 1} onNextPage={() => goToPage(pageIndex + 1)}>
+      {/* 바인더는 화면 아래까지 내려가고 하단바가 그 위에 뜬다. 아래를 비워두면
+          바인더가 잘린 자리에 흰 띠가 남는다. */}
+      <View style={styles.body}>
+        <BinderFrame
+          bottomInset={tabBarInset}
+          hasNextPage={pageIndex < pages.length - 1}
+          onNextPage={() => goToPage(pageIndex + 1)}
+        >
           <View onLayout={(event) => setPageWidth(event.nativeEvent.layout.width)} style={styles.pager}>
             {pages.length > 0 ? (
               <ScrollView
@@ -483,15 +489,15 @@ const styles = StyleSheet.create({
   pager: {
     flex: 1,
   },
+  /** 카드 자리는 BinderFrame이 속지 안쪽으로 잡아준다. 여기서는 간격만 준다. */
   page: {
     flex: 1,
-    padding: 10,
-    gap: 10,
+    gap: 9,
   },
   pageRow: {
     flex: 1,
     flexDirection: 'row',
-    gap: 10,
+    gap: 9,
   },
   rowSpacer: {
     flex: 1,
