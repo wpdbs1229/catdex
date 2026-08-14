@@ -1,5 +1,6 @@
 import { throwIfSupabaseError } from '@/shared/api/client';
 import type { CoatColorId, CoatPatternId } from '@/shared/coat/coat.types';
+import { toCatHabitat } from '@/shared/cats/habitat';
 import { assertSupabaseConfigured, supabase } from '@/shared/supabase/client';
 import { getActiveNeighborhood } from '@/shared/neighborhood/active-neighborhood';
 import type {
@@ -22,6 +23,7 @@ interface CatRow {
   name: string;
   coat_colors: CoatColorId[] | null;
   coat_pattern: CoatPatternId | null;
+  habitat: string | null;
   rarity: CatRarity;
   rarity_reasons: string[] | null;
   encounter_count: number;
@@ -103,6 +105,7 @@ async function mapCat(row: CatRow): Promise<Cat> {
     // 도감 이름은 저장하지 않고 컬러·무늬에서 만든다.
     coatColors,
     coatPattern: row.coat_pattern,
+    habitat: toCatHabitat(row.habitat),
     rarity: row.rarity,
     rarityReasons: row.rarity_reasons ?? [],
     encounterCount: row.encounter_count,
@@ -277,6 +280,7 @@ export async function createCat(draft: CaptureCatDraft) {
     p_coat_colors: draft.coatColors,
     p_coat_pattern: draft.coatPattern,
     p_original_photo_url: draft.originalPhotoUrl ?? null,
+    p_habitat: draft.habitat,
   });
 
   throwIfSupabaseError(error);

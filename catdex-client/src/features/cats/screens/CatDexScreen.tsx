@@ -1,14 +1,26 @@
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { ClipboardList, MapPin, PawPrint, Search, SlidersHorizontal, X } from 'lucide-react-native';
-import { useCallback, useMemo, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { MapPin, PawPrint, Search, SlidersHorizontal, X } from 'lucide-react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  NativeSyntheticEvent,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+  type NativeScrollEvent,
+} from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { ClientStackParamList, RootStackParamList } from '@/app/navigation/types';
 import { useTabBarBottomGap, useTabBarInset } from '@/app/navigation/useTabBarInset';
+import { BinderCatCard } from '@/features/cats/components/BinderCatCard';
+import { BinderFrame } from '@/features/cats/components/BinderFrame';
 import { ClientTabBar } from '@/features/cats/components/ClientTabBar';
 import { DexFilterPanel } from '@/features/cats/components/DexFilterPanel';
+import { HabitatTabs } from '@/features/cats/components/HabitatTabs';
 import { formatMapRegionName } from '@/features/map/map-region-label';
 import {
   describeDexFilter,
@@ -17,16 +29,18 @@ import {
   matchesDexFilter,
   type DexFilter,
 } from '@/features/cats/dex-filter';
-import { fetchDexPlaceholders, fetchMyCats } from '@/shared/api/cats.api';
-import { PolaroidCatCard } from '@/shared/components/PolaroidCatCard';
-import { describeCoat } from '@/shared/coat/coat-label';
+import { fetchMyCats } from '@/shared/api/cats.api';
+import { CAT_HABITAT_LABELS, DEFAULT_CAT_HABITAT, type CatHabitat } from '@/shared/cats/habitat';
 import { CREW_COMPANY_NAME } from '@/shared/constants/crew.constants';
 import { loadFavoriteCatIds, saveFavoriteCatIds } from '@/shared/favorites/favorites-storage';
 import { nd, theme } from '@/shared/styles/theme';
 import { deriveCatType } from '@/shared/coat/coat-to-cat-type';
-import type { Cat, DexPlaceholder } from '@/shared/types/cat';
+import type { Cat } from '@/shared/types/cat';
 import { catPhotoSource } from '@/shared/utils/catImage';
-import { formatNyanTagLabel } from '@/shared/utils/catPresentation';
+
+/** 한 장에 들어가는 카드 수. 2열 3행. */
+const CARDS_PER_PAGE = 6;
+const CARDS_PER_ROW = 2;
 
 function normalizeSearchText(value: string) {
   return value.trim().toLowerCase();
@@ -37,7 +51,18 @@ function catMatchesSearch(cat: Cat, query: string) {
     return true;
   }
 
-  return [cat.name, deriveCatType(cat.coatColors, cat.coatPattern), cat.memo ?? '', ...cat.tags]
+  // 카드에 번호가 #001로 찍히므로 "1", "001", "#001" 모두 걸려야 한다.
+  const paddedNumber = String(cat.number).padStart(3, '0');
+
+  return [
+    cat.name,
+    String(cat.number),
+    paddedNumber,
+    `#${paddedNumber}`,
+    deriveCatType(cat.coatColors, cat.coatPattern),
+    cat.memo ?? '',
+    ...cat.tags,
+  ]
     .join(' ')
     .toLowerCase()
     .includes(query);
@@ -50,11 +75,17 @@ export function CatDexScreen() {
   const regionName = route.params?.regionName;
   const regionCatIds = route.params?.catIds;
   const [cats, setCats] = useState<Cat[]>([]);
-  const [placeholders, setPlaceholders] = useState<DexPlaceholder[]>([]);
+  // 첫 응답이 오기 전에는 빈 장을 보여주지 않는다. 목록이 곧 뜨는데도
+  // "아직 고객이 없어요"가 한 번 스치고 지나간다.
+  const [hasLoaded, setHasLoaded] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [likedCatIds, setLikedCatIds] = useState<Set<string>>(() => new Set());
   const [filter, setFilter] = useState<DexFilter>(emptyDexFilter);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [habitat, setHabitat] = useState<CatHabitat>(DEFAULT_CAT_HABITAT);
+  const [pageIndex, setPageIndex] = useState(0);
+  const [pageWidth, setPageWidth] = useState(0);
+  const pagerRef = useRef<ScrollView>(null);
   const tabBarInset = useTabBarInset();
   const tabBarBottomGap = useTabBarBottomGap();
 
@@ -62,12 +93,12 @@ export function CatDexScreen() {
     useCallback(() => {
       let isActive = true;
 
-      Promise.all([fetchMyCats(), fetchDexPlaceholders(), loadFavoriteCatIds()])
-        .then(([nextCats, nextPlaceholders, nextFavorites]) => {
+      Promise.all([fetchMyCats(), loadFavoriteCatIds()])
+        .then(([nextCats, nextFavorites]) => {
           if (isActive) {
             setCats(nextCats);
-            setPlaceholders(nextPlaceholders);
             setLikedCatIds(nextFavorites);
+            setHasLoaded(true);
           }
         })
         .catch((error: unknown) => {
@@ -84,31 +115,66 @@ export function CatDexScreen() {
   const visibleCats = useMemo(() => {
     const inRegion = regionCatIds ? new Set(regionCatIds) : null;
 
-    return cats.filter(
-      (cat) =>
-        (!inRegion || inRegion.has(cat.id)) &&
-        catMatchesSearch(cat, normalizedSearchQuery) &&
-        matchesDexFilter(cat, filter),
-    );
-  }, [cats, filter, normalizedSearchQuery, regionCatIds]);
+    return cats
+      .filter(
+        (cat) =>
+          cat.habitat === habitat &&
+          (!inRegion || inRegion.has(cat.id)) &&
+          catMatchesSearch(cat, normalizedSearchQuery) &&
+          matchesDexFilter(cat, filter),
+      )
+      // 도감은 번호 순이다. 카드에 #001이 찍혀 있는데 순서가 최근 만난 순이면
+      // 몇 장을 넘겨야 원하는 번호가 나오는지 알 수 없다.
+      .sort((left, right) => left.number - right.number);
+  }, [cats, filter, habitat, normalizedSearchQuery, regionCatIds]);
   const hasSearchQuery = normalizedSearchQuery.length > 0;
   const hasFilter = !isDexFilterEmpty(filter);
-  // 잠금 카드도 목격에 적힌 컬러·패턴으로 함께 걸러진다.
-  // 다만 이름이 없어서 검색어에는 걸릴 수 없으니, 검색 중일 때만 통째로 뺀다.
-  const lockedPlaceholders = hasSearchQuery
-    ? []
-    : placeholders.filter((placeholder) => matchesDexFilter(placeholder, filter)).slice(0, 2);
   const filterLabels = describeDexFilter(filter);
 
-  // 패널의 CTA가 초안 기준 마릿수를 보여준다. 검색어가 걸려 있으면 그것까지 반영해야
-  // 버튼 숫자와 적용 후 화면이 어긋나지 않는다.
+  // 패널의 CTA가 초안 기준 마릿수를 보여준다. 지금 보고 있는 탭과 검색어까지
+  // 반영해야 버튼 숫자와 적용 후 화면이 어긋나지 않는다.
   const countForFilter = useCallback(
     (draft: DexFilter) =>
       cats.filter(
-        (cat) => catMatchesSearch(cat, normalizedSearchQuery) && matchesDexFilter(cat, draft),
+        (cat) =>
+          cat.habitat === habitat &&
+          catMatchesSearch(cat, normalizedSearchQuery) &&
+          matchesDexFilter(cat, draft),
       ).length,
-    [cats, normalizedSearchQuery],
+    [cats, habitat, normalizedSearchQuery],
   );
+
+  const pages = useMemo(() => {
+    const chunks: Cat[][] = [];
+
+    for (let index = 0; index < visibleCats.length; index += CARDS_PER_PAGE) {
+      chunks.push(visibleCats.slice(index, index + CARDS_PER_PAGE));
+    }
+
+    return chunks;
+  }, [visibleCats]);
+
+  // 탭이나 검색을 바꾸면 남은 장수가 줄어든다. 보던 장이 사라진 채로 빈 화면이
+  // 남지 않게 첫 장으로 되돌린다.
+  useEffect(() => {
+    setPageIndex(0);
+    pagerRef.current?.scrollTo({ x: 0, animated: false });
+  }, [habitat, normalizedSearchQuery, filter, regionCatIds]);
+
+  const goToPage = (nextIndex: number) => {
+    const clamped = Math.max(0, Math.min(nextIndex, pages.length - 1));
+
+    setPageIndex(clamped);
+    pagerRef.current?.scrollTo({ x: clamped * pageWidth, animated: true });
+  };
+
+  const handlePagerScrollEnd = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    if (pageWidth <= 0) {
+      return;
+    }
+
+    setPageIndex(Math.round(event.nativeEvent.contentOffset.x / pageWidth));
+  };
 
   const toggleLike = (catId: string) => {
     setLikedCatIds((prev) => {
@@ -129,25 +195,11 @@ export function CatDexScreen() {
     });
   };
 
-  const gridRows = useMemo(() => {
-    const entries: Array<{ key: string; cat?: Cat; placeholder?: DexPlaceholder }> = [
-      ...visibleCats.map((cat) => ({ key: cat.id, cat })),
-      ...lockedPlaceholders.map((placeholder) => ({ key: placeholder.id, placeholder })),
-    ];
-    const rows: (typeof entries)[] = [];
-
-    for (let index = 0; index < entries.length; index += 2) {
-      rows.push(entries.slice(index, index + 2));
-    }
-
-    return rows;
-  }, [lockedPlaceholders, visibleCats]);
-
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.screen}>
       <View style={styles.titleBar}>
         <View style={styles.titleTexts}>
-          <Text style={styles.title}>내 고객</Text>
+          <Text style={styles.title}>고객 도감</Text>
           <Text style={styles.subtitle}>{CREW_COMPANY_NAME}</Text>
         </View>
         <Pressable
@@ -176,19 +228,12 @@ export function CatDexScreen() {
           autoCapitalize="none"
           autoCorrect={false}
           onChangeText={setSearchQuery}
-          placeholder="고객 이름을 검색해보세요"
+          placeholder="고객 이름이나 번호를 검색해보세요"
           placeholderTextColor={nd.colors.sub}
           returnKeyType="search"
           style={styles.searchInput}
           value={searchQuery}
         />
-      </View>
-
-      <View style={styles.countRow}>
-        <ClipboardList color={theme.colors.primary} size={18} strokeWidth={2} />
-        <Text style={styles.countLabel}>
-          담당 고객 <Text style={styles.countValue}>{visibleCats.length}마리</Text>
-        </Text>
       </View>
 
       {regionName ? (
@@ -228,49 +273,64 @@ export function CatDexScreen() {
         </View>
       ) : null}
 
-      <View style={styles.body}>
-        <ScrollView contentContainerStyle={[styles.content, { paddingBottom: tabBarInset }]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-          <View style={styles.grid}>
-            {gridRows.map((row) => (
-              <View key={row[0].key} style={styles.gridRow}>
-                {row.map((entry) =>
-                  entry.cat ? (
-                    <PolaroidCatCard
-                      imageSource={catPhotoSource(entry.cat.imageUrl)}
-                      key={entry.key}
-                      liked={likedCatIds.has(entry.cat.id)}
-                      onPress={() => navigation.navigate('CatDetail', { catId: entry.cat!.id })}
-                      onToggleLike={() => toggleLike(entry.cat!.id)}
-                      tagLabel={formatNyanTagLabel(entry.cat.name, entry.cat.firstSeenAt)}
-                    />
-                  ) : entry.placeholder ? (
-                    <PolaroidCatCard
-                      imageSource={catPhotoSource(entry.placeholder.imageUrl)}
-                      key={entry.key}
-                      locked
-                      tagLabel={`${describeCoat(entry.placeholder.coatColors, entry.placeholder.coatPattern)}_아직 만나지 못했어요`}
-                    />
-                  ) : null,
-                )}
-                {row.length === 1 ? <View style={styles.gridSpacer} /> : null}
+      <View style={styles.tabsRow}>
+        <HabitatTabs onChange={setHabitat} value={habitat} />
+      </View>
+
+      <View style={[styles.body, { paddingBottom: tabBarInset }]}>
+        <BinderFrame hasNextPage={pageIndex < pages.length - 1} onNextPage={() => goToPage(pageIndex + 1)}>
+          <View onLayout={(event) => setPageWidth(event.nativeEvent.layout.width)} style={styles.pager}>
+            {pages.length > 0 ? (
+              <ScrollView
+                horizontal
+                onMomentumScrollEnd={handlePagerScrollEnd}
+                pagingEnabled
+                ref={pagerRef}
+                showsHorizontalScrollIndicator={false}
+              >
+                {pages.map((pageCats, index) => (
+                  <View key={index} style={[styles.page, { width: pageWidth }]}>
+                    {Array.from({ length: Math.ceil(pageCats.length / CARDS_PER_ROW) }, (_, rowIndex) => {
+                      const row = pageCats.slice(rowIndex * CARDS_PER_ROW, rowIndex * CARDS_PER_ROW + CARDS_PER_ROW);
+
+                      return (
+                        <View key={row[0].id} style={styles.pageRow}>
+                          {row.map((cat) => (
+                            <BinderCatCard
+                              habitat={cat.habitat}
+                              imageSource={catPhotoSource(cat.imageUrl)}
+                              key={cat.id}
+                              liked={likedCatIds.has(cat.id)}
+                              name={cat.name}
+                              number={cat.number}
+                              onPress={() => navigation.navigate('CatDetail', { catId: cat.id })}
+                              onToggleLike={() => toggleLike(cat.id)}
+                            />
+                          ))}
+                          {row.length < CARDS_PER_ROW ? <View style={styles.rowSpacer} /> : null}
+                        </View>
+                      );
+                    })}
+                  </View>
+                ))}
+              </ScrollView>
+            ) : hasLoaded ? (
+              <View style={styles.emptyState}>
+                <PawPrint color={nd.colors.subtle} size={38} />
+                <Text style={styles.emptyTitle}>
+                  {hasSearchQuery || hasFilter
+                    ? '조건에 맞는 고객이 없어요'
+                    : `아직 ${CAT_HABITAT_LABELS[habitat]} 고객이 없어요`}
+                </Text>
+                <Text style={styles.emptyText}>
+                  {hasSearchQuery || hasFilter
+                    ? '다른 이름이나 번호로 다시 찾아보세요.'
+                    : '고객을 등록하면 이 장부터 채워져요.'}
+                </Text>
               </View>
-            ))}
+            ) : null}
           </View>
-  
-          {visibleCats.length === 0 && lockedPlaceholders.length === 0 ? (
-            <View style={styles.emptyState}>
-              <PawPrint color={nd.colors.subtle} size={38} />
-              <Text style={styles.emptyTitle}>
-                {hasSearchQuery || hasFilter ? '조건에 맞는 고양이가 없어요' : '아직 수집한 고양이가 없어요'}
-              </Text>
-              <Text style={styles.emptyText}>
-                {hasSearchQuery || hasFilter
-                  ? '다른 이름이나 털색으로 다시 찾아보세요.'
-                  : '첫 고양이를 등록하면 내 도감 페이지가 여기에 채워져요.'}
-              </Text>
-            </View>
-          ) : null}
-        </ScrollView>
+        </BinderFrame>
 
         {isFilterOpen ? (
           <View style={StyleSheet.absoluteFill}>
@@ -358,25 +418,9 @@ const styles = StyleSheet.create({
   pressed: {
     opacity: 0.7,
   },
-  countRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 20,
-    paddingTop: 20,
-  },
-  countLabel: {
-    fontSize: 15,
-    fontWeight: '600',
-    letterSpacing: -0.38,
-    color: nd.colors.ink,
-  },
-  countValue: {
-    color: theme.colors.primary,
-  },
   body: {
     flex: 1,
-    // 필터 패널이 이 영역만 덮는다. 검색바는 시안처럼 위에 그대로 남는다.
+    // 필터 패널이 이 영역만 덮는다. 검색바와 탭은 시안처럼 위에 그대로 남는다.
   },
   scrim: {
     ...StyleSheet.absoluteFillObject,
@@ -413,10 +457,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  content: {
-    paddingTop: 4,
-    // 하단 여백은 useTabBarInset이 준다.
-  },
   searchBar: {
     height: 48,
     marginHorizontal: 16,
@@ -437,28 +477,30 @@ const styles = StyleSheet.create({
     letterSpacing: -0.35,
     color: nd.colors.ink,
   },
-  grid: {
-    marginTop: 24,
-    paddingHorizontal: 16,
-    gap: 8,
+  tabsRow: {
+    paddingTop: 18,
   },
-  gridRow: {
+  pager: {
+    flex: 1,
+  },
+  page: {
+    flex: 1,
+    padding: 10,
+    gap: 10,
+  },
+  pageRow: {
+    flex: 1,
     flexDirection: 'row',
-    gap: 8,
+    gap: 10,
   },
-  gridSpacer: {
+  rowSpacer: {
     flex: 1,
   },
   emptyState: {
-    marginTop: 32,
-    minHeight: 180,
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    marginHorizontal: 16,
-    borderRadius: nd.radius.input,
-    borderWidth: 1,
-    borderColor: nd.colors.border,
-    padding: 20,
+    padding: 24,
   },
   emptyTitle: {
     marginTop: 12,

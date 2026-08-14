@@ -1,3 +1,4 @@
+import type { CatHabitat } from '@/shared/cats/habitat';
 import type { CoatColorId, CoatPatternId } from '@/shared/coat/coat.types';
 
 export type CatType =
@@ -32,6 +33,8 @@ export interface Cat {
    */
   coatColors: CoatColorId[];
   coatPattern: CoatPatternId | null;
+  /** 집냥이·길냥이·보호소냥이. 등록한 사람이 정하는 공유값이다. */
+  habitat: CatHabitat;
   rarity: CatRarity;
   rarityReasons: string[];
   encounterCount: number;
@@ -59,6 +62,7 @@ export interface CaptureCatDraft {
   name: string;
   coatColors: CoatColorId[];
   coatPattern: CoatPatternId | null;
+  habitat: CatHabitat;
   // 성격 태그 외에 '수컷'/'암컷', '품종:페르시안' 같은 속성 태그도 함께 담는다.
   tags: string[];
   regionName: string;
