@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { HabitatIcon } from '@/shared/cats/HabitatIcon';
 import { CAT_HABITAT_LABELS, CAT_HABITATS, type CatHabitat } from '@/shared/cats/habitat';
-import { nd, theme } from '@/shared/styles/theme';
+import { createNdShadow, nd, theme } from '@/shared/styles/theme';
 
 interface HabitatTabsProps {
   value: CatHabitat;
@@ -58,16 +58,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 5,
-    height: 42,
+    height: 44,
     paddingHorizontal: 6,
-    borderTopLeftRadius: 12,
-    borderTopRightRadius: 12,
+    borderTopLeftRadius: 14,
+    borderTopRightRadius: 14,
+    borderWidth: 1,
+    borderBottomWidth: 0,
+    borderColor: 'rgba(190, 165, 130, 0.35)',
     backgroundColor: '#F6EFE4',
   },
   tabActive: {
-    // 고른 탭은 조금 더 솟아 앞으로 나온 것처럼 보인다.
-    height: 48,
+    // 고른 탭은 더 솟고 그림자를 달아 바인더에서 앞으로 나온 것처럼 보인다.
+    height: 52,
+    borderColor: theme.colors.primary,
     backgroundColor: theme.colors.primary,
+    ...createNdShadow(0.22, 8),
   },
   label: {
     flexShrink: 1,
