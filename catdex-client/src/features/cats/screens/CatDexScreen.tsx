@@ -69,6 +69,8 @@ export function CatDexScreen() {
   // "아직 고객이 없어요"가 한 번 스치고 지나간다.
   const [hasLoaded, setHasLoaded] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  // 검색은 평소에 아이콘으로 접혀 있다. 공책이 그만큼 높아진다.
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [likedCatIds, setLikedCatIds] = useState<Set<string>>(() => new Set());
   const [filter, setFilter] = useState<DexFilter>(emptyDexFilter);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
@@ -148,6 +150,18 @@ export function CatDexScreen() {
     setPageIndex(0);
   }, [habitat, normalizedSearchQuery, filter, regionCatIds]);
 
+  // 닫을 때 검색어도 지운다. 입력창이 사라졌는데 목록만 계속 걸러져 있으면
+  // 왜 카드가 몇 장 없는지 알 길이 없다.
+  const toggleSearch = () => {
+    setIsSearchOpen((open) => {
+      if (open) {
+        setSearchQuery('');
+      }
+
+      return !open;
+    });
+  };
+
   // 종이 말림 하나로 모든 장을 돈다. 마지막 장에서 누르면 첫 장으로 돌아온다.
   const goToNextPage = () => {
     setPageIndex((current) => (pages.length > 0 ? (current + 1) % pages.length : 0));
@@ -179,39 +193,58 @@ export function CatDexScreen() {
           <Text style={styles.title}>고객 도감</Text>
           <Text style={styles.subtitle}>{CREW_COMPANY_NAME}</Text>
         </View>
-        <Pressable
-          accessibilityLabel={isFilterOpen ? '필터 닫기' : '필터 열기'}
-          accessibilityRole="button"
-          accessibilityState={{ expanded: isFilterOpen }}
-          hitSlop={8}
-          onPress={() => setIsFilterOpen((previous) => !previous)}
-          style={({ pressed }) => [
-            styles.filterButton,
-            hasFilter && styles.filterButtonActive,
-            pressed && styles.pressed,
-          ]}
-        >
-          <SlidersHorizontal
-            color={hasFilter ? theme.colors.accent : nd.colors.ink}
-            size={20}
-            strokeWidth={2}
-          />
-        </Pressable>
+        <View style={styles.titleActions}>
+          <Pressable
+            accessibilityLabel={isSearchOpen ? '검색 닫기' : '검색 열기'}
+            accessibilityRole="button"
+            accessibilityState={{ expanded: isSearchOpen }}
+            hitSlop={8}
+            onPress={toggleSearch}
+            style={({ pressed }) => [
+              styles.iconButton,
+              isSearchOpen && styles.iconButtonActive,
+              pressed && styles.pressed,
+            ]}
+          >
+            <Search color={isSearchOpen ? theme.colors.accent : nd.colors.ink} size={20} strokeWidth={2} />
+          </Pressable>
+          <Pressable
+            accessibilityLabel={isFilterOpen ? '필터 닫기' : '필터 열기'}
+            accessibilityRole="button"
+            accessibilityState={{ expanded: isFilterOpen }}
+            hitSlop={8}
+            onPress={() => setIsFilterOpen((previous) => !previous)}
+            style={({ pressed }) => [
+              styles.iconButton,
+              hasFilter && styles.iconButtonActive,
+              pressed && styles.pressed,
+            ]}
+          >
+            <SlidersHorizontal
+              color={hasFilter ? theme.colors.accent : nd.colors.ink}
+              size={20}
+              strokeWidth={2}
+            />
+          </Pressable>
+        </View>
       </View>
 
-      <View style={styles.searchBar}>
-        <Search color={nd.colors.ink} size={20} strokeWidth={1.8} />
-        <TextInput
-          autoCapitalize="none"
-          autoCorrect={false}
-          onChangeText={setSearchQuery}
-          placeholder="고객 이름이나 번호를 검색해보세요"
-          placeholderTextColor={nd.colors.sub}
-          returnKeyType="search"
-          style={styles.searchInput}
-          value={searchQuery}
-        />
-      </View>
+      {isSearchOpen ? (
+        <View style={styles.searchBar}>
+          <Search color={nd.colors.ink} size={20} strokeWidth={1.8} />
+          <TextInput
+            autoCapitalize="none"
+            autoCorrect={false}
+            autoFocus
+            onChangeText={setSearchQuery}
+            placeholder="고객 이름이나 번호를 검색해보세요"
+            placeholderTextColor={nd.colors.sub}
+            returnKeyType="search"
+            style={styles.searchInput}
+            value={searchQuery}
+          />
+        </View>
+      ) : null}
 
       {regionName ? (
         <View style={styles.appliedRow}>
@@ -342,7 +375,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingTop: 8,
-    paddingBottom: 16,
+    paddingBottom: 8,
   },
   titleTexts: {
     flex: 1,
@@ -360,8 +393,12 @@ const styles = StyleSheet.create({
     letterSpacing: -0.38,
     color: nd.colors.sub,
   },
-  /** 시안에서 필터는 검색바 안이 아니라 제목 오른쪽의 원형 버튼이다. */
-  filterButton: {
+  titleActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  /** 검색·필터 모두 제목 오른쪽의 원형 아이콘 버튼이다. */
+  iconButton: {
     width: 44,
     height: 44,
     borderRadius: 22,
@@ -371,7 +408,7 @@ const styles = StyleSheet.create({
     borderColor: nd.colors.border,
     backgroundColor: nd.colors.bg,
   },
-  filterButtonActive: {
+  iconButtonActive: {
     borderColor: theme.colors.accent,
     backgroundColor: theme.colors.accentSoft,
   },
@@ -420,6 +457,7 @@ const styles = StyleSheet.create({
   searchBar: {
     height: 48,
     marginHorizontal: 16,
+    marginTop: 4,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
@@ -438,7 +476,7 @@ const styles = StyleSheet.create({
     color: nd.colors.ink,
   },
   tabsRow: {
-    paddingTop: 18,
+    paddingTop: 12,
     // 탭이 바인더 가죽 위에 얹혀야 하므로 바인더보다 위 레이어에 둔다.
     zIndex: 2,
     // 탭 밑단을 가죽 위로 살짝 겹쳐 붙인다.
