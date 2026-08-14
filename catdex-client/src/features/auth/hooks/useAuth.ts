@@ -190,6 +190,13 @@ export function useAuth() {
 
       if (event === 'SIGNED_OUT') {
         SecureStore.deleteItemAsync(authStorageKey).catch(() => undefined);
+
+        // 마이페이지처럼 이 훅을 거치지 않고 signOut()을 직접 부르는 화면이 있다.
+        // 여기서 상태를 비우지 않으면 세션이 사라진 뒤에도 앱은 로그인 상태로 남는다.
+        if (isMounted) {
+          setApiAccessToken(null);
+          setCurrentUser(null);
+        }
       }
     });
 

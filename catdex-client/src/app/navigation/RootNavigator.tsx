@@ -24,6 +24,7 @@ import { NotificationInboxScreen } from '../../features/notifications/screens/No
 import { NotificationSettingsScreen } from '../../features/notifications/screens/NotificationSettingsScreen';
 import { NeighborhoodDexScreen } from '../../features/map/screens/NeighborhoodDexScreen';
 import { NeighborhoodMapScreen } from '../../features/map/screens/NeighborhoodMapScreen';
+import { MyPageScreen } from '../../features/profile/screens/MyPageScreen';
 import { PlaceholderScreen } from '../screens/PlaceholderScreen';
 import { MainTabBar } from './MainTabBar';
 import type {
@@ -107,7 +108,7 @@ function MainTabNavigator() {
         // 동네 흐름은 시안의 전용 하단 바(지도/동네 도감/커뮤니티)를 쓰므로 기본 탭바를 숨긴다.
         options={{ title: '동네', tabBarStyle: { display: 'none' } }}
       />
-      <MainTab.Screen name="MyTab" component={PlaceholderScreen} options={{ title: '마이페이지' }} />
+      <MainTab.Screen name="MyTab" component={MyPageScreen} options={{ title: '마이페이지' }} />
     </MainTab.Navigator>
   );
 }
