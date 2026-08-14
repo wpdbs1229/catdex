@@ -162,11 +162,6 @@ export function CatDexScreen() {
     });
   };
 
-  // 종이 말림 하나로 모든 장을 돈다. 마지막 장에서 누르면 첫 장으로 돌아온다.
-  const goToNextPage = () => {
-    setPageIndex((current) => (pages.length > 0 ? (current + 1) % pages.length : 0));
-  };
-
   const toggleLike = (catId: string) => {
     setLikedCatIds((prev) => {
       const next = new Set(prev);
@@ -309,20 +304,22 @@ export function CatDexScreen() {
               </View>
             ) : null
           }
-          hasNextPage={pages.length > 1}
-          onNextPage={goToNextPage}
-          slots={(pages[pageIndex] ?? []).map((cat) => (
-            <BinderCatCard
-              habitat={cat.habitat}
-              imageSource={catPhotoSource(cat.imageUrl)}
-              key={cat.id}
-              liked={likedCatIds.has(cat.id)}
-              name={cat.name}
-              number={cat.number}
-              onPress={() => navigation.navigate('CatDetail', { catId: cat.id })}
-              onToggleLike={() => toggleLike(cat.id)}
-            />
-          ))}
+          onPageChange={setPageIndex}
+          pageIndex={pageIndex}
+          pages={pages.map((pageCats) =>
+            pageCats.map((cat) => (
+              <BinderCatCard
+                habitat={cat.habitat}
+                imageSource={catPhotoSource(cat.imageUrl)}
+                key={cat.id}
+                liked={likedCatIds.has(cat.id)}
+                name={cat.name}
+                number={cat.number}
+                onPress={() => navigation.navigate('CatDetail', { catId: cat.id })}
+                onToggleLike={() => toggleLike(cat.id)}
+              />
+            )),
+          )}
         />
 
         {isFilterOpen ? (
@@ -409,8 +406,8 @@ const styles = StyleSheet.create({
     backgroundColor: nd.colors.bg,
   },
   iconButtonActive: {
-    borderColor: theme.colors.accent,
-    backgroundColor: theme.colors.accentSoft,
+    borderColor: theme.colors.primary,
+    backgroundColor: theme.colors.primarySoft,
   },
   pressed: {
     opacity: 0.7,

@@ -115,7 +115,8 @@ function MainTabNavigator() {
 export function RootNavigator() {
   const { currentUser, isAuthenticated, updateProfile } = useAuth();
   const [isProfileSaving, setIsProfileSaving] = useState(false);
-  const needsProfileSetup = isAuthenticated && currentUser !== null && !currentUser.profileSetupCompleted;
+  const needsProfileSetup =
+    isAuthenticated && currentUser !== null && currentUser.profileSetupCompleted === false;
 
   if (needsProfileSetup && currentUser) {
     return (
