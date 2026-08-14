@@ -1,23 +1,14 @@
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MapPin, PawPrint, Search, SlidersHorizontal, X } from 'lucide-react-native';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  NativeSyntheticEvent,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-  type NativeScrollEvent,
-} from 'react-native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { ClientStackParamList, RootStackParamList } from '@/app/navigation/types';
 import { useTabBarBottomGap, useTabBarInset } from '@/app/navigation/useTabBarInset';
 import { BinderCatCard } from '@/features/cats/components/BinderCatCard';
-import { BAKED_TOP_MARGIN_RATIO, BinderFrame } from '@/features/cats/components/BinderFrame';
+import { BinderFrame } from '@/features/cats/components/BinderFrame';
 import { ClientTabBar } from '@/features/cats/components/ClientTabBar';
 import { DexFilterPanel } from '@/features/cats/components/DexFilterPanel';
 import { HabitatTabs } from '@/features/cats/components/HabitatTabs';
@@ -40,7 +31,6 @@ import { catPhotoSource } from '@/shared/utils/catImage';
 
 /** 한 장에 들어가는 카드 수. 2열 3행. */
 const CARDS_PER_PAGE = 6;
-const CARDS_PER_ROW = 2;
 
 function normalizeSearchText(value: string) {
   return value.trim().toLowerCase();
@@ -84,10 +74,6 @@ export function CatDexScreen() {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [habitat, setHabitat] = useState<CatHabitat>(DEFAULT_CAT_HABITAT);
   const [pageIndex, setPageIndex] = useState(0);
-  const [pageWidth, setPageWidth] = useState(0);
-  // 바인더 위 조각에 흰 여백이 구워져 있어, 탭을 그만큼 내려 가죽에 붙인다.
-  const [bodyWidth, setBodyWidth] = useState(0);
-  const pagerRef = useRef<ScrollView>(null);
   const tabBarInset = useTabBarInset();
   const tabBarBottomGap = useTabBarBottomGap();
 
@@ -160,22 +146,11 @@ export function CatDexScreen() {
   // 남지 않게 첫 장으로 되돌린다.
   useEffect(() => {
     setPageIndex(0);
-    pagerRef.current?.scrollTo({ x: 0, animated: false });
   }, [habitat, normalizedSearchQuery, filter, regionCatIds]);
 
-  const goToPage = (nextIndex: number) => {
-    const clamped = Math.max(0, Math.min(nextIndex, pages.length - 1));
-
-    setPageIndex(clamped);
-    pagerRef.current?.scrollTo({ x: clamped * pageWidth, animated: true });
-  };
-
-  const handlePagerScrollEnd = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    if (pageWidth <= 0) {
-      return;
-    }
-
-    setPageIndex(Math.round(event.nativeEvent.contentOffset.x / pageWidth));
+  // 종이 말림 하나로 모든 장을 돈다. 마지막 장에서 누르면 첫 장으로 돌아온다.
+  const goToNextPage = () => {
+    setPageIndex((current) => (pages.length > 0 ? (current + 1) % pages.length : 0));
   };
 
   const toggleLike = (catId: string) => {
@@ -280,54 +255,12 @@ export function CatDexScreen() {
       </View>
 
       {/* 바인더는 화면 아래까지 내려가고 하단바가 그 위에 뜬다. 아래를 비워두면
-          바인더가 잘린 자리에 흰 띠가 남는다. 위로는 구워진 흰 여백만큼 탭 밑으로
-          끌어올려 가죽이 탭 바로 아래에서 시작하게 한다. */}
-      <View
-        onLayout={(event) => setBodyWidth(event.nativeEvent.layout.width)}
-        style={[styles.body, bodyWidth > 0 && { marginTop: -bodyWidth * BAKED_TOP_MARGIN_RATIO + 2 }]}
-      >
+          바인더가 잘린 자리에 흰 띠가 남는다. */}
+      <View style={styles.body}>
         <BinderFrame
           bottomInset={tabBarInset}
-          hasNextPage={pageIndex < pages.length - 1}
-          onNextPage={() => goToPage(pageIndex + 1)}
-        >
-          <View onLayout={(event) => setPageWidth(event.nativeEvent.layout.width)} style={styles.pager}>
-            {pages.length > 0 ? (
-              <ScrollView
-                horizontal
-                onMomentumScrollEnd={handlePagerScrollEnd}
-                pagingEnabled
-                ref={pagerRef}
-                showsHorizontalScrollIndicator={false}
-              >
-                {pages.map((pageCats, index) => (
-                  <View key={index} style={[styles.page, { width: pageWidth }]}>
-                    {Array.from({ length: Math.ceil(pageCats.length / CARDS_PER_ROW) }, (_, rowIndex) => {
-                      const row = pageCats.slice(rowIndex * CARDS_PER_ROW, rowIndex * CARDS_PER_ROW + CARDS_PER_ROW);
-
-                      return (
-                        <View key={row[0].id} style={styles.pageRow}>
-                          {row.map((cat) => (
-                            <BinderCatCard
-                              featured={cat.id === pageCats[0].id}
-                              habitat={cat.habitat}
-                              imageSource={catPhotoSource(cat.imageUrl)}
-                              key={cat.id}
-                              liked={likedCatIds.has(cat.id)}
-                              name={cat.name}
-                              number={cat.number}
-                              onPress={() => navigation.navigate('CatDetail', { catId: cat.id })}
-                              onToggleLike={() => toggleLike(cat.id)}
-                            />
-                          ))}
-                          {row.length < CARDS_PER_ROW ? <View style={styles.rowSpacer} /> : null}
-                        </View>
-                      );
-                    })}
-                  </View>
-                ))}
-              </ScrollView>
-            ) : hasLoaded ? (
+          emptyContent={
+            pages.length === 0 && hasLoaded ? (
               <View style={styles.emptyState}>
                 <PawPrint color={nd.colors.subtle} size={38} />
                 <Text style={styles.emptyTitle}>
@@ -341,9 +274,23 @@ export function CatDexScreen() {
                     : '고객을 등록하면 이 장부터 채워져요.'}
                 </Text>
               </View>
-            ) : null}
-          </View>
-        </BinderFrame>
+            ) : null
+          }
+          hasNextPage={pages.length > 1}
+          onNextPage={goToNextPage}
+          slots={(pages[pageIndex] ?? []).map((cat) => (
+            <BinderCatCard
+              habitat={cat.habitat}
+              imageSource={catPhotoSource(cat.imageUrl)}
+              key={cat.id}
+              liked={likedCatIds.has(cat.id)}
+              name={cat.name}
+              number={cat.number}
+              onPress={() => navigation.navigate('CatDetail', { catId: cat.id })}
+              onToggleLike={() => toggleLike(cat.id)}
+            />
+          ))}
+        />
 
         {isFilterOpen ? (
           <View style={StyleSheet.absoluteFill}>
@@ -494,26 +441,10 @@ const styles = StyleSheet.create({
     paddingTop: 18,
     // 탭이 바인더 가죽 위에 얹혀야 하므로 바인더보다 위 레이어에 둔다.
     zIndex: 2,
-  },
-  pager: {
-    flex: 1,
-  },
-  /** 카드 자리는 BinderFrame이 속지 안쪽으로 잡아준다. 간격을 좁혀 카드가
-      정사각형이 아니라 세로로 길쭉해지게 한다. */
-  page: {
-    flex: 1,
-    gap: 6,
-  },
-  pageRow: {
-    flex: 1,
-    flexDirection: 'row',
-    gap: 6,
-  },
-  rowSpacer: {
-    flex: 1,
+    // 탭 밑단을 가죽 위로 살짝 겹쳐 붙인다.
+    marginBottom: -2,
   },
   emptyState: {
-    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     padding: 24,
