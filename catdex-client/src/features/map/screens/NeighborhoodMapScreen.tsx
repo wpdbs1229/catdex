@@ -2,7 +2,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ChevronDown, MapPin, PawPrint } from 'lucide-react-native';
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Image, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTabBarBottomGap } from '@/app/navigation/useTabBarInset';
 import type { MapStackParamList, RootStackParamList } from '@/app/navigation/types';
@@ -158,7 +158,7 @@ export function NeighborhoodMapScreen() {
         <NeighborhoodTabBar
           active="map"
           onHome={() => navigation.getParent()?.navigate('HomeTab' as never)}
-          onOpenBoard={() => Alert.alert('커뮤니티는 준비 중이에요', '동네 게시판은 다음 단계에서 추가될 예정이에요.')}
+          onOpenBoard={() => navigation.navigate('NeighborhoodCommunity')}
           onOpenDex={() => navigation.navigate('NeighborhoodDex')}
           onOpenMap={() => undefined}
         />

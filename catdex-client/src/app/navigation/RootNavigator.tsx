@@ -20,6 +20,9 @@ import { SupportRoomScreen } from '../../features/support-room/SupportRoomScreen
 import { AttendanceMonthScreen } from '../../features/attendance/screens/AttendanceMonthScreen';
 import { AttendanceScreen } from '../../features/attendance/screens/AttendanceScreen';
 import { HomeScreen } from '../../features/home/screens/HomeScreen';
+import { CommunityScreen } from '../../features/community/screens/CommunityScreen';
+import { CommunityPostComposerScreen } from '../../features/community/screens/CommunityPostComposerScreen';
+import { CommunityPostDetailScreen } from '../../features/community/screens/CommunityPostDetailScreen';
 import { NotificationInboxScreen } from '../../features/notifications/screens/NotificationInboxScreen';
 import { NotificationSettingsScreen } from '../../features/notifications/screens/NotificationSettingsScreen';
 import { NeighborhoodDexScreen } from '../../features/map/screens/NeighborhoodDexScreen';
@@ -68,6 +71,9 @@ function MapNavigator() {
     <MapStack.Navigator screenOptions={{ headerShown: false, animation: 'fade' }}>
       <MapStack.Screen name="NeighborhoodDex" component={NeighborhoodDexScreen} />
       <MapStack.Screen name="NeighborhoodMap" component={NeighborhoodMapScreen} />
+      <MapStack.Screen name="NeighborhoodCommunity" component={CommunityScreen} />
+      <MapStack.Screen name="CommunityPostDetail" component={CommunityPostDetailScreen} />
+      <MapStack.Screen name="CommunityPostComposer" component={CommunityPostComposerScreen} />
     </MapStack.Navigator>
   );
 }

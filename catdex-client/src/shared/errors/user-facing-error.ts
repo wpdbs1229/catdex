@@ -7,6 +7,7 @@ type ErrorContext =
   | 'community.delete'
   | 'community.comment'
   | 'community.like'
+  | 'community.report'
   | 'capture.process'
   | 'cat.update'
   | 'profile.save'
@@ -52,6 +53,10 @@ const contextFallbacks: Record<ErrorContext, UserFacingError> = {
   'community.like': {
     title: '공감을 반영하지 못했어요',
     message: '화면을 다시 불러와 최신 상태로 맞춰볼게요.',
+  },
+  'community.report': {
+    title: '신고를 접수하지 못했어요',
+    message: '잠시 후 다시 시도해 주세요.',
   },
   'capture.process': {
     title: '사진을 처리하지 못했어요',
