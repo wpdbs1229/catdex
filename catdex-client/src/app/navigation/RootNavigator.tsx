@@ -108,7 +108,7 @@ function MainTabNavigator() {
         name="MapTab"
         component={MapNavigator}
         // 동네 흐름은 시안의 전용 하단 바(지도/동네 도감/커뮤니티)를 쓰므로 기본 탭바를 숨긴다.
-        options={{ title: '동네', tabBarStyle: { display: 'none' } }}
+        options={{ title: '지부', tabBarStyle: { display: 'none' } }}
       />
       <MainTab.Screen name="MyTab" component={MyPageScreen} options={{ title: '마이페이지' }} />
     </MainTab.Navigator>

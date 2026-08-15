@@ -144,7 +144,7 @@ export function NeighborhoodDexScreen() {
 
       <View style={styles.body}>
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-          <Text style={styles.sectionTitle}>동네 고양이 도감</Text>
+          <Text style={styles.sectionTitle}>지부 고양이 도감</Text>
 
           <View style={styles.searchBar}>
             <Search color={nd.colors.ink} size={20} strokeWidth={1.8} />
@@ -152,7 +152,7 @@ export function NeighborhoodDexScreen() {
               autoCapitalize="none"
               autoCorrect={false}
               onChangeText={setSearchQuery}
-              placeholder="동네 도감에서 이름이나 특징 찾기"
+              placeholder="지부 도감에서 이름이나 특징 찾기"
               placeholderTextColor={nd.colors.sub}
               returnKeyType="search"
               style={styles.searchInput}
@@ -229,14 +229,14 @@ export function NeighborhoodDexScreen() {
                 {hasSearchQuery || hasFilter
                   ? '조건에 맞는 고양이가 없어요'
                   : hasNeighborhood
-                    ? '아직 동네에 기록된 고양이가 없어요'
+                    ? '아직 지부에 기록된 고양이가 없어요'
                     : '동네를 아직 못 찾았어요'}
               </Text>
               <Text style={styles.emptyText}>
                 {hasSearchQuery || hasFilter
                   ? '다른 이름이나 털색으로 다시 찾아보세요.'
                   : hasNeighborhood
-                    ? '첫 고양이를 기록하면 동네 도감이 채워져요.'
+                    ? '첫 고양이를 기록하면 지부 도감이 채워져요.'
                     : '위쪽 동네 칩을 눌러 현재 위치로 동네를 확인해 주세요.'}
               </Text>
             </View>
