@@ -3,7 +3,6 @@ import {
   ArrowUp,
   CalendarDays,
   ChevronRight,
-  Flag,
   Heart,
   PawPrint,
   Plane,
@@ -33,7 +32,6 @@ import {
   CustomerDossierCard,
   CustomerDossierPeekCard,
 } from '@/features/cats/components/CustomerDossierCard';
-import { ReportCatSheet } from '@/features/cats/components/ReportCatSheet';
 import {
   fetchCatEncounters,
   fetchCats,
@@ -98,7 +96,6 @@ export function CatDetailScreen({ navigation, route }: RootStackScreenProps<'Cat
   const [draftMemo, setDraftMemo] = useState('');
   const [isSavingMemo, setIsSavingMemo] = useState(false);
   const [homeRegionNames, setHomeRegionNames] = useState<Set<string>>(new Set());
-  const [isReportOpen, setIsReportOpen] = useState(false);
 
   const cat = useMemo(
     () =>
@@ -376,42 +373,23 @@ export function CatDetailScreen({ navigation, route }: RootStackScreenProps<'Cat
           <ArrowLeft color={nd.colors.ink} size={23} strokeWidth={2} />
         </Pressable>
         <Text style={styles.headerTitle}>고객 도감</Text>
-        <View style={styles.headerActions}>
-          <Pressable
-            accessibilityLabel="이 고객 카드 신고"
-            accessibilityRole="button"
-            onPress={() => setIsReportOpen(true)}
-            style={({ pressed }) => [styles.headerAction, pressed && styles.pressed]}
-          >
-            <Flag color={nd.colors.sub} size={22} strokeWidth={2} />
-          </Pressable>
-          <Pressable
-            accessibilityLabel={liked ? '즐겨찾기 해제' : '즐겨찾기'}
-            onPress={() => {
-              handleToggleLike().catch((error: unknown) => {
-                console.warn('[cat-detail] favorite save failed', error);
-              });
-            }}
-            style={({ pressed }) => [styles.headerAction, pressed && styles.pressed]}
-          >
-            <Heart
-              color={theme.colors.primary}
-              fill={liked ? theme.colors.primary : 'transparent'}
-              size={31}
-              strokeWidth={2}
-            />
-          </Pressable>
-        </View>
+        <Pressable
+          accessibilityLabel={liked ? '즐겨찾기 해제' : '즐겨찾기'}
+          onPress={() => {
+            handleToggleLike().catch((error: unknown) => {
+              console.warn('[cat-detail] favorite save failed', error);
+            });
+          }}
+          style={({ pressed }) => [styles.headerAction, pressed && styles.pressed]}
+        >
+          <Heart
+            color={theme.colors.primary}
+            fill={liked ? theme.colors.primary : 'transparent'}
+            size={31}
+            strokeWidth={2}
+          />
+        </Pressable>
       </View>
-
-      {cat ? (
-        <ReportCatSheet
-          catId={cat.id}
-          catName={cat.name}
-          onClose={() => setIsReportOpen(false)}
-          visible={isReportOpen}
-        />
-      ) : null}
 
       <ScrollView
         contentContainerStyle={[styles.content, { paddingBottom: 112 + insets.bottom }]}
@@ -603,10 +581,6 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     backgroundColor: '#FFFFFF',
     ...createNdShadow(0.08, 7),
-  },
-  headerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
   },
   headerAction: {
     width: 44,
