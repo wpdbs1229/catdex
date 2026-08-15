@@ -225,6 +225,29 @@ export async function fetchCommunityPosts(regionName: string, limit = 30): Promi
   return hydrateCommunityPosts((data ?? []) as CommunityPostRow[], currentUserId);
 }
 
+/** 마이페이지의 내 게시글 목록. 동네와 무관하게 내가 쓴 글만 최신순으로 온다. */
+export async function fetchMyCommunityPosts(limit = 50): Promise<CommunityPost[]> {
+  assertSupabaseConfigured();
+
+  const currentUserId = await getCurrentUserId();
+
+  if (!currentUserId) {
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from('community_posts')
+    .select(postSelect)
+    .eq('author_id', currentUserId)
+    .eq('status', 'ACTIVE')
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  throwIfSupabaseError(error);
+
+  return hydrateCommunityPosts((data ?? []) as CommunityPostRow[], currentUserId);
+}
+
 /** 상세 화면에 필요한 게시글, 댓글, 현재 사용자의 반응 상태를 한 번에 불러온다. */
 export async function fetchCommunityPost(postId: string): Promise<CommunityPostDetail> {
   assertSupabaseConfigured();

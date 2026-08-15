@@ -2,11 +2,11 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {
   AlignLeft,
-  Ban,
   Bell,
   ChevronRight,
   CircleHelp,
   FileText,
+  Flag,
   Megaphone,
   PawPrint,
 } from 'lucide-react-native';
@@ -54,8 +54,8 @@ interface MenuRow {
 /** 시안의 두 묶음. 카드가 갈리는 자리가 곧 이 배열의 경계다. */
 const menuGroups: MenuRow[][] = [
   [
-    { label: '내 게시글', icon: AlignLeft, action: { kind: 'pending' } },
-    { label: '차단 목록', icon: Ban, action: { kind: 'pending' } },
+    { label: '내 게시글', icon: AlignLeft, action: { kind: 'screen', screen: 'MyPosts' } },
+    { label: '신고 목록', icon: Flag, action: { kind: 'screen', screen: 'MyReports' } },
     { label: '알림 설정', icon: Bell, action: { kind: 'screen', screen: 'NotificationSettings' } },
   ],
   [
