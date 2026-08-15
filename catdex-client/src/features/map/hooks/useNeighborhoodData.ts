@@ -5,12 +5,15 @@ import { fetchCats, fetchMyCats } from '@/shared/api/cats.api';
 import { isMatchingNeighborhoodName } from '@/shared/neighborhood/neighborhood-match';
 import { useActiveNeighborhood } from '@/shared/neighborhood/useActiveNeighborhood';
 import type { Cat } from '@/shared/types/cat';
+import type { SavedNeighborhood } from '@/shared/types/neighborhood';
 import type { Region } from '@/shared/types/region';
 
 interface NeighborhoodData {
   cats: Cat[];
   myCatIds: Set<string>;
   regions: Region[];
+  /** 활성 동네 원본. 동네 시트가 현재 선택을 표시하는 데 쓴다. */
+  neighborhood: SavedNeighborhood | null;
   neighborhoodName: string;
   /** 동네가 아직 안 잡혔으면 false. 화면이 빈 이유를 구분하는 데 쓴다. */
   hasNeighborhood: boolean;
@@ -18,6 +21,8 @@ interface NeighborhoodData {
   hasLoaded: boolean;
   isDetectingNeighborhood: boolean;
   redetectNeighborhood: () => void;
+  /** 시트에서 다른 동네를 고른 뒤 활성 동네를 다시 읽는다. */
+  refreshNeighborhood: () => void;
 }
 
 /** 동네 도감·지도 화면이 함께 쓰는 데이터 로더. 화면 포커스 시마다 새로 읽는다. */
@@ -26,7 +31,7 @@ export function useNeighborhoodData(): NeighborhoodData {
   const [myCatIds, setMyCatIds] = useState<Set<string>>(() => new Set());
   const [allRegions, setAllRegions] = useState<Region[]>([]);
   const [hasLoaded, setHasLoaded] = useState(false);
-  const { neighborhood, name: neighborhoodName, isDetecting, redetect } = useActiveNeighborhood();
+  const { neighborhood, name: neighborhoodName, isDetecting, redetect, refresh } = useActiveNeighborhood();
 
   useFocusEffect(
     useCallback(() => {
@@ -68,10 +73,12 @@ export function useNeighborhoodData(): NeighborhoodData {
     cats,
     myCatIds,
     regions,
+    neighborhood,
     neighborhoodName,
     hasNeighborhood: neighborhood !== null,
     hasLoaded,
     isDetectingNeighborhood: isDetecting,
     redetectNeighborhood: redetect,
+    refreshNeighborhood: refresh,
   };
 }
