@@ -2,7 +2,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ChevronDown, MapPin, PawPrint, Search, SlidersHorizontal, X } from 'lucide-react-native';
 import { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { MapStackParamList, RootStackParamList } from '@/app/navigation/types';
 import { useTabBarBottomGap } from '@/app/navigation/useTabBarInset';
@@ -267,7 +267,7 @@ export function NeighborhoodDexScreen() {
         <NeighborhoodTabBar
           active="dex"
           onHome={() => navigation.getParent()?.navigate('HomeTab' as never)}
-          onOpenBoard={() => Alert.alert('커뮤니티는 준비 중이에요', '동네 게시판은 다음 단계에서 추가될 예정이에요.')}
+          onOpenBoard={() => navigation.navigate('NeighborhoodCommunity')}
           onOpenDex={() => undefined}
           onOpenMap={() => navigation.navigate('NeighborhoodMap')}
         />

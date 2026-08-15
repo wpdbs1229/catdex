@@ -51,6 +51,12 @@ export type ClientStackParamList = {
 export type MapStackParamList = {
   NeighborhoodDex: undefined;
   NeighborhoodMap: undefined;
+  /** 피그마 동네_커뮤(90:3979) */
+  NeighborhoodCommunity: undefined;
+  /** 첨부 시안의 현장 기록 상세 */
+  CommunityPostDetail: { postId: string };
+  /** 첨부 시안의 현장 기록 작성 */
+  CommunityPostComposer: undefined;
 };
 
 /**
