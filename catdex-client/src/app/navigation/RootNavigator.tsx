@@ -20,6 +20,8 @@ import { SupportRoomScreen } from '../../features/support-room/SupportRoomScreen
 import { AttendanceMonthScreen } from '../../features/attendance/screens/AttendanceMonthScreen';
 import { AttendanceScreen } from '../../features/attendance/screens/AttendanceScreen';
 import { HomeScreen } from '../../features/home/screens/HomeScreen';
+import { AnnouncementDetailScreen } from '../../features/announcements/screens/AnnouncementDetailScreen';
+import { AnnouncementListScreen } from '../../features/announcements/screens/AnnouncementListScreen';
 import { NotificationInboxScreen } from '../../features/notifications/screens/NotificationInboxScreen';
 import { NotificationSettingsScreen } from '../../features/notifications/screens/NotificationSettingsScreen';
 import { NeighborhoodDexScreen } from '../../features/map/screens/NeighborhoodDexScreen';
@@ -161,6 +163,16 @@ export function RootNavigator() {
         <RootStack.Screen
           name="NotificationSettings"
           component={NotificationSettingsScreen}
+          options={{ animation: 'slide_from_right' }}
+        />
+        <RootStack.Screen
+          name="Announcements"
+          component={AnnouncementListScreen}
+          options={{ animation: 'slide_from_right' }}
+        />
+        <RootStack.Screen
+          name="AnnouncementDetail"
+          component={AnnouncementDetailScreen}
           options={{ animation: 'slide_from_right' }}
         />
       </RootStack.Navigator>
