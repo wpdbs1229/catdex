@@ -1,40 +1,57 @@
-import { ArrowLeft, ArrowUp, Heart, Mic, PawPrint, Plane } from 'lucide-react-native';
+import {
+  ArrowLeft,
+  ArrowUp,
+  CalendarDays,
+  ChevronRight,
+  Heart,
+  PawPrint,
+  Plane,
+} from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Animated,
-  Image,
+  Easing,
+  Keyboard,
   KeyboardAvoidingView,
+  PanResponder,
   Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { RootStackScreenProps } from '@/app/navigation/types';
-import { fetchCatEncounters, fetchCats, fetchMyCats, recordCatEncounter, removeMyCatEncounter } from '@/shared/api/cats.api';
-import { deriveCatType } from '@/shared/coat/coat-to-cat-type';
+import {
+  CUSTOMER_DOSSIER_ASPECT_RATIO,
+  CustomerDossierCard,
+  CustomerDossierPeekCard,
+} from '@/features/cats/components/CustomerDossierCard';
+import {
+  fetchCatEncounters,
+  fetchCats,
+  fetchMyCats,
+  recordCatEncounter,
+  removeMyCatEncounter,
+} from '@/shared/api/cats.api';
 import { getUserFacingError } from '@/shared/errors/user-facing-error';
+import { loadFavoriteCatIds, saveFavoriteCatIds } from '@/shared/favorites/favorites-storage';
 import {
   detectEncounterNeighborhood,
-  isEncounterLocationTrusted,
   getHomeRegionNames,
+  isEncounterLocationTrusted,
   UNSET_REGION_NAME,
 } from '@/shared/neighborhood/active-neighborhood';
-import { createNdShadow, nd } from '@/shared/styles/theme';
+import { createNdShadow, nd, theme } from '@/shared/styles/theme';
 import type { Cat, CatEncounter } from '@/shared/types/cat';
-import { catPhotoSource } from '@/shared/utils/catImage';
-import { getAffinity, getAffinityMessage, sortEncountersByDateAsc } from '@/shared/utils/catPresentation';
-
-const paperTexture = require('../../../../assets/textures/crumpled-paper.jpg');
+import { getAffinity, sortEncountersByDateAsc } from '@/shared/utils/catPresentation';
 
 function formatShortDate(value: string) {
-  // "2026.05.13" / "2026-05-13"처럼 구분자가 섞여 Date 파싱이 실패해도
-  // 연도를 두 자리로 줄여 카드 셀 안에서 줄바꿈되지 않게 한다.
   const dateMatch = /^(\d{4})[.\-/](\d{1,2})[.\-/](\d{1,2})/.exec(value.trim());
 
   if (dateMatch) {
@@ -47,78 +64,74 @@ function formatShortDate(value: string) {
     return value.replace(/-/g, '.');
   }
 
-  const year = String(parsed.getFullYear()).slice(2);
-  const month = String(parsed.getMonth() + 1).padStart(2, '0');
-  const day = String(parsed.getDate()).padStart(2, '0');
-
-  return `${year}.${month}.${day}`;
+  return [
+    String(parsed.getFullYear()).slice(2),
+    String(parsed.getMonth() + 1).padStart(2, '0'),
+    String(parsed.getDate()).padStart(2, '0'),
+  ].join('.');
 }
 
-function getBreedLabel(tags: string[], fallback: string) {
-  const breedTag = tags.find((tag) => tag.startsWith('품종:'));
-
-  return breedTag ? breedTag.slice('품종:'.length) : fallback;
-}
-
-function getGenderSymbol(tags: string[]) {
-  if (tags.includes('수컷')) {
-    return '♂';
+function getAffinityLabel(affinity: number) {
+  if (affinity >= 67) {
+    return '단짝';
   }
 
-  if (tags.includes('암컷')) {
-    return '♀';
+  if (affinity >= 34) {
+    return '친구';
   }
 
-  return '-';
+  return '첫인사';
 }
-
-const AFFINITY_TRACK_WIDTH = 120;
-const AFFINITY_KNOB_SIZE = 32;
-/** 발바닥 아이콘 크기. 접혔을 때 노브 한가운데 오도록 여백을 잡는다. */
-const AFFINITY_PAW_SIZE = 15;
-/** 발바닥과 글자 사이, 그리고 글자 뒤 여백. */
-const AFFINITY_LABEL_GAP = 8;
-const AFFINITY_LABEL_TAIL = 14;
-/** 카드 오른쪽 위 털색 점 자리. 말풍선이 여기까지 밀고 들어오지 않게 한다. */
-const AFFINITY_DOTS_RESERVE = 94;
-const AFFINITY_ROW_LEFT = 16;
-/** 손을 떼고 이만큼 뒤에 저절로 접힌다. */
-const AFFINITY_LABEL_HOLD_MS = 1800;
 
 export function CatDetailScreen({ navigation, route }: RootStackScreenProps<'CatDetail'>) {
   const insets = useSafeAreaInsets();
-  const { catId } = route.params;
-  const [cat, setCat] = useState<Cat | null>(null);
-  // 내가 만난 적 있는 고양이인지. 아니면 화면의 만남 횟수가 남들 것까지 합친
-  // 값이라 친밀도로 셀 수 없다.
-  const [isMyCat, setIsMyCat] = useState(false);
-  const [cardWidth, setCardWidth] = useState(0);
-  const [labelWidth, setLabelWidth] = useState(0);
-  const labelProgress = useRef(new Animated.Value(0)).current;
-  const collapseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { width: windowWidth } = useWindowDimensions();
+  const { catId: initialCatId, siblingIds } = route.params;
+  // 옆으로 넘겨도 화면은 그대로 두고 보고 있는 개체만 바꾼다.
+  const [catId, setCatId] = useState(initialCatId);
+  const [roster, setRoster] = useState<{ all: Cat[]; mine: Cat[] }>({ all: [], mine: [] });
   const [encounters, setEncounters] = useState<CatEncounter[]>([]);
   const [liked, setLiked] = useState(false);
   const [showAllEntries, setShowAllEntries] = useState(false);
   const [draftMemo, setDraftMemo] = useState('');
   const [isSavingMemo, setIsSavingMemo] = useState(false);
-  // 어떤 만남이 출장인지 가르는 기준. 근거지를 모르면 아무 표시도 하지 않는다.
   const [homeRegionNames, setHomeRegionNames] = useState<Set<string>>(new Set());
 
-  const reload = useCallback(async () => {
-    const [allCats, myCats, nextEncounters] = await Promise.all([
-      fetchCats(),
-      fetchMyCats(),
-      fetchCatEncounters(catId),
-    ]);
-    // 내 수집본이 있으면 그쪽을 쓴다. 만남 횟수·마지막 만남이 내 기록 기준이라
-    // 친밀도를 나와의 관계로 셀 수 있다. 없으면 모든 사용자 합산본만 남는다.
-    const mine = myCats.find((candidate) => candidate.id === catId) ?? null;
-    const nextCat = mine ?? allCats.find((candidate) => candidate.id === catId) ?? null;
+  const cat = useMemo(
+    () =>
+      roster.mine.find((candidate) => candidate.id === catId) ??
+      roster.all.find((candidate) => candidate.id === catId) ??
+      null,
+    [roster, catId],
+  );
+  const isMyCat = useMemo(
+    () => roster.mine.some((candidate) => candidate.id === catId),
+    [roster, catId],
+  );
+  const availableCats = roster.mine.length > 0 ? roster.mine : roster.all;
 
-    setCat(nextCat);
-    setIsMyCat(Boolean(mine));
+  /** 목록. 화면에 들어올 때 한 번만 받는다. 카드를 넘길 때마다 받으면 버벅인다. */
+  const loadRoster = useCallback(async () => {
+    const [all, mine] = await Promise.all([fetchCats(), fetchMyCats()]);
+
+    setRoster({ all, mine });
+  }, []);
+
+  /** 보고 있는 개체에만 딸린 것. 카드를 넘길 때마다 이것만 새로 받는다. */
+  const loadSelected = useCallback(async (id: string) => {
+    const [nextEncounters, favoriteIds] = await Promise.all([
+      fetchCatEncounters(id),
+      loadFavoriteCatIds(),
+    ]);
+
     setEncounters(nextEncounters);
-  }, [catId]);
+    setLiked(favoriteIds.has(id));
+  }, []);
+
+  const reload = useCallback(
+    () => Promise.all([loadRoster(), loadSelected(catId)]).then(() => undefined),
+    [catId, loadRoster, loadSelected],
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -126,88 +139,172 @@ export function CatDetailScreen({ navigation, route }: RootStackScreenProps<'Cat
         .then(setHomeRegionNames)
         .catch(() => setHomeRegionNames(new Set()));
 
-      reload().catch((error: unknown) => {
-        console.warn('[cat-detail] load failed', error);
+      loadRoster().catch((error: unknown) => {
+        console.warn('[cat-detail] roster load failed', error);
       });
-    }, [reload]),
+    }, [loadRoster]),
   );
 
-  // 메모가 없는 만남(사진만 있는 기록 등)은 빈 말풍선이 되므로 일기장에서 제외한다.
+  useEffect(() => {
+    // 앞 카드의 일기가 새 카드 이름 아래 남아 있으면 남의 기록으로 읽힌다.
+    setEncounters([]);
+    loadSelected(catId).catch((error: unknown) => {
+      console.warn('[cat-detail] load failed', error);
+    });
+  }, [catId, loadSelected]);
+
   const sortedEncounters = useMemo(
     () => sortEncountersByDateAsc(encounters.filter((encounter) => encounter.memo.trim().length > 0)),
     [encounters],
   );
-  const visibleEncounters = showAllEntries ? sortedEncounters : sortedEncounters.slice(-3);
+  const visibleEncounters = showAllEntries ? sortedEncounters : sortedEncounters.slice(-2);
   const hasMoreEntries = sortedEncounters.length > visibleEncounters.length;
   const affinity = cat && isMyCat ? getAffinity(cat) : 0;
-  const knobOffset = Math.min(
-    AFFINITY_TRACK_WIDTH - AFFINITY_KNOB_SIZE / 2,
-    Math.max(-AFFINITY_KNOB_SIZE / 2, (affinity / 100) * AFFINITY_TRACK_WIDTH - AFFINITY_KNOB_SIZE / 2),
-  );
-  const affinityMessage = getAffinityMessage(affinity);
+  const affinityLabel = getAffinityLabel(affinity);
+  const dossierWidth = Math.min(318, windowWidth - 50);
+  const dossierHeight = dossierWidth * CUSTOMER_DOSSIER_ASPECT_RATIO;
+  const peekWidth = dossierWidth * 0.76;
 
-  // 펼친 말풍선의 폭은 글자 폭에서 나온다. 글자 폭을 모르는 첫 프레임에는
-  // 접힌 채로 두고, 재본 뒤부터 펼친다.
-  const expandedWidth = AFFINITY_KNOB_SIZE + AFFINITY_LABEL_GAP + labelWidth + AFFINITY_LABEL_TAIL;
-  // 게이지가 오른쪽 끝에 있으면 그 자리에서 펼칠 수 없다. 털색 점에 닿기 전에
-  // 말풍선이 왼쪽으로 물러나고, 발바닥도 같이 끌려온다.
-  const expandedRightLimit = Math.max(
-    AFFINITY_TRACK_WIDTH,
-    cardWidth - AFFINITY_ROW_LEFT - AFFINITY_DOTS_RESERVE,
-  );
-  const expandedLeft = Math.max(
-    -AFFINITY_KNOB_SIZE / 2,
-    Math.min(knobOffset, expandedRightLimit - expandedWidth),
-  );
-
-  const collapseAffinityLabel = useCallback(() => {
-    if (collapseTimer.current) {
-      clearTimeout(collapseTimer.current);
-      collapseTimer.current = null;
+  /**
+   * 옆으로 넘길 때 따라갈 순서.
+   *
+   * 도감에서 들어왔으면 그 화면이 늘어놓고 있던 목록을 그대로 쓴다. 필터를
+   * 걸고 들어왔는데 넘기니 걸러냈던 고양이가 나오면 방금 본 화면과 어긋난다.
+   * 지도·알림처럼 목록 없이 들어온 경우에만 같은 거처 전체로 채운다.
+   */
+  const siblings = useMemo(() => {
+    if (!cat) {
+      return [];
     }
 
-    Animated.timing(labelProgress, {
-      toValue: 0,
-      duration: 160,
-      useNativeDriver: false,
-    }).start();
-  }, [labelProgress]);
+    if (siblingIds && siblingIds.length > 0) {
+      const byId = new Map(availableCats.map((candidate) => [candidate.id, candidate]));
+      // 넘겨받은 뒤 지워진 고양이가 있을 수 있으므로 실재하는 것만 남긴다.
+      const ordered = siblingIds
+        .map((id) => byId.get(id))
+        .filter((candidate): candidate is Cat => Boolean(candidate));
 
-  const toggleAffinityLabel = useCallback(() => {
-    if (collapseTimer.current) {
-      collapseAffinityLabel();
-      return;
+      if (ordered.some((candidate) => candidate.id === cat.id)) {
+        return ordered;
+      }
     }
 
-    Animated.spring(labelProgress, {
-      toValue: 1,
-      damping: 18,
-      stiffness: 220,
-      mass: 0.7,
-      useNativeDriver: false,
-    }).start();
+    return availableCats
+      .filter((candidate) => candidate.habitat === cat.habitat)
+      .sort((left, right) => left.number - right.number);
+  }, [availableCats, cat, siblingIds]);
+  const selectedIndex = siblings.findIndex((candidate) => candidate.id === cat?.id);
+  const previousCat = selectedIndex > 0 ? siblings[selectedIndex - 1] : null;
+  const nextCat = selectedIndex >= 0 && selectedIndex < siblings.length - 1
+    ? siblings[selectedIndex + 1]
+    : null;
 
-    collapseTimer.current = setTimeout(collapseAffinityLabel, AFFINITY_LABEL_HOLD_MS);
-  }, [collapseAffinityLabel, labelProgress]);
+  /**
+   * 카드를 바꾼다. 화면을 새로 띄우지 않고 이 화면 안에서 갈아끼운다 -
+   * navigation.replace를 쓰면 넘길 때마다 화면이 통째로 다시 마운트돼서
+   * 손을 따라 움직이던 카드가 툭 끊긴다. 뒤로가기는 그대로 도감으로 간다.
+   */
+  const openCat = useCallback(
+    (next: Cat) => {
+      if (next.id === catId) {
+        return;
+      }
 
-  // 화면을 떠날 때 남은 타이머가 펼침 상태를 되살리지 않게 한다.
-  useEffect(() => () => {
-    if (collapseTimer.current) {
-      clearTimeout(collapseTimer.current);
+      Keyboard.dismiss();
+      setShowAllEntries(false);
+      setCatId(next.id);
+    },
+    [catId],
+  );
+
+  /**
+   * 카드 넘김 제스처.
+   *
+   * 카드 무대에서만 가로 손짓을 받는다. 아래 기록은 세로로 넘겨 읽는 자리라
+   * 거기까지 가로를 먹으면 스크롤과 싸운다.
+   *
+   * 메모를 쓰던 중이면 넘기지 않는다. 넘기는 순간 초안이 다른 고양이의 기록이
+   * 되거나 그대로 사라진다 - 눌러서 저장하거나 지우는 건 사용자가 정할 일이다.
+   */
+  const dragX = useRef(new Animated.Value(0)).current;
+  const isSwitchingCard = useRef(false);
+  const hasDraftMemo = draftMemo.trim().length > 0;
+  const swipeStride = dossierWidth + peekWidth * 0.38;
+
+  const canSwipeTo = useCallback(
+    (dx: number) => Boolean(dx < 0 ? nextCat : previousCat),
+    [nextCat, previousCat],
+  );
+
+  const settleSwipe = useCallback(
+    (target: Cat | null, direction: number) => {
+      if (!target) {
+        Animated.spring(dragX, { toValue: 0, useNativeDriver: true, bounciness: 6 }).start(() => {
+          isSwitchingCard.current = false;
+        });
+        return;
+      }
+
+      Animated.timing(dragX, {
+        toValue: direction * swipeStride,
+        duration: 190,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }).start(() => {
+        openCat(target);
+        // 새 카드는 반대편에서 들어와 제자리에 앉는다.
+        dragX.setValue(-direction * swipeStride * 0.5);
+        Animated.spring(dragX, { toValue: 0, useNativeDriver: true, bounciness: 4 }).start(() => {
+          isSwitchingCard.current = false;
+        });
+      });
+    },
+    [dragX, openCat, swipeStride],
+  );
+
+  const cardPan = useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponder: (_, gesture) =>
+          !isSwitchingCard.current &&
+          !hasDraftMemo &&
+          !isSavingMemo &&
+          Math.abs(gesture.dx) > 12 &&
+          Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.4 &&
+          canSwipeTo(gesture.dx),
+        onPanResponderMove: (_, gesture) => {
+          // 끝 카드에서는 뻑뻑하게 끌려 더 갈 곳이 없음을 손으로 알린다.
+          dragX.setValue(canSwipeTo(gesture.dx) ? gesture.dx : gesture.dx * 0.22);
+        },
+        onPanResponderRelease: (_, gesture) => {
+          const goingNext = gesture.dx < 0;
+          const target = goingNext ? nextCat : previousCat;
+          const committed =
+            Math.abs(gesture.dx) > dossierWidth * 0.24 || Math.abs(gesture.vx) > 0.5;
+
+          isSwitchingCard.current = true;
+          settleSwipe(committed ? target : null, goingNext ? -1 : 1);
+        },
+        onPanResponderTerminate: () => {
+          isSwitchingCard.current = true;
+          settleSwipe(null, 0);
+        },
+      }),
+    [canSwipeTo, dossierWidth, dragX, hasDraftMemo, isSavingMemo, nextCat, previousCat, settleSwipe],
+  );
+
+  const handleToggleLike = async () => {
+    const favoriteIds = await loadFavoriteCatIds();
+
+    if (favoriteIds.has(catId)) {
+      favoriteIds.delete(catId);
+    } else {
+      favoriteIds.add(catId);
     }
-  }, []);
 
-  // 글자 폭을 재기 전에는 펼쳐도 보여줄 게 없다.
-  const canExpandLabel = labelWidth > 0;
-  const knobLeft = canExpandLabel
-    ? labelProgress.interpolate({ inputRange: [0, 1], outputRange: [knobOffset, expandedLeft] })
-    : knobOffset;
-  const knobWidth = canExpandLabel
-    ? labelProgress.interpolate({ inputRange: [0, 1], outputRange: [AFFINITY_KNOB_SIZE, expandedWidth] })
-    : AFFINITY_KNOB_SIZE;
-  // 노브가 거의 다 벌어진 뒤에 글자가 들어온다. 같이 나오면 글자가 테두리를 뚫고
-  // 나오는 것처럼 보인다.
-  const labelOpacity = labelProgress.interpolate({ inputRange: [0, 0.6, 1], outputRange: [0, 0, 1] });
+    setLiked(favoriteIds.has(catId));
+    await saveFavoriteCatIds(favoriteIds);
+  };
 
   const handleSubmitMemo = async () => {
     const memo = draftMemo.trim();
@@ -219,7 +316,6 @@ export function CatDetailScreen({ navigation, route }: RootStackScreenProps<'Cat
     setIsSavingMemo(true);
 
     try {
-      // 재회도 만난 곳 기준이다. 지난번과 다른 동네에서 다시 만날 수 있다.
       const encounterNeighborhood = await detectEncounterNeighborhood();
 
       await recordCatEncounter(cat.id, {
@@ -236,16 +332,8 @@ export function CatDetailScreen({ navigation, route }: RootStackScreenProps<'Cat
     }
   };
 
-  /**
-   * 이 만남이 출장인지.
-   *
-   * 근거지 밖에서 만난 건을 출장으로 본다. 근거지를 아직 모르거나 만난 곳이
-   * '동네 미지정'이면 판단할 수 없으므로 아무 표시도 하지 않는다 - 모르는 것을
-   * 출장이라고 부르면 실제 출장과 구분이 안 된다.
-   */
   const isAwayEncounter = (encounter: CatEncounter) =>
     homeRegionNames.size > 0 &&
-    // 위치를 믿을 수 있게 된 뒤의 기록만 판정한다.
     isEncounterLocationTrusted(encounter.seenAt) &&
     encounter.regionName !== UNSET_REGION_NAME &&
     !homeRegionNames.has(encounter.regionName);
@@ -276,141 +364,160 @@ export function CatDetailScreen({ navigation, route }: RootStackScreenProps<'Cat
 
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.screen}>
-      <View pointerEvents="none" style={styles.backgroundWash}>
-        <View style={styles.washPink} />
-        <View style={styles.washYellow} />
-        <View style={styles.washPeach} />
-      </View>
-
       <View style={[styles.headerRow, { marginTop: insets.top }]}>
-        <Pressable accessibilityLabel="뒤로 가기" onPress={() => navigation.goBack()} style={({ pressed }) => [styles.circleButton, pressed && styles.pressed]}>
-          <ArrowLeft color={nd.colors.ink} size={20} strokeWidth={1.8} />
-        </Pressable>
-        <Text style={styles.headerTitle}>도감</Text>
         <Pressable
-          accessibilityLabel={liked ? '찜 해제' : '찜하기'}
-          onPress={() => setLiked((prev) => !prev)}
+          accessibilityLabel="뒤로 가기"
+          onPress={() => navigation.goBack()}
           style={({ pressed }) => [styles.circleButton, pressed && styles.pressed]}
         >
-          <Heart color={liked ? '#FF4D6D' : nd.colors.ink} fill={liked ? '#FF4D6D' : 'transparent'} size={20} strokeWidth={1.8} />
+          <ArrowLeft color={nd.colors.ink} size={23} strokeWidth={2} />
+        </Pressable>
+        <Text style={styles.headerTitle}>고객 도감</Text>
+        <Pressable
+          accessibilityLabel={liked ? '즐겨찾기 해제' : '즐겨찾기'}
+          onPress={() => {
+            handleToggleLike().catch((error: unknown) => {
+              console.warn('[cat-detail] favorite save failed', error);
+            });
+          }}
+          style={({ pressed }) => [styles.headerAction, pressed && styles.pressed]}
+        >
+          <Heart
+            color={theme.colors.primary}
+            fill={liked ? theme.colors.primary : 'transparent'}
+            size={31}
+            strokeWidth={2}
+          />
         </Pressable>
       </View>
 
       <ScrollView
-        contentContainerStyle={[styles.content, { paddingBottom: 120 + insets.bottom }]}
+        contentContainerStyle={[styles.content, { paddingBottom: 112 + insets.bottom }]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
         {cat ? (
           <>
-            <View onLayout={(event) => setCardWidth(event.nativeEvent.layout.width)} style={styles.catCard}>
-              <Image resizeMode="cover" source={paperTexture} style={styles.cardPaper} />
+            <Animated.View
+              style={[
+                styles.caseStage,
+                { height: dossierHeight + 12, transform: [{ translateX: dragX }] },
+              ]}
+              {...cardPan.panHandlers}
+            >
+              {previousCat ? (
+                <Pressable
+                  accessibilityLabel={`이전 고객 ${previousCat.name}`}
+                  onPress={() => openCat(previousCat)}
+                  style={[
+                    styles.peekButton,
+                    styles.peekButtonLeft,
+                    { left: -peekWidth * 0.62, top: 30, width: peekWidth },
+                  ]}
+                >
+                  <CustomerDossierPeekCard cat={previousCat} side="left" width={peekWidth} />
+                </Pressable>
+              ) : null}
 
-              {/* 말풍선 폭을 재는 용도. 보이지 않고 누를 수도 없다. */}
-              <View pointerEvents="none" style={styles.affinityLabelRuler}>
-                <Text onLayout={(event) => setLabelWidth(Math.ceil(event.nativeEvent.layout.width))} style={styles.affinityLabelRulerText}>
-                  {affinityMessage}
+              {nextCat ? (
+                <Pressable
+                  accessibilityLabel={`다음 고객 ${nextCat.name}`}
+                  onPress={() => openCat(nextCat)}
+                  style={[
+                    styles.peekButton,
+                    styles.peekButtonRight,
+                    { right: -peekWidth * 0.62, top: 30, width: peekWidth },
+                  ]}
+                >
+                  <CustomerDossierPeekCard cat={nextCat} side="right" width={peekWidth} />
+                </Pressable>
+              ) : null}
+
+              <View style={styles.selectedCase}>
+                <CustomerDossierCard
+                  affinityLabel={affinityLabel}
+                  cat={cat}
+                  encounters={encounters}
+                  width={dossierWidth}
+                />
+              </View>
+            </Animated.View>
+
+            <View style={styles.summaryRow}>
+              <View style={styles.summaryChip}>
+                <CalendarDays color={theme.colors.primary} size={16} strokeWidth={2} />
+                <Text numberOfLines={1} style={styles.summaryText}>
+                  첫 만남 <Text style={styles.summaryStrong}>{formatShortDate(cat.firstSeenAt)}</Text>
                 </Text>
               </View>
-
-              {catPhotoSource(cat.imageUrl) ? (
-                <Image resizeMode="contain" source={catPhotoSource(cat.imageUrl)!} style={styles.catPhoto} />
-              ) : (
-                <View style={[styles.catPhoto, styles.catPhotoFallback]}>
-                  <PawPrint color={nd.colors.subtle} size={44} />
-                </View>
-              )}
-
-              <View style={styles.affinityRow}>
-                <View style={styles.affinityTrack}>
-                  <View style={[styles.affinityFill, { width: Math.max(8, (affinity / 100) * AFFINITY_TRACK_WIDTH) }]} />
-                </View>
-                <Animated.View style={[styles.affinityKnob, { left: knobLeft, width: knobWidth }]}>
-                  <Pressable
-                    accessibilityHint="이 고양이와 얼마나 친해졌는지 한마디로 보여줘요"
-                    accessibilityLabel={`친밀도 ${affinity}점`}
-                    accessibilityRole="button"
-                    onPress={toggleAffinityLabel}
-                    style={styles.affinityKnobPress}
-                  >
-                    <PawPrint color="#FF4D6D" size={AFFINITY_PAW_SIZE} style={styles.affinityPaw} />
-                    <Animated.Text
-                      numberOfLines={1}
-                      style={[styles.affinityLabel, { opacity: labelOpacity, width: labelWidth || undefined }]}
-                    >
-                      {affinityMessage}
-                    </Animated.Text>
-                  </Pressable>
-                </Animated.View>
+              <View style={styles.summaryChip}>
+                <CalendarDays color={theme.colors.primary} size={16} strokeWidth={2} />
+                <Text numberOfLines={1} style={styles.summaryText}>
+                  최근 <Text style={styles.summaryStrong}>{formatShortDate(cat.lastSeenAt)}</Text>
+                </Text>
               </View>
-
-              <View style={styles.coatDots}>
-                {['#FFFDD0', '#FFFFFF'].map((dotColor, index) => (
-                  <View key={`${dotColor}-${index}`} style={[styles.coatDot, { backgroundColor: dotColor }]} />
-                ))}
-              </View>
-
-              <View style={styles.cardInfo}>
-                <View style={styles.cardInfoText}>
-                  <Text style={styles.catName}>{cat.name}</Text>
-                  <Text numberOfLines={2} style={styles.catDescription}>
-                    {cat.memo?.trim() || '아직 소개가 없는 고양이예요.'}
-                  </Text>
-                </View>
-                <View style={styles.metaRow}>
-                  <View style={styles.metaCell}>
-                    <Text style={styles.metaLabel}>품종</Text>
-                    <Text numberOfLines={1} style={styles.metaValue}>
-                      {getBreedLabel(cat.tags, deriveCatType(cat.coatColors, cat.coatPattern))}
-                    </Text>
-                  </View>
-                  <View style={styles.metaDivider} />
-                  <View style={styles.metaCell}>
-                    <Text style={styles.metaLabel}>성별</Text>
-                    <Text style={styles.metaValue}>{getGenderSymbol(cat.tags)}</Text>
-                  </View>
-                  <View style={styles.metaDivider} />
-                  <View style={[styles.metaCell, styles.metaCellWide]}>
-                    <Text style={styles.metaLabel}>첫 만남</Text>
-                    <Text numberOfLines={1} style={styles.metaValue}>
-                      {formatShortDate(cat.firstSeenAt)}
-                    </Text>
-                  </View>
-                </View>
+              <View style={styles.summaryChip}>
+                <Heart color={theme.colors.primary} size={16} strokeWidth={2} />
+                <Text numberOfLines={1} style={styles.summaryText}>
+                  친밀도 <Text style={styles.affinityStrong}>{affinityLabel}</Text>
+                </Text>
               </View>
             </View>
 
-            <View style={styles.diarySection}>
-              <View style={styles.diaryHeader}>
-                <Text style={styles.diaryTitle}>일기장</Text>
+            <View style={styles.recordsSection}>
+              <View style={styles.recordsTitleRow}>
+                <Text style={styles.recordsTitle}>{cat.name}의 기록을 펼쳐볼냥?</Text>
+                <PawPrint color={theme.colors.primary} size={17} strokeWidth={2} />
               </View>
 
               {visibleEncounters.length === 0 ? (
-                <View style={styles.diaryEmpty}>
-                  <Text style={styles.diaryEmptyText}>아직 기록이 없어요. 아래에서 첫 만남을 남겨보세요.</Text>
+                <View style={styles.recordsEmpty}>
+                  <PawPrint color={nd.colors.subtle} size={24} strokeWidth={1.6} />
+                  <Text style={styles.recordsEmptyText}>아직 기록이 없어요. 첫 만남을 남겨보세요.</Text>
                 </View>
               ) : (
-                visibleEncounters.map((encounter) => (
-                  <View key={encounter.id} style={styles.diaryEntry}>
-                    <Pressable delayLongPress={450} onLongPress={() => handleRemoveEncounter(encounter)} style={styles.diaryBubble}>
-                      <Text style={styles.diaryText}>{encounter.memo}</Text>
-                    </Pressable>
-                    <View style={styles.diaryMeta}>
-                      <Text style={styles.diaryDate}>{formatShortDate(encounter.seenAt)}</Text>
-                      {isAwayEncounter(encounter) ? (
-                        <View style={styles.awayChip}>
-                          <Plane color={nd.colors.accent} size={10} strokeWidth={2.4} />
-                          <Text style={styles.awayChipText}>출장 · {encounter.regionName}</Text>
+                <View style={styles.recordsCard}>
+                  {visibleEncounters.map((encounter, index) => (
+                    <View key={encounter.id}>
+                      {index > 0 ? <View style={styles.recordDivider} /> : null}
+                      <Pressable
+                        accessibilityHint="길게 누르면 이 기록을 삭제할 수 있어요"
+                        delayLongPress={450}
+                        onLongPress={() => handleRemoveEncounter(encounter)}
+                        style={({ pressed }) => [styles.recordRow, pressed && styles.recordPressed]}
+                      >
+                        <View style={styles.recordIcon}>
+                          <PawPrint color={theme.colors.primary} size={14} strokeWidth={2} />
                         </View>
-                      ) : null}
+                        <View style={styles.recordContent}>
+                          <Text numberOfLines={1} style={styles.recordText}>{encounter.memo}</Text>
+                          {isAwayEncounter(encounter) ? (
+                            <View style={styles.awayChip}>
+                              <Plane color={nd.colors.accent} size={9} strokeWidth={2.2} />
+                              <Text numberOfLines={1} style={styles.awayChipText}>출장 · {encounter.regionName}</Text>
+                            </View>
+                          ) : null}
+                        </View>
+                        <Text style={styles.recordDate}>{formatShortDate(encounter.seenAt)}</Text>
+                        <ChevronRight color={nd.colors.subtle} size={18} strokeWidth={1.8} />
+                      </Pressable>
                     </View>
-                  </View>
-                ))
+                  ))}
+                </View>
               )}
 
               {hasMoreEntries || showAllEntries ? (
-                <Pressable onPress={() => setShowAllEntries((prev) => !prev)} style={({ pressed }) => [styles.diaryMore, pressed && styles.pressed]}>
-                  <Text style={styles.diaryMoreText}>{showAllEntries ? '기록 접기' : '전체 기록보기'}</Text>
+                <Pressable
+                  onPress={() => setShowAllEntries((previous) => !previous)}
+                  style={({ pressed }) => [styles.recordsMore, pressed && styles.pressed]}
+                >
+                  <Text style={styles.recordsMoreText}>{showAllEntries ? '기록 접기' : '전체 기록보기'}</Text>
+                  <ChevronRight
+                    color={theme.colors.primary}
+                    size={18}
+                    strokeWidth={2}
+                    style={showAllEntries ? styles.chevronUp : undefined}
+                  />
                 </Pressable>
               ) : null}
             </View>
@@ -424,8 +531,8 @@ export function CatDetailScreen({ navigation, route }: RootStackScreenProps<'Cat
             editable={!isSavingMemo}
             onChangeText={setDraftMemo}
             onSubmitEditing={handleSubmitMemo}
-            placeholder="만남을 기록하고 친밀도를 쌓아보세요"
-            placeholderTextColor={nd.colors.sub}
+            placeholder="오늘의 만남을 기록해볼까요?"
+            placeholderTextColor={nd.colors.subtle}
             returnKeyType="send"
             style={styles.input}
             value={draftMemo}
@@ -434,13 +541,13 @@ export function CatDetailScreen({ navigation, route }: RootStackScreenProps<'Cat
             accessibilityLabel="기록 남기기"
             disabled={isSavingMemo || !draftMemo.trim()}
             onPress={handleSubmitMemo}
-            style={({ pressed }) => [styles.micButton, pressed && styles.pressed]}
+            style={({ pressed }) => [
+              styles.sendButton,
+              (!draftMemo.trim() || isSavingMemo) && styles.sendButtonDisabled,
+              pressed && styles.pressed,
+            ]}
           >
-            {draftMemo.trim() ? (
-              <ArrowUp color={nd.colors.primary} size={20} strokeWidth={2} />
-            ) : (
-              <Mic color="#2A2A37" size={20} strokeWidth={1.6} />
-            )}
+            <ArrowUp color="#FFFFFF" size={24} strokeWidth={2.5} />
           </Pressable>
         </View>
       </View>
@@ -451,49 +558,19 @@ export function CatDetailScreen({ navigation, route }: RootStackScreenProps<'Cat
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: nd.colors.bg,
-  },
-  backgroundWash: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  washPink: {
-    position: 'absolute',
-    top: -120,
-    left: -80,
-    width: 420,
-    height: 420,
-    borderRadius: 210,
-    backgroundColor: 'rgba(255, 90, 205, 0.13)',
-  },
-  washYellow: {
-    position: 'absolute',
-    top: 200,
-    right: -120,
-    width: 430,
-    height: 430,
-    borderRadius: 215,
-    backgroundColor: 'rgba(250, 218, 97, 0.14)',
-  },
-  washPeach: {
-    position: 'absolute',
-    bottom: -100,
-    left: -60,
-    width: 420,
-    height: 420,
-    borderRadius: 210,
-    backgroundColor: 'rgba(255, 145, 136, 0.14)',
+    backgroundColor: '#FFFFFF',
   },
   headerRow: {
-    height: 56,
+    height: 58,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
+    paddingHorizontal: 18,
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    letterSpacing: -0.5,
+    fontSize: 23,
+    fontWeight: '800',
+    letterSpacing: -0.7,
     color: nd.colors.ink,
   },
   circleButton: {
@@ -502,274 +579,207 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 22,
-    backgroundColor: 'rgba(255, 255, 255, 0.72)',
-    ...createNdShadow(0.08, 6),
+    backgroundColor: '#FFFFFF',
+    ...createNdShadow(0.08, 7),
   },
-  content: {
-    paddingTop: 4,
-  },
-  catCard: {
-    alignSelf: 'center',
-    width: 330,
-    height: 482,
-    borderRadius: 16,
-    borderWidth: 8,
-    borderColor: '#FFA830',
-    backgroundColor: nd.colors.bg,
-    overflow: 'hidden',
-  },
-  cardPaper: {
-    ...StyleSheet.absoluteFillObject,
-    width: '100%',
-    height: '100%',
-  },
-  catPhotoFallback: {
+  headerAction: {
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  affinityRow: {
-    position: 'absolute',
-    top: 8,
-    left: 16,
-    width: AFFINITY_TRACK_WIDTH,
-    height: 32,
+  content: {
+    paddingTop: 2,
   },
-  affinityTrack: {
-    position: 'absolute',
-    top: 14,
-    left: 0,
-    width: AFFINITY_TRACK_WIDTH,
-    height: 4,
-    borderRadius: 88,
-    backgroundColor: '#FFFFFF',
-    overflow: 'hidden',
-    ...createNdShadow(0.06, 7),
-  },
-  affinityFill: {
-    height: 4,
-    borderRadius: 88,
-    backgroundColor: '#FF4D6D',
-  },
-  affinityKnob: {
-    position: 'absolute',
-    top: 0,
-    height: AFFINITY_KNOB_SIZE,
-    borderRadius: AFFINITY_KNOB_SIZE / 2,
-    borderWidth: 1,
-    borderColor: '#FF4D6D',
-    backgroundColor: '#FFFFFF',
-    // 벌어지는 중에 글자가 테두리 밖으로 새지 않게 잘라낸다.
-    overflow: 'hidden',
-  },
-  affinityKnobPress: {
-    flex: 1,
-    flexDirection: 'row',
+  caseStage: {
+    position: 'relative',
     alignItems: 'center',
-    // 접혔을 때 발바닥이 원 한가운데 오는 여백.
-    paddingLeft: (AFFINITY_KNOB_SIZE - AFFINITY_PAW_SIZE) / 2 - 1,
+    overflow: 'hidden',
   },
-  affinityPaw: {
-    transform: [{ rotate: '10deg' }],
+  selectedCase: {
+    zIndex: 3,
   },
-  affinityLabel: {
-    marginLeft: AFFINITY_LABEL_GAP,
-    color: nd.colors.ink,
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  affinityLabelRuler: {
+  peekButton: {
     position: 'absolute',
-    top: 0,
-    left: 0,
-    opacity: 0,
-    // 카드 폭에 걸려 줄바꿈되면 재는 값이 실제 한 줄 폭보다 좁아진다.
+    zIndex: 1,
+  },
+  peekButtonLeft: {
+    alignItems: 'flex-end',
+  },
+  peekButtonRight: {
     alignItems: 'flex-start',
   },
-  affinityLabelRulerText: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  coatDots: {
-    position: 'absolute',
-    top: 8,
-    right: 16,
+  summaryRow: {
     flexDirection: 'row',
-    gap: 6,
+    gap: 7,
+    paddingHorizontal: 14,
+    marginTop: 2,
   },
-  coatDot: {
+  summaryChip: {
+    flex: 1,
+    minWidth: 0,
+    height: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(229, 229, 236, 0.85)',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 7,
+    ...createNdShadow(0.05, 6),
+  },
+  summaryText: {
+    flexShrink: 1,
+    fontSize: 10,
+    letterSpacing: -0.3,
+    color: nd.colors.sub,
+  },
+  summaryStrong: {
+    fontWeight: '700',
+    color: nd.colors.ink,
+  },
+  affinityStrong: {
+    fontWeight: '800',
+    color: theme.colors.primary,
+  },
+  recordsSection: {
+    marginTop: 26,
+    paddingHorizontal: 20,
+  },
+  recordsTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    marginBottom: 13,
+  },
+  recordsTitle: {
+    fontSize: 19,
+    lineHeight: 26,
+    fontWeight: '800',
+    letterSpacing: -0.55,
+    color: nd.colors.ink,
+  },
+  recordsCard: {
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: nd.colors.border,
+    backgroundColor: '#FFFFFF',
+    overflow: 'hidden',
+  },
+  recordsEmpty: {
+    minHeight: 84,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 9,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: nd.colors.border,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 16,
+  },
+  recordsEmptyText: {
+    fontSize: 13,
+    letterSpacing: -0.3,
+    color: nd.colors.sub,
+  },
+  recordRow: {
+    minHeight: 63,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  recordPressed: {
+    backgroundColor: nd.colors.field,
+  },
+  recordIcon: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(17, 17, 17, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.colors.primarySoft,
   },
-  catPhoto: {
-    position: 'absolute',
-    top: 52,
-    alignSelf: 'center',
-    width: 220,
-    height: 220,
-  },
-  cardInfo: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: nd.colors.bg,
-    paddingHorizontal: 16,
-    paddingVertical: 20,
-    gap: 12,
-  },
-  cardInfoText: {
-    paddingHorizontal: 8,
+  recordContent: {
+    flex: 1,
+    minWidth: 0,
     gap: 4,
   },
-  catName: {
-    fontSize: 24,
-    lineHeight: 34,
-    fontWeight: '600',
-    letterSpacing: -0.6,
-    color: '#000000',
-  },
-  catDescription: {
-    fontSize: 14,
-    lineHeight: 20,
-    letterSpacing: -0.35,
-    color: nd.colors.sub,
-    minHeight: 40,
-  },
-  metaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 8,
-  },
-  metaCell: {
-    width: 96,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    gap: 6,
-  },
-  metaCellWide: {
-    flex: 1,
-    width: 'auto',
-  },
-  metaLabel: {
+  recordText: {
     fontSize: 13,
     lineHeight: 19,
-    letterSpacing: -0.325,
-    color: nd.colors.sub,
-  },
-  metaValue: {
-    fontSize: 14,
-    lineHeight: 20,
-    fontWeight: '500',
-    letterSpacing: -0.35,
+    letterSpacing: -0.32,
     color: nd.colors.ink,
   },
-  metaDivider: {
-    width: StyleSheet.hairlineWidth,
-    height: 16,
+  recordDate: {
+    fontSize: 11,
+    letterSpacing: -0.2,
+    color: nd.colors.subtle,
+  },
+  recordDivider: {
+    height: StyleSheet.hairlineWidth,
+    marginLeft: 52,
+    marginRight: 12,
     backgroundColor: nd.colors.border,
   },
-  diarySection: {
-    marginTop: 16,
-  },
-  diaryHeader: {
-    paddingHorizontal: 28,
-    paddingVertical: 16,
-  },
-  diaryTitle: {
-    fontSize: 18,
-    lineHeight: 25,
-    fontWeight: '600',
-    letterSpacing: -0.45,
-    color: nd.colors.ink,
-  },
-  diaryEmpty: {
-    paddingHorizontal: 28,
-    paddingVertical: 6,
-  },
-  diaryEmptyText: {
-    fontSize: 14,
-    lineHeight: 20,
-    letterSpacing: -0.35,
-    color: nd.colors.sub,
-  },
-  diaryEntry: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: 4,
-    paddingHorizontal: 28,
-    paddingVertical: 6,
-  },
-  diaryMeta: {
-    alignItems: 'flex-start',
-    gap: 4,
-  },
   awayChip: {
+    alignSelf: 'flex-start',
+    maxWidth: '100%',
     flexDirection: 'row',
     alignItems: 'center',
     gap: 3,
     borderRadius: nd.radius.pill,
     backgroundColor: nd.colors.primarySoft,
-    paddingHorizontal: 7,
-    paddingVertical: 3,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
   },
   awayChipText: {
-    fontSize: 10,
+    maxWidth: 120,
+    fontSize: 9,
     fontWeight: '700',
-    letterSpacing: -0.25,
+    letterSpacing: -0.2,
     color: nd.colors.accent,
   },
-  diaryBubble: {
-    flexShrink: 1,
-    backgroundColor: nd.colors.bg,
-    padding: 16,
-    borderTopLeftRadius: 4,
-    borderTopRightRadius: 20,
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
-  },
-  diaryText: {
-    fontSize: 15,
-    lineHeight: 22,
-    letterSpacing: -0.375,
-    color: nd.colors.ink,
-  },
-  diaryDate: {
-    fontSize: 12,
-    lineHeight: 17,
-    letterSpacing: -0.3,
-    color: nd.colors.subtle,
-  },
-  diaryMore: {
+  recordsMore: {
+    minHeight: 50,
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 16,
+    justifyContent: 'center',
+    gap: 5,
   },
-  diaryMoreText: {
+  recordsMoreText: {
     fontSize: 14,
-    lineHeight: 20,
-    fontWeight: '600',
+    fontWeight: '700',
     letterSpacing: -0.35,
     color: nd.colors.ink,
+  },
+  chevronUp: {
+    transform: [{ rotate: '-90deg' }],
   },
   inputBarWrap: {
     position: 'absolute',
     left: 0,
     right: 0,
     bottom: 0,
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     paddingTop: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.94)',
   },
   inputBar: {
-    height: 54,
+    height: 58,
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: nd.radius.pill,
-    backgroundColor: 'rgba(255, 255, 255, 0.86)',
+    borderRadius: 29,
+    borderWidth: 1,
+    borderColor: nd.colors.border,
+    backgroundColor: '#FFFFFF',
     paddingLeft: 20,
-    paddingRight: 7,
-    ...createNdShadow(0.16, 16),
+    paddingRight: 6,
+    ...createNdShadow(0.1, 12),
   },
   input: {
     flex: 1,
@@ -779,16 +789,18 @@ const styles = StyleSheet.create({
     letterSpacing: -0.35,
     color: nd.colors.ink,
   },
-  micButton: {
-    width: 40,
-    height: 40,
+  sendButton: {
+    width: 46,
+    height: 46,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 20,
-    backgroundColor: '#FFFFFF',
-    ...createNdShadow(0.06, 4),
+    borderRadius: 23,
+    backgroundColor: theme.colors.primary,
+  },
+  sendButtonDisabled: {
+    opacity: 0.45,
   },
   pressed: {
-    opacity: 0.86,
+    opacity: 0.76,
   },
 });

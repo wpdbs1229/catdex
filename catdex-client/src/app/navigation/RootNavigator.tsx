@@ -23,10 +23,13 @@ import { HomeScreen } from '../../features/home/screens/HomeScreen';
 import { CommunityScreen } from '../../features/community/screens/CommunityScreen';
 import { CommunityPostComposerScreen } from '../../features/community/screens/CommunityPostComposerScreen';
 import { CommunityPostDetailScreen } from '../../features/community/screens/CommunityPostDetailScreen';
+import { AnnouncementDetailScreen } from '../../features/announcements/screens/AnnouncementDetailScreen';
+import { AnnouncementListScreen } from '../../features/announcements/screens/AnnouncementListScreen';
 import { NotificationInboxScreen } from '../../features/notifications/screens/NotificationInboxScreen';
 import { NotificationSettingsScreen } from '../../features/notifications/screens/NotificationSettingsScreen';
 import { NeighborhoodDexScreen } from '../../features/map/screens/NeighborhoodDexScreen';
 import { NeighborhoodMapScreen } from '../../features/map/screens/NeighborhoodMapScreen';
+import { MyPageScreen } from '../../features/profile/screens/MyPageScreen';
 import { PlaceholderScreen } from '../screens/PlaceholderScreen';
 import { MainTabBar } from './MainTabBar';
 import type {
@@ -111,9 +114,9 @@ function MainTabNavigator() {
         name="MapTab"
         component={MapNavigator}
         // 동네 흐름은 시안의 전용 하단 바(지도/동네 도감/커뮤니티)를 쓰므로 기본 탭바를 숨긴다.
-        options={{ title: '동네', tabBarStyle: { display: 'none' } }}
+        options={{ title: '지부', tabBarStyle: { display: 'none' } }}
       />
-      <MainTab.Screen name="MyTab" component={PlaceholderScreen} options={{ title: '마이페이지' }} />
+      <MainTab.Screen name="MyTab" component={MyPageScreen} options={{ title: '마이페이지' }} />
     </MainTab.Navigator>
   );
 }
@@ -121,7 +124,8 @@ function MainTabNavigator() {
 export function RootNavigator() {
   const { currentUser, isAuthenticated, updateProfile } = useAuth();
   const [isProfileSaving, setIsProfileSaving] = useState(false);
-  const needsProfileSetup = isAuthenticated && currentUser !== null && !currentUser.profileSetupCompleted;
+  const needsProfileSetup =
+    isAuthenticated && currentUser !== null && currentUser.profileSetupCompleted === false;
 
   if (needsProfileSetup && currentUser) {
     return (
@@ -165,6 +169,16 @@ export function RootNavigator() {
         <RootStack.Screen
           name="NotificationSettings"
           component={NotificationSettingsScreen}
+          options={{ animation: 'slide_from_right' }}
+        />
+        <RootStack.Screen
+          name="Announcements"
+          component={AnnouncementListScreen}
+          options={{ animation: 'slide_from_right' }}
+        />
+        <RootStack.Screen
+          name="AnnouncementDetail"
+          component={AnnouncementDetailScreen}
           options={{ animation: 'slide_from_right' }}
         />
       </RootStack.Navigator>
