@@ -20,6 +20,7 @@ import {
 } from '@/features/cats/dex-filter';
 import { NeighborhoodTabBar } from '@/features/map/components/NeighborhoodTabBar';
 import { useNeighborhoodData } from '@/features/map/hooks/useNeighborhoodData';
+import { NeighborhoodSheet } from '@/shared/neighborhood/NeighborhoodSheet';
 import { CAT_HABITAT_LABELS, DEFAULT_CAT_HABITAT, type CatHabitat } from '@/shared/cats/habitat';
 import { loadFavoriteCatIds, saveFavoriteCatIds } from '@/shared/favorites/favorites-storage';
 import { nd, theme } from '@/shared/styles/theme';
@@ -67,12 +68,15 @@ export function NeighborhoodDexScreen() {
   const {
     cats,
     regions,
+    neighborhood,
     neighborhoodName,
     hasNeighborhood,
     hasLoaded,
     isDetectingNeighborhood,
     redetectNeighborhood,
+    refreshNeighborhood,
   } = useNeighborhoodData();
+  const [isNeighborhoodSheetOpen, setIsNeighborhoodSheetOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   // 검색은 평소에 아이콘으로 접혀 있다. 공책이 그만큼 높아진다.
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -191,12 +195,11 @@ export function NeighborhoodDexScreen() {
       <View style={styles.titleBar}>
         <View style={styles.titleTexts}>
           <Text style={styles.title}>지부 도감</Text>
-          {/* 고객 명단의 회사명 자리에 동네 칩이 온다. 눌러서 다시 확인한다. */}
+          {/* 고객 명단의 회사명 자리에 동네 칩이 온다. 눌러서 지부를 바꾼다. */}
           <Pressable
-            accessibilityLabel="현재 위치로 동네 다시 확인"
+            accessibilityLabel="내 동네 목록 열기"
             accessibilityRole="button"
-            disabled={isDetectingNeighborhood}
-            onPress={redetectNeighborhood}
+            onPress={() => setIsNeighborhoodSheetOpen(true)}
             style={({ pressed }) => [styles.locationChip, pressed && styles.pressed]}
           >
             {isDetectingNeighborhood ? (
@@ -307,7 +310,7 @@ export function NeighborhoodDexScreen() {
                     ? '다른 이름이나 번호로 다시 찾아보세요.'
                     : hasNeighborhood
                       ? '지부에 첫 고양이가 기록되면 이 장부터 채워져요.'
-                      : '위쪽 동네 이름을 눌러 현재 위치로 동네를 확인해 주세요.'}
+                      : '위쪽 동네 이름을 눌러 지부로 삼을 동네를 정해 주세요.'}
                 </Text>
               </View>
             ) : null
@@ -366,6 +369,18 @@ export function NeighborhoodDexScreen() {
           onOpenMap={() => navigation.navigate('NeighborhoodMap')}
         />
       </View>
+
+      {/* 홈의 동네 칩과 같은 시트. 여기서 고른 동네가 곧 이 도감의 지부다. */}
+      <NeighborhoodSheet
+        activeId={neighborhood?.id}
+        isDetecting={isDetectingNeighborhood}
+        onAddCurrent={() => {
+          void redetectNeighborhood();
+        }}
+        onChanged={refreshNeighborhood}
+        onClose={() => setIsNeighborhoodSheetOpen(false)}
+        visible={isNeighborhoodSheetOpen}
+      />
     </SafeAreaView>
   );
 }
