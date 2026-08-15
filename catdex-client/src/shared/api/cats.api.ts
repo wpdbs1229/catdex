@@ -10,7 +10,6 @@ import type {
   CatMatchCandidate,
   CatMatchMethod,
   CatObservation,
-  CatReportDraft,
   CatRarity,
   CatProfileUpdateDraft,
   CaptureCatDraft,
@@ -506,26 +505,3 @@ export async function recordCatEncounter(catId: string, payload: Pick<CatEncount
   return mapEncounter(data as CatEncounterRow);
 }
 
-export async function reportCat(draft: CatReportDraft) {
-  assertSupabaseConfigured();
-
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
-
-  throwIfSupabaseError(userError);
-
-  if (!user) {
-    throw new Error('신고에는 로그인이 필요합니다.');
-  }
-
-  const { error } = await supabase.from('reports').insert({
-    reporter_id: user.id,
-    cat_id: draft.catId,
-    reason: draft.reason,
-    memo: draft.memo,
-  });
-
-  throwIfSupabaseError(error);
-}

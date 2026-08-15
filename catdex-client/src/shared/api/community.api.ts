@@ -499,23 +499,18 @@ export async function deleteCommunityPost(postId: string) {
   throwIfSupabaseError(error);
 }
 
-export async function reportCommunityPost(
-  postId: string,
-  reason: CommunityReportReason | 'OTHER' = 'ETC',
-) {
+export async function reportCommunityPost(postId: string, reason: CommunityReportReason = 'ETC') {
   assertSupabaseConfigured();
   const currentUserId = await getCurrentUserId();
   if (!currentUserId) {
     throw new Error('로그인이 필요해요.');
   }
 
-  // 이전 클라이언트가 쓰던 OTHER를 운영 스키마의 ETC로 호환한다.
-  const normalizedReason = reason === 'OTHER' ? 'ETC' : reason;
   const { error } = await supabase.from('community_reports').insert({
     target_type: 'POST',
     target_id: postId,
     reporter_id: currentUserId,
-    reason: normalizedReason,
+    reason,
   });
 
   // 이미 신고한 글을 다시 눌러도 사용자 관점에서는 접수 완료 상태다.

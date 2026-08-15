@@ -63,12 +63,8 @@ export function MyPostsScreen() {
   );
 
   const openPost = (post: CommunityPost) => {
-    // 커뮤니티 상세는 지부 탭 스택에 산다. 마이페이지에서 열면 지부 탭으로
-    // 건너가고, 뒤로 가면 커뮤니티 흐름에 남는다.
-    navigation.navigate('Main', {
-      screen: 'MapTab',
-      params: { screen: 'CommunityPostDetail', params: { postId: post.id } },
-    });
+    // 지부 탭의 상세와 같은 화면을 루트 스택에 쌓는다. 뒤로 가면 이 목록이다.
+    navigation.navigate('MyPostDetail', { postId: post.id });
   };
 
   return (
