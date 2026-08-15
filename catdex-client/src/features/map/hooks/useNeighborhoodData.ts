@@ -14,6 +14,8 @@ interface NeighborhoodData {
   neighborhoodName: string;
   /** 동네가 아직 안 잡혔으면 false. 화면이 빈 이유를 구분하는 데 쓴다. */
   hasNeighborhood: boolean;
+  /** 첫 응답 전에는 false. 빈 안내문이 로딩 중에 스치지 않게 한다. */
+  hasLoaded: boolean;
   isDetectingNeighborhood: boolean;
   redetectNeighborhood: () => void;
 }
@@ -23,6 +25,7 @@ export function useNeighborhoodData(): NeighborhoodData {
   const [cats, setCats] = useState<Cat[]>([]);
   const [myCatIds, setMyCatIds] = useState<Set<string>>(() => new Set());
   const [allRegions, setAllRegions] = useState<Region[]>([]);
+  const [hasLoaded, setHasLoaded] = useState(false);
   const { neighborhood, name: neighborhoodName, isDetecting, redetect } = useActiveNeighborhood();
 
   useFocusEffect(
@@ -38,6 +41,7 @@ export function useNeighborhoodData(): NeighborhoodData {
           setCats(nextCats);
           setMyCatIds(new Set(nextMyCats.map((cat) => cat.id)));
           setAllRegions(nextRegions);
+          setHasLoaded(true);
         })
         .catch((error: unknown) => {
           console.warn('[neighborhood] load failed', error);
@@ -66,6 +70,7 @@ export function useNeighborhoodData(): NeighborhoodData {
     regions,
     neighborhoodName,
     hasNeighborhood: neighborhood !== null,
+    hasLoaded,
     isDetectingNeighborhood: isDetecting,
     redetectNeighborhood: redetect,
   };
