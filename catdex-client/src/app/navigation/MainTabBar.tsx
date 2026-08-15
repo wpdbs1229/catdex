@@ -33,7 +33,7 @@ const items: TabItem[] = [
     image: [require('../../../assets/icons/tab-dex.png'), require('../../../assets/icons/tab-dex-active.png')],
   },
   { route: 'CaptureTab', label: '촬영', icon: Camera },
-  { route: 'MapTab', label: '동네', icon: Compass },
+  { route: 'MapTab', label: '지부', icon: Compass },
   { route: 'MyTab', label: '마이페이지', icon: User },
 ];
 
