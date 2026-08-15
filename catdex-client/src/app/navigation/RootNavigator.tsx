@@ -30,6 +30,8 @@ import { NotificationSettingsScreen } from '../../features/notifications/screens
 import { NeighborhoodDexScreen } from '../../features/map/screens/NeighborhoodDexScreen';
 import { NeighborhoodMapScreen } from '../../features/map/screens/NeighborhoodMapScreen';
 import { MyPageScreen } from '../../features/profile/screens/MyPageScreen';
+import { MyPostsScreen } from '../../features/profile/screens/MyPostsScreen';
+import { MyReportsScreen } from '../../features/profile/screens/MyReportsScreen';
 import { PlaceholderScreen } from '../screens/PlaceholderScreen';
 import { MainTabBar } from './MainTabBar';
 import type {
@@ -179,6 +181,16 @@ export function RootNavigator() {
         <RootStack.Screen
           name="AnnouncementDetail"
           component={AnnouncementDetailScreen}
+          options={{ animation: 'slide_from_right' }}
+        />
+        <RootStack.Screen
+          name="MyPosts"
+          component={MyPostsScreen}
+          options={{ animation: 'slide_from_right' }}
+        />
+        <RootStack.Screen
+          name="MyReports"
+          component={MyReportsScreen}
           options={{ animation: 'slide_from_right' }}
         />
       </RootStack.Navigator>

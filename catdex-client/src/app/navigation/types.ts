@@ -5,7 +5,8 @@ import type { CoatColorId, CoatPatternId } from '@/shared/coat/coat.types';
 import type { CatVisionBoundingBox } from '@/shared/native/catVision';
 
 export type RootStackParamList = {
-  Main: undefined;
+  /** 마이페이지의 내 게시글에서 커뮤니티 상세로 건너가야 해서 중첩을 밝힌다. */
+  Main: NavigatorScreenParams<MainTabParamList> | undefined;
   /** 촬영은 탭 위에 전체 화면으로 덮는다. 탭바가 프리뷰를 가리지 않게 하기 위함이다. */
   CaptureFlow: undefined;
   /**
@@ -28,11 +29,16 @@ export type RootStackParamList = {
   AnnouncementDetail: { announcement: Announcement };
   /** 피그마 마이페이지_알림 */
   NotificationSettings: undefined;
+  /** 마이페이지 > 내 게시글. 커뮤니티에 내가 쓴 글만 모아 본다. */
+  MyPosts: undefined;
+  /** 마이페이지 > 신고 목록. 내가 접수한 신고들의 내역이다. */
+  MyReports: undefined;
 };
 
 export type MainTabParamList = {
   HomeTab: undefined;
-  MapTab: undefined;
+  /** 지부 탭도 스택이다. 내 게시글에서 커뮤니티 상세를 바로 열 수 있어야 한다. */
+  MapTab: NavigatorScreenParams<MapStackParamList> | undefined;
   CaptureTab: undefined;
   /** 고객 탭은 스택이다. 홈에서 고객지원실을 바로 열 수 있어야 해서 중첩을 밝힌다. */
   CollectionTab: NavigatorScreenParams<ClientStackParamList> | undefined;
