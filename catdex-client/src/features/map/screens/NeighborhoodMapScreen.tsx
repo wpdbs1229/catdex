@@ -9,6 +9,7 @@ import type { MapStackParamList, RootStackParamList } from '@/app/navigation/typ
 import { KakaoMapView } from '@/features/map/components/KakaoMapView';
 import { NeighborhoodTabBar } from '@/features/map/components/NeighborhoodTabBar';
 import { useNeighborhoodData } from '@/features/map/hooks/useNeighborhoodData';
+import { NeighborhoodSheet } from '@/shared/neighborhood/NeighborhoodSheet';
 import { formatMapRegionName } from '@/features/map/map-region-label';
 import { createNdShadow, nd } from '@/shared/styles/theme';
 import type { Cat } from '@/shared/types/cat';
@@ -35,11 +36,20 @@ export function NeighborhoodMapScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<MapStackParamList & RootStackParamList>>();
   const insets = useSafeAreaInsets();
   const tabBarBottomGap = useTabBarBottomGap();
-  const { cats, regions, neighborhoodName, hasNeighborhood, isDetectingNeighborhood, redetectNeighborhood } =
-    useNeighborhoodData();
+  const {
+    cats,
+    regions,
+    neighborhood,
+    neighborhoodName,
+    hasNeighborhood,
+    isDetectingNeighborhood,
+    redetectNeighborhood,
+    refreshNeighborhood,
+  } = useNeighborhoodData();
   const catById = useMemo(() => new Map(cats.map((cat) => [cat.id, cat])), [cats]);
   const catByName = useMemo(() => new Map(cats.map((cat) => [cat.name, cat])), [cats]);
   const [selectedRegion, setSelectedRegion] = useState<Region | null>(null);
+  const [isNeighborhoodSheetOpen, setIsNeighborhoodSheetOpen] = useState(false);
 
   // 데이터가 갱신되면 선택된 구역 객체도 최신 데이터로 바꿔치기한다.
   useEffect(() => {
@@ -80,11 +90,11 @@ export function NeighborhoodMapScreen() {
       />
 
       <View pointerEvents="box-none" style={[styles.topChrome, { top: insets.top + 8 }]}>
+        {/* 지부 도감과 같은 동네 칩. 눌러서 지부를 바꾼다. */}
         <Pressable
-          accessibilityLabel="현재 위치로 동네 다시 확인"
+          accessibilityLabel="내 동네 목록 열기"
           accessibilityRole="button"
-          disabled={isDetectingNeighborhood}
-          onPress={redetectNeighborhood}
+          onPress={() => setIsNeighborhoodSheetOpen(true)}
           style={({ pressed }) => [styles.locationChip, pressed && styles.pressed]}
         >
           {isDetectingNeighborhood ? (
@@ -102,7 +112,7 @@ export function NeighborhoodMapScreen() {
             <Text style={styles.noticeText}>
               {hasNeighborhood
                 ? '이 동네에서 첫 고양이를 기록하면 지도에 표시돼요.'
-                : '위쪽 동네 칩을 눌러 현재 위치로 동네를 확인해 주세요.'}
+                : '위쪽 동네 칩을 눌러 지부로 삼을 동네를 정해 주세요.'}
             </Text>
           </View>
         ) : null}
@@ -163,6 +173,18 @@ export function NeighborhoodMapScreen() {
           onOpenMap={() => undefined}
         />
       </View>
+
+      {/* 지부 도감과 같은 시트. 여기서 고른 동네가 곧 이 지도의 지부다. */}
+      <NeighborhoodSheet
+        activeId={neighborhood?.id}
+        isDetecting={isDetectingNeighborhood}
+        onAddCurrent={() => {
+          void redetectNeighborhood();
+        }}
+        onChanged={refreshNeighborhood}
+        onClose={() => setIsNeighborhoodSheetOpen(false)}
+        visible={isNeighborhoodSheetOpen}
+      />
     </View>
   );
 }
