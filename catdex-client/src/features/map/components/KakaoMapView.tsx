@@ -36,6 +36,11 @@ interface KakaoMapViewProps {
   focusRegionId?: string | null;
   /** 현재 위치 점. 저장하지 않고 화면에만 찍는다. */
   currentLocation?: MapPoint | null;
+  /**
+   * 구역이 하나도 없을 때 중심으로 삼을 좌표(예: 활성 동네 중심).
+   * 마커 없이 지도만 띄운다. 없으면 구역 없는 지도는 그리지 않는다.
+   */
+  fallbackCenter?: MapPoint | null;
   style?: StyleProp<ViewStyle>;
 }
 
@@ -95,6 +100,7 @@ function createMapHtml(
   selectedRegionId: string | null,
   focusRegionId: string | null,
   currentLocation: MapPoint | null,
+  fallbackCenter: MapPoint | null,
 ) {
   const encodedAppKey = encodeURIComponent(appKey);
   const serializedRegions = serializeRegions(regions);
@@ -105,9 +111,12 @@ function createMapHtml(
     regions.find((region) => region.id === selectedRegionId) ??
     regions.find((region) => region.id === focusRegionId) ??
     null;
-  const shouldFitAll = anchorRegion === null && regions.length > 0;
-  const centerLat = anchorRegion?.lat ?? currentLocation?.lat ?? regions[0]?.lat ?? 0;
-  const centerLng = anchorRegion?.lng ?? currentLocation?.lng ?? regions[0]?.lng ?? 0;
+  // 점이 하나뿐이면 setBounds가 그 점에 최대로 파고들어 30m 축척까지 확대된다.
+  // 둘 이상일 때만 전체 맞춤을 하고, 하나면 그 점을 중심으로 기본 축척을 쓴다.
+  const fitPointCount = regions.length + (currentLocation ? 1 : 0);
+  const shouldFitAll = anchorRegion === null && fitPointCount > 1;
+  const centerLat = anchorRegion?.lat ?? currentLocation?.lat ?? regions[0]?.lat ?? fallbackCenter?.lat ?? 0;
+  const centerLng = anchorRegion?.lng ?? currentLocation?.lng ?? regions[0]?.lng ?? fallbackCenter?.lng ?? 0;
 
   return `<!DOCTYPE html>
 <html lang="ko">
@@ -315,6 +324,7 @@ export function KakaoMapView({
   onSelectRegion,
   focusRegionId = null,
   currentLocation = null,
+  fallbackCenter = null,
   style,
 }: KakaoMapViewProps) {
   const [isLoading, setIsLoading] = useState(true);
@@ -322,12 +332,15 @@ export function KakaoMapView({
   const appKey = process.env.EXPO_PUBLIC_KAKAO_MAP_APP_KEY?.trim();
   const kakaoMapWebOrigin = process.env.EXPO_PUBLIC_KAKAO_MAP_WEB_ORIGIN?.trim() ?? '';
   const kakaoMapWebBaseUrl = kakaoMapWebOrigin ? normalizeBaseUrl(kakaoMapWebOrigin) : undefined;
+  // 구역이 없어도 중심 잡을 좌표가 있으면 빈 지도라도 띄운다. 지도 자체가
+  // 사라지면 "여기가 내 지부"라는 감각도 함께 사라진다.
+  const canRenderMap = regions.length > 0 || currentLocation !== null || fallbackCenter !== null;
   const html = useMemo(
     () =>
-      appKey && regions.length > 0
-        ? createMapHtml(appKey, regions, selectedRegionId, focusRegionId, currentLocation)
+      appKey && canRenderMap
+        ? createMapHtml(appKey, regions, selectedRegionId, focusRegionId, currentLocation, fallbackCenter)
         : '',
-    [appKey, currentLocation, focusRegionId, regions, selectedRegionId],
+    [appKey, canRenderMap, currentLocation, fallbackCenter, focusRegionId, regions, selectedRegionId],
   );
 
   useEffect(() => {
@@ -360,12 +373,12 @@ export function KakaoMapView({
     }
   };
 
-  // 구역이 없어서 지도를 안 띄우는 것과 지도가 실제로 실패한 것은 다르다.
-  // 빈 동네에서 "불러오지 못했어요"라고 하면 오류로 읽힌다. 그 경우는 화면
-  // 위의 안내 카드가 이미 설명하므로 바탕만 남긴다.
-  const isEmptyWithoutFailure = Boolean(appKey) && !hasLoadFailed && regions.length === 0;
+  // 구역도 중심 좌표도 없어서 지도를 못 그리는 것과 지도가 실제로 실패한
+  // 것은 다르다. 전자에 "불러오지 못했어요"라고 하면 오류로 읽힌다. 그 경우는
+  // 화면 위의 안내 카드가 이미 설명하므로 바탕만 남긴다.
+  const isEmptyWithoutFailure = Boolean(appKey) && !hasLoadFailed && !canRenderMap;
 
-  if (!appKey || regions.length === 0 || hasLoadFailed) {
+  if (!appKey || !canRenderMap || hasLoadFailed) {
     return (
       <View style={[styles.fallbackContainer, style]}>
         {isEmptyWithoutFailure ? null : (

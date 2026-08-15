@@ -48,6 +48,9 @@ export function NeighborhoodMapScreen() {
   } = useNeighborhoodData();
   const catById = useMemo(() => new Map(cats.map((cat) => [cat.id, cat])), [cats]);
   const catByName = useMemo(() => new Map(cats.map((cat) => [cat.name, cat])), [cats]);
+  // 고양이가 0마리인 구역은 마커를 찍지 않는다. 기록이 다 지워진 구역 행이
+  // DB에 남아 있어도 빈 발자국만 뜨면 눌러 볼 것도 없다.
+  const markerRegions = useMemo(() => regions.filter((region) => getRegionCatCount(region) > 0), [regions]);
   const [selectedRegion, setSelectedRegion] = useState<Region | null>(null);
   const [isNeighborhoodSheetOpen, setIsNeighborhoodSheetOpen] = useState(false);
 
@@ -57,13 +60,13 @@ export function NeighborhoodMapScreen() {
       return;
     }
 
-    const refreshedRegion = regions.find((region) => region.id === selectedRegion.id) ?? null;
+    const refreshedRegion = markerRegions.find((region) => region.id === selectedRegion.id) ?? null;
 
     if (refreshedRegion !== selectedRegion) {
       setSelectedRegion(refreshedRegion);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [regions]);
+  }, [markerRegions]);
 
   const selectedRegionCats = useMemo(
     () => getRegionCats(selectedRegion, catById, catByName),
@@ -83,8 +86,10 @@ export function NeighborhoodMapScreen() {
   return (
     <View style={styles.screen}>
       <KakaoMapView
+        // 동네 중심을 넘겨서 기록이 하나도 없는 지부에서도 지도는 뜨게 한다.
+        fallbackCenter={neighborhood ? { lat: neighborhood.lat, lng: neighborhood.lng } : null}
         onSelectRegion={(region) => setSelectedRegion((prev) => (prev?.id === region.id ? null : region))}
-        regions={regions}
+        regions={markerRegions}
         selectedRegionId={selectedRegion?.id ?? null}
         style={styles.map}
       />
@@ -106,7 +111,7 @@ export function NeighborhoodMapScreen() {
           <ChevronDown color={nd.colors.ink} size={14} strokeWidth={1.8} />
         </Pressable>
 
-        {regions.length === 0 && !isDetectingNeighborhood ? (
+        {markerRegions.length === 0 && !isDetectingNeighborhood ? (
           <View style={styles.noticeCard}>
             <Text style={styles.noticeTitle}>{hasNeighborhood ? `${neighborhoodName}에 아직 기록이 없어요` : '동네를 아직 못 찾았어요'}</Text>
             <Text style={styles.noticeText}>
