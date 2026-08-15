@@ -360,11 +360,20 @@ export function KakaoMapView({
     }
   };
 
+  // 구역이 없어서 지도를 안 띄우는 것과 지도가 실제로 실패한 것은 다르다.
+  // 빈 동네에서 "불러오지 못했어요"라고 하면 오류로 읽힌다. 그 경우는 화면
+  // 위의 안내 카드가 이미 설명하므로 바탕만 남긴다.
+  const isEmptyWithoutFailure = Boolean(appKey) && !hasLoadFailed && regions.length === 0;
+
   if (!appKey || regions.length === 0 || hasLoadFailed) {
     return (
       <View style={[styles.fallbackContainer, style]}>
-        <Text style={styles.fallbackTitle}>지도를 불러오지 못했어요</Text>
-        <Text style={styles.fallbackText}>지도 대신 동네 냥이 구역 목록을 보여드릴게요.</Text>
+        {isEmptyWithoutFailure ? null : (
+          <>
+            <Text style={styles.fallbackTitle}>지도를 불러오지 못했어요</Text>
+            <Text style={styles.fallbackText}>지도 대신 동네 냥이 구역 목록을 보여드릴게요.</Text>
+          </>
+        )}
         <View style={styles.fallbackRegionList}>
         {regions.map((region) => {
           const isSelected = region.id === selectedRegionId;
