@@ -188,6 +188,13 @@ export function RootNavigator() {
           component={MyPostsScreen}
           options={{ animation: 'slide_from_right' }}
         />
+        {/* 지부 탭과 같은 상세 화면. 내 게시글에서 열 때는 루트 스택에 쌓아
+            뒤로 가기가 마이페이지 흐름으로 돌아오게 한다. */}
+        <RootStack.Screen
+          name="MyPostDetail"
+          component={CommunityPostDetailScreen}
+          options={{ animation: 'slide_from_right' }}
+        />
         <RootStack.Screen
           name="MyReports"
           component={MyReportsScreen}

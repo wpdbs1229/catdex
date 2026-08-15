@@ -128,13 +128,11 @@ export interface CatMatchCandidate {
   modelVersion?: string;
 }
 
+/**
+ * 고양이 신고의 사유. 접수 UI는 지금 없지만(커뮤니티 열 때 다시 붙는다)
+ * 이미 접수된 기록이 이 값으로 남아 있어, 신고 목록이 이름표를 붙일 때 쓴다.
+ */
 export type CatReportReason = 'duplicate_cat' | 'inappropriate_photo' | 'location_risk' | 'incorrect_info' | 'other';
-
-export interface CatReportDraft {
-  catId: string;
-  reason: CatReportReason;
-  memo: string;
-}
 
 export interface DexPlaceholder {
   id: string;
