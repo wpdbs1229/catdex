@@ -20,7 +20,12 @@ import { fetchMyProfile, signOut, withdrawMyAccount } from '@/shared/api/auth.ap
 import { DEFAULT_PROFILE_NICKNAME } from '@/shared/constants/profile.constants';
 import { SUPPORT_CONTACT_URL, SUPPORT_PRIVACY_URL } from '@/shared/constants/support.constants';
 import { getUserFacingErrorMessage } from '@/shared/errors/user-facing-error';
-import { nd } from '@/shared/styles/theme';
+import { fetchAnnouncements } from '@/shared/api/announcements.api';
+import {
+  hasUnreadAnnouncement,
+  loadAnnouncementsLastSeen,
+} from '@/shared/announcements/announcements-storage';
+import { nd, theme } from '@/shared/styles/theme';
 import type { AuthUser } from '@/shared/types/auth';
 
 type LucideIcon = ComponentType<{ color: string; size: number; strokeWidth?: number }>;
@@ -55,7 +60,7 @@ const menuGroups: MenuRow[][] = [
   ],
   [
     { label: '고객 센터', icon: CircleHelp, action: { kind: 'link', url: SUPPORT_CONTACT_URL } },
-    { label: '공지사항', icon: Megaphone, action: { kind: 'pending' } },
+    { label: '공지사항', icon: Megaphone, action: { kind: 'screen', screen: 'Announcements' } },
     { label: '약관 및 정책', icon: FileText, action: { kind: 'link', url: SUPPORT_PRIVACY_URL } },
   ],
 ];
@@ -66,7 +71,37 @@ export function MyPageScreen() {
   const [profile, setProfile] = useState<AuthUser | null>(null);
   // 탈퇴·로그아웃이 겹쳐 두 번 나가지 않게 잠근다.
   const [isLeaving, setIsLeaving] = useState(false);
+  const [hasUnreadNotice, setHasUnreadNotice] = useState(false);
   const tabBarInset = useTabBarInset();
+
+  // 공지함을 마지막으로 연 시각보다 새 공지가 있으면 줄에 점을 찍는다.
+  // 목록을 열면 그 시각이 갱신되므로, 돌아왔을 때 점이 꺼져 있어야 한다.
+  useFocusEffect(
+    useCallback(() => {
+      let isActive = true;
+
+      Promise.all([fetchAnnouncements(), loadAnnouncementsLastSeen()])
+        .then(([announcements, lastSeen]) => {
+          if (!isActive) {
+            return;
+          }
+
+          const latest = announcements.reduce<string | undefined>(
+            (newest, item) => (!newest || item.publishedAt > newest ? item.publishedAt : newest),
+            undefined,
+          );
+
+          setHasUnreadNotice(hasUnreadAnnouncement(latest, lastSeen));
+        })
+        .catch((error: unknown) => {
+          console.warn('[profile] announcements check failed', error);
+        });
+
+      return () => {
+        isActive = false;
+      };
+    }, []),
+  );
 
   // useAuth는 세션 복원까지 함께 돌리는 훅이라 화면에서 부르지 않는다(auth.api 주석).
   // 이름·사진은 표시만 하므로 fetchMyProfile로 읽는다.
@@ -194,6 +229,8 @@ export function MyPageScreen() {
               >
                 <Icon color={nd.colors.ink} size={22} strokeWidth={1.6} />
                 <Text style={styles.menuLabel}>{label}</Text>
+                {/* 안 읽은 공지가 있을 때만. 표시가 없으면 이 줄은 아무도 누르지 않는다. */}
+                {label === '공지사항' && hasUnreadNotice ? <View style={styles.unreadDot} /> : null}
               </Pressable>
             ))}
           </View>
@@ -295,6 +332,12 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingVertical: 13,
     paddingHorizontal: 16,
+  },
+  unreadDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: theme.colors.accent,
   },
   menuLabel: {
     flex: 1,

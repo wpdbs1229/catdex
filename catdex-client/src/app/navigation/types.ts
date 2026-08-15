@@ -1,5 +1,6 @@
 import type { NavigatorScreenParams } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import type { Announcement } from '@/shared/types/announcement';
 import type { CoatColorId, CoatPatternId } from '@/shared/coat/coat.types';
 import type { CatVisionBoundingBox } from '@/shared/native/catVision';
 
@@ -18,6 +19,13 @@ export type RootStackParamList = {
   CatDetail: { catId: string; siblingIds?: string[] };
   /** 헤더 벨에서 여는 알림함. 시안에 없어 새로 그린 화면이다. */
   NotificationInbox: undefined;
+  /** 마이페이지 > 공지사항 */
+  Announcements: undefined;
+  /**
+   * 공지 본문. 목록에서 이미 받아온 글을 그대로 넘긴다 - 열 때마다 다시
+   * 조회하면 방금 본 목록과 다른 글이 뜰 수 있고 기다릴 이유도 없다.
+   */
+  AnnouncementDetail: { announcement: Announcement };
   /** 피그마 마이페이지_알림 */
   NotificationSettings: undefined;
 };
