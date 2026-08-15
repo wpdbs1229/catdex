@@ -25,6 +25,14 @@ export interface MapPoint {
   lng: number;
 }
 
+/** 고양이 한 마리를 찍는 점. 좌표는 화면용으로 이미 흩어 놓은 값이다. */
+export interface CatMapPoint {
+  catId: string;
+  regionId: string;
+  lat: number;
+  lng: number;
+}
+
 interface KakaoMapViewProps {
   regions: Region[];
   selectedRegionId: string | null;
@@ -41,6 +49,11 @@ interface KakaoMapViewProps {
    * 마커 없이 지도만 띄운다. 없으면 구역 없는 지도는 그리지 않는다.
    */
   fallbackCenter?: MapPoint | null;
+  /**
+   * 주면 구역당 개수 마커 대신 고양이 한 마리당 발자국 하나를 찍는다.
+   * 누르면 그 고양이가 속한 구역이 선택된다.
+   */
+  catPoints?: CatMapPoint[];
   style?: StyleProp<ViewStyle>;
 }
 
@@ -101,11 +114,13 @@ function createMapHtml(
   focusRegionId: string | null,
   currentLocation: MapPoint | null,
   fallbackCenter: MapPoint | null,
+  catPoints: CatMapPoint[],
 ) {
   const encodedAppKey = encodeURIComponent(appKey);
   const serializedRegions = serializeRegions(regions);
   const serializedSelectedRegionId = JSON.stringify(selectedRegionId);
   const serializedCurrentLocation = JSON.stringify(currentLocation);
+  const serializedCatPoints = JSON.stringify(catPoints).replace(/</g, '\\u003c');
   // 고른 구역 > 초점 구역 순으로 중심을 잡는다. 둘 다 없으면 아래에서 전체를 맞춘다.
   const anchorRegion =
     regions.find((region) => region.id === selectedRegionId) ??
@@ -113,7 +128,8 @@ function createMapHtml(
     null;
   // 점이 하나뿐이면 setBounds가 그 점에 최대로 파고들어 30m 축척까지 확대된다.
   // 둘 이상일 때만 전체 맞춤을 하고, 하나면 그 점을 중심으로 기본 축척을 쓴다.
-  const fitPointCount = regions.length + (currentLocation ? 1 : 0);
+  const markerCount = catPoints.length > 0 ? catPoints.length : regions.length;
+  const fitPointCount = markerCount + (currentLocation ? 1 : 0);
   const shouldFitAll = anchorRegion === null && fitPointCount > 1;
   const centerLat = anchorRegion?.lat ?? currentLocation?.lat ?? regions[0]?.lat ?? fallbackCenter?.lat ?? 0;
   const centerLng = anchorRegion?.lng ?? currentLocation?.lng ?? regions[0]?.lng ?? fallbackCenter?.lng ?? 0;
@@ -199,6 +215,42 @@ function createMapHtml(
         font: 700 12px -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
         text-align: center;
       }
+
+      /* 고양이 한 마리짜리 발자국. 개수 마커보다 작고 배지가 없다. */
+      .cat-point {
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 52px;
+        height: 52px;
+        margin: 0;
+        padding: 0;
+        border: 0;
+        border-radius: 50%;
+        background: rgba(245, 148, 47, 0.22);
+        cursor: pointer;
+      }
+
+      .cat-point-core {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: #f5942f;
+        box-shadow: 0 3px 9px rgba(0, 0, 0, 0.2);
+      }
+
+      .cat-point-core svg {
+        width: 18px;
+        height: 18px;
+      }
+
+      .cat-point-selected .cat-point-core {
+        outline: 3px solid #ffffff;
+      }
     </style>
   </head>
   <body>
@@ -206,6 +258,7 @@ function createMapHtml(
     <script>
       (function () {
         var regions = ${serializedRegions};
+        var catPoints = ${serializedCatPoints};
         var selectedRegionId = ${serializedSelectedRegionId};
         var didFinish = false;
         var readyTimeoutId = window.setTimeout(function () {
@@ -246,25 +299,43 @@ function createMapHtml(
 
               var pawSvg = '<svg width="24" height="24" viewBox="0 0 24 24" fill="#ffffff" xmlns="http://www.w3.org/2000/svg"><ellipse cx="12" cy="15.6" rx="4.4" ry="3.7"/><circle cx="6" cy="10.6" r="2"/><circle cx="9.6" cy="7.4" r="2.1"/><circle cx="14.4" cy="7.4" r="2.1"/><circle cx="18" cy="10.6" r="2"/></svg>';
 
-              regions.forEach(function (region) {
-                var isSelected = region.id === selectedRegionId;
-                var countLabel = region.catCount > 9 ? '9+' : String(region.catCount);
-                var marker = document.createElement('button');
-                marker.type = 'button';
-                marker.className = 'cat-marker' + (isSelected ? ' cat-marker-selected' : '');
-                marker.innerHTML = '<span class="cat-marker-core">' + pawSvg + '</span><span class="cat-marker-count">' + countLabel + '</span>';
-                marker.onclick = function () {
-                  postMessage({ type: 'REGION_SELECTED', regionId: region.id });
-                };
+              if (catPoints.length > 0) {
+                // 고양이 한 마리당 발자국 하나. 누르면 그 고양이의 구역이 선택된다.
+                catPoints.forEach(function (point) {
+                  var isSelected = point.regionId === selectedRegionId;
+                  var marker = document.createElement('button');
+                  marker.type = 'button';
+                  marker.className = 'cat-point' + (isSelected ? ' cat-point-selected' : '');
+                  marker.innerHTML = '<span class="cat-point-core">' + pawSvg + '</span>';
+                  marker.onclick = function () {
+                    postMessage({ type: 'REGION_SELECTED', regionId: point.regionId });
+                  };
 
-                var overlay = new kakao.maps.CustomOverlay({
-                  position: new kakao.maps.LatLng(region.lat, region.lng),
-                  content: marker,
-                  yAnchor: 0.5
+                  new kakao.maps.CustomOverlay({
+                    position: new kakao.maps.LatLng(point.lat, point.lng),
+                    content: marker,
+                    yAnchor: 0.5
+                  }).setMap(map);
                 });
+              } else {
+                regions.forEach(function (region) {
+                  var isSelected = region.id === selectedRegionId;
+                  var countLabel = region.catCount > 9 ? '9+' : String(region.catCount);
+                  var marker = document.createElement('button');
+                  marker.type = 'button';
+                  marker.className = 'cat-marker' + (isSelected ? ' cat-marker-selected' : '');
+                  marker.innerHTML = '<span class="cat-marker-core">' + pawSvg + '</span><span class="cat-marker-count">' + countLabel + '</span>';
+                  marker.onclick = function () {
+                    postMessage({ type: 'REGION_SELECTED', regionId: region.id });
+                  };
 
-                overlay.setMap(map);
-              });
+                  new kakao.maps.CustomOverlay({
+                    position: new kakao.maps.LatLng(region.lat, region.lng),
+                    content: marker,
+                    yAnchor: 0.5
+                  }).setMap(map);
+                });
+              }
 
               var here = ${serializedCurrentLocation};
 
@@ -282,13 +353,20 @@ function createMapHtml(
               // 현재 위치도 함께 넣어야 "내가 어디에 있고 고객이 어디 있는지"가 한눈에 보인다.
               if (${shouldFitAll ? 'true' : 'false'}) {
                 var bounds = new kakao.maps.LatLngBounds();
-                regions.forEach(function (region) {
-                  bounds.extend(new kakao.maps.LatLng(region.lat, region.lng));
+                var fitPoints = catPoints.length > 0 ? catPoints : regions;
+                fitPoints.forEach(function (point) {
+                  bounds.extend(new kakao.maps.LatLng(point.lat, point.lng));
                 });
                 if (here) {
                   bounds.extend(new kakao.maps.LatLng(here.lat, here.lng));
                 }
                 map.setBounds(bounds, 80, 80, 80, 80);
+
+                // 발자국이 좁게 모여 있으면 setBounds가 골목 축척까지 조여진다.
+                // 동네가 보이는 축척 아래로는 내려가지 않는다.
+                if (map.getLevel() < 4) {
+                  map.setLevel(4);
+                }
               }
 
               didFinish = true;
@@ -325,6 +403,7 @@ export function KakaoMapView({
   focusRegionId = null,
   currentLocation = null,
   fallbackCenter = null,
+  catPoints = [],
   style,
 }: KakaoMapViewProps) {
   const [isLoading, setIsLoading] = useState(true);
@@ -338,9 +417,9 @@ export function KakaoMapView({
   const html = useMemo(
     () =>
       appKey && canRenderMap
-        ? createMapHtml(appKey, regions, selectedRegionId, focusRegionId, currentLocation, fallbackCenter)
+        ? createMapHtml(appKey, regions, selectedRegionId, focusRegionId, currentLocation, fallbackCenter, catPoints)
         : '',
-    [appKey, canRenderMap, currentLocation, fallbackCenter, focusRegionId, regions, selectedRegionId],
+    [appKey, canRenderMap, catPoints, currentLocation, fallbackCenter, focusRegionId, regions, selectedRegionId],
   );
 
   useEffect(() => {
