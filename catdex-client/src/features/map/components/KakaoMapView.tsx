@@ -301,6 +301,11 @@ function createMapHtml(
 
               if (catPoints.length > 0) {
                 // 고양이 한 마리당 발자국 하나. 누르면 그 고양이의 구역이 선택된다.
+                // 축소하면 발자국이 겹쳐 못 읽으므로 구역 단위 개수 배지로 뭉친다.
+                var pawOverlays = [];
+                var clusterOverlays = [];
+                var clusterGroups = {};
+
                 catPoints.forEach(function (point) {
                   var isSelected = point.regionId === selectedRegionId;
                   var marker = document.createElement('button');
@@ -311,12 +316,51 @@ function createMapHtml(
                     postMessage({ type: 'REGION_SELECTED', regionId: point.regionId });
                   };
 
-                  new kakao.maps.CustomOverlay({
+                  pawOverlays.push(new kakao.maps.CustomOverlay({
                     position: new kakao.maps.LatLng(point.lat, point.lng),
                     content: marker,
                     yAnchor: 0.5
-                  }).setMap(map);
+                  }));
+
+                  var group = clusterGroups[point.regionId];
+                  if (!group) {
+                    group = clusterGroups[point.regionId] = { latSum: 0, lngSum: 0, count: 0 };
+                  }
+                  group.latSum += point.lat;
+                  group.lngSum += point.lng;
+                  group.count += 1;
                 });
+
+                Object.keys(clusterGroups).forEach(function (regionId) {
+                  var group = clusterGroups[regionId];
+                  var isSelected = regionId === selectedRegionId;
+                  var countLabel = group.count > 9 ? '9+' : String(group.count);
+                  var marker = document.createElement('button');
+                  marker.type = 'button';
+                  marker.className = 'cat-marker' + (isSelected ? ' cat-marker-selected' : '');
+                  marker.innerHTML = '<span class="cat-marker-core">' + pawSvg + '</span><span class="cat-marker-count">' + countLabel + '</span>';
+                  marker.onclick = function () {
+                    postMessage({ type: 'REGION_SELECTED', regionId: regionId });
+                  };
+
+                  clusterOverlays.push(new kakao.maps.CustomOverlay({
+                    position: new kakao.maps.LatLng(group.latSum / group.count, group.lngSum / group.count),
+                    content: marker,
+                    yAnchor: 0.5
+                  }));
+                });
+
+                // 발자국 흩뿌림이 100m니, 100m가 몇 픽셀 안 되는 축척부터 배지로 바꾼다.
+                var CLUSTER_LEVEL = 5;
+
+                function syncMarkerZoom() {
+                  var clustered = map.getLevel() >= CLUSTER_LEVEL;
+                  pawOverlays.forEach(function (overlay) { overlay.setMap(clustered ? null : map); });
+                  clusterOverlays.forEach(function (overlay) { overlay.setMap(clustered ? map : null); });
+                }
+
+                syncMarkerZoom();
+                kakao.maps.event.addListener(map, 'zoom_changed', syncMarkerZoom);
               } else {
                 regions.forEach(function (region) {
                   var isSelected = region.id === selectedRegionId;

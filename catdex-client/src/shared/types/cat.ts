@@ -40,6 +40,10 @@ export interface Cat {
   encounterCount: number;
   firstSeenAt: string;
   lastSeenAt: string;
+  /** 마지막으로 만난 실제 지점. 좌표를 남기기 전의 기록에는 없다.
+      화면은 이 점을 그대로 찍지 않고 주변에 흩어 보여준다. */
+  lastSeenLat?: number;
+  lastSeenLng?: number;
   tags: string[];
   memo?: string;
   /** 대표 이미지. 촬영으로 등록한 고양이는 배경을 지운 누끼다. */
