@@ -35,7 +35,6 @@ interface CommunityReportRow {
 }
 
 const CAT_REPORT_REASON_LABELS: Record<CatReportReason, string> = {
-  duplicate_cat: '중복 등록',
   inappropriate_photo: '부적절한 사진',
   location_risk: '위치 노출 위험',
   incorrect_info: '잘못된 정보',
@@ -52,11 +51,12 @@ const COMMUNITY_REPORT_REASON_LABELS: Record<CommunityReportReason, string> = {
   ETC: '기타',
 };
 
+// reports.status의 실제 허용값(open/reviewing/resolved/rejected)을 따른다.
 const REPORT_STATUS_LABELS: Record<string, string> = {
-  pending: '접수됨',
+  open: '접수됨',
   reviewing: '검토 중',
   resolved: '처리 완료',
-  dismissed: '처리 완료',
+  rejected: '반려됨',
 };
 
 function firstRelation<T>(value: T | T[] | null): T | null {
