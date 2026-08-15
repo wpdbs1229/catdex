@@ -93,6 +93,30 @@ function createNeighborhoodId(city: string, district: string, name: string) {
     .toLowerCase();
 }
 
+/**
+ * 지금 서 있는 지점. 만남 기록에 실제 좌표를 남길 때 쓴다.
+ *
+ * 위치는 부가 정보라 권한 거부·실내 오차 같은 실패는 조용히 null로 넘긴다.
+ * 좌표가 없어도 기록 자체는 구역 이름으로 남는다.
+ */
+export async function getCurrentPoint(): Promise<{ lat: number; lng: number } | null> {
+  try {
+    const permission = await Location.requestForegroundPermissionsAsync();
+
+    if (permission.status !== 'granted') {
+      return null;
+    }
+
+    const position = await Location.getCurrentPositionAsync({
+      accuracy: Location.Accuracy.Balanced,
+    });
+
+    return { lat: position.coords.latitude, lng: position.coords.longitude };
+  } catch {
+    return null;
+  }
+}
+
 export async function detectCurrentNeighborhood(): Promise<NeighborhoodDetectionResult> {
   const permission = await Location.requestForegroundPermissionsAsync();
 

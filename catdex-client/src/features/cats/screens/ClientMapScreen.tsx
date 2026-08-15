@@ -20,6 +20,7 @@ import {
 import { useClientMapData } from '@/features/cats/hooks/useClientMapData';
 import { useCurrentLocation } from '@/features/cats/hooks/useCurrentLocation';
 import { KakaoMapView } from '@/features/map/components/KakaoMapView';
+import { scatterCatPoint } from '@/features/map/map-scatter';
 import { isMatchingNeighborhoodName } from '@/shared/neighborhood/neighborhood-match';
 import { useActiveNeighborhood } from '@/shared/neighborhood/useActiveNeighborhood';
 import { createNdShadow, nd, theme } from '@/shared/styles/theme';
@@ -46,6 +47,18 @@ export function ClientMapScreen() {
   );
   const [selectedRegion, setSelectedRegion] = useState<Region | null>(null);
   const [selectedCat, setSelectedCat] = useState<Cat | null>(null);
+
+  // 지부 지도와 같은 방식: 구역당 개수 마커 대신 고객 한 마리당 발자국 하나.
+  // 닻은 실제로 만난 지점(있으면), 아니면 구역 중심이다.
+  const catPoints = useMemo(
+    () =>
+      regions.flatMap((region) =>
+        (catsByRegionId.get(region.id) ?? []).map((cat) =>
+          scatterCatPoint(cat, cat.id, region.id, region.lat, region.lng),
+        ),
+      ),
+    [catsByRegionId, regions],
+  );
 
   // 데이터가 새로 들어오면 선택한 구역도 최신 것으로 바꾼다. 사라졌으면 시트를 닫는다.
   useEffect(() => {
@@ -81,6 +94,7 @@ export function ClientMapScreen() {
           setSelectedCat(null);
           setSelectedRegion((previous) => (previous?.id === region.id ? null : region));
         }}
+        catPoints={catPoints}
         currentLocation={currentLocation}
         focusRegionId={focusRegionId}
         regions={regions}

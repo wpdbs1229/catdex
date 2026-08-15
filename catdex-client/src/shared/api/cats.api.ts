@@ -3,6 +3,7 @@ import type { CoatColorId, CoatPatternId } from '@/shared/coat/coat.types';
 import { toCatHabitat } from '@/shared/cats/habitat';
 import { assertSupabaseConfigured, supabase } from '@/shared/supabase/client';
 import { getActiveNeighborhood } from '@/shared/neighborhood/active-neighborhood';
+import { getCurrentPoint } from '@/shared/neighborhood/neighborhood-location';
 import type {
   Cat,
   CatEncounter,
@@ -29,6 +30,8 @@ interface CatRow {
   encounter_count: number;
   first_seen_at: string;
   last_seen_at: string;
+  last_seen_lat: number | null;
+  last_seen_lng: number | null;
   tags: string[];
   memo: string | null;
   image_url: string | null;
@@ -111,6 +114,8 @@ async function mapCat(row: CatRow): Promise<Cat> {
     encounterCount: row.encounter_count,
     firstSeenAt: formatDate(row.first_seen_at),
     lastSeenAt: formatDate(row.last_seen_at),
+    lastSeenLat: row.last_seen_lat ?? undefined,
+    lastSeenLng: row.last_seen_lng ?? undefined,
     tags: row.tags,
     memo: row.memo ?? undefined,
     imageUrl: await getDisplayImageUrl(row.image_url),
@@ -268,6 +273,9 @@ export async function createCat(draft: CaptureCatDraft) {
   // 동네 이름을 지오코딩해서 얻은 동네 중심이다.
   const neighborhood = await getActiveNeighborhood().catch(() => null);
   const isSameRegion = neighborhood?.name === draft.regionName;
+  // 실제로 서 있는 지점도 함께 남긴다. 구역 중심과 달리 이 점이 지도 발자국의
+  // 닻이 된다. 못 읽으면 좌표 없이 기록되고 발자국은 구역 중심으로 돌아간다.
+  const point = await getCurrentPoint();
 
   const { data, error } = await supabase.rpc('create_cat', {
     p_region_lat: isSameRegion ? neighborhood.lat : null,
@@ -281,6 +289,8 @@ export async function createCat(draft: CaptureCatDraft) {
     p_coat_pattern: draft.coatPattern,
     p_original_photo_url: draft.originalPhotoUrl ?? null,
     p_habitat: draft.habitat,
+    p_lat: point?.lat ?? null,
+    p_lng: point?.lng ?? null,
   });
 
   throwIfSupabaseError(error);
@@ -478,11 +488,17 @@ export async function createCatSighting(
 export async function recordCatEncounter(catId: string, payload: Pick<CatEncounter, 'regionName' | 'memo'> & { imageUrl?: string }) {
   assertSupabaseConfigured();
 
+  // 만남은 "지금 여기"의 기록이므로 실제 지점을 같이 남긴다. 못 읽으면 좌표
+  // 없이 남고, 개체의 마지막 지점도 그대로 유지된다.
+  const point = await getCurrentPoint();
+
   const { data, error } = await supabase.rpc('record_cat_encounter', {
     p_cat_id: catId,
     p_region_name: payload.regionName,
     p_memo: payload.memo,
     p_image_url: payload.imageUrl ?? null,
+    p_lat: point?.lat ?? null,
+    p_lng: point?.lng ?? null,
   });
 
   throwIfSupabaseError(error);
