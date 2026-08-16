@@ -5,6 +5,7 @@ import { CAT_HABITAT_LABELS } from '@/shared/cats/habitat';
 import { deriveCatType } from '@/shared/coat/coat-to-cat-type';
 import { nd, theme } from '@/shared/styles/theme';
 import type { Cat, CatEncounter } from '@/shared/types/cat';
+import type { UserEquipment } from '@/shared/types/shop';
 import { catPhotoSource } from '@/shared/utils/catImage';
 import { getRarityLabel } from '@/shared/utils/catPresentation';
 
@@ -39,6 +40,8 @@ interface CustomerDossierCardProps {
   cat: Cat;
   encounters: CatEncounter[];
   width: number;
+  /** 비품상점에서 장착한 배경지·케이스·라벨. 비어 있으면 기본(순정) 모습이다. */
+  equipment?: UserEquipment;
 }
 
 interface CustomerDossierPeekCardProps {
@@ -65,18 +68,28 @@ function cutoutPhotoSource(cat: Cat) {
   return catPhotoSource(cat.imageUrl ?? cat.originalPhotoUrl);
 }
 
-export function CustomerDossierCard({ affinityLabel, cat, encounters, width }: CustomerDossierCardProps) {
+export function CustomerDossierCard({ affinityLabel, cat, encounters, width, equipment }: CustomerDossierCardProps) {
   const height = width * CUSTOMER_DOSSIER_ASPECT_RATIO;
   const photoSource = cutoutPhotoSource(cat);
   const customerNumber = String(cat.number).padStart(3, '0');
   const agencyBadgeWidth = width * 0.168;
   const rarityBadgeWidth = width * 0.17;
   const officialSealWidth = width * 0.19;
+  // 장착한 상품이 있으면 그 자산으로, 없으면 순정 자산 그대로.
+  const backgroundSource = equipment?.background?.assetImageUrl
+    ? { uri: equipment.background.assetImageUrl }
+    : crumpledPaper;
+  const caseSource = equipment?.case?.assetImageUrl ? { uri: equipment.case.assetImageUrl } : clearCase;
+  const badgeSource = equipment?.label?.assetImageUrl ? { uri: equipment.label.assetImageUrl } : agencyBadge;
 
   return (
     <View accessibilityLabel={`${cat.name} 고객 파일`} style={[styles.case, { width, height }]}>
       <View style={styles.card}>
-        <Image resizeMode="cover" source={crumpledPaper} style={styles.paperTexture} />
+        <Image
+          resizeMode="cover"
+          source={backgroundSource}
+          style={[styles.paperTexture, equipment?.background ? styles.paperTextureFull : null]}
+        />
 
         <View style={styles.photoFrame}>
           <Image resizeMode="cover" source={crumpledPaper} style={styles.photoPaper} />
@@ -148,10 +161,10 @@ export function CustomerDossierCard({ affinityLabel, cat, encounters, width }: C
           },
         ]}
       />
-      <Image resizeMode="contain" source={clearCase} style={styles.caseLayer} />
+      <Image resizeMode="contain" source={caseSource} style={styles.caseLayer} />
       <Image
         resizeMode="contain"
-        source={agencyBadge}
+        source={badgeSource}
         style={[
           styles.agencyBadge,
           {
@@ -259,6 +272,10 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     opacity: 0.26,
+  },
+  // 장착한 배경지는 옅은 얼룩이 아니라 그 자체가 배경이어야 하므로 그대로 보인다.
+  paperTextureFull: {
+    opacity: 1,
   },
   photoFrame: {
     height: '61.5%',

@@ -38,6 +38,12 @@ export type RootStackParamList = {
   MyPostDetail: { postId: string };
   /** 마이페이지 > 신고 목록. 내가 접수한 신고들의 내역이다. */
   MyReports: undefined;
+  /** 마이페이지 > 냥냥 비품상점. 고객 파일의 배경지·케이스·라벨을 판다. */
+  Shop: undefined;
+  /** 상점 > 전체 미리보기. 아직 안 산 상품을 고객 파일에 입혀서 보여준다. */
+  ShopPreview: { itemId: string };
+  /** 상점 > 구매 완료. */
+  ShopPurchaseComplete: { itemId: string };
 };
 
 export type MainTabParamList = {

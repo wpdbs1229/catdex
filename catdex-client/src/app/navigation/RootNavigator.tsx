@@ -32,6 +32,9 @@ import { NeighborhoodMapScreen } from '../../features/map/screens/NeighborhoodMa
 import { MyPageScreen } from '../../features/profile/screens/MyPageScreen';
 import { MyPostsScreen } from '../../features/profile/screens/MyPostsScreen';
 import { MyReportsScreen } from '../../features/profile/screens/MyReportsScreen';
+import { ShopScreen } from '../../features/shop/screens/ShopScreen';
+import { ShopPreviewScreen } from '../../features/shop/screens/ShopPreviewScreen';
+import { ShopPurchaseCompleteScreen } from '../../features/shop/screens/ShopPurchaseCompleteScreen';
 import { PlaceholderScreen } from '../screens/PlaceholderScreen';
 import { MainTabBar } from './MainTabBar';
 import type {
@@ -199,6 +202,17 @@ export function RootNavigator() {
           name="MyReports"
           component={MyReportsScreen}
           options={{ animation: 'slide_from_right' }}
+        />
+        <RootStack.Screen name="Shop" component={ShopScreen} options={{ animation: 'slide_from_right' }} />
+        <RootStack.Screen
+          name="ShopPreview"
+          component={ShopPreviewScreen}
+          options={{ animation: 'slide_from_right' }}
+        />
+        <RootStack.Screen
+          name="ShopPurchaseComplete"
+          component={ShopPurchaseCompleteScreen}
+          options={{ animation: 'slide_from_bottom', presentation: 'modal' }}
         />
       </RootStack.Navigator>
     </NavigationContainer>

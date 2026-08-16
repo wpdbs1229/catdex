@@ -9,6 +9,7 @@ import {
   Flag,
   Megaphone,
   PawPrint,
+  ShoppingBag,
 } from 'lucide-react-native';
 import type { ComponentType } from 'react';
 import { useCallback, useState } from 'react';
@@ -54,6 +55,7 @@ interface MenuRow {
 /** 시안의 두 묶음. 카드가 갈리는 자리가 곧 이 배열의 경계다. */
 const menuGroups: MenuRow[][] = [
   [
+    { label: '냥냥 비품상점', icon: ShoppingBag, action: { kind: 'screen', screen: 'Shop' } },
     { label: '내 게시글', icon: AlignLeft, action: { kind: 'screen', screen: 'MyPosts' } },
     { label: '신고 목록', icon: Flag, action: { kind: 'screen', screen: 'MyReports' } },
     { label: '알림 설정', icon: Bell, action: { kind: 'screen', screen: 'NotificationSettings' } },
