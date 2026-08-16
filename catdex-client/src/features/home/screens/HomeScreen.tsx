@@ -1,7 +1,7 @@
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { ChevronDown, MapPin } from 'lucide-react-native';
+import { ChevronDown, MapPin, ShoppingBag } from 'lucide-react-native';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -19,7 +19,7 @@ import { fetchMyProfile } from '@/shared/api/auth.api';
 import { checkInAndFetchCrewStatus, defaultCrewStatus, type CrewStatus } from '@/shared/api/crew.api';
 import { DEFAULT_PROFILE_NICKNAME } from '@/shared/constants/profile.constants';
 import { useActiveNeighborhood } from '@/shared/neighborhood/useActiveNeighborhood';
-import { nd } from '@/shared/styles/theme';
+import { createNdShadow, nd, theme } from '@/shared/styles/theme';
 import type { AuthUser } from '@/shared/types/auth';
 import { CREW_COMPANY_NAME } from '@/shared/constants/crew.constants';
 
@@ -105,6 +105,18 @@ export function HomeScreen() {
         </Pressable>
         <NotificationBell />
       </View>
+
+      {/* 화면 오른쪽 가장자리에 붙는 탭. 스크롤과 무관하게 항상 같은 자리에
+          있어야 눈에 익어 다시 찾기 쉽다 - 그래서 스크롤뷰 밖, 헤더 아래에 둔다. */}
+      <Pressable
+        accessibilityLabel="냥냥 비품상점 열기"
+        accessibilityRole="button"
+        onPress={() => navigation.navigate('Shop')}
+        style={({ pressed }) => [styles.shopTag, pressed && styles.pressed]}
+      >
+        <ShoppingBag color="#FFFFFF" size={16} strokeWidth={2} />
+        <Text style={styles.shopTagText}>{'비\n품'}</Text>
+      </Pressable>
 
       <Animated.ScrollView
         contentContainerStyle={[styles.content, { paddingBottom: tabBarInset }]}
@@ -199,6 +211,31 @@ const styles = StyleSheet.create({
   },
   pressed: {
     opacity: 0.88,
+  },
+  // 시안처럼 오른쪽 밖으로 절반쯤 나가 있다가 눌러야 온전히 보이는 탭이
+  // 아니라, 화면 안쪽에 딱 붙어 시작하는 탭이다 - 오른쪽만 각지고 왼쪽만
+  // 둥글다.
+  shopTag: {
+    position: 'absolute',
+    right: 0,
+    top: 84,
+    zIndex: 5,
+    alignItems: 'center',
+    gap: 3,
+    width: 44,
+    paddingVertical: 10,
+    borderTopLeftRadius: 14,
+    borderBottomLeftRadius: 14,
+    backgroundColor: theme.colors.primary,
+    ...createNdShadow(0.18, 10),
+  },
+  shopTagText: {
+    fontSize: 11,
+    lineHeight: 14,
+    fontWeight: '700',
+    letterSpacing: -0.2,
+    textAlign: 'center',
+    color: '#FFFFFF',
   },
   content: {
   },
