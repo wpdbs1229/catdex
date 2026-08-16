@@ -3,13 +3,13 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ArrowLeft } from 'lucide-react-native';
 import { useCallback, useState } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { RootStackParamList } from '@/app/navigation/types';
 import { useGoBackOrHome } from '@/app/navigation/useGoBackOrHome';
 import { CUSTOMER_DOSSIER_ASPECT_RATIO, CustomerDossierCard } from '@/features/cats/components/CustomerDossierCard';
 import { fetchCatEncounters, fetchMyCats } from '@/shared/api/cats.api';
-import { fetchMyEquipment, fetchMyShopPurchaseIds, fetchShopItems, purchaseShopItem } from '@/shared/api/shop.api';
+import { fetchMyEquipment, fetchMyShopPurchaseIds, fetchShopItems, purchaseShopItemViaStore } from '@/shared/api/shop.api';
 import { createNdShadow, nd, theme } from '@/shared/styles/theme';
 import type { Cat, CatEncounter } from '@/shared/types/cat';
 import type { ShopItem, UserEquipment } from '@/shared/types/shop';
@@ -93,12 +93,23 @@ export function ShopPreviewScreen() {
 
     setIsPurchasing(true);
 
-    purchaseShopItem(item.id)
+    purchaseShopItemViaStore(item)
       .then(() => {
         navigation.replace('ShopPurchaseComplete', { itemId: item.id });
       })
       .catch((error: unknown) => {
         console.warn('[shop-preview] purchase failed', error);
+
+        // 사용자가 결제창을 직접 닫은 경우 실패로 알릴 일이 아니다.
+        const wasCancelled =
+          typeof error === 'object' && error !== null && 'userCancelled' in error && (error as { userCancelled?: boolean }).userCancelled;
+
+        if (!wasCancelled) {
+          Alert.alert(
+            '구매하지 못했어요',
+            error instanceof Error ? error.message : '잠시 후 다시 시도해 주세요.',
+          );
+        }
       })
       .finally(() => setIsPurchasing(false));
   };
