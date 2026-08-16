@@ -4,6 +4,12 @@ import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'rea
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { processCatPhoto, type CatVisionResult } from '../../../shared/native/catVision';
+import {
+  TRAINING_CAT_COLORS,
+  TRAINING_CAT_NAME,
+  TRAINING_CAT_PATTERN,
+  TRAINING_REGION_NAME,
+} from '@/shared/constants/training.constants';
 import { analyzeCoat } from '../coat/coat-analysis';
 import type { CoatColorId, CoatPatternId, CoatPatternMetrics } from '@/shared/coat/coat.types';
 import { CoatSelector } from '../components/CoatSelector';
@@ -16,6 +22,7 @@ type ReviewMode = 'cutout' | 'original';
 export function CaptureReviewScreen({ navigation, route }: CaptureStackScreenProps<'CaptureReview'>) {
   const insets = useSafeAreaInsets();
   const { photoUri } = route.params;
+  const tutorial = route.params.tutorial ?? false;
 
   const [result, setResult] = useState<CatVisionResult | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
@@ -27,6 +34,19 @@ export function CaptureReviewScreen({ navigation, route }: CaptureStackScreenPro
 
   useEffect(() => {
     let isActive = true;
+
+    // 교육 모드는 일러스트라 AI 판별을 돌리지 않는다. 보리의 특징을 미리 채워
+    // "여기서 특징을 확인한다"는 것만 배우게 한다.
+    if (tutorial) {
+      setMode('original');
+      setColors(TRAINING_CAT_COLORS);
+      setPattern(TRAINING_CAT_PATTERN);
+      setAutoSuggested(true);
+
+      return () => {
+        isActive = false;
+      };
+    }
 
     processCatPhoto(photoUri)
       .then((next) => {
@@ -54,9 +74,9 @@ export function CaptureReviewScreen({ navigation, route }: CaptureStackScreenPro
     return () => {
       isActive = false;
     };
-  }, [photoUri]);
+  }, [photoUri, tutorial]);
 
-  const isProcessing = !result && !failure;
+  const isProcessing = !tutorial && !result && !failure;
   const cutoutAspectRatio =
     result?.cutoutWidth && result.cutoutHeight ? result.cutoutWidth / result.cutoutHeight : undefined;
 
@@ -72,10 +92,27 @@ export function CaptureReviewScreen({ navigation, route }: CaptureStackScreenPro
   }, [navigation]);
 
   const handleRetake = useCallback(() => {
-    navigation.navigate('Camera', { lastCutoutUri: result?.cutoutImageUri ?? undefined });
-  }, [navigation, result]);
+    navigation.navigate('Camera', {
+      lastCutoutUri: result?.cutoutImageUri ?? undefined,
+      tutorial: tutorial || undefined,
+    });
+  }, [navigation, result, tutorial]);
 
   const handleRegister = useCallback(() => {
+    // 교육 모드는 매칭(이미 등록된 고객인가요?)을 건너뛴다. 연수원에는 보리뿐이다.
+    if (tutorial) {
+      navigation.navigate('CaptureRegister', {
+        cutoutUri: photoUri,
+        imageStoragePath: '',
+        regionName: TRAINING_REGION_NAME,
+        colors,
+        pattern,
+        tutorial: true,
+      });
+
+      return;
+    }
+
     if (!result) {
       return;
     }
@@ -89,7 +126,7 @@ export function CaptureReviewScreen({ navigation, route }: CaptureStackScreenPro
       colors,
       pattern,
     });
-  }, [colors, navigation, pattern, photoUri, result]);
+  }, [colors, navigation, pattern, photoUri, result, tutorial]);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
@@ -106,7 +143,7 @@ export function CaptureReviewScreen({ navigation, route }: CaptureStackScreenPro
 
         <View style={styles.headerText}>
           <Text style={styles.headerTitle}>이 사진으로 할까요?</Text>
-          <StatusLine isProcessing={isProcessing} failure={failure} result={result} />
+          <StatusLine isProcessing={isProcessing} failure={failure} result={result} tutorial={tutorial} />
         </View>
       </View>
 
@@ -188,9 +225,21 @@ interface StatusLineProps {
   isProcessing: boolean;
   failure: string | null;
   result: CatVisionResult | null;
+  tutorial: boolean;
 }
 
-function StatusLine({ isProcessing, failure, result }: StatusLineProps) {
+function StatusLine({ isProcessing, failure, result, tutorial }: StatusLineProps) {
+  if (tutorial) {
+    return (
+      <View style={styles.statusRow}>
+        <Scissors color={captureColors.accent} size={14} />
+        <Text style={styles.headerBody}>
+          교육용 고객 {TRAINING_CAT_NAME} 고객님이에요 · 특징을 미리 채워뒀어요
+        </Text>
+      </View>
+    );
+  }
+
   if (isProcessing) {
     return <Text style={styles.headerBody}>기기 안에서 고양이를 찾고 있어요</Text>;
   }

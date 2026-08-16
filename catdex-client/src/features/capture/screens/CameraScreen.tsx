@@ -19,6 +19,9 @@ import type { CaptureStackScreenProps } from '../../../app/navigation/types';
 /** 프리뷰는 4:3으로 고정한다. 개체마다 프레이밍이 달라지면 누끼와 매칭 품질이 흔들린다. */
 const PREVIEW_ASPECT_RATIO = 3 / 4;
 
+/** 교육 모드의 피사체. 카메라 대신 연수원의 보리를 프리뷰에 띄운다. */
+const boriScene = require('../../../../assets/onboarding/bori-scene.png');
+
 export function CameraScreen({ navigation, route }: CaptureStackScreenProps<'Camera'>) {
   const insets = useSafeAreaInsets();
   const isFocused = useIsFocused();
@@ -33,13 +36,17 @@ export function CameraScreen({ navigation, route }: CaptureStackScreenProps<'Cam
 
   // 확인 화면에서 돌아올 때 넘겨받는다. 직전에 잘라낸 고양이를 좌하단에 남겨 둔다.
   const lastCutoutUri = route.params?.lastCutoutUri ?? null;
+  const tutorial = route.params?.tutorial ?? false;
   const zoom = useZoomControl(facing);
 
   useEffect(() => {
     // Android는 Play 서비스에서 누끼 모델을 내려받아야 한다. 첫 촬영에서 기다리지
     // 않도록 화면에 들어오는 시점에 미리 요청한다. 실패해도 촬영은 계속된다.
-    prepareCatVision();
-  }, []);
+    // 교육 모드는 AI 판별을 건너뛰므로 준비할 것이 없다.
+    if (!tutorial) {
+      prepareCatVision();
+    }
+  }, [tutorial]);
 
   useEffect(() => {
     // 확인 화면으로 넘어가면 프리뷰를 내린다. 돌아왔을 때 onCameraReady를 다시 기다려야
@@ -51,12 +58,19 @@ export function CameraScreen({ navigation, route }: CaptureStackScreenProps<'Cam
 
   const openReview = useCallback(
     (photoUri: string) => {
-      navigation.navigate('CaptureReview', { photoUri });
+      navigation.navigate('CaptureReview', { photoUri, tutorial: tutorial || undefined });
     },
-    [navigation],
+    [navigation, tutorial],
   );
 
   const handleCapture = useCallback(async () => {
+    if (tutorial) {
+      // 셔터 연출만 하고 번들 일러스트를 결과 사진으로 쓴다.
+      openReview(Image.resolveAssetSource(boriScene).uri);
+
+      return;
+    }
+
     if (!cameraRef.current || !isCameraReady || isCapturing) {
       return;
     }
@@ -74,7 +88,7 @@ export function CameraScreen({ navigation, route }: CaptureStackScreenProps<'Cam
     } finally {
       setIsCapturing(false);
     }
-  }, [isCameraReady, isCapturing, openReview]);
+  }, [isCameraReady, isCapturing, openReview, tutorial]);
 
   const handlePickFromLibrary = useCallback(async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -92,11 +106,12 @@ export function CameraScreen({ navigation, route }: CaptureStackScreenProps<'Cam
     .onUpdate((event) => zoom.updateGesture(event.scale))
     .onFinalize(zoom.endGesture);
 
-  if (!permission) {
+  // 교육 모드는 카메라를 켜지 않으므로 권한도 묻지 않는다.
+  if (!permission && !tutorial) {
     return <View style={styles.container} />;
   }
 
-  if (!permission.granted) {
+  if (!tutorial && !permission?.granted) {
     return (
       <View style={[styles.container, styles.permissionContainer, { paddingTop: insets.top }]}>
         <Text style={styles.permissionTitle}>카메라 권한이 필요해요</Text>
@@ -122,7 +137,9 @@ export function CameraScreen({ navigation, route }: CaptureStackScreenProps<'Cam
 
       <GestureDetector gesture={pinchGesture}>
         <View style={styles.preview}>
-          {isFocused ? (
+          {tutorial ? (
+            <Image resizeMode="cover" source={boriScene} style={StyleSheet.absoluteFill} />
+          ) : isFocused ? (
             <CameraView
               ref={cameraRef}
               style={StyleSheet.absoluteFill}
@@ -143,19 +160,25 @@ export function CameraScreen({ navigation, route }: CaptureStackScreenProps<'Cam
       </GestureDetector>
 
       <View style={styles.controls}>
-        <ZoomLevelSelector
-          stops={zoom.stops}
-          factor={zoom.factor}
-          isAdjusting={zoom.isAdjusting}
-          onSelect={zoom.setFactor}
-        />
+        {/* 교육 모드에는 줌·갤러리·전환이 의미가 없다. 셔터에만 집중시킨다. */}
+        {tutorial ? (
+          <View />
+        ) : (
+          <ZoomLevelSelector
+            stops={zoom.stops}
+            factor={zoom.factor}
+            isAdjusting={zoom.isAdjusting}
+            onSelect={zoom.setFactor}
+          />
+        )}
 
         <View style={styles.actionRow}>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="갤러리에서 사진 가져오기"
+            disabled={tutorial}
             onPress={handlePickFromLibrary}
-            style={styles.sideButton}
+            style={[styles.sideButton, tutorial && styles.sideButtonDisabled]}
           >
             {lastCutoutUri ? (
               <Image source={{ uri: lastCutoutUri }} style={styles.thumbnail} resizeMode="cover" />
@@ -164,16 +187,17 @@ export function CameraScreen({ navigation, route }: CaptureStackScreenProps<'Cam
             )}
           </Pressable>
 
-          <ShutterButton disabled={!isCameraReady} isBusy={isCapturing} onPress={handleCapture} />
+          <ShutterButton disabled={!tutorial && !isCameraReady} isBusy={isCapturing} onPress={handleCapture} />
 
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="전면 후면 카메라 전환"
+            disabled={tutorial}
             onPress={() => {
               setIsCameraReady(false);
               setFacing((current) => (current === 'back' ? 'front' : 'back'));
             }}
-            style={styles.sideButton}
+            style={[styles.sideButton, tutorial && styles.sideButtonDisabled]}
           >
             <SwitchCamera color={captureColors.text} size={22} />
           </Pressable>
@@ -213,6 +237,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: captureColors.control,
     overflow: 'hidden',
+  },
+  sideButtonDisabled: {
+    opacity: 0.35,
   },
   thumbnail: {
     width: '100%',

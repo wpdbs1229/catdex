@@ -5,6 +5,7 @@ import { toCatHabitat } from '@/shared/cats/habitat';
 import { assertSupabaseConfigured, supabase } from '@/shared/supabase/client';
 import { getActiveNeighborhood } from '@/shared/neighborhood/active-neighborhood';
 import { getCurrentPoint } from '@/shared/neighborhood/neighborhood-location';
+import { TRAINING_CAT_ID, TRAINING_REGION_NAME } from '@/shared/constants/training.constants';
 import type {
   Cat,
   CatEncounter,
@@ -539,6 +540,29 @@ export async function recordCatEncounter(catId: string, payload: Pick<CatEncount
     p_image_url: payload.imageUrl ?? null,
     p_lat: point?.lat ?? null,
     p_lng: point?.lng ?? null,
+  });
+
+  throwIfSupabaseError(error);
+
+  return mapEncounter(data as CatEncounterRow);
+}
+
+/**
+ * 온보딩에서 교육용 고객(보리)을 수집한다.
+ *
+ * recordCatEncounter와 달리 현재 위치를 보내지 않는다 - 보리의 발자국은
+ * 사용자가 서 있는 곳이 아니라 연수원에 남아야 한다.
+ */
+export async function recordTrainingCatEncounter(memo: string) {
+  assertSupabaseConfigured();
+
+  const { data, error } = await supabase.rpc('record_cat_encounter', {
+    p_cat_id: TRAINING_CAT_ID,
+    p_region_name: TRAINING_REGION_NAME,
+    p_memo: memo,
+    p_image_url: null,
+    p_lat: null,
+    p_lng: null,
   });
 
   throwIfSupabaseError(error);

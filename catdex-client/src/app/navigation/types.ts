@@ -5,9 +5,13 @@ import type { CoatColorId, CoatPatternId } from '@/shared/coat/coat.types';
 import type { CatVisionBoundingBox } from '@/shared/native/catVision';
 
 export type RootStackParamList = {
-  Main: undefined;
-  /** 촬영은 탭 위에 전체 화면으로 덮는다. 탭바가 프리뷰를 가리지 않게 하기 위함이다. */
-  CaptureFlow: undefined;
+  /** 온보딩 완료 화면처럼 탭 속 화면을 콕 집어 열 때 중첩 파라미터를 쓴다. */
+  Main: NavigatorScreenParams<MainTabParamList> | undefined;
+  /**
+   * 촬영은 탭 위에 전체 화면으로 덮는다. 탭바가 프리뷰를 가리지 않게 하기 위함이다.
+   * 온보딩은 { screen: 'Camera', params: { tutorial: true } }로 교육 모드를 켠다.
+   */
+  CaptureFlow: NavigatorScreenParams<CaptureStackParamList> | undefined;
   /**
    * 도감 기록 상세도 탭바 없이 전체 화면으로 덮는다. (피그마 4_도감_기록o)
    *
@@ -47,7 +51,7 @@ export type RootStackParamList = {
 };
 
 export type MainTabParamList = {
-  HomeTab: undefined;
+  HomeTab: NavigatorScreenParams<HomeStackParamList> | undefined;
   MapTab: undefined;
   CaptureTab: undefined;
   /** 고객 탭은 스택이다. 홈에서 고객지원실을 바로 열 수 있어야 해서 중첩을 밝힌다. */
@@ -85,11 +89,18 @@ export type HomeStackParamList = {
   Attendance: undefined;
   /** 출근 현황의 '전체 기록 보기' */
   AttendanceMonth: undefined;
+  /** 신입 사원 첫 업무(보리 등록)를 마치고 사원증이 활성화되는 화면 */
+  OnboardingComplete: undefined;
 };
 
+/**
+ * tutorial은 온보딩의 교육 모드다. 카메라 대신 번들된 보리 일러스트를 찍고,
+ * AI 판별 없이 프리셋 특징으로 등록까지 이어진다. 서버에는 시드된 교육용
+ * 개체의 만남 기록만 남는다.
+ */
 export type CaptureStackParamList = {
-  Camera: { lastCutoutUri?: string } | undefined;
-  CaptureReview: { photoUri: string };
+  Camera: { lastCutoutUri?: string; tutorial?: boolean } | undefined;
+  CaptureReview: { photoUri: string; tutorial?: boolean };
   /** AI 판별 결과 + 첫 발견자 안내 (피그마 5_촬영) */
   CaptureMatch: {
     photoUri: string;
@@ -111,6 +122,7 @@ export type CaptureStackParamList = {
     regionName: string;
     colors: CoatColorId[];
     pattern: CoatPatternId | null;
+    tutorial?: boolean;
   };
 };
 
