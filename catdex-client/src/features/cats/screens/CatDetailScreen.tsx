@@ -32,6 +32,7 @@ import {
   CustomerDossierCard,
   CustomerDossierPeekCard,
 } from '@/features/cats/components/CustomerDossierCard';
+import { getCurrentUserId } from '@/shared/api/auth.api';
 import {
   fetchCatEncounters,
   fetchCats,
@@ -98,6 +99,8 @@ export function CatDetailScreen({ navigation, route }: RootStackScreenProps<'Cat
   const [draftMemo, setDraftMemo] = useState('');
   const [isSavingMemo, setIsSavingMemo] = useState(false);
   const [homeRegionNames, setHomeRegionNames] = useState<Set<string>>(new Set());
+  // 기록 목록이 동네 사람들과 공유라, 내 것만 길게 눌러 지울 수 있어야 한다.
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [equipment, setEquipment] = useState<UserEquipment>({});
 
   const cat = useMemo(
@@ -152,6 +155,10 @@ export function CatDetailScreen({ navigation, route }: RootStackScreenProps<'Cat
         .catch((error: unknown) => {
           console.warn('[cat-detail] equipment load failed', error);
         });
+
+      getCurrentUserId()
+        .then(setCurrentUserId)
+        .catch(() => setCurrentUserId(null));
     }, [loadRoster]),
   );
 
@@ -488,13 +495,18 @@ export function CatDetailScreen({ navigation, route }: RootStackScreenProps<'Cat
                 </View>
               ) : (
                 <View style={styles.recordsCard}>
-                  {visibleEncounters.map((encounter, index) => (
+                  {visibleEncounters.map((encounter, index) => {
+                    // 기록은 동네 사람들과 공유라, 남의 기록까지 길게 눌러 지울 수
+                    // 있으면 안 된다.
+                    const isOwnEncounter = Boolean(currentUserId) && encounter.userId === currentUserId;
+
+                    return (
                     <View key={encounter.id}>
                       {index > 0 ? <View style={styles.recordDivider} /> : null}
                       <Pressable
-                        accessibilityHint="길게 누르면 이 기록을 삭제할 수 있어요"
+                        accessibilityHint={isOwnEncounter ? '길게 누르면 이 기록을 삭제할 수 있어요' : undefined}
                         delayLongPress={450}
-                        onLongPress={() => handleRemoveEncounter(encounter)}
+                        onLongPress={isOwnEncounter ? () => handleRemoveEncounter(encounter) : undefined}
                         style={({ pressed }) => [styles.recordRow, pressed && styles.recordPressed]}
                       >
                         <View style={styles.recordIcon}>
@@ -502,18 +514,24 @@ export function CatDetailScreen({ navigation, route }: RootStackScreenProps<'Cat
                         </View>
                         <View style={styles.recordContent}>
                           <Text numberOfLines={1} style={styles.recordText}>{encounter.memo}</Text>
-                          {isAwayEncounter(encounter) ? (
-                            <View style={styles.awayChip}>
-                              <Plane color={nd.colors.accent} size={9} strokeWidth={2.2} />
-                              <Text numberOfLines={1} style={styles.awayChipText}>출장 · {encounter.regionName}</Text>
-                            </View>
-                          ) : null}
+                          <View style={styles.recordMetaRow}>
+                            {!isOwnEncounter && encounter.authorNickname ? (
+                              <Text numberOfLines={1} style={styles.recordAuthor}>{encounter.authorNickname}님이 남김</Text>
+                            ) : null}
+                            {isAwayEncounter(encounter) ? (
+                              <View style={styles.awayChip}>
+                                <Plane color={nd.colors.accent} size={9} strokeWidth={2.2} />
+                                <Text numberOfLines={1} style={styles.awayChipText}>출장 · {encounter.regionName}</Text>
+                              </View>
+                            ) : null}
+                          </View>
                         </View>
                         <Text style={styles.recordDate}>{formatShortDate(encounter.seenAt)}</Text>
                         <ChevronRight color={nd.colors.subtle} size={18} strokeWidth={1.8} />
                       </Pressable>
                     </View>
-                  ))}
+                    );
+                  })}
                 </View>
               )}
 
@@ -739,6 +757,17 @@ const styles = StyleSheet.create({
     marginLeft: 52,
     marginRight: 12,
     backgroundColor: nd.colors.border,
+  },
+  recordMetaRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 6,
+  },
+  recordAuthor: {
+    fontSize: 11,
+    letterSpacing: -0.22,
+    color: nd.colors.subtle,
   },
   awayChip: {
     alignSelf: 'flex-start',

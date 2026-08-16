@@ -1,3 +1,4 @@
+import { getCurrentUserId } from '@/shared/api/auth.api';
 import { throwIfSupabaseError } from '@/shared/api/client';
 import type { CoatColorId, CoatPatternId } from '@/shared/coat/coat.types';
 import { toCatHabitat } from '@/shared/cats/habitat';
@@ -120,6 +121,23 @@ async function mapCat(row: CatRow): Promise<Cat> {
     imageUrl: await getDisplayImageUrl(row.image_url),
     originalPhotoUrl: await getDisplayImageUrl(row.original_photo_url),
   };
+}
+
+interface AuthorProfileRow {
+  id: string;
+  nickname: string | null;
+}
+
+/** 사용자 id 목록의 닉네임. 커뮤니티 화면이 쓰는 것과 같은 RPC라 이름만 그렇다 -
+    실제로는 "로그인한 사람이 다른 사용자의 닉네임을 볼 수 있냐"는 일반 질문이다. */
+async function fetchCommunityAuthorProfiles(userIds: string[]) {
+  const { data, error } = await supabase.rpc('get_community_author_profiles', { p_user_ids: userIds });
+
+  throwIfSupabaseError(error);
+
+  return new Map(
+    ((data ?? []) as AuthorProfileRow[]).map((row) => [row.id, row.nickname?.trim() || '동네 냥냥단']),
+  );
 }
 
 async function mapEncounter(row: CatEncounterRow): Promise<CatEncounter> {
@@ -261,7 +279,30 @@ export async function fetchCatEncounters(catId: string) {
 
   throwIfSupabaseError(error);
 
-  return Promise.all(((data ?? []) as CatEncounterRow[]).map(mapEncounter));
+  const encounters = await Promise.all(((data ?? []) as CatEncounterRow[]).map(mapEncounter));
+
+  // 만남 기록은 남긴 사람과 무관하게 전부 공개다(동네 사람들이 같이 채워가는
+  // 로그). 누구 기록인지 못 가르면 다 내 것처럼 보여서, 내가 아닌 사람의
+  // 기록에만 이름표를 붙인다.
+  const currentUserId = await getCurrentUserId();
+  const otherAuthorIds = [
+    ...new Set(
+      encounters
+        .map((encounter) => encounter.userId)
+        .filter((userId): userId is string => Boolean(userId) && userId !== currentUserId),
+    ),
+  ];
+
+  if (otherAuthorIds.length === 0) {
+    return encounters;
+  }
+
+  const authorsById = await fetchCommunityAuthorProfiles(otherAuthorIds).catch(() => new Map<string, string>());
+
+  return encounters.map((encounter) => ({
+    ...encounter,
+    authorNickname: encounter.userId ? authorsById.get(encounter.userId) : undefined,
+  }));
 }
 
 export async function createCat(draft: CaptureCatDraft) {
