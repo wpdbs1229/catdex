@@ -130,7 +130,7 @@ function CatMark({ width }: { width: number }) {
 }
 
 /** "부천시" -> "부천지부". 동네를 아직 못 찾았으면 본사 소속으로 둔다. */
-function formatBranch(city?: string) {
+export function formatBranch(city?: string) {
   const trimmed = city?.trim();
 
   if (!trimmed) {

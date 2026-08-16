@@ -7,7 +7,7 @@ import { ActivityIndicator, Animated, Pressable, ScrollView, StyleSheet, Text, V
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { HomeStackParamList, MainTabParamList, RootStackParamList } from '@/app/navigation/types';
 import { useTabBarInset } from '@/app/navigation/useTabBarInset';
-import { CrewIdCard, MAX_PULL, PULL_TRAVEL } from '@/features/home/components/CrewIdCard';
+import { CrewIdCard, formatBranch, MAX_PULL, PULL_TRAVEL } from '@/features/home/components/CrewIdCard';
 import { CrewProgressCard } from '@/features/home/components/CrewProgressCard';
 import { RankGuideModal } from '@/features/home/components/RankGuideModal';
 import { RookieMissionCard } from '@/features/home/components/RookieMissionCard';
@@ -88,7 +88,10 @@ export function HomeScreen() {
   }, [navigation]);
 
   // 아직 고객이 한 마리도 없는 신입. 인사고과 대신 첫 업무(보리 등록)를 보여 준다.
+  // '다음에 할게요'를 누르면 이 세션 동안은 접어 두고 인사고과를 돌려준다.
+  const [isMissionSnoozed, setIsMissionSnoozed] = useState(false);
   const isRookie = isCrewStatusLoaded && crewStatus.collected === 0;
+  const showMission = isRookie && !isMissionSnoozed;
 
   const startFirstMission = useCallback(() => {
     navigation.navigate('CaptureFlow', { screen: 'Camera', params: { tutorial: true } });
@@ -156,10 +159,15 @@ export function HomeScreen() {
           </View>
         </View>
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{isRookie ? '신입 사원 첫 업무' : '인사고과'}</Text>
+          <Text style={styles.sectionTitle}>{showMission ? '신입 사원 첫 업무' : '인사고과'}</Text>
           <View style={styles.sectionBody}>
-            {isRookie ? (
-              <RookieMissionCard onStart={startFirstMission} />
+            {showMission ? (
+              <RookieMissionCard
+                branch={formatBranch(neighborhood?.city)}
+                nickname={profile?.nickname ?? DEFAULT_PROFILE_NICKNAME}
+                onLater={() => setIsMissionSnoozed(true)}
+                onStart={startFirstMission}
+              />
             ) : (
               <CrewProgressCard
                 onPressAttendance={() => navigation.navigate('Attendance')}
