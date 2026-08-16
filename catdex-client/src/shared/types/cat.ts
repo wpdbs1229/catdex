@@ -56,6 +56,8 @@ export interface CatEncounter {
   id: string;
   catId: string;
   userId?: string;
+  /** 만남을 남긴 사람. 내 기록이면 화면에서 굳이 이름을 안 붙이므로 없어도 된다. */
+  authorNickname?: string;
   seenAt: string;
   regionName: string;
   memo: string;
