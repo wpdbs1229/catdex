@@ -47,8 +47,10 @@ import {
   isEncounterLocationTrusted,
   UNSET_REGION_NAME,
 } from '@/shared/neighborhood/active-neighborhood';
+import { fetchMyEquipment } from '@/shared/api/shop.api';
 import { createNdShadow, nd, theme } from '@/shared/styles/theme';
 import type { Cat, CatEncounter } from '@/shared/types/cat';
+import type { UserEquipment } from '@/shared/types/shop';
 import { getAffinity, sortEncountersByDateAsc } from '@/shared/utils/catPresentation';
 
 function formatShortDate(value: string) {
@@ -96,6 +98,7 @@ export function CatDetailScreen({ navigation, route }: RootStackScreenProps<'Cat
   const [draftMemo, setDraftMemo] = useState('');
   const [isSavingMemo, setIsSavingMemo] = useState(false);
   const [homeRegionNames, setHomeRegionNames] = useState<Set<string>>(new Set());
+  const [equipment, setEquipment] = useState<UserEquipment>({});
 
   const cat = useMemo(
     () =>
@@ -142,6 +145,13 @@ export function CatDetailScreen({ navigation, route }: RootStackScreenProps<'Cat
       loadRoster().catch((error: unknown) => {
         console.warn('[cat-detail] roster load failed', error);
       });
+
+      // 상점에서 장착하고 돌아왔을 수 있으니 화면에 들어올 때마다 새로 읽는다.
+      fetchMyEquipment()
+        .then(setEquipment)
+        .catch((error: unknown) => {
+          console.warn('[cat-detail] equipment load failed', error);
+        });
     }, [loadRoster]),
   );
 
@@ -438,6 +448,7 @@ export function CatDetailScreen({ navigation, route }: RootStackScreenProps<'Cat
                   affinityLabel={affinityLabel}
                   cat={cat}
                   encounters={encounters}
+                  equipment={equipment}
                   width={dossierWidth}
                 />
               </View>
@@ -655,10 +666,13 @@ const styles = StyleSheet.create({
     marginBottom: 13,
   },
   recordsTitle: {
-    fontSize: 19,
-    lineHeight: 26,
-    fontWeight: '800',
-    letterSpacing: -0.55,
+    fontSize: 18,
+    lineHeight: 34,
+    // 시뮬레이터에서 "기록"·"의" 같은 받침·겹모음 글자가 겹쳐 잘려 보이는
+    // 문제가 있었다. letterSpacing 제거, fontWeight 800→700, fontSize·
+    // lineHeight 조정을 다 시도했지만 재현이 그대로였다 - 시뮬레이터
+    // 폰트 렌더링 자체의 문제일 수 있다. 실기기에서 다시 확인이 필요하다.
+    fontWeight: '700',
     color: nd.colors.ink,
   },
   recordsCard: {
