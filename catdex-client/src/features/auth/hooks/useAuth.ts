@@ -3,6 +3,7 @@ import * as SecureStore from 'expo-secure-store';
 import { createAuthSessionFromSupabaseSession, signInWithGoogle, signInWithKakao, signOut, updateMyProfile, withdrawMyAccount } from '@/shared/api/auth.api';
 import { setApiAccessToken } from '@/shared/api/client';
 import { getUserFacingErrorMessage } from '@/shared/errors/user-facing-error';
+import { configureRevenueCat, loginRevenueCatUser, logoutRevenueCatUser } from '@/shared/purchases/revenuecat';
 import { supabase } from '@/shared/supabase/client';
 import type { AuthProvider, AuthSession, AuthUser, ProfileUpdateDraft } from '@/shared/types/auth';
 
@@ -143,6 +144,9 @@ export function useAuth() {
     let isMounted = true;
 
     async function hydrateAuthState() {
+      // 다른 무엇보다 먼저 - 로그인/구매 호출이 이보다 먼저 일어나면 조용히 무시된다.
+      configureRevenueCat();
+
       try {
         const restoredSession = await restoreSession();
         const activeSession = await restoreSupabaseSession(restoredSession);
@@ -150,6 +154,12 @@ export function useAuth() {
         if (isMounted) {
           setApiAccessToken(activeSession?.accessToken ?? null);
           setCurrentUser(activeSession?.user ?? null);
+        }
+
+        if (activeSession?.user) {
+          loginRevenueCatUser(activeSession.user.id).catch((error: unknown) => {
+            console.warn('[auth] revenuecat login failed', error);
+          });
         }
       } catch (error) {
         // 일시적인 오류(네트워크 등)로 복원이 실패해도 저장된 세션은 지우지
@@ -215,6 +225,11 @@ export function useAuth() {
       setApiAccessToken(nextSession.accessToken);
       await persistSession(nextSession);
       setCurrentUser(nextSession.user);
+
+      loginRevenueCatUser(nextSession.user.id).catch((error: unknown) => {
+        console.warn('[auth] revenuecat login failed', error);
+      });
+
       return nextSession.user;
     } catch (error) {
       console.warn('[auth] login failed', error);
@@ -251,6 +266,10 @@ export function useAuth() {
       setApiAccessToken(null);
       await SecureStore.deleteItemAsync(authStorageKey).catch(() => undefined);
       setCurrentUser(null);
+
+      logoutRevenueCatUser().catch((error: unknown) => {
+        console.warn('[auth] revenuecat logout failed', error);
+      });
     } finally {
       setIsSigningOut(false);
     }
@@ -265,6 +284,10 @@ export function useAuth() {
       await SecureStore.deleteItemAsync(authStorageKey);
       await supabase.auth.signOut({ scope: 'local' }).catch(() => undefined);
       setCurrentUser(null);
+
+      logoutRevenueCatUser().catch((error: unknown) => {
+        console.warn('[auth] revenuecat logout failed', error);
+      });
     } finally {
       setIsWithdrawing(false);
     }

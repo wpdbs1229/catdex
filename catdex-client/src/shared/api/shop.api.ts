@@ -1,7 +1,11 @@
 import { getCurrentUserId } from '@/shared/api/auth.api';
 import { throwIfSupabaseError } from '@/shared/api/client';
+import { fetchOfferings, purchasePackage } from '@/shared/purchases/revenuecat';
 import { assertSupabaseConfigured, supabase } from '@/shared/supabase/client';
 import type { ShopItem, ShopItemCategory, UserEquipment } from '@/shared/types/shop';
+
+const SHOP_ITEM_COLUMNS =
+  'id, category, name, price_krw, description, swatch_image_url, asset_image_url, store_product_id';
 
 interface ShopItemRow {
   id: string;
@@ -11,6 +15,7 @@ interface ShopItemRow {
   description: string | null;
   swatch_image_url: string | null;
   asset_image_url: string | null;
+  store_product_id: string | null;
 }
 
 interface UserEquipmentRow {
@@ -28,6 +33,7 @@ function mapShopItem(row: ShopItemRow): ShopItem {
     description: row.description ?? undefined,
     swatchImageUrl: row.swatch_image_url ?? undefined,
     assetImageUrl: row.asset_image_url ?? undefined,
+    storeProductId: row.store_product_id ?? undefined,
   };
 }
 
@@ -37,7 +43,7 @@ export async function fetchShopItems(): Promise<ShopItem[]> {
 
   const { data, error } = await supabase
     .from('shop_items')
-    .select('id, category, name, price_krw, description, swatch_image_url, asset_image_url')
+    .select(SHOP_ITEM_COLUMNS)
     .order('category', { ascending: true })
     .order('sort_order', { ascending: true });
 
@@ -96,7 +102,7 @@ export async function fetchMyEquipment(): Promise<UserEquipment> {
 
   const { data: itemRows, error: itemsError } = await supabase
     .from('shop_items')
-    .select('id, category, name, price_krw, description, swatch_image_url, asset_image_url')
+    .select(SHOP_ITEM_COLUMNS)
     .in('id', itemIds);
 
   throwIfSupabaseError(itemsError);
@@ -117,6 +123,31 @@ export async function purchaseShopItem(itemId: string) {
   const { error } = await supabase.rpc('purchase_shop_item', { p_item_id: itemId });
 
   throwIfSupabaseError(error);
+}
+
+/**
+ * 상품을 산다. store_product_id가 있으면 RevenueCat으로 실제 결제를 띄우고,
+ * 성공한 뒤에만 소유 처리한다. 아직 없으면(운영 콘솔에 실물이 안 올라온
+ * 동안) 예전처럼 결제 없이 바로 소유 처리한다 - 상점 화면이 실물 상품이
+ * 하나도 없어도 그대로 켜져 있어야 한다.
+ */
+export async function purchaseShopItemViaStore(item: ShopItem) {
+  if (!item.storeProductId) {
+    return purchaseShopItem(item.id);
+  }
+
+  const offering = await fetchOfferings();
+  const targetPackage = offering?.availablePackages.find(
+    (candidate) => candidate.product.identifier === item.storeProductId,
+  );
+
+  if (!targetPackage) {
+    throw new Error('지금은 이 상품을 구매할 수 없어요. 잠시 후 다시 시도해 주세요.');
+  }
+
+  await purchasePackage(targetPackage);
+  // 결제가 실제로 끝난 뒤에만 우리 쪽 소유로 남긴다.
+  await purchaseShopItem(item.id);
 }
 
 /** 보유한 상품을 장착한다. 같은 카테고리의 기존 장착은 자동으로 풀린다. */

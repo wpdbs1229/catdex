@@ -10,6 +10,8 @@ export interface ShopItem {
   swatchImageUrl?: string;
   /** 실제로 고객 파일에 입힐 때 쓰는 자산. */
   assetImageUrl?: string;
+  /** RevenueCat 상품 식별자. 없으면 아직 실결제 전이라 자리표시자 구매로 처리한다. */
+  storeProductId?: string;
 }
 
 /** 카테고리별로 지금 장착된 상품. 비어 있으면 기본(순정) 모습이다. */

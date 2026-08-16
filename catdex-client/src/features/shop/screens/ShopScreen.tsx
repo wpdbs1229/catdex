@@ -1,13 +1,14 @@
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { ArrowLeft, Check, Package, ShoppingBag } from 'lucide-react-native';
+import { ArrowLeft, Check, Package, RotateCcw, ShoppingBag } from 'lucide-react-native';
 import { useCallback, useMemo, useState } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
-import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { RootStackParamList } from '@/app/navigation/types';
 import { useGoBackOrHome } from '@/app/navigation/useGoBackOrHome';
 import { fetchMyEquipment, fetchMyShopPurchaseIds, fetchShopItems } from '@/shared/api/shop.api';
+import { restorePurchases } from '@/shared/purchases/revenuecat';
 import { createNdShadow, nd, theme } from '@/shared/styles/theme';
 import type { ShopItem, ShopItemCategory } from '@/shared/types/shop';
 
@@ -36,6 +37,7 @@ export function ShopScreen() {
   // 시안의 "보유 비품" - 별도 화면 대신 같은 목록을 보유한 것만 걸러 보여준다.
   const [showOwnedOnly, setShowOwnedOnly] = useState(false);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
+  const [isRestoring, setIsRestoring] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -83,6 +85,28 @@ export function ShopScreen() {
 
   const selectedItem = items.find((item) => item.id === selectedItemId) ?? null;
 
+  // 기기를 바꾸거나 다시 설치했을 때 이미 산 상품을 되찾는다. 스토어 심사
+  // 정책상 반드시 눈에 띄는 자리에 있어야 한다.
+  const handleRestore = () => {
+    if (isRestoring) {
+      return;
+    }
+
+    setIsRestoring(true);
+
+    restorePurchases()
+      .then(() => fetchMyShopPurchaseIds())
+      .then((nextOwnedIds) => {
+        setOwnedIds(nextOwnedIds);
+        Alert.alert('복원했어요', '이미 산 상품을 다시 불러왔어요.');
+      })
+      .catch((error: unknown) => {
+        console.warn('[shop] restore failed', error);
+        Alert.alert('복원하지 못했어요', '잠시 후 다시 시도해 주세요.');
+      })
+      .finally(() => setIsRestoring(false));
+  };
+
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.screen}>
       <View style={styles.header}>
@@ -124,6 +148,21 @@ export function ShopScreen() {
           );
         })}
       </View>
+
+      <Pressable
+        accessibilityLabel="구매 복원"
+        accessibilityRole="button"
+        disabled={isRestoring}
+        onPress={handleRestore}
+        style={({ pressed }) => [styles.restoreRow, pressed && styles.pressed]}
+      >
+        {isRestoring ? (
+          <ActivityIndicator color={nd.colors.sub} size="small" />
+        ) : (
+          <RotateCcw color={nd.colors.sub} size={13} strokeWidth={2} />
+        )}
+        <Text style={styles.restoreText}>구매 복원</Text>
+      </Pressable>
 
       {!hasLoaded ? (
         <View style={styles.centered}>
@@ -258,6 +297,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 8,
     paddingBottom: 4,
+  },
+  restoreRow: {
+    flexDirection: 'row',
+    alignSelf: 'flex-end',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 16,
+    paddingTop: 6,
+    paddingBottom: 2,
+  },
+  restoreText: {
+    fontSize: 12,
+    letterSpacing: -0.28,
+    color: nd.colors.sub,
   },
   tab: {
     paddingHorizontal: 14,
