@@ -20,7 +20,12 @@ export type RootStackParamList = {
    * 나오면 방금 본 화면과 어긋난다. 지도·알림처럼 목록이 없는 곳에서 들어오면
    * 비워두고, 상세가 같은 거처 전체로 알아서 채운다.
    */
-  CatDetail: { catId: string; siblingIds?: string[] };
+  CatDetail: {
+    catId: string;
+    siblingIds?: string[];
+    /** 지부 도감에서 연 상세에만 이름 투표를 노출한다. */
+    entryPoint?: 'neighborhoodDex';
+  };
   /** 헤더 벨에서 여는 알림함. 시안에 없어 새로 그린 화면이다. */
   NotificationInbox: undefined;
   /** 마이페이지 > 공지사항 */
