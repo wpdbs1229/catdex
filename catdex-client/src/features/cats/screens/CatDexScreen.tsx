@@ -1,7 +1,7 @@
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MapPin, PawPrint, Search, SlidersHorizontal, X } from 'lucide-react-native';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -21,7 +21,7 @@ import {
   type DexFilter,
 } from '@/features/cats/dex-filter';
 import { fetchMyCats } from '@/shared/api/cats.api';
-import { CAT_HABITAT_LABELS, DEFAULT_CAT_HABITAT, type CatHabitat } from '@/shared/cats/habitat';
+import { CAT_HABITAT_LABELS, CAT_HABITATS, DEFAULT_CAT_HABITAT, type CatHabitat } from '@/shared/cats/habitat';
 import { CREW_COMPANY_NAME } from '@/shared/constants/crew.constants';
 import { loadFavoriteCatIds, saveFavoriteCatIds } from '@/shared/favorites/favorites-storage';
 import { nd, theme } from '@/shared/styles/theme';
@@ -75,6 +75,7 @@ export function CatDexScreen() {
   const [filter, setFilter] = useState<DexFilter>(emptyDexFilter);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [habitat, setHabitat] = useState<CatHabitat>(DEFAULT_CAT_HABITAT);
+  const hasPickedInitialHabitat = useRef(false);
   const [pageIndex, setPageIndex] = useState(0);
   const tabBarInset = useTabBarInset();
   const tabBarBottomGap = useTabBarBottomGap();
@@ -88,6 +89,24 @@ export function CatDexScreen() {
           if (isActive) {
             setCats(nextCats);
             setLikedCatIds(nextFavorites);
+
+            // 첫 진입의 기본 탭(길냥이)이 비어 있으면 고객이 있는 탭을 연다.
+            // 온보딩 직후엔 보리(집냥이)뿐이라 명부가 빈 것처럼 보였다.
+            // 딱 한 번만 - 그 뒤로는 사용자의 탭 선택을 건드리지 않는다.
+            if (!hasPickedInitialHabitat.current) {
+              hasPickedInitialHabitat.current = true;
+              setHabitat((current) => {
+                if (nextCats.some((cat) => cat.habitat === current)) {
+                  return current;
+                }
+
+                return (
+                  CAT_HABITATS.find((candidate) => nextCats.some((cat) => cat.habitat === candidate)) ??
+                  current
+                );
+              });
+            }
+
             setHasLoaded(true);
           }
         })
