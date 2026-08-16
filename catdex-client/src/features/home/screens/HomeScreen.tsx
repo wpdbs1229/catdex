@@ -114,7 +114,7 @@ export function HomeScreen() {
         onPress={() => navigation.navigate('Shop')}
         style={({ pressed }) => [styles.shopTag, pressed && styles.pressed]}
       >
-        <ShoppingBag color="#FFFFFF" size={16} strokeWidth={2} />
+        <ShoppingBag color="#FFFFFF" size={14} strokeWidth={2} />
         <Text style={styles.shopTagText}>{'비\n품'}</Text>
       </Pressable>
 
@@ -224,11 +224,11 @@ const styles = StyleSheet.create({
     top: 112,
     zIndex: 5,
     alignItems: 'center',
-    gap: 3,
-    width: 44,
-    paddingVertical: 10,
-    borderTopLeftRadius: 14,
-    borderBottomLeftRadius: 14,
+    gap: 2,
+    width: 34,
+    paddingVertical: 8,
+    borderTopLeftRadius: 12,
+    borderBottomLeftRadius: 12,
     backgroundColor: theme.colors.primary,
     ...createNdShadow(0.18, 10),
   },
