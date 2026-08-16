@@ -6,6 +6,7 @@ import {
   Heart,
   PawPrint,
   Plane,
+  Vote,
 } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -27,6 +28,7 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { RootStackScreenProps } from '@/app/navigation/types';
+import { CatNameVoteSheet } from '@/features/cats/components/CatNameVoteSheet';
 import {
   CUSTOMER_DOSSIER_ASPECT_RATIO,
   CustomerDossierCard,
@@ -89,7 +91,8 @@ function getAffinityLabel(affinity: number) {
 export function CatDetailScreen({ navigation, route }: RootStackScreenProps<'CatDetail'>) {
   const insets = useSafeAreaInsets();
   const { width: windowWidth } = useWindowDimensions();
-  const { catId: initialCatId, siblingIds } = route.params;
+  const { catId: initialCatId, entryPoint, siblingIds } = route.params;
+  const isNeighborhoodDexDetail = entryPoint === 'neighborhoodDex';
   // 옆으로 넘겨도 화면은 그대로 두고 보고 있는 개체만 바꾼다.
   const [catId, setCatId] = useState(initialCatId);
   const [roster, setRoster] = useState<{ all: Cat[]; mine: Cat[] }>({ all: [], mine: [] });
@@ -101,6 +104,7 @@ export function CatDetailScreen({ navigation, route }: RootStackScreenProps<'Cat
   const [homeRegionNames, setHomeRegionNames] = useState<Set<string>>(new Set());
   // 기록 목록이 동네 사람들과 공유라, 내 것만 길게 눌러 지울 수 있어야 한다.
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [isNameVoteOpen, setIsNameVoteOpen] = useState(false);
   const [equipment, setEquipment] = useState<UserEquipment>({});
 
   const cat = useMemo(
@@ -484,8 +488,21 @@ export function CatDetailScreen({ navigation, route }: RootStackScreenProps<'Cat
 
             <View style={styles.recordsSection}>
               <View style={styles.recordsTitleRow}>
-                <Text style={styles.recordsTitle}>{cat.name}의 기록을 펼쳐볼냥?</Text>
-                <PawPrint color={theme.colors.primary} size={17} strokeWidth={2} />
+                <Text numberOfLines={1} style={styles.recordsTitle}>{cat.name}의 기록을 펼쳐볼냥?</Text>
+                {isNeighborhoodDexDetail ? (
+                  <Pressable
+                    accessibilityLabel="이름 투표 열기"
+                    accessibilityRole="button"
+                    hitSlop={6}
+                    onPress={() => setIsNameVoteOpen(true)}
+                    style={({ pressed }) => [styles.nameVoteButton, pressed && styles.pressed]}
+                  >
+                    <Vote color={theme.colors.primary} size={13} strokeWidth={2.2} />
+                    <Text style={styles.nameVoteButtonText}>이름 투표</Text>
+                  </Pressable>
+                ) : (
+                  <PawPrint color={theme.colors.primary} size={17} strokeWidth={2} />
+                )}
               </View>
 
               {visibleEncounters.length === 0 ? (
@@ -580,6 +597,22 @@ export function CatDetailScreen({ navigation, route }: RootStackScreenProps<'Cat
           </Pressable>
         </View>
       </View>
+
+      {cat && isNeighborhoodDexDetail ? (
+        <CatNameVoteSheet
+          canParticipate={isMyCat}
+          catId={cat.id}
+          catName={cat.name}
+          onChanged={() => {
+            // 표가 3표 이상 앞섰으면 서버가 이미 이름을 바꿨을 수 있다.
+            reload().catch((error: unknown) => {
+              console.warn('[cat-detail] reload after vote failed', error);
+            });
+          }}
+          onClose={() => setIsNameVoteOpen(false)}
+          visible={isNameVoteOpen}
+        />
+      ) : null}
     </KeyboardAvoidingView>
   );
 }
@@ -680,10 +713,27 @@ const styles = StyleSheet.create({
   recordsTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     gap: 7,
     marginBottom: 13,
   },
+  nameVoteButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderRadius: nd.radius.pill,
+    backgroundColor: theme.colors.primarySoft,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  nameVoteButtonText: {
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: -0.28,
+    color: theme.colors.primary,
+  },
   recordsTitle: {
+    flexShrink: 1,
     fontSize: 18,
     lineHeight: 34,
     // 시뮬레이터에서 "기록"·"의" 같은 받침·겹모음 글자가 겹쳐 잘려 보이는

@@ -329,6 +329,7 @@ export function NeighborhoodDexScreen() {
                 onPress={() =>
                   navigation.navigate('CatDetail', {
                     catId: cat.id,
+                    entryPoint: 'neighborhoodDex',
                     // 지금 화면에 늘어놓은 순서 그대로 넘겨준다. 상세에서 옆으로
                     // 넘길 때 탭·검색·필터가 그대로 이어진다.
                     siblingIds: visibleCats.map((visible) => visible.id),

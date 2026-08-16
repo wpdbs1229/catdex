@@ -11,6 +11,7 @@ import type {
   CatEncounter,
   CatMatchCandidate,
   CatMatchMethod,
+  CatNameProposal,
   CatObservation,
   CatRarity,
   CatProfileUpdateDraft,
@@ -568,5 +569,70 @@ export async function recordTrainingCatEncounter(memo: string) {
   throwIfSupabaseError(error);
 
   return mapEncounter(data as CatEncounterRow);
+}
+
+interface CatNameProposalRow {
+  id: string;
+  name: string;
+}
+
+interface CatNameVoteRow {
+  proposal_id: string;
+  user_id: string;
+}
+
+/**
+ * 이름 후보와 득표 현황. 그 고객을 만난 적 없는 사람도 목록은 볼 수 있으니
+ * currentUserId가 없어도 빈 목록 대신 득표수는 보여준다.
+ */
+export async function fetchCatNameProposals(catId: string): Promise<CatNameProposal[]> {
+  assertSupabaseConfigured();
+
+  const [catResponse, proposalsResponse, votesResponse, currentUserId] = await Promise.all([
+    supabase.from('cats').select('active_name_proposal_id').eq('id', catId).maybeSingle(),
+    supabase.from('cat_name_proposals').select('id, name').eq('cat_id', catId),
+    supabase.from('cat_name_votes').select('proposal_id, user_id').eq('cat_id', catId),
+    getCurrentUserId(),
+  ]);
+
+  throwIfSupabaseError(catResponse.error);
+  throwIfSupabaseError(proposalsResponse.error);
+  throwIfSupabaseError(votesResponse.error);
+
+  const activeProposalId = (catResponse.data as { active_name_proposal_id: string | null } | null)
+    ?.active_name_proposal_id;
+  const votes = (votesResponse.data ?? []) as CatNameVoteRow[];
+
+  return ((proposalsResponse.data ?? []) as CatNameProposalRow[])
+    .map((row) => {
+      const proposalVotes = votes.filter((vote) => vote.proposal_id === row.id);
+
+      return {
+        id: row.id,
+        name: row.name,
+        votes: proposalVotes.length,
+        isActive: row.id === activeProposalId,
+        isMyVote: Boolean(currentUserId) && proposalVotes.some((vote) => vote.user_id === currentUserId),
+      };
+    })
+    .sort((left, right) => right.votes - left.votes);
+}
+
+/** 새 이름을 제안한다. 제안하면서 그 이름에 내 표도 함께 찍힌다. */
+export async function proposeCatName(catId: string, name: string) {
+  assertSupabaseConfigured();
+
+  const { error } = await supabase.rpc('propose_cat_name', { p_cat_id: catId, p_name: name });
+
+  throwIfSupabaseError(error);
+}
+
+/** 이미 있는 후보에 표를 던진다. 전에 다른 후보를 찍었으면 그쪽 표가 옮겨온다. */
+export async function voteCatName(proposalId: string) {
+  assertSupabaseConfigured();
+
+  const { error } = await supabase.rpc('vote_cat_name', { p_proposal_id: proposalId });
+
+  throwIfSupabaseError(error);
 }
 

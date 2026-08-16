@@ -52,6 +52,17 @@ export interface Cat {
   originalPhotoUrl?: string;
 }
 
+/** 이름 후보 하나와 득표 현황. */
+export interface CatNameProposal {
+  id: string;
+  name: string;
+  votes: number;
+  /** 지금 카드에 찍힌 이름과 같은 후보인가. */
+  isActive: boolean;
+  /** 내가 이 후보에 표를 던졌는가. */
+  isMyVote: boolean;
+}
+
 export interface CatEncounter {
   id: string;
   catId: string;
