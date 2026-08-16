@@ -218,7 +218,10 @@ const styles = StyleSheet.create({
   shopTag: {
     position: 'absolute',
     right: 0,
-    top: 84,
+    // 헤더(56pt)와 겹치지 않을 만큼 넉넉히 떨어뜨린다. 탭이 화면 오른쪽
+    // 끝에 딱 붙어 있어 알림벨과 가로로 겹치는 구간이 있으므로, 세로
+    // 간격을 좁게 두면 자칫 벨과 부딪혀 보인다.
+    top: 112,
     zIndex: 5,
     alignItems: 'center',
     gap: 3,
