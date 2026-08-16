@@ -20,6 +20,7 @@ import { SupportRoomScreen } from '../../features/support-room/SupportRoomScreen
 import { AttendanceMonthScreen } from '../../features/attendance/screens/AttendanceMonthScreen';
 import { AttendanceScreen } from '../../features/attendance/screens/AttendanceScreen';
 import { HomeScreen } from '../../features/home/screens/HomeScreen';
+import { OnboardingCompleteScreen } from '../../features/home/screens/OnboardingCompleteScreen';
 import { CommunityScreen } from '../../features/community/screens/CommunityScreen';
 import { CommunityPostComposerScreen } from '../../features/community/screens/CommunityPostComposerScreen';
 import { CommunityPostDetailScreen } from '../../features/community/screens/CommunityPostDetailScreen';
@@ -93,6 +94,7 @@ function HomeNavigator() {
       <HomeStack.Screen name="Home" component={HomeScreen} />
       <HomeStack.Screen name="Attendance" component={AttendanceScreen} />
       <HomeStack.Screen name="AttendanceMonth" component={AttendanceMonthScreen} />
+      <HomeStack.Screen name="OnboardingComplete" component={OnboardingCompleteScreen} />
     </HomeStack.Navigator>
   );
 }

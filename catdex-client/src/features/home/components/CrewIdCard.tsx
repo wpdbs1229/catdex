@@ -16,6 +16,11 @@ interface CrewIdCardProps {
   rank: string;
   /** 활동 동네의 시·군 이름. 지부 표기에 쓴다. */
   city?: string;
+  /**
+   * 첫 고객을 아직 등록하지 못한 신입의 사원증. 내용을 흐리게 하고
+   * '첫 고객 등록 후 활성화' 표를 붙인다.
+   */
+  inactive?: boolean;
   /** 가입 시각(ISO). 일련번호를 만드는 데 쓴다. */
   joinedAt?: string;
   /**
@@ -144,7 +149,7 @@ function formatBranch(city?: string) {
  * 장으로 처리한다. 뒤판 -> 내용 -> 앞판 순으로 겹치면 카드가 케이스 안에 들어간
  * 것처럼 보인다. 내용은 데이터가 바뀌므로 그대로 코드로 그린다.
  */
-export function CrewIdCard({ nickname, profileImageUrl, rank, city, joinedAt, pull }: CrewIdCardProps) {
+export function CrewIdCard({ nickname, profileImageUrl, rank, city, joinedAt, pull, inactive }: CrewIdCardProps) {
   const { width: screenWidth } = useWindowDimensions();
   const styles = useMemo(() => createStyles(screenWidth), [screenWidth]);
   const logoWidth = styles.catMarkBox.width;
@@ -165,7 +170,7 @@ export function CrewIdCard({ nickname, profileImageUrl, rank, city, joinedAt, pu
       <Animated.View style={[styles.card, { transform: [{ translateY: pullValue }] }]}>
         <Image resizeMode="stretch" source={caseBack} style={styles.caseLayer} />
 
-      <View style={styles.window}>
+      <View style={[styles.window, inactive && styles.windowInactive]}>
         <View style={styles.sidebar}>
           <View style={styles.sidebarTop}>
             <CatMark width={logoWidth} />
@@ -229,6 +234,13 @@ export function CrewIdCard({ nickname, profileImageUrl, rank, city, joinedAt, pu
         <View pointerEvents="none" style={styles.caseLayer}>
           <Image resizeMode="stretch" source={caseFront} style={styles.caseImage} />
         </View>
+
+        {/* 케이스 위에 얹어야 흐림 처리와 무관하게 또렷이 읽힌다. */}
+        {inactive ? (
+          <View pointerEvents="none" style={styles.inactivePill}>
+            <Text style={styles.inactivePillText}>첫 고객 등록 후 활성화</Text>
+          </View>
+        ) : null}
       </Animated.View>
     </View>
   );
@@ -426,6 +438,27 @@ function createStyles(screenWidth: number) {
     alignItems: 'center',
     gap: s(3),
     paddingTop: s(4),
+  },
+  windowInactive: {
+    opacity: 0.45,
+  },
+  // 창 아래 테두리에 걸쳐 앉는다. 시안의 '첫 고객 등록 후 활성화' 자리.
+  inactivePill: {
+    position: 'absolute',
+    alignSelf: 'center',
+    bottom: toCard(ASSET.height - ASSET.windowY - ASSET.windowH) - s(12),
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: colors.fieldRule,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: s(14),
+    paddingVertical: s(6),
+  },
+  inactivePillText: {
+    fontSize: s(12),
+    fontWeight: '700',
+    letterSpacing: -0.3,
+    color: colors.ink,
   },
   tagline: {
     flex: 1,

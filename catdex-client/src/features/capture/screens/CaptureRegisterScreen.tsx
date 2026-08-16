@@ -14,7 +14,8 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { CaptureStackScreenProps } from '@/app/navigation/types';
-import { createCat, resolveCatObservation } from '@/shared/api/cats.api';
+import { createCat, recordTrainingCatEncounter, resolveCatObservation } from '@/shared/api/cats.api';
+import { TRAINING_CAT_NAME } from '@/shared/constants/training.constants';
 import { getUserFacingError } from '@/shared/errors/user-facing-error';
 import { HabitatIcon } from '@/shared/cats/HabitatIcon';
 import { CAT_HABITAT_LABELS, CAT_HABITATS, DEFAULT_CAT_HABITAT, type CatHabitat } from '@/shared/cats/habitat';
@@ -27,7 +28,9 @@ export function CaptureRegisterScreen({ navigation, route }: CaptureStackScreenP
   const insets = useSafeAreaInsets();
   const { cutoutUri, imageStoragePath, originalStoragePath, observationId, regionName, colors, pattern } =
     route.params;
-  const [name, setName] = useState('');
+  const tutorial = route.params.tutorial ?? false;
+  // 교육 모드의 고객은 시드된 보리 한 마리다. 이름을 바꿔도 반영될 곳이 없으니 잠근다.
+  const [name, setName] = useState(tutorial ? TRAINING_CAT_NAME : '');
   const [description, setDescription] = useState('');
   const [breed, setBreed] = useState('');
   const [selectedGender, setSelectedGender] = useState<GenderKey | null>(null);
@@ -45,6 +48,22 @@ export function CaptureRegisterScreen({ navigation, route }: CaptureStackScreenP
     setIsSubmitting(true);
 
     try {
+      // 교육 모드는 개체를 새로 만들지 않는다. 시드된 보리의 만남 기록만 남기고
+      // 온보딩 완료 화면(사원증 발급)으로 넘어간다.
+      if (tutorial) {
+        await recordTrainingCatEncounter(description.trim() || '연수원에서 만난 첫 고객님');
+
+        const rootNavigation = navigation.getParent();
+
+        rootNavigation?.goBack();
+        rootNavigation?.navigate('Main', {
+          screen: 'HomeTab',
+          params: { screen: 'OnboardingComplete' },
+        });
+
+        return;
+      }
+
       const tags: string[] = [];
 
       if (selectedGender) {
@@ -115,7 +134,7 @@ export function CaptureRegisterScreen({ navigation, route }: CaptureStackScreenP
 
           <View style={styles.fieldStack}>
             <TextInput
-              editable={!isSubmitting}
+              editable={!isSubmitting && !tutorial}
               maxLength={3}
               onChangeText={setName}
               placeholder="3글자 이내로 이름을 지어주세요"
@@ -132,6 +151,9 @@ export function CaptureRegisterScreen({ navigation, route }: CaptureStackScreenP
               style={styles.input}
               value={description}
             />
+            {/* 품종·거처·성별은 공유값이라 교육 모드에서는 받지 않는다.
+                시드된 보리에 이미 정해져 있고, 입력해도 버려지면 거짓말이 된다. */}
+            {tutorial ? null : (
             <TextInput
               editable={!isSubmitting}
               maxLength={20}
@@ -141,6 +163,8 @@ export function CaptureRegisterScreen({ navigation, route }: CaptureStackScreenP
               style={styles.input}
               value={breed}
             />
+            )}
+            {tutorial ? null : (
             <View style={styles.habitatRow}>
               {CAT_HABITATS.map((habitat) => {
                 const isSelected = selectedHabitat === habitat;
@@ -167,7 +191,9 @@ export function CaptureRegisterScreen({ navigation, route }: CaptureStackScreenP
                 );
               })}
             </View>
+            )}
 
+            {tutorial ? null : (
             <View style={styles.genderRow}>
               {(['수컷', '암컷'] as GenderKey[]).map((gender) => {
                 const isSelected = selectedGender === gender;
@@ -187,6 +213,7 @@ export function CaptureRegisterScreen({ navigation, route }: CaptureStackScreenP
                 );
               })}
             </View>
+            )}
           </View>
 
           <Pressable

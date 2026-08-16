@@ -10,6 +10,7 @@ import { useTabBarInset } from '@/app/navigation/useTabBarInset';
 import { CrewIdCard, MAX_PULL, PULL_TRAVEL } from '@/features/home/components/CrewIdCard';
 import { CrewProgressCard } from '@/features/home/components/CrewProgressCard';
 import { RankGuideModal } from '@/features/home/components/RankGuideModal';
+import { RookieMissionCard } from '@/features/home/components/RookieMissionCard';
 import { SupportRoomEntryCard } from '@/features/support-room/SupportRoomEntryCard';
 import { syncRoom } from '@/features/support-room/support-room.service';
 import type { RoomState } from '@/features/support-room/support-room.domain';
@@ -28,6 +29,9 @@ export function HomeScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<HomeStackParamList & RootStackParamList>>();
   const [profile, setProfile] = useState<AuthUser | null>(null);
   const [crewStatus, setCrewStatus] = useState<CrewStatus>(defaultCrewStatus);
+  // 신입 판정은 서버 응답을 받은 뒤에만 한다. 기본값(0마리)으로 판정하면
+  // 기존 사원의 홈에도 로딩 중에 첫 업무 카드가 깜빡인다.
+  const [isCrewStatusLoaded, setIsCrewStatusLoaded] = useState(false);
   const [isRankGuideOpen, setIsRankGuideOpen] = useState(false);
   const [isNeighborhoodSheetOpen, setIsNeighborhoodSheetOpen] = useState(false);
   // 진입 카드가 무엇을 말할지는 방 상태가 정한다. 여기서는 읽기만 하고 정산하지 않는다.
@@ -62,6 +66,7 @@ export function HomeScreen() {
 
           setProfile(nextProfile);
           setCrewStatus(nextCrewStatus);
+          setIsCrewStatusLoaded(true);
           setRoom(roomSync.stored.room);
         })
         .catch((error: unknown) => {
@@ -80,6 +85,13 @@ export function HomeScreen() {
     navigation
       .getParent<BottomTabNavigationProp<MainTabParamList>>()
       ?.navigate('CollectionTab', { screen: 'ClientSupportRoom' });
+  }, [navigation]);
+
+  // 아직 고객이 한 마리도 없는 신입. 인사고과 대신 첫 업무(보리 등록)를 보여 준다.
+  const isRookie = isCrewStatusLoaded && crewStatus.collected === 0;
+
+  const startFirstMission = useCallback(() => {
+    navigation.navigate('CaptureFlow', { screen: 'Camera', params: { tutorial: true } });
   }, [navigation]);
 
 
@@ -127,12 +139,13 @@ export function HomeScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{CREW_COMPANY_NAME} 사원증</Text>
           <CrewIdCard
+            inactive={isRookie}
             nickname={profile?.nickname ?? DEFAULT_PROFILE_NICKNAME}
             profileImageUrl={profile?.profileImageUrl}
             city={neighborhood?.city}
             joinedAt={profile?.createdAt}
             pull={pull}
-            rank={crewStatus.rank}
+            rank={isRookie ? '신입 사원' : crewStatus.rank}
           />
         </View>
 
@@ -143,18 +156,22 @@ export function HomeScreen() {
           </View>
         </View>
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>인사고과</Text>
+          <Text style={styles.sectionTitle}>{isRookie ? '신입 사원 첫 업무' : '인사고과'}</Text>
           <View style={styles.sectionBody}>
-            <CrewProgressCard
-              onPressAttendance={() => navigation.navigate('Attendance')}
-              // 수집 마릿수의 실물은 '내 고객' 탭이다. 도감이 들고 있는 필터 상태는
-              // 건드리지 않고 탭만 옮긴다.
-              onPressCollection={() =>
-                navigation.getParent<BottomTabNavigationProp<MainTabParamList>>()?.navigate('CollectionTab')
-              }
-              onPressPromotion={() => setIsRankGuideOpen(true)}
-              status={crewStatus}
-            />
+            {isRookie ? (
+              <RookieMissionCard onStart={startFirstMission} />
+            ) : (
+              <CrewProgressCard
+                onPressAttendance={() => navigation.navigate('Attendance')}
+                // 수집 마릿수의 실물은 '내 고객' 탭이다. 도감이 들고 있는 필터 상태는
+                // 건드리지 않고 탭만 옮긴다.
+                onPressCollection={() =>
+                  navigation.getParent<BottomTabNavigationProp<MainTabParamList>>()?.navigate('CollectionTab')
+                }
+                onPressPromotion={() => setIsRankGuideOpen(true)}
+                status={crewStatus}
+              />
+            )}
           </View>
         </View>
 
