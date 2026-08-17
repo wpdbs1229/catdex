@@ -32,8 +32,8 @@ interface CatNameVoteSheetProps {
  *
  * 같은 고양이를 사람마다 다르게 부르는 게 자연스럽다는 전제로, 만난 적 있는
  * 사람만 후보를 내고 표를 던진다. 도전자가 3표 이상 앞서야 실제 이름이
- * 바뀐다(서버 쪽 규칙) - 그래서 여기서는 득표만 보여주고 "바뀐다"는 말은
- * 안 한다, 언제 넘는지는 서버만 안다.
+ * 바뀐다 - 아래 안내 문구의 "3표"는 서버 promote_leading_cat_name의
+ * flip_margin과 같은 값이어야 한다.
  */
 export function CatNameVoteSheet({
   visible,
@@ -134,7 +134,7 @@ export function CatNameVoteSheet({
           {!canParticipate ? (
             <Text style={styles.notice}>이 고객을 만나야 이름을 제안하고 투표할 수 있어요.</Text>
           ) : (
-            <Text style={styles.notice}>도전하는 이름이 지금 이름보다 표를 훨씬 더 받으면 바뀌어요.</Text>
+            <Text style={styles.notice}>지금 이름보다 3표 앞서면 이름이 바뀐다냥!</Text>
           )}
 
           <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
