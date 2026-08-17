@@ -3,7 +3,7 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ChevronDown, MapPin, ShoppingBag } from 'lucide-react-native';
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Animated, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Animated, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { HomeStackParamList, MainTabParamList, RootStackParamList } from '@/app/navigation/types';
 import { useTabBarInset } from '@/app/navigation/useTabBarInset';
@@ -11,6 +11,8 @@ import { CrewIdCard, formatBranch, MAX_PULL, PULL_TRAVEL } from '@/features/home
 import { CrewProgressCard } from '@/features/home/components/CrewProgressCard';
 import { RankGuideModal } from '@/features/home/components/RankGuideModal';
 import { RookieMissionCard } from '@/features/home/components/RookieMissionCard';
+import { SupplyEntrySheet } from '@/features/shop/components/SupplyEntrySheet';
+import { fetchMyShopPurchaseIds } from '@/shared/api/shop.api';
 import { SupportRoomEntryCard } from '@/features/support-room/SupportRoomEntryCard';
 import { syncRoom } from '@/features/support-room/support-room.service';
 import type { RoomState } from '@/features/support-room/support-room.domain';
@@ -34,6 +36,8 @@ export function HomeScreen() {
   const [isCrewStatusLoaded, setIsCrewStatusLoaded] = useState(false);
   const [isRankGuideOpen, setIsRankGuideOpen] = useState(false);
   const [isNeighborhoodSheetOpen, setIsNeighborhoodSheetOpen] = useState(false);
+  const [isSupplySheetOpen, setIsSupplySheetOpen] = useState(false);
+  const [ownedSupplyCount, setOwnedSupplyCount] = useState<number | null>(null);
   // 진입 카드가 무엇을 말할지는 방 상태가 정한다. 여기서는 읽기만 하고 정산하지 않는다.
   const [room, setRoom] = useState<RoomState | null>(null);
 
@@ -127,14 +131,13 @@ export function HomeScreen() {
         accessibilityLabel="냥냥 비품상점 열기"
         accessibilityRole="button"
         // 비품 태그는 문이 두 개다 - 새 비품을 사러 가는 상점과 내 보관함.
-        // 어느 쪽인지 물어보고 연다.
-        onPress={() =>
-          Alert.alert('냥냥 비품', '어디로 갈까요?', [
-            { text: '비품상점 구경하기', onPress: () => navigation.navigate('Shop') },
-            { text: '비품 보관함 열기', onPress: () => navigation.navigate('Shop', { owned: true }) },
-            { text: '닫기', style: 'cancel' },
-          ])
-        }
+        // 시트를 열어 고르게 하고, 보유 개수는 여는 김에 읽어 와 채운다.
+        onPress={() => {
+          setIsSupplySheetOpen(true);
+          fetchMyShopPurchaseIds()
+            .then((ownedIds) => setOwnedSupplyCount(ownedIds.size))
+            .catch(() => setOwnedSupplyCount(null));
+        }}
         style={({ pressed }) => [styles.shopTag, pressed && styles.pressed]}
       >
         <ShoppingBag color="#FFFFFF" size={14} strokeWidth={2} />
@@ -192,6 +195,20 @@ export function HomeScreen() {
         </View>
 
       </Animated.ScrollView>
+
+      <SupplyEntrySheet
+        onClose={() => setIsSupplySheetOpen(false)}
+        onOpenInventory={() => {
+          setIsSupplySheetOpen(false);
+          navigation.navigate('Shop', { owned: true });
+        }}
+        onOpenShop={() => {
+          setIsSupplySheetOpen(false);
+          navigation.navigate('Shop');
+        }}
+        ownedCount={ownedSupplyCount}
+        visible={isSupplySheetOpen}
+      />
 
       <RankGuideModal onClose={() => setIsRankGuideOpen(false)} status={crewStatus} visible={isRankGuideOpen} />
 
