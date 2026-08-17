@@ -7,10 +7,24 @@ import { ActivityIndicator, Alert, Image, Pressable, ScrollView, StyleSheet, Tex
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { RootStackParamList } from '@/app/navigation/types';
 import { useGoBackOrHome } from '@/app/navigation/useGoBackOrHome';
-import { fetchMyEquipment, fetchMyShopPurchaseIds, fetchShopItems } from '@/shared/api/shop.api';
+import {
+  equipShopItem,
+  fetchMyEquipment,
+  fetchMyShopPurchaseIds,
+  fetchShopItems,
+  unequipShopCategory,
+} from '@/shared/api/shop.api';
 import { restorePurchases } from '@/shared/purchases/revenuecat';
 import { createNdShadow, nd, theme } from '@/shared/styles/theme';
-import type { ShopItem, ShopItemCategory } from '@/shared/types/shop';
+import type { ShopItem, ShopItemCategory, UserEquipment } from '@/shared/types/shop';
+
+function toEquippedIds(equipment: UserEquipment) {
+  return new Set(
+    [equipment.background?.id, equipment.case?.id, equipment.label?.id].filter(
+      (id): id is string => Boolean(id),
+    ),
+  );
+}
 
 type CategoryFilter = 'all' | ShopItemCategory;
 
@@ -38,6 +52,7 @@ export function ShopScreen() {
   const [showOwnedOnly, setShowOwnedOnly] = useState(false);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [isRestoring, setIsRestoring] = useState(false);
+  const [isEquipping, setIsEquipping] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -51,13 +66,7 @@ export function ShopScreen() {
 
           setItems(nextItems);
           setOwnedIds(nextOwnedIds);
-          setEquippedIds(
-            new Set(
-              [equipment.background?.id, equipment.case?.id, equipment.label?.id].filter(
-                (id): id is string => Boolean(id),
-              ),
-            ),
-          );
+          setEquippedIds(toEquippedIds(equipment));
           setHasLoaded(true);
         })
         .catch((error: unknown) => {
@@ -84,6 +93,30 @@ export function ShopScreen() {
   );
 
   const selectedItem = items.find((item) => item.id === selectedItemId) ?? null;
+
+  // 보유 비품에서는 카드를 누르는 게 곧 장착이다. 장착 중인 카드를 다시
+  // 누르면 기본(순정)으로 돌아간다. 전체 목록에서는 눌러서 고르기만 하고,
+  // 적용해 보기로 미리 본 뒤 사거나 장착한다.
+  const handlePressItem = (item: ShopItem) => {
+    setSelectedItemId(item.id);
+
+    if (!showOwnedOnly || !ownedIds.has(item.id) || isEquipping) {
+      return;
+    }
+
+    const wasEquipped = equippedIds.has(item.id);
+
+    setIsEquipping(true);
+
+    (wasEquipped ? unequipShopCategory(item.category) : equipShopItem(item.id))
+      .then(() => fetchMyEquipment())
+      .then((equipment) => setEquippedIds(toEquippedIds(equipment)))
+      .catch((error: unknown) => {
+        console.warn('[shop] equip failed', error);
+        Alert.alert(wasEquipped ? '해제하지 못했어요' : '장착하지 못했어요', '잠시 후 다시 시도해 주세요.');
+      })
+      .finally(() => setIsEquipping(false));
+  };
 
   // 기기를 바꾸거나 다시 설치했을 때 이미 산 상품을 되찾는다. 스토어 심사
   // 정책상 반드시 눈에 띄는 자리에 있어야 한다.
@@ -192,8 +225,8 @@ export function ShopScreen() {
                   accessibilityRole="button"
                   accessibilityState={{ selected: isSelected }}
                   key={item.id}
-                  onPress={() => setSelectedItemId(item.id)}
-                  style={[styles.itemCard, isSelected && styles.itemCardSelected]}
+                  onPress={() => handlePressItem(item)}
+                  style={[styles.itemCard, (isSelected || isEquipped) && styles.itemCardSelected]}
                 >
                   <View style={styles.swatch}>
                     {item.swatchImageUrl || item.assetImageUrl ? (
@@ -205,7 +238,8 @@ export function ShopScreen() {
                     ) : (
                       <Package color={nd.colors.subtle} size={28} strokeWidth={1.6} />
                     )}
-                    {isSelected ? (
+                    {/* 시안처럼 장착 중이면 체크가 항상 붙는다. 고른 것만 됐을 때도 같은 표시를 쓴다. */}
+                    {isSelected || isEquipped ? (
                       <View style={styles.selectedMark}>
                         <Check color="#FFFFFF" size={13} strokeWidth={2.6} />
                       </View>
