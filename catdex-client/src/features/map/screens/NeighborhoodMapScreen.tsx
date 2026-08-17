@@ -49,9 +49,23 @@ export function NeighborhoodMapScreen() {
   } = useNeighborhoodData();
   const catById = useMemo(() => new Map(cats.map((cat) => [cat.id, cat])), [cats]);
   const catByName = useMemo(() => new Map(cats.map((cat) => [cat.name, cat])), [cats]);
+  // 보호소냥이는 정책상 위치를 공개하지 않는다. 구역의 고양이 목록에서
+  // 걸러내 발자국도 개수도 남지 않게 한다. 도감(보호소냥이 탭)에는 그대로 있다.
+  const publicRegions = useMemo(
+    () =>
+      regions.map((region) => ({
+        ...region,
+        catIds: region.catIds.filter((catId) => catById.get(catId)?.habitat !== 'shelter'),
+        cats: region.cats.filter((catName) => catByName.get(catName)?.habitat !== 'shelter'),
+      })),
+    [catById, catByName, regions],
+  );
   // 고양이가 0마리인 구역은 마커를 찍지 않는다. 기록이 다 지워진 구역 행이
   // DB에 남아 있어도 빈 발자국만 뜨면 눌러 볼 것도 없다.
-  const markerRegions = useMemo(() => regions.filter((region) => getRegionCatCount(region) > 0), [regions]);
+  const markerRegions = useMemo(
+    () => publicRegions.filter((region) => getRegionCatCount(region) > 0),
+    [publicRegions],
+  );
   // 구역당 개수 마커 대신 고양이 한 마리당 발자국 하나를 찍는다. 닻은 실제로
   // 만난 지점(있으면), 아니면 구역 중심이고, 반경 100m 안에 id로 고정해 흩는다.
   const catPoints = useMemo(
