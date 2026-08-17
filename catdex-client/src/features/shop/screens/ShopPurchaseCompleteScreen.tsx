@@ -75,7 +75,10 @@ export function ShopPurchaseCompleteScreen() {
         const firstCat = myCats[0];
 
         if (firstCat) {
-          navigation.navigate('CatDetail', { catId: firstCat.id });
+          // navigate가 아니라 replace: 이 화면은 모달이라, navigate로 CatDetail을
+          // 위에 쌓으면 그 뒤로 화면들이 전부 모달 컨텍스트를 물려받아 아래에서
+          // 위로 뜨는 것처럼 보인다. replace로 모달 라우트 자체를 교체해야 한다.
+          navigation.replace('CatDetail', { catId: firstCat.id });
         } else {
           goToRoster();
         }
