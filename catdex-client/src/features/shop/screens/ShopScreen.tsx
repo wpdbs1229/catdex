@@ -153,17 +153,27 @@ export function ShopScreen() {
         >
           <ArrowLeft color={nd.colors.ink} size={20} strokeWidth={1.8} />
         </Pressable>
-        <Text style={styles.title}>냥냥 비품상점</Text>
+        <Text style={styles.title}>{showOwnedOnly ? '보유 비품' : '냥냥 비품상점'}</Text>
         <Pressable
           accessibilityLabel={showOwnedOnly ? '전체 상품 보기' : '보유 비품만 보기'}
           accessibilityRole="button"
-          accessibilityState={{ selected: showOwnedOnly }}
           onPress={() => setShowOwnedOnly((previous) => !previous)}
           style={({ pressed }) => pressed && styles.pressed}
         >
-          <Text style={[styles.ownedLink, showOwnedOnly && styles.ownedLinkActive]}>보유 비품</Text>
+          <Text style={[styles.ownedLink, showOwnedOnly && styles.ownedLinkActive]}>
+            {showOwnedOnly ? '상점 보기' : '보유 비품'}
+          </Text>
         </Pressable>
       </View>
+
+      {showOwnedOnly ? (
+        <View style={styles.summaryRow}>
+          <Text style={styles.summaryOwned}>
+            보유 <Text style={styles.summaryStrong}>{ownedIds.size}개</Text>
+          </Text>
+          <Text style={styles.summaryEquipped}>장착 중 {equippedIds.size}개</Text>
+        </View>
+      ) : null}
 
       <View style={styles.tabsRow}>
         {CATEGORY_TABS.map(({ id, label }) => {
@@ -228,9 +238,14 @@ export function ShopScreen() {
                   accessibilityState={{ selected: isSelected }}
                   key={item.id}
                   onPress={() => handlePressItem(item)}
-                  style={[styles.itemCard, (isSelected || isEquipped) && styles.itemCardSelected]}
+                  // 보관함(보유 비품)은 시안처럼 스와치가 왼쪽, 이름·상태가 오른쪽인 가로형이다.
+                  style={[
+                    styles.itemCard,
+                    showOwnedOnly && styles.itemCardHorizontal,
+                    (isSelected || isEquipped) && styles.itemCardSelected,
+                  ]}
                 >
-                  <View style={styles.swatch}>
+                  <View style={[styles.swatch, showOwnedOnly && styles.swatchCompact]}>
                     {item.swatchImageUrl || item.assetImageUrl ? (
                       <Image
                         resizeMode="cover"
@@ -247,16 +262,18 @@ export function ShopScreen() {
                       </View>
                     ) : null}
                   </View>
-                  <Text numberOfLines={1} style={styles.itemName}>
-                    {item.name}
-                  </Text>
-                  {isEquipped ? (
-                    <Text style={styles.equippedTag}>장착 중</Text>
-                  ) : isOwned ? (
-                    <Text style={styles.ownedTag}>보유 중</Text>
-                  ) : (
-                    <Text style={styles.itemPrice}>{formatPrice(item.priceKrw)}</Text>
-                  )}
+                  <View style={showOwnedOnly ? styles.itemTextsHorizontal : styles.itemTextsVertical}>
+                    <Text numberOfLines={showOwnedOnly ? 2 : 1} style={styles.itemName}>
+                      {item.name}
+                    </Text>
+                    {isEquipped ? (
+                      <Text style={styles.equippedTag}>장착 중</Text>
+                    ) : isOwned ? (
+                      <Text style={styles.ownedTag}>보유 중</Text>
+                    ) : (
+                      <Text style={styles.itemPrice}>{formatPrice(item.priceKrw)}</Text>
+                    )}
+                  </View>
                 </Pressable>
               );
             })}
@@ -433,8 +450,45 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: theme.colors.primary,
   },
-  itemName: {
+  itemTextsVertical: {
     marginTop: 8,
+  },
+  // 보관함 카드의 오른쪽 글 기둥. 스와치 옆에 이름과 상태가 나란히 선다.
+  itemTextsHorizontal: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
+  },
+  itemCardHorizontal: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  swatchCompact: {
+    width: 64,
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingTop: 6,
+  },
+  summaryOwned: {
+    fontSize: 15,
+    letterSpacing: -0.38,
+    color: nd.colors.ink,
+  },
+  summaryStrong: {
+    fontWeight: '800',
+  },
+  summaryEquipped: {
+    fontSize: 13,
+    fontWeight: '600',
+    letterSpacing: -0.33,
+    color: nd.colors.sub,
+  },
+  itemName: {
     fontSize: 14,
     fontWeight: '600',
     letterSpacing: -0.35,
