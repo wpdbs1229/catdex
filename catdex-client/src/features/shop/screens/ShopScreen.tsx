@@ -1,4 +1,4 @@
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ArrowLeft, Check, Package, RotateCcw, ShoppingBag } from 'lucide-react-native';
 import { useCallback, useMemo, useState } from 'react';
@@ -42,6 +42,7 @@ function formatPrice(priceKrw: number) {
 /** 마이페이지 > 냥냥 비품상점. 고객 파일의 배경지·케이스·라벨을 판다. */
 export function ShopScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const route = useRoute<RouteProp<RootStackParamList, 'Shop'>>();
   const goBack = useGoBackOrHome();
   const [items, setItems] = useState<ShopItem[]>([]);
   const [ownedIds, setOwnedIds] = useState<Set<string>>(() => new Set());
@@ -49,7 +50,8 @@ export function ShopScreen() {
   const [hasLoaded, setHasLoaded] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>('all');
   // 시안의 "보유 비품" - 별도 화면 대신 같은 목록을 보유한 것만 걸러 보여준다.
-  const [showOwnedOnly, setShowOwnedOnly] = useState(false);
+  // 홈의 비품 태그는 보관함(owned: true)부터 열고, 마이페이지 메뉴는 전체 상점부터 연다.
+  const [showOwnedOnly, setShowOwnedOnly] = useState(route.params?.owned ?? false);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [isRestoring, setIsRestoring] = useState(false);
   const [isEquipping, setIsEquipping] = useState(false);
