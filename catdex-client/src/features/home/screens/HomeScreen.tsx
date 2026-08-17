@@ -3,7 +3,7 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ChevronDown, MapPin, ShoppingBag } from 'lucide-react-native';
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Animated, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { HomeStackParamList, MainTabParamList, RootStackParamList } from '@/app/navigation/types';
 import { useTabBarInset } from '@/app/navigation/useTabBarInset';
@@ -126,8 +126,15 @@ export function HomeScreen() {
       <Pressable
         accessibilityLabel="냥냥 비품상점 열기"
         accessibilityRole="button"
-        // 홈의 비품 태그는 사러 가는 문이 아니라 내 보관함부터 연다(시안: 홈 진입 -> 보유 비품).
-        onPress={() => navigation.navigate('Shop', { owned: true })}
+        // 비품 태그는 문이 두 개다 - 새 비품을 사러 가는 상점과 내 보관함.
+        // 어느 쪽인지 물어보고 연다.
+        onPress={() =>
+          Alert.alert('냥냥 비품', '어디로 갈까요?', [
+            { text: '비품상점 구경하기', onPress: () => navigation.navigate('Shop') },
+            { text: '비품 보관함 열기', onPress: () => navigation.navigate('Shop', { owned: true }) },
+            { text: '닫기', style: 'cancel' },
+          ])
+        }
         style={({ pressed }) => [styles.shopTag, pressed && styles.pressed]}
       >
         <ShoppingBag color="#FFFFFF" size={14} strokeWidth={2} />
