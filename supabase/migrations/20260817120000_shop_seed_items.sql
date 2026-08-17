@@ -56,7 +56,8 @@ values
     '고객 우선 라벨',
     1900,
     '고객 우선! 파일 모서리에 붙이는 다짐 라벨이에요.',
-    'https://wpdbs1229.github.io/catdex/assets/shop/priority-label.png',
+    -- 가로로 긴 라벨이라 1:1 스와치용은 정사각 여백판을 따로 쓴다.
+    'https://wpdbs1229.github.io/catdex/assets/shop/priority-label-swatch.png',
     'https://wpdbs1229.github.io/catdex/assets/shop/priority-label.png',
     2
   )
