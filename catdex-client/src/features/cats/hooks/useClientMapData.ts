@@ -37,7 +37,9 @@ export function useClientMapData(filter: DexFilter): ClientMapData {
             return;
           }
 
-          setMyCats(nextCats);
+          // 보호소냥이는 정책상 위치를 공개하지 않는다. 이 훅은 지도 전용이라
+          // 여기서 걸러내면 마커·목록·필터 개수가 전부 같이 빠진다.
+          setMyCats(nextCats.filter((cat) => cat.habitat !== 'shelter'));
           setAllRegions(nextRegions);
         })
         .catch((error: unknown) => {
