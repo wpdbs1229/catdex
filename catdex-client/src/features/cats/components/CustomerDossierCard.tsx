@@ -76,6 +76,9 @@ export function CustomerDossierCard({ affinityLabel, cat, encounters, width, equ
   const rarityBadgeWidth = width * 0.17;
   const officialSealWidth = width * 0.19;
   // 장착한 상품이 있으면 그 자산으로, 없으면 순정 자산 그대로.
+  // 배경지는 사진관 배경지 은유다 - 카드 전체가 아니라 고양이 사진 뒤에만
+  // 깔린다. 정보 영역까지 패턴이 번지면 글자가 묻힌다.
+  const hasBackground = Boolean(equipment?.background?.assetImageUrl);
   const backgroundSource = equipment?.background?.assetImageUrl
     ? { uri: equipment.background.assetImageUrl }
     : crumpledPaper;
@@ -85,14 +88,14 @@ export function CustomerDossierCard({ affinityLabel, cat, encounters, width, equ
   return (
     <View accessibilityLabel={`${cat.name} 고객 파일`} style={[styles.case, { width, height }]}>
       <View style={styles.card}>
-        <Image
-          resizeMode="cover"
-          source={backgroundSource}
-          style={[styles.paperTexture, equipment?.background ? styles.paperTextureFull : null]}
-        />
+        <Image resizeMode="cover" source={crumpledPaper} style={styles.paperTexture} />
 
         <View style={styles.photoFrame}>
-          <Image resizeMode="cover" source={crumpledPaper} style={styles.photoPaper} />
+          <Image
+            resizeMode="cover"
+            source={backgroundSource}
+            style={[styles.photoPaper, hasBackground && styles.photoPaperEquipped]}
+          />
           {photoSource ? (
             <Image resizeMode="contain" source={photoSource} style={styles.photo} />
           ) : (
@@ -273,10 +276,6 @@ const styles = StyleSheet.create({
     height: '100%',
     opacity: 0.26,
   },
-  // 장착한 배경지는 옅은 얼룩이 아니라 그 자체가 배경이어야 하므로 그대로 보인다.
-  paperTextureFull: {
-    opacity: 1,
-  },
   photoFrame: {
     height: '61.5%',
     borderBottomWidth: 2,
@@ -289,6 +288,10 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     opacity: 0.72,
+  },
+  // 장착한 배경지는 옅은 질감이 아니라 그 자체가 스튜디오 배경이므로 그대로 보인다.
+  photoPaperEquipped: {
+    opacity: 1,
   },
   photo: {
     alignSelf: 'center',
