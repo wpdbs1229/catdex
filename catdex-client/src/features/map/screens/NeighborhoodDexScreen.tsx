@@ -35,17 +35,18 @@ function normalizeSearchText(value: string) {
   return value.trim().toLowerCase();
 }
 
-function catMatchesSearch(cat: Cat, query: string) {
+function catMatchesSearch(cat: Cat, query: string, dexNumber: number) {
   if (!query) {
     return true;
   }
 
   // 카드에 번호가 #001로 찍히므로 "1", "001", "#001" 모두 걸려야 한다.
-  const paddedNumber = String(cat.number).padStart(3, '0');
+  // 번호는 전역 번호가 아니라 이 지부 안에서의 번호다.
+  const paddedNumber = String(dexNumber).padStart(3, '0');
 
   return [
     cat.name,
-    String(cat.number),
+    String(dexNumber),
     paddedNumber,
     `#${paddedNumber}`,
     deriveCatType(cat.coatColors, cat.coatPattern),
@@ -113,18 +114,40 @@ export function NeighborhoodDexScreen() {
     () => cats.filter((cat) => regionCatIds.has(cat.id) || regionCatNames.has(cat.name)),
     [cats, regionCatIds, regionCatNames],
   );
+  // 지부 안에서의 도감 번호. 구역 병합 후에는 대부분 구역 하나에서 오지만,
+  // 혹시 여러 구역에 걸쳐 있으면 먼저 받은(작은) 번호를 쓴다. 구역 기록이
+  // 없는 고양이(이름 매칭으로만 걸린 옛 데이터)는 전역 번호로 물러난다.
+  const dexNumberByCatId = useMemo(() => {
+    const numbers = new Map<string, number>();
+
+    for (const region of regions) {
+      for (const [catId, dexNumber] of Object.entries(region.catDexNumbers)) {
+        const existing = numbers.get(catId);
+
+        if (existing === undefined || dexNumber < existing) {
+          numbers.set(catId, dexNumber);
+        }
+      }
+    }
+
+    return numbers;
+  }, [regions]);
+  const dexNumberOf = useCallback(
+    (cat: Cat) => dexNumberByCatId.get(cat.id) ?? cat.number,
+    [dexNumberByCatId],
+  );
   const visibleCats = useMemo(
     () =>
       neighborhoodCats
         .filter(
           (cat) =>
             cat.habitat === habitat &&
-            catMatchesSearch(cat, normalizedSearchQuery) &&
+            catMatchesSearch(cat, normalizedSearchQuery, dexNumberOf(cat)) &&
             matchesDexFilter(cat, filter),
         )
         // 카드에 #001이 찍혀 있으므로 번호 순으로 꽂는다.
-        .sort((left, right) => left.number - right.number),
-    [filter, habitat, neighborhoodCats, normalizedSearchQuery],
+        .sort((left, right) => dexNumberOf(left) - dexNumberOf(right)),
+    [dexNumberOf, filter, habitat, neighborhoodCats, normalizedSearchQuery],
   );
   const hasSearchQuery = normalizedSearchQuery.length > 0;
   const hasFilter = !isDexFilterEmpty(filter);
@@ -137,10 +160,10 @@ export function NeighborhoodDexScreen() {
       neighborhoodCats.filter(
         (cat) =>
           cat.habitat === habitat &&
-          catMatchesSearch(cat, normalizedSearchQuery) &&
+          catMatchesSearch(cat, normalizedSearchQuery, dexNumberOf(cat)) &&
           matchesDexFilter(cat, draft),
       ).length,
-    [habitat, neighborhoodCats, normalizedSearchQuery],
+    [dexNumberOf, habitat, neighborhoodCats, normalizedSearchQuery],
   );
 
   const pages = useMemo(() => {
@@ -325,7 +348,7 @@ export function NeighborhoodDexScreen() {
                 key={cat.id}
                 liked={likedCatIds.has(cat.id)}
                 name={cat.name}
-                number={cat.number}
+                number={dexNumberOf(cat)}
                 onPress={() =>
                   navigation.navigate('CatDetail', {
                     catId: cat.id,

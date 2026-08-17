@@ -14,6 +14,7 @@ interface RegionRow {
 interface CatRegionRow {
   region_id: string;
   cat_id: string;
+  dex_number: number;
 }
 
 interface CatNameRow {
@@ -25,8 +26,9 @@ export async function fetchRegions() {
   assertSupabaseConfigured();
 
   const [regionsResponse, regionCatsResponse, catsResponse] = await Promise.all([
-    supabase.from('regions').select('*').order('name', { ascending: true }),
-    supabase.from('cat_regions').select('region_id, cat_id'),
+    // 흡수된 구역(merged_into)은 옛 이름의 껍데기다. 화면에는 대표 구역만 남긴다.
+    supabase.from('regions').select('*').is('merged_into', null).order('name', { ascending: true }),
+    supabase.from('cat_regions').select('region_id, cat_id, dex_number'),
     supabase.from('cats').select('id, name'),
   ]);
 
@@ -37,6 +39,13 @@ export async function fetchRegions() {
   const catNameById = new Map(((catsResponse.data ?? []) as CatNameRow[]).map((cat) => [cat.id, cat.name]));
   const regionCatIds = ((regionCatsResponse.data ?? []) as CatRegionRow[]).reduce<Record<string, string[]>>((acc, row) => {
     acc[row.region_id] = [...(acc[row.region_id] ?? []), row.cat_id];
+    return acc;
+  }, {});
+  // 구역 안에서 몇 번째로 기록됐는지. 지부 도감이 카드 번호로 쓴다.
+  const regionDexNumbers = ((regionCatsResponse.data ?? []) as CatRegionRow[]).reduce<
+    Record<string, Record<string, number>>
+  >((acc, row) => {
+    acc[row.region_id] = { ...(acc[row.region_id] ?? {}), [row.cat_id]: row.dex_number };
     return acc;
   }, {});
   const regionCats = Object.entries(regionCatIds).reduce<Record<string, string[]>>((acc, [regionId, catIds]) => {
@@ -52,6 +61,7 @@ export async function fetchRegions() {
     radius: Math.max(region.radius, 300),
     catIds: regionCatIds[region.id] ?? [],
     cats: regionCats[region.id] ?? [],
+    catDexNumbers: regionDexNumbers[region.id] ?? {},
   }));
 }
 
