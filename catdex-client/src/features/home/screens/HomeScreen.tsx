@@ -126,7 +126,8 @@ export function HomeScreen() {
       <Pressable
         accessibilityLabel="냥냥 비품상점 열기"
         accessibilityRole="button"
-        onPress={() => navigation.navigate('Shop')}
+        // 홈의 비품 태그는 사러 가는 문이 아니라 내 보관함부터 연다(시안: 홈 진입 -> 보유 비품).
+        onPress={() => navigation.navigate('Shop', { owned: true })}
         style={({ pressed }) => [styles.shopTag, pressed && styles.pressed]}
       >
         <ShoppingBag color="#FFFFFF" size={14} strokeWidth={2} />

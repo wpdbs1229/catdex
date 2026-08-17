@@ -41,9 +41,9 @@ type MenuAction =
   | { kind: 'link'; url: string }
   | { kind: 'pending' };
 
-/** 메뉴에서 바로 열 수 있는 루트 화면. 파라미터를 받는 화면은 여기 들어올 수 없다. */
+/** 메뉴에서 바로 열 수 있는 루트 화면. 파라미터가 필수인 화면은 여기 들어올 수 없다. */
 type MenuScreen = {
-  [Route in keyof RootStackParamList]: RootStackParamList[Route] extends undefined ? Route : never;
+  [Route in keyof RootStackParamList]: undefined extends RootStackParamList[Route] ? Route : never;
 }[keyof RootStackParamList];
 
 interface MenuRow {
