@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import * as SecureStore from 'expo-secure-store';
-import { createAuthSessionFromSupabaseSession, signInWithGoogle, signInWithKakao, signOut, updateMyProfile, withdrawMyAccount } from '@/shared/api/auth.api';
+import { createAuthSessionFromSupabaseSession, signInWithApple, signInWithGoogle, signInWithKakao, signOut, updateMyProfile, withdrawMyAccount } from '@/shared/api/auth.api';
 import { setApiAccessToken } from '@/shared/api/client';
 import { getUserFacingErrorMessage } from '@/shared/errors/user-facing-error';
 import { configureRevenueCat, loginRevenueCatUser, logoutRevenueCatUser } from '@/shared/purchases/revenuecat';
@@ -10,7 +10,7 @@ import type { AuthProvider, AuthSession, AuthUser, ProfileUpdateDraft } from '@/
 const authStorageKey = 'catdex.auth.session';
 
 function isAuthProvider(value: unknown): value is AuthProvider {
-  return value === 'kakao' || value === 'google';
+  return value === 'kakao' || value === 'google' || value === 'apple';
 }
 
 function isAuthUser(value: unknown): value is AuthUser {
@@ -263,6 +263,7 @@ export function useAuth() {
 
   const loginWithKakao = () => login('kakao', signInWithKakao);
   const loginWithGoogle = () => login('google', signInWithGoogle);
+  const loginWithApple = () => login('apple', signInWithApple);
 
   const logout = async () => {
     setIsSigningOut(true);
@@ -337,6 +338,7 @@ export function useAuth() {
     pendingProvider,
     loginWithKakao,
     loginWithGoogle,
+    loginWithApple,
     updateProfile,
     withdrawAccount,
     logout,

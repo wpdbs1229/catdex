@@ -70,7 +70,7 @@ function getOAuthRedirectUri() {
 function getProvider(user: User, fallback: AuthProvider): AuthProvider {
   const provider = user.app_metadata.provider;
 
-  if (provider === 'kakao' || provider === 'google') {
+  if (provider === 'kakao' || provider === 'google' || provider === 'apple') {
     return provider;
   }
 
@@ -320,6 +320,15 @@ export async function signInWithKakao(): Promise<CatdexAuthSession> {
 
 export async function signInWithGoogle(): Promise<CatdexAuthSession> {
   return signInWithOAuthProvider('google');
+}
+
+/**
+ * Apple은 최초 인증 때만 이름을 주고, 이메일도 대개 비공개 릴레이 주소다.
+ * 그래서 여기서 넘어오는 프로필은 비어 있다고 보고, 닉네임은 사원증 만들기
+ * 단계에서 사용자가 직접 채우게 둔다(getNickname의 기본값 경로).
+ */
+export async function signInWithApple(): Promise<CatdexAuthSession> {
+  return signInWithOAuthProvider('apple');
 }
 
 /**

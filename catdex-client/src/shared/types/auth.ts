@@ -1,4 +1,4 @@
-export type AuthProvider = 'kakao' | 'google';
+export type AuthProvider = 'kakao' | 'google' | 'apple';
 
 export interface AuthUser {
   id: string;

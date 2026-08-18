@@ -9,21 +9,13 @@ import { AppleMark, GoogleMark, KakaoMark } from '../components/ProviderMarks';
 const appIcon = require('../../../../assets/icon.png');
 const patrolHero = require('../../../../assets/auth/patrol-hero.png');
 
-/**
- * Apple 로그인은 Supabase 프로젝트에 Apple provider가 아직 등록돼 있지 않다
- * (authorize?provider=apple → "Unsupported provider: missing OAuth secret").
- * 시안의 세 번째 자리는 그대로 두되, 눌러도 실패하지 않고 안내만 띄운다.
- * 켤 때: Supabase 대시보드에 Apple Services ID·키를 넣고 이 값을 true로 바꾼 뒤
- * signInWithApple을 auth.api에 추가한다.
- */
-const isAppleLoginReady = false;
-
 interface LoginScreenProps {
   /** 진행 중인 제공자. 버튼을 잠그고 그 버튼에만 스피너를 돌린다. */
   pendingProvider: AuthProvider | null;
   errorMessage: string | null;
   onLoginWithKakao: () => Promise<AuthUser | null>;
   onLoginWithGoogle: () => Promise<AuthUser | null>;
+  onLoginWithApple: () => Promise<AuthUser | null>;
 }
 
 function openDocument(url: string) {
@@ -39,12 +31,9 @@ export function LoginScreen({
   errorMessage,
   onLoginWithKakao,
   onLoginWithGoogle,
+  onLoginWithApple,
 }: LoginScreenProps) {
   const isBusy = pendingProvider !== null;
-
-  const handleApple = () => {
-    Alert.alert('Apple 로그인은 준비 중이에요', '지금은 카카오나 Google로 사원증을 받을 수 있어요.');
-  };
 
   return (
     <SafeAreaView edges={['top', 'left', 'right', 'bottom']} style={styles.screen}>
@@ -107,13 +96,19 @@ export function LoginScreen({
         <Pressable
           accessibilityLabel="Apple로 계속하기"
           accessibilityRole="button"
-          accessibilityState={{ disabled: isBusy }}
+          accessibilityState={{ busy: pendingProvider === 'apple', disabled: isBusy }}
           disabled={isBusy}
-          onPress={isAppleLoginReady ? undefined : handleApple}
+          onPress={() => void onLoginWithApple()}
           style={({ pressed }) => [styles.button, styles.apple, pressed && styles.pressed, isBusy && styles.dimmed]}
         >
-          <AppleMark size={20} />
-          <Text style={[styles.buttonLabel, styles.appleLabel]}>Apple로 계속하기</Text>
+          {pendingProvider === 'apple' ? (
+            <ActivityIndicator color="#FFFFFF" size="small" />
+          ) : (
+            <>
+              <AppleMark size={20} />
+              <Text style={[styles.buttonLabel, styles.appleLabel]}>Apple로 계속하기</Text>
+            </>
+          )}
         </Pressable>
       </View>
 
