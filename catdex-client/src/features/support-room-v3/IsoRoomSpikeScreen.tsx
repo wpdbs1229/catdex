@@ -16,6 +16,7 @@ import type { FurnitureId } from '@/features/support-room-v2/domain/furniture';
 import { V2_FURNITURE_IMAGES } from '@/features/support-room-v2/support-room-v2.assets.generated';
 import { V3_FIXTURE_IMAGES } from './support-room-v3.assets';
 import { nd } from '@/shared/styles/theme';
+import { IsoFurniture } from './components/IsoFurniture';
 import { IsoRoom, type IsoFixture } from './components/IsoRoom';
 import { ISO, isoDepth, isoPoint } from './render/iso';
 
@@ -42,27 +43,33 @@ const FIXTURES: readonly IsoFixture[] = [
 
 interface SpikePlacement {
   furnitureId: FurnitureId;
+  /** footprint 좌상단 셀 */
   gridX: number;
   gridY: number;
-  cells: number;
-  scale?: number;
 }
 
+/** footprint(카탈로그 값)가 그리드에 맞는지 눈으로 확인하기 위한 배치 */
 const PLACEMENTS: readonly SpikePlacement[] = [
-  { furnitureId: 'low_bookshelf_honey', gridX: 4.6, gridY: 0.2, cells: 3, scale: 0.92 },
-  { furnitureId: 'file_cabinet_olive', gridX: 0.15, gridY: 1.2, cells: 2, scale: 0.9 },
-  { furnitureId: 'consultation_desk_honey', gridX: 2.6, gridY: 1.9, cells: 3, scale: 0.98 },
-  { furnitureId: 'customer_water_station', gridX: 6.1, gridY: 1.6, cells: 2, scale: 0.9 },
-  { furnitureId: 'visitor_cushion_orange', gridX: 1.1, gridY: 3.5, cells: 2 },
-  { furnitureId: 'paper_basket_cream', gridX: 5.4, gridY: 3.6, cells: 2, scale: 0.95 },
-  { furnitureId: 'plant_large_rubber', gridX: 3.3, gridY: 4.4, cells: 2, scale: 0.88 },
+  { furnitureId: 'low_bookshelf_honey', gridX: 5, gridY: 0 },   // 3×1
+  { furnitureId: 'file_cabinet_olive', gridX: 0, gridY: 1 },    // 2×1
+  { furnitureId: 'consultation_desk_honey', gridX: 2, gridY: 1 }, // 3×2
+  { furnitureId: 'customer_water_station', gridX: 6, gridY: 2 }, // 2×2
+  { furnitureId: 'visitor_cushion_orange', gridX: 0, gridY: 3 }, // 2×2
+  { furnitureId: 'paper_basket_cream', gridX: 5, gridY: 4 },     // 2×2
+  { furnitureId: 'plant_large_rubber', gridX: 2, gridY: 4 },     // 2×2
 ];
 
-const CATS = [
-  { key: 'tabby_orange', behavior: 'press_bell', gridX: 3.5, gridY: 3.2, size: 70 },
-  { key: 'solid_gray', behavior: 'use_cushion', gridX: 1.4, gridY: 3.8, size: 62 },
-  { key: 'bicolor_tuxedo', behavior: 'hide_paper_basket', gridX: 5.7, gridY: 3.9, size: 62 },
+/**
+ * 행동 중인 고객. 합성 PNG에 가구가 함께 그려져 있으므로 해당 가구의 footprint에
+ * 합성본을 얹고 독립 가구는 그리지 않는다(두 개로 보이는 것 방지).
+ */
+const BUSY_CATS = [
+  { key: 'solid_gray', behavior: 'use_cushion', on: 'visitor_cushion_orange' },
+  { key: 'bicolor_tuxedo', behavior: 'hide_paper_basket', on: 'paper_basket_cream' },
 ] as const;
+
+/** 가구를 쓰지 않고 서 있는 고객 */
+const IDLE_CATS = [{ key: 'tabby_orange', gridX: 3.4, gridY: 3.4, cells: 1.5 }] as const;
 
 export function IsoRoomSpikeScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<ClientStackParamList>>();
@@ -103,48 +110,43 @@ export function IsoRoomSpikeScreen() {
             fixtures={FIXTURES}
             floorSurfaceId="flooring_honey_oak"
             rows={ROWS}
+            showGrid
             wallSurfaceId="wallpaper_cream_plaster"
           >
             {PLACEMENTS.map((placement) => {
-              const size = placement.cells * ISO.tileW * 0.74 * (placement.scale ?? 1);
-              const anchor = isoPoint(
-                placement.gridX + placement.cells / 2,
-                placement.gridY + placement.cells / 2,
-              );
+              const busy = BUSY_CATS.find((cat) => cat.on === placement.furnitureId);
               return (
-                <Image
+                <IsoFurniture
+                  compositeSource={
+                    busy
+                      ? CAT_ACTION_IMAGES[busy.key as keyof typeof CAT_ACTION_IMAGES][
+                          busy.behavior as 'idle'
+                        ]
+                      : undefined
+                  }
+                  furnitureId={placement.furnitureId}
+                  gridX={placement.gridX}
+                  gridY={placement.gridY}
                   key={placement.furnitureId}
-                  resizeMode="contain"
-                  source={V2_FURNITURE_IMAGES[placement.furnitureId]}
-                  style={{
-                    position: 'absolute',
-                    left: anchor.x - size / 2,
-                    top: anchor.y - size + ISO.tileH / 2,
-                    width: size,
-                    height: size,
-                    zIndex: isoDepth(placement.gridX, placement.gridY),
-                  }}
                 />
               );
             })}
 
-            {CATS.map((cat) => {
-              const anchor = isoPoint(cat.gridX, cat.gridY);
+            {IDLE_CATS.map((cat) => {
+              // idle 스프라이트의 발은 이미지 하단에서 약 12% 위에 있다.
+              const size = cat.cells * ISO.tileW;
+              const foot = isoPoint(cat.gridX, cat.gridY);
               return (
                 <Image
                   key={cat.key}
                   resizeMode="contain"
-                  source={
-                    CAT_ACTION_IMAGES[cat.key as keyof typeof CAT_ACTION_IMAGES][
-                      cat.behavior as 'idle'
-                    ]
-                  }
+                  source={CAT_ACTION_IMAGES[cat.key as keyof typeof CAT_ACTION_IMAGES].idle}
                   style={{
                     position: 'absolute',
-                    left: anchor.x - cat.size / 2,
-                    top: anchor.y - cat.size + ISO.tileH / 2,
-                    width: cat.size,
-                    height: cat.size,
+                    left: foot.x - size / 2,
+                    top: foot.y - size * 0.88,
+                    width: size,
+                    height: size,
                     zIndex: isoDepth(cat.gridX, cat.gridY) + 1,
                   }}
                 />

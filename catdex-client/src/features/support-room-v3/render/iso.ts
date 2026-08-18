@@ -6,8 +6,11 @@
 export type IsoWall = 'right' | 'left';
 
 export const ISO = {
-  /** 셀 다이아의 화면 폭. 높이는 항상 절반. */
-  tileW: 64,
+  /**
+   * 셀 다이아의 화면 폭. 높이는 항상 절반.
+   * 8×6 방의 화면 폭은 (8+6)·tileW/2 이므로 52면 364pt - 세로 화면(≈390pt)에 여백까지 들어온다.
+   */
+  tileW: 52,
   get tileH() {
     return this.tileW / 2;
   },
@@ -16,6 +19,8 @@ export const ISO = {
     return this.tileW / Math.SQRT2;
   },
   skewDeg: 26.565,
+  /** 가구가 footprint 다이아에 내접하는 비율 (1/√2 근사) */
+  footprintFill: 0.72,
   /** 벽 전체 높이 */
   wallH: 150,
   /** 하부 와인스코트 높이 */

@@ -51,7 +51,28 @@ export interface IsoRoomProps {
   wallSurfaceId: SurfaceId;
   floorSurfaceId: SurfaceId;
   fixtures: readonly IsoFixture[];
+  /** 편집·검수용 셀 격자 */
+  showGrid?: boolean;
   children?: React.ReactNode;
+}
+
+/** 바닥 위의 직선. 아이소 축을 따라가므로 기울기는 ±skewDeg 둘 중 하나다. */
+function floorLineStyle(
+  from: { x: number; y: number },
+  to: { x: number; y: number },
+  thickness: number,
+): ViewStyle {
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  const width = Math.abs(dx);
+  return {
+    position: 'absolute',
+    left: (from.x + to.x) / 2 - width / 2,
+    top: (from.y + to.y) / 2 - thickness / 2,
+    width,
+    height: thickness,
+    transform: [{ skewY: `${dx * dy > 0 ? '' : '-'}${ISO.skewDeg}deg` }],
+  };
 }
 
 /** 벽면 위 요소의 스타일. 벽을 따라가는 구간 [cell, cell+cells)와 높이 구간으로 지정한다. */
@@ -80,6 +101,7 @@ export function IsoRoom({
   wallSurfaceId,
   floorSurfaceId,
   fixtures,
+  showGrid = false,
   children,
 }: IsoRoomProps) {
   const walls: Array<{ side: IsoWall; cells: number }> = [
@@ -174,6 +196,34 @@ export function IsoRoom({
           transform: floorTransform,
         }}
       />
+
+      {/* 셀 격자 */}
+      {showGrid ? (
+        <>
+          {Array.from({ length: rows + 1 }, (_, y) => (
+            <View
+              key={`gx-${y}`}
+              pointerEvents="none"
+              style={[
+                { zIndex: 5 },
+                floorLineStyle(isoPoint(0, y), isoPoint(cols, y), 1.5),
+                { backgroundColor: 'rgba(50, 34, 18, 0.35)' },
+              ]}
+            />
+          ))}
+          {Array.from({ length: cols + 1 }, (_, x) => (
+            <View
+              key={`gy-${x}`}
+              pointerEvents="none"
+              style={[
+                { zIndex: 5 },
+                floorLineStyle(isoPoint(x, 0), isoPoint(x, rows), 1.5),
+                { backgroundColor: 'rgba(50, 34, 18, 0.35)' },
+              ]}
+            />
+          ))}
+        </>
+      ) : null}
 
       {/* 앞쪽 두 모서리의 두께 면 (컷어웨이 단면) */}
       {([
