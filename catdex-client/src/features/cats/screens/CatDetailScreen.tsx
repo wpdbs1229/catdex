@@ -182,6 +182,7 @@ export function CatDetailScreen({ navigation, route }: RootStackScreenProps<'Cat
   const hasMoreEntries = sortedEncounters.length > visibleEncounters.length;
   const affinity = cat && isMyCat ? getAffinity(cat) : 0;
   const affinityLabel = getAffinityLabel(affinity);
+  const dossierRelationshipLabel = isMyCat ? affinityLabel : '미등록';
   const dossierWidth = Math.min(318, windowWidth - 50);
   const dossierHeight = dossierWidth * CUSTOMER_DOSSIER_ASPECT_RATIO;
   const peekWidth = dossierWidth * 0.76;
@@ -456,7 +457,7 @@ export function CatDetailScreen({ navigation, route }: RootStackScreenProps<'Cat
 
               <View style={styles.selectedCase}>
                 <CustomerDossierCard
-                  affinityLabel={affinityLabel}
+                  affinityLabel={dossierRelationshipLabel}
                   cat={cat}
                   encounters={encounters}
                   equipment={equipment}
@@ -478,12 +479,21 @@ export function CatDetailScreen({ navigation, route }: RootStackScreenProps<'Cat
                   최근 <Text style={styles.summaryStrong}>{formatShortDate(cat.lastSeenAt)}</Text>
                 </Text>
               </View>
-              <View style={styles.summaryChip}>
-                <Heart color={theme.colors.primary} size={16} strokeWidth={2} />
-                <Text numberOfLines={1} style={styles.summaryText}>
-                  친밀도 <Text style={styles.affinityStrong}>{affinityLabel}</Text>
-                </Text>
-              </View>
+              {isMyCat ? (
+                <View style={styles.summaryChip}>
+                  <Heart color={theme.colors.primary} size={16} strokeWidth={2} />
+                  <Text numberOfLines={1} style={styles.summaryText}>
+                    친밀도 <Text style={styles.affinityStrong}>{affinityLabel}</Text>
+                  </Text>
+                </View>
+              ) : (
+                <View style={styles.summaryChip}>
+                  <PawPrint color={theme.colors.primary} size={16} strokeWidth={2} />
+                  <Text numberOfLines={1} style={styles.summaryText}>
+                    수집 상태 <Text style={styles.affinityStrong}>미등록</Text>
+                  </Text>
+                </View>
+              )}
             </View>
 
             <View style={styles.recordsSection}>

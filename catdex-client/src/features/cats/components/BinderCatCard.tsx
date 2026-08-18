@@ -1,9 +1,10 @@
-import { Heart, PawPrint } from 'lucide-react-native';
+import { Check, Heart, PawPrint, Star } from 'lucide-react-native';
 import { Image, Pressable, StyleSheet, Text, View, type ImageSourcePropType } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { HabitatIcon } from '@/shared/cats/HabitatIcon';
 import { CAT_HABITAT_LABELS, type CatHabitat } from '@/shared/cats/habitat';
 import { nd, theme } from '@/shared/styles/theme';
+import type { CatRarity } from '@/shared/types/cat';
 
 const paperTexture = require('../../../../assets/textures/crumpled-paper.jpg');
 
@@ -14,8 +15,12 @@ interface BinderCatCardProps {
   number: number;
   name: string;
   habitat: CatHabitat;
+  /** 상세 리본과 같은 고객 고유 희귀도. 어느 도감에서 보든 바뀌지 않는다. */
+  rarity: CatRarity;
   imageSource?: ImageSourcePropType;
   liked?: boolean;
+  /** 지부 도감에서만 전달한다. 내 도감 등록 여부를 희귀도와 함께 보여준다. */
+  collected?: boolean;
   onPress?: () => void;
   onToggleLike?: () => void;
 }
@@ -31,15 +36,19 @@ export function BinderCatCard({
   number,
   name,
   habitat,
+  rarity,
   imageSource,
   liked = false,
+  collected,
   onPress,
   onToggleLike,
 }: BinderCatCardProps) {
+  const collectionLabel = collected === undefined ? '' : collected ? ', 내 고객' : ', 아직 못 만난 고객';
+
   return (
     <View style={styles.wrap}>
       <Pressable
-        accessibilityLabel={`${name} ${CAT_HABITAT_LABELS[habitat]}`}
+        accessibilityLabel={`${name} ${CAT_HABITAT_LABELS[habitat]}, 희귀도 ${rarity}성${collectionLabel}`}
         accessibilityRole="button"
         onPress={onPress}
         style={({ pressed }) => [styles.card, pressed && styles.pressed]}
@@ -53,10 +62,25 @@ export function BinderCatCard({
               <PawPrint color={nd.colors.subtle} size={34} />
             </View>
           )}
+
+          {collected !== undefined ? (
+            <View style={[styles.collectionBadge, collected ? styles.collectionBadgeOwned : styles.collectionBadgeMissing]}>
+              {collected ? <Check color="#FFFFFF" size={10} strokeWidth={3} /> : null}
+              <Text style={[styles.collectionLabel, collected ? styles.collectionLabelOwned : styles.collectionLabelMissing]}>
+                {collected ? '내 고객' : '아직 못 만남'}
+              </Text>
+            </View>
+          ) : null}
         </View>
 
         <View style={styles.footer}>
-          <Text style={styles.number}>#{String(number).padStart(3, '0')}</Text>
+          <View style={styles.metaRow}>
+            <Text style={styles.number}>#{String(number).padStart(3, '0')}</Text>
+            <View accessibilityLabel={`희귀도 ${rarity}성`} style={styles.rarityBadge}>
+              <Star color={theme.colors.primary} fill={theme.colors.primary} size={9} strokeWidth={2} />
+              <Text style={styles.rarityLabel}>{rarity}성</Text>
+            </View>
+          </View>
           <View style={styles.footerRow}>
             <Text numberOfLines={1} style={styles.name}>
               {name}
@@ -117,6 +141,7 @@ const styles = StyleSheet.create({
   },
   photoArea: {
     flex: 1,
+    position: 'relative',
     overflow: 'hidden',
   },
   photoPaper: {
@@ -141,9 +166,26 @@ const styles = StyleSheet.create({
     gap: 1,
     backgroundColor: '#FFFDF8',
   },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 6,
+  },
   number: {
     fontSize: 10,
     fontWeight: '700',
+    letterSpacing: -0.2,
+    color: theme.colors.primary,
+  },
+  rarityBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  rarityLabel: {
+    fontSize: 9.5,
+    fontWeight: '800',
     letterSpacing: -0.2,
     color: theme.colors.primary,
   },
@@ -170,6 +212,38 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     letterSpacing: -0.3,
     color: nd.colors.ink,
+  },
+  collectionBadge: {
+    position: 'absolute',
+    left: 6,
+    bottom: 6,
+    minHeight: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    borderRadius: nd.radius.pill,
+    borderWidth: 1,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+  },
+  collectionBadgeOwned: {
+    borderColor: theme.colors.primary,
+    backgroundColor: theme.colors.primary,
+  },
+  collectionBadgeMissing: {
+    borderColor: 'rgba(23, 23, 26, 0.12)',
+    backgroundColor: 'rgba(255, 253, 248, 0.92)',
+  },
+  collectionLabel: {
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: -0.25,
+  },
+  collectionLabelOwned: {
+    color: '#FFFFFF',
+  },
+  collectionLabelMissing: {
+    color: nd.colors.sub,
   },
   ribbon: {
     position: 'absolute',

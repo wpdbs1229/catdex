@@ -17,6 +17,7 @@ import { V2_FURNITURE_IMAGES } from '@/features/support-room-v2/support-room-v2.
 import { V3_FIXTURE_IMAGES } from './support-room-v3.assets';
 import { nd } from '@/shared/styles/theme';
 import { IsoFurniture } from './components/IsoFurniture';
+import { RoomHud } from './components/RoomHud';
 import { IsoRoom, type IsoFixture } from './components/IsoRoom';
 import { ISO, isoDepth, isoPoint } from './render/iso';
 
@@ -94,7 +95,14 @@ export function IsoRoomSpikeScreen() {
         </View>
       </View>
 
-      <ScrollView
+      <View style={styles.rewardChip}>
+        <Text style={styles.rewardChipText}>
+          새 고객 등록 <Text style={styles.rewardChipAccent}>+500 BP</Text>
+        </Text>
+      </View>
+
+      <View style={styles.roomArea}>
+        <ScrollView
         bouncesZoom
         contentContainerStyle={{ width: ISO.worldW, height: ISO.worldH }}
         contentOffset={initialOffset}
@@ -154,7 +162,16 @@ export function IsoRoomSpikeScreen() {
             })}
           </IsoRoom>
         </View>
-      </ScrollView>
+        </ScrollView>
+
+        <RoomHud
+          hasNewSupply
+          onEdit={() => undefined}
+          onOpenRecords={() => undefined}
+          onOpenSupplies={() => undefined}
+          unreadRecords={3}
+        />
+      </View>
 
       <View style={styles.footer}>
         <View style={styles.progressRow}>
@@ -215,8 +232,30 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: nd.colors.accent,
   },
+  roomArea: {
+    flex: 1,
+  },
   world: {
     flex: 1,
+  },
+  rewardChip: {
+    alignSelf: 'flex-start',
+    marginLeft: 20,
+    marginBottom: 4,
+    borderRadius: 999,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#EFE3D0',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  rewardChipText: {
+    fontSize: 13,
+    color: '#5C4B39',
+  },
+  rewardChipAccent: {
+    color: nd.colors.accent,
+    fontWeight: '800',
   },
   footer: {
     paddingHorizontal: 20,

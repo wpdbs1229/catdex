@@ -334,6 +334,7 @@ export function CatDexScreen() {
                 liked={likedCatIds.has(cat.id)}
                 name={cat.name}
                 number={cat.number}
+                rarity={cat.rarity}
                 onPress={() =>
                   navigation.navigate('CatDetail', {
                     catId: cat.id,

@@ -68,6 +68,7 @@ export function NeighborhoodDexScreen() {
   const tabBarBottomGap = useTabBarBottomGap();
   const {
     cats,
+    myCatIds,
     regions,
     neighborhood,
     neighborhoodName,
@@ -349,6 +350,8 @@ export function NeighborhoodDexScreen() {
                 liked={likedCatIds.has(cat.id)}
                 name={cat.name}
                 number={dexNumberOf(cat)}
+                rarity={cat.rarity}
+                collected={myCatIds.has(cat.id)}
                 onPress={() =>
                   navigation.navigate('CatDetail', {
                     catId: cat.id,
