@@ -54,11 +54,24 @@ async function persistSession(session: AuthSession) {
     refreshToken: '',
   };
 
-  await SecureStore.setItemAsync(authStorageKey, JSON.stringify(snapshot));
+  try {
+    await SecureStore.setItemAsync(authStorageKey, JSON.stringify(snapshot));
+  } catch (error) {
+    // SecureStore가 없는 환경(엔타이틀먼트 없는 로컬 빌드 등)에서도 인증 흐름은
+    // 계속돼야 한다. 스냅숏은 표시용 사본일 뿐 신뢰 소스는 Supabase 세션이다.
+    console.warn('[auth] secure store write skipped', error);
+  }
 }
 
 async function restoreSession() {
-  const storedSession = await SecureStore.getItemAsync(authStorageKey);
+  let storedSession: string | null;
+  try {
+    storedSession = await SecureStore.getItemAsync(authStorageKey);
+  } catch (error) {
+    // 읽기 실패는 스냅숏 없음과 동일하게 취급한다. Supabase 세션 복원은 계속된다.
+    console.warn('[auth] secure store read skipped', error);
+    return null;
+  }
 
   if (!storedSession) {
     return null;
@@ -119,7 +132,7 @@ async function restoreSupabaseSession(restoredSession: AuthSession | null) {
     // 네트워크 오류 등 일시 장애에는 세션을 지우지 않는다.
     // 확정적인 인증 실패(만료·폐기)일 때만 제거한다.
     if (isDefinitiveAuthError(error)) {
-      await SecureStore.deleteItemAsync(authStorageKey);
+      await SecureStore.deleteItemAsync(authStorageKey).catch(() => undefined);
       return null;
     }
 
@@ -281,7 +294,7 @@ export function useAuth() {
     try {
       await withdrawMyAccount();
       setApiAccessToken(null);
-      await SecureStore.deleteItemAsync(authStorageKey);
+      await SecureStore.deleteItemAsync(authStorageKey).catch(() => undefined);
       await supabase.auth.signOut({ scope: 'local' }).catch(() => undefined);
       setCurrentUser(null);
 
