@@ -76,6 +76,18 @@ const surfaceCatalog = catalog.surfaces.map((s) => {
 
 mustExist('environment/support-room-shell-wide.webp');
 
+// 신규 행동 2종(watch_window, drink_water)의 캐릭터별 합성 이미지.
+// 기존 7행동은 V1 support-room.assets의 CAT_ACTION_IMAGES를 그대로 재사용한다.
+const NEW_BEHAVIORS = ['watch_window', 'drink_water'];
+const catActionDir = path.join(ASSET_DIR, 'cats/actions');
+const characterKeys = fs
+  .readdirSync(catActionDir)
+  .filter((name) => !name.startsWith('.'))
+  .sort();
+for (const key of characterKeys) {
+  for (const behavior of NEW_BEHAVIORS) mustExist(`cats/actions/${key}/${behavior}.webp`);
+}
+
 const header = `/**
  * 이 파일은 scripts/generate-support-room-v2.js가 생성한다. 손으로 고치지 말 것.
  * 원본: 대한냥냥공사 패키지 assets/v2 (catalog-v2.json schemaVersion ${catalog.schemaVersion})
@@ -101,6 +113,12 @@ const thumbLines = catalog.furniture
 const surfaceLines = catalog.surfaces
   .map((s) => `  ${s.id}: ${req(`surfaces/${s.id}.webp`)},`)
   .join('\n');
+const catActionLines = characterKeys
+  .map(
+    (key) =>
+      `  ${key}: {\n${NEW_BEHAVIORS.map((b) => `    ${b}: ${req(`cats/actions/${key}/${b}.webp`)},`).join('\n')}\n  },`,
+  )
+  .join('\n');
 
 const assetsSource = `${header}
 import type { FurnitureId, SurfaceId } from './domain/furniture';
@@ -119,6 +137,11 @@ ${thumbLines}
 
 export const V2_SURFACE_IMAGES: Record<SurfaceId, ImageSource> = {
 ${surfaceLines}
+};
+
+/** 신규 2행동의 캐릭터별 합성 이미지. 기존 7행동은 V1 CAT_ACTION_IMAGES 재사용. */
+export const V2_NEW_CAT_ACTION_IMAGES: Record<string, Record<'watch_window' | 'drink_water', ImageSource>> = {
+${catActionLines}
 };
 `;
 

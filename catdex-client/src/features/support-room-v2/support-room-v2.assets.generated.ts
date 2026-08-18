@@ -72,3 +72,71 @@ export const V2_SURFACE_IMAGES: Record<SurfaceId, ImageSource> = {
   flooring_cream_terrazzo: require('../../../assets/support-room-v2/surfaces/flooring_cream_terrazzo.webp'),
   flooring_warm_gray_carpet: require('../../../assets/support-room-v2/surfaces/flooring_warm_gray_carpet.webp'),
 };
+
+/** 신규 2행동의 캐릭터별 합성 이미지. 기존 7행동은 V1 CAT_ACTION_IMAGES 재사용. */
+export const V2_NEW_CAT_ACTION_IMAGES: Record<string, Record<'watch_window' | 'drink_water', ImageSource>> = {
+  bicolor_cow: {
+    watch_window: require('../../../assets/support-room-v2/cats/actions/bicolor_cow/watch_window.webp'),
+    drink_water: require('../../../assets/support-room-v2/cats/actions/bicolor_cow/drink_water.webp'),
+  },
+  bicolor_spotted: {
+    watch_window: require('../../../assets/support-room-v2/cats/actions/bicolor_spotted/watch_window.webp'),
+    drink_water: require('../../../assets/support-room-v2/cats/actions/bicolor_spotted/drink_water.webp'),
+  },
+  bicolor_tuxedo: {
+    watch_window: require('../../../assets/support-room-v2/cats/actions/bicolor_tuxedo/watch_window.webp'),
+    drink_water: require('../../../assets/support-room-v2/cats/actions/bicolor_tuxedo/drink_water.webp'),
+  },
+  fallback_cream: {
+    watch_window: require('../../../assets/support-room-v2/cats/actions/fallback_cream/watch_window.webp'),
+    drink_water: require('../../../assets/support-room-v2/cats/actions/fallback_cream/drink_water.webp'),
+  },
+  point_reserved: {
+    watch_window: require('../../../assets/support-room-v2/cats/actions/point_reserved/watch_window.webp'),
+    drink_water: require('../../../assets/support-room-v2/cats/actions/point_reserved/drink_water.webp'),
+  },
+  solid_black: {
+    watch_window: require('../../../assets/support-room-v2/cats/actions/solid_black/watch_window.webp'),
+    drink_water: require('../../../assets/support-room-v2/cats/actions/solid_black/drink_water.webp'),
+  },
+  solid_brown: {
+    watch_window: require('../../../assets/support-room-v2/cats/actions/solid_brown/watch_window.webp'),
+    drink_water: require('../../../assets/support-room-v2/cats/actions/solid_brown/drink_water.webp'),
+  },
+  solid_cream: {
+    watch_window: require('../../../assets/support-room-v2/cats/actions/solid_cream/watch_window.webp'),
+    drink_water: require('../../../assets/support-room-v2/cats/actions/solid_cream/drink_water.webp'),
+  },
+  solid_gray: {
+    watch_window: require('../../../assets/support-room-v2/cats/actions/solid_gray/watch_window.webp'),
+    drink_water: require('../../../assets/support-room-v2/cats/actions/solid_gray/drink_water.webp'),
+  },
+  solid_orange: {
+    watch_window: require('../../../assets/support-room-v2/cats/actions/solid_orange/watch_window.webp'),
+    drink_water: require('../../../assets/support-room-v2/cats/actions/solid_orange/drink_water.webp'),
+  },
+  solid_white: {
+    watch_window: require('../../../assets/support-room-v2/cats/actions/solid_white/watch_window.webp'),
+    drink_water: require('../../../assets/support-room-v2/cats/actions/solid_white/drink_water.webp'),
+  },
+  tabby_brown: {
+    watch_window: require('../../../assets/support-room-v2/cats/actions/tabby_brown/watch_window.webp'),
+    drink_water: require('../../../assets/support-room-v2/cats/actions/tabby_brown/drink_water.webp'),
+  },
+  tabby_gray: {
+    watch_window: require('../../../assets/support-room-v2/cats/actions/tabby_gray/watch_window.webp'),
+    drink_water: require('../../../assets/support-room-v2/cats/actions/tabby_gray/drink_water.webp'),
+  },
+  tabby_orange: {
+    watch_window: require('../../../assets/support-room-v2/cats/actions/tabby_orange/watch_window.webp'),
+    drink_water: require('../../../assets/support-room-v2/cats/actions/tabby_orange/drink_water.webp'),
+  },
+  tortie_calico: {
+    watch_window: require('../../../assets/support-room-v2/cats/actions/tortie_calico/watch_window.webp'),
+    drink_water: require('../../../assets/support-room-v2/cats/actions/tortie_calico/drink_water.webp'),
+  },
+  tortie_dark: {
+    watch_window: require('../../../assets/support-room-v2/cats/actions/tortie_dark/watch_window.webp'),
+    drink_water: require('../../../assets/support-room-v2/cats/actions/tortie_dark/drink_water.webp'),
+  },
+};
