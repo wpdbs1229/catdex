@@ -797,6 +797,7 @@ export function SupportRoomV2Screen() {
             onScroll={(event) => {
               scrollXRef.current = event.nativeEvent.contentOffset.x;
             }}
+            removeClippedSubviews
             ref={scrollRef}
             scrollEnabled={!dragging}
             scrollEventThrottle={32}
@@ -1015,7 +1016,7 @@ const styles = StyleSheet.create({
   },
   hudButton: {
     minWidth: 44,
-    height: 36,
+    minHeight: 44,
     paddingHorizontal: 10,
     borderRadius: 10,
     backgroundColor: nd.colors.field,
@@ -1027,7 +1028,7 @@ const styles = StyleSheet.create({
     color: nd.colors.ink,
   },
   saveButton: {
-    height: 36,
+    minHeight: 44,
     paddingHorizontal: 16,
     borderRadius: 10,
     backgroundColor: nd.colors.accent,
