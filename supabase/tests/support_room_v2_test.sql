@@ -9,7 +9,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(38);
+select plan(42);
 
 -- ── 준비: 테스트 사용자 2명 ─────────────────────────────────────────────
 
@@ -296,6 +296,58 @@ select is(
    where user_id = '22222222-2222-2222-2222-222222222222'),
   4::bigint,
   'B: 이전을 두 번 실행해도 수량이 한 번만 지급됨'
+);
+
+-- ── 수집 → 복지포인트 (트리거) ─────────────────────────────────────────
+
+reset role;
+
+insert into public.cats (id, user_id, created_by, number, name, coat_colors, coat_pattern)
+values ('44444444-4444-4444-4444-444444444444', '22222222-2222-2222-2222-222222222222',
+        '22222222-2222-2222-2222-222222222222', 9100, '트리거냥', array['black'], 'solid');
+
+insert into public.cat_encounters (id, user_id, cat_id, seen_at, region_name, memo, is_public)
+values ('55555555-5555-5555-5555-555555555555', '22222222-2222-2222-2222-222222222222',
+        '44444444-4444-4444-4444-444444444444', current_date, '테스트동', '', true);
+
+insert into public.user_cat_collections (user_id, cat_id)
+values ('22222222-2222-2222-2222-222222222222', '44444444-4444-4444-4444-444444444444');
+
+select is(
+  (select balance from public.support_room_wallets where user_id = '22222222-2222-2222-2222-222222222222'),
+  500,
+  'B: 신규 수집 = 만남 100 + 도감 보너스 400'
+);
+
+insert into public.cat_encounters (id, user_id, cat_id, seen_at, region_name, memo, is_public)
+values ('66666666-6666-6666-6666-666666666666', '22222222-2222-2222-2222-222222222222',
+        '44444444-4444-4444-4444-444444444444', current_date, '테스트동', '', true);
+
+select is(
+  (select balance from public.support_room_wallets where user_id = '22222222-2222-2222-2222-222222222222'),
+  600,
+  'B: 재발견은 +100'
+);
+
+delete from public.cat_encounters where id = '66666666-6666-6666-6666-666666666666';
+
+select is(
+  (select balance from public.support_room_wallets where user_id = '22222222-2222-2222-2222-222222222222'),
+  500,
+  'B: 만남 삭제 시 100 회수 (파밍 방지)'
+);
+
+-- 지급 기록이 없는 만남 삭제는 회수하지 않는다
+delete from public.support_room_economy_ledger
+where user_id = '22222222-2222-2222-2222-222222222222'
+  and idempotency_key = 'encounter:55555555-5555-5555-5555-555555555555';
+
+delete from public.cat_encounters where id = '55555555-5555-5555-5555-555555555555';
+
+select is(
+  (select balance from public.support_room_wallets where user_id = '22222222-2222-2222-2222-222222222222'),
+  500,
+  'B: 지급 이력 없는 만남 삭제는 회수하지 않음'
 );
 
 -- ── anon 차단 ───────────────────────────────────────────────────────────
