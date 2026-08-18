@@ -201,6 +201,8 @@ export interface RecordVisitInput {
   slot: number;
   catName: string;
   characterAssetKey: string;
+  /** 실시간 관람 여부. false(미접속 정산)면 최초 발견 보너스 외에는 무보상. */
+  live: boolean;
 }
 
 export interface RecordVisitResult {
@@ -219,6 +221,7 @@ export async function recordSupportRoomVisit(input: RecordVisitInput): Promise<R
     p_scheduled_at: new Date(input.scheduledAt).toISOString(),
     p_slot: input.slot,
     p_payload: { catName: input.catName, characterAssetKey: input.characterAssetKey },
+    p_live: input.live,
   });
   throwIfSupabaseError(error);
   const result = data as { status: string; isFirstDiscovery?: boolean; balance?: number };

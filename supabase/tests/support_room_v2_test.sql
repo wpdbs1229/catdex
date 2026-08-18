@@ -9,7 +9,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(42);
+select plan(44);
 
 -- ── 준비: 테스트 사용자 2명 ─────────────────────────────────────────────
 
@@ -234,6 +234,23 @@ select is(
   )->>'status'),
   'duplicate',
   'A: 같은 (시각, slot)에 다른 eventId도 중복 처리'
+);
+
+-- ── 정산(미접속) 방문은 자동 적립 없음 ─────────────────────────────────
+
+select is(
+  (select public.record_support_room_visit(
+    'a:3000:0', '33333333-3333-3333-3333-333333333333', 'visitor_cushion_orange', 'use_cushion',
+    to_timestamp(3000), 0, '{}'::jsonb, false
+  )->>'status'),
+  'ok',
+  'A: 정산 재방문은 기록되지만'
+);
+
+select is(
+  (select balance from public.support_room_wallets where user_id = '11111111-1111-1111-1111-111111111111'),
+  400,
+  'A: 정산 재방문에는 포인트가 지급되지 않는다'
 );
 
 -- ── 사용자 B와 교차 접근 차단 ───────────────────────────────────────────

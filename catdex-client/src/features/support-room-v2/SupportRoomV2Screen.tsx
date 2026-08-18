@@ -33,7 +33,7 @@ import type { Placement, PlacementIssue } from './domain/placement';
 import { validatePlacement, validateLayout } from './domain/placement';
 import { DEFAULT_ROOM_SHELL } from './domain/room-shell';
 import { WORLD } from './render/projection';
-import { V2_ROOM_SHELL, V2_SURFACE_IMAGES } from './support-room-v2.assets.generated';
+import { V2_ROOM_SHELL, V2_SURFACE_OVERLAYS } from './support-room-v2.assets.generated';
 import {
   fetchVisitRecords,
   purchaseSupportRoomItem,
@@ -204,6 +204,7 @@ export function SupportRoomV2Screen() {
               slot: scene.slot,
               catName: scene.catName,
               characterAssetKey: scene.characterAssetKey,
+              live: false,
             });
           } catch {
             // 일부 실패해도 다음 정산에서 같은 eventId로 재시도된다.
@@ -810,20 +811,20 @@ export function SupportRoomV2Screen() {
                 style={{ width: roomWidth, height: renderedRoomHeight }}
               />
 
-              {/* ponytail: 표면 타일은 건축 마스크 에셋이 없어 바닥만 사각 밴드로 덮는다.
-                  벽지는 창·문을 가리므로 선택 저장만 하고 시각 적용은 마스크 납품 뒤에 한다. */}
+              {/* 표면 오버레이: 벽·바닥 영역 마스크 + 셸 음영이 미리 합성된 레이어라
+                  창·문·몰딩을 가리지 않는다. 기본 표면은 셸 원본 그대로 둔다. */}
+              {wallSurfaceId !== 'wallpaper_cream_plaster' ? (
+                <Image
+                  resizeMode="stretch"
+                  source={V2_SURFACE_OVERLAYS[wallSurfaceId]}
+                  style={{ position: 'absolute', left: 0, top: 0, width: roomWidth, height: renderedRoomHeight }}
+                />
+              ) : null}
               {floorSurfaceId !== 'flooring_honey_oak' ? (
                 <Image
-                  resizeMode="repeat"
-                  source={V2_SURFACE_IMAGES[floorSurfaceId]}
-                  style={{
-                    position: 'absolute',
-                    left: 0,
-                    top: WORLD.floorBand.top * scale,
-                    width: roomWidth,
-                    height: (WORLD.floorBand.bottom - WORLD.floorBand.top) * scale,
-                    opacity: 0.92,
-                  }}
+                  resizeMode="stretch"
+                  source={V2_SURFACE_OVERLAYS[floorSurfaceId]}
+                  style={{ position: 'absolute', left: 0, top: 0, width: roomWidth, height: renderedRoomHeight }}
                 />
               ) : null}
 
@@ -871,6 +872,7 @@ export function SupportRoomV2Screen() {
                             slot: done.slot,
                             catName: done.catName,
                             characterAssetKey: done.characterAssetKey,
+                            live: true,
                           })
                             .then((result) => {
                               setBalance(result.balance);
