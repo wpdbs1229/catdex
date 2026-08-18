@@ -18,7 +18,7 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CREW_COMPANY_NAME } from '@/shared/constants/crew.constants';
-import { DEFAULT_PROFILE_NICKNAME } from '@/shared/constants/profile.constants';
+import { DEFAULT_PROFILE_AVATAR, DEFAULT_PROFILE_NICKNAME } from '@/shared/constants/profile.constants';
 import { getActiveNeighborhood, setActiveNeighborhood } from '@/shared/neighborhood/active-neighborhood';
 import { detectCurrentNeighborhood } from '@/shared/neighborhood/neighborhood-location';
 import { nd } from '@/shared/styles/theme';
@@ -26,7 +26,6 @@ import type { AuthUser, ProfileUpdateDraft } from '@/shared/types/auth';
 import type { SavedNeighborhood } from '@/shared/types/neighborhood';
 
 const officeHero = require('../../../../assets/profile-setup/office-hero.png');
-const defaultAvatar = require('../../../../assets/profile-setup/default-avatar.png');
 
 const NICKNAME_MIN_LENGTH = 2;
 const NICKNAME_MAX_LENGTH = 10;
@@ -284,7 +283,7 @@ export function ProfileSetupScreen({ user, isSaving, onComplete }: ProfileSetupS
                 <Animated.View
                   style={[styles.avatar, styles.avatarFallback, { width: avatarSize, height: avatarSize, borderRadius: avatarSize }]}
                 >
-                  <Image resizeMode="contain" source={defaultAvatar} style={styles.defaultAvatar} />
+                  <Image resizeMode="cover" source={DEFAULT_PROFILE_AVATAR} style={styles.defaultAvatar} />
                 </Animated.View>
               )}
               <View style={styles.cameraBadge}>
@@ -480,13 +479,13 @@ const styles = StyleSheet.create({
     borderColor: nd.colors.border,
     backgroundColor: '#FAFAFC',
   },
+  // 기본 프로필은 배경까지 그려진 정사각형이라 원을 꽉 채운다.
   avatarFallback: {
-    alignItems: 'center',
-    justifyContent: 'flex-end',
+    overflow: 'hidden',
   },
   defaultAvatar: {
-    width: '96%',
-    height: '96%',
+    width: '100%',
+    height: '100%',
   },
   cameraBadge: {
     position: 'absolute',

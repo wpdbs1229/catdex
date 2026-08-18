@@ -1,6 +1,7 @@
-import { ArrowUpDown, Heart, MessageCircle, PawPrint, UserRound } from 'lucide-react-native';
+import { ArrowUpDown, Heart, MessageCircle, PawPrint } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { DEFAULT_PROFILE_AVATAR } from '@/shared/constants/profile.constants';
 import { nd, theme } from '@/shared/styles/theme';
 import type { CommunityPost } from '@/shared/types/community';
 
@@ -56,17 +57,15 @@ function AuthorAvatar({ imageUrl, nickname }: { imageUrl?: string; nickname: str
     setHasImageError(false);
   }, [imageUrl]);
 
-  return imageUrl && !hasImageError ? (
+  const hasPhoto = Boolean(imageUrl) && !hasImageError;
+
+  return (
     <Image
-      accessibilityLabel={`${nickname} 프로필`}
+      accessibilityLabel={`${nickname} ${hasPhoto ? '프로필' : '기본 프로필'}`}
       onError={() => setHasImageError(true)}
-      source={{ uri: imageUrl }}
+      source={hasPhoto ? { uri: imageUrl } : DEFAULT_PROFILE_AVATAR}
       style={styles.authorAvatar}
     />
-  ) : (
-    <View accessibilityLabel={`${nickname} 기본 프로필`} style={[styles.authorAvatar, styles.avatarFallback]}>
-      <UserRound color={nd.colors.sub} size={20} strokeWidth={1.7} />
-    </View>
   );
 }
 
