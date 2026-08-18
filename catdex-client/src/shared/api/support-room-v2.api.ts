@@ -33,7 +33,7 @@ interface PlacementRow {
 }
 
 interface InventoryRow {
-  furniture_id: string;
+  item_id: string;
   owned_quantity: number;
 }
 
@@ -74,13 +74,14 @@ export async function fetchSupportRoomV2(): Promise<SupportRoomV2Snapshot | null
   };
 }
 
-export async function fetchSupportRoomInventory(): Promise<Map<FurnitureId, number>> {
+/** 가구·표면 공통 소유 수량. 키는 카탈로그 item_id. */
+export async function fetchSupportRoomInventory(): Promise<Map<string, number>> {
   const { data, error } = await supabase
     .from('support_room_inventory')
-    .select('furniture_id, owned_quantity')
+    .select('item_id, owned_quantity')
     .returns<InventoryRow[]>();
   throwIfSupabaseError(error);
-  return new Map((data ?? []).map((row) => [row.furniture_id as FurnitureId, row.owned_quantity]));
+  return new Map((data ?? []).map((row) => [row.item_id, row.owned_quantity]));
 }
 
 export async function fetchWelfarePointBalance(): Promise<number> {
@@ -118,6 +119,30 @@ export async function saveSupportRoomLayout(
     return { status: 'conflict', serverVersion: result.serverVersion ?? 0 };
   }
   return { status: 'ok', layoutVersion: result.layoutVersion ?? expectedVersion + 1 };
+}
+
+export interface PurchaseResult {
+  status: 'ok' | 'duplicate';
+  balance: number;
+  ownedQuantity: number;
+}
+
+/** 가격 검증·차감·원장·보관함 증가는 전부 서버. 같은 키 재호출은 중복 차감 없음. */
+export async function purchaseSupportRoomItem(
+  idempotencyKey: string,
+  itemId: string,
+): Promise<PurchaseResult> {
+  const { data, error } = await supabase.rpc('purchase_support_room_item', {
+    p_idempotency_key: idempotencyKey,
+    p_item_id: itemId,
+  });
+  throwIfSupabaseError(error);
+  const result = data as { status: string; balance?: number; ownedQuantity?: number };
+  return {
+    status: result.status === 'duplicate' ? 'duplicate' : 'ok',
+    balance: result.balance ?? 0,
+    ownedQuantity: result.ownedQuantity ?? 0,
+  };
 }
 
 export async function migrateSupportRoomV1(
