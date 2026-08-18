@@ -1,7 +1,8 @@
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  AccessibilityInfo,
   ActivityIndicator,
   Alert,
   Image,
@@ -32,6 +33,11 @@ import { DEFAULT_ROOM_SHELL } from './domain/room-shell';
 import { WORLD } from './render/projection';
 import { V2_ROOM_SHELL, V2_SURFACE_IMAGES } from './support-room-v2.assets.generated';
 import { saveSupportRoomLayout } from '@/shared/api/support-room-v2.api';
+import { fetchMyCats } from '@/shared/api/cats.api';
+import { getCurrentUserId } from '@/shared/api/auth.api';
+import { selectCharacter } from '@/features/support-room/character-matcher';
+import { CatVisitView } from './components/CatVisitView';
+import { planVisits, SETTLE_WINDOW_MS, type VisitScene } from './domain/scheduler';
 import { syncRoomV2 } from './support-room-v2.service';
 import {
   saveStoredRoomV2,
@@ -83,6 +89,21 @@ export function SupportRoomV2Screen() {
   /** 편집을 시작한 시점의 서버 layoutVersion. 저장 시 expectedVersion으로 보낸다. */
   const baseVersionRef = useRef(0);
   const [saving, setSaving] = useState(false);
+  const [visit, setVisit] = useState<VisitScene | null>(null);
+  const [interacting, setInteracting] = useState(false);
+  const [motionEnabled, setMotionEnabled] = useState(true);
+  /** 이미 재생한 장면. 같은 eventId를 두 번 재생하지 않는다. */
+  const playedEventsRef = useRef(new Set<string>());
+
+  useEffect(() => {
+    AccessibilityInfo.isReduceMotionEnabled()
+      .then((reduced) => setMotionEnabled(!reduced))
+      .catch(() => setMotionEnabled(true));
+    const subscription = AccessibilityInfo.addEventListener('reduceMotionChanged', (reduced) =>
+      setMotionEnabled(!reduced),
+    );
+    return () => subscription.remove();
+  }, []);
 
   const editing = editor !== null;
 
@@ -118,9 +139,48 @@ export function SupportRoomV2Screen() {
   const wallSurfaceId = editSurfaces?.wall ?? snapshot?.wallSurfaceId ?? 'wallpaper_cream_plaster';
   const floorSurfaceId = editSurfaces?.floor ?? snapshot?.floorSurfaceId ?? 'flooring_honey_oak';
 
+  // 관찰 모드에서 자율 방문 한 건을 결정적으로 계획해 재생한다.
+  // 편집 중에는 계획하지 않고, 같은 eventId는 두 번 재생하지 않는다.
+  useEffect(() => {
+    if (phase !== 'ready' || editing || visit || !snapshot || snapshot.placements.length === 0) {
+      return;
+    }
+    let active = true;
+    (async () => {
+      try {
+        const [userId, cats] = await Promise.all([getCurrentUserId(), fetchMyCats()]);
+        if (!active || !userId || cats.length === 0) return;
+        const visitCats = cats.map((cat) => ({
+          catId: cat.id,
+          catName: cat.name,
+          characterAssetKey: selectCharacter(cat.coatColors, cat.coatPattern, cat.id).key,
+        }));
+        const scheduledAt = Math.floor(Date.now() / SETTLE_WINDOW_MS) * SETTLE_WINDOW_MS;
+        const scenes = planVisits({
+          placements: snapshot.placements,
+          lookup: specLookup,
+          shell: DEFAULT_ROOM_SHELL,
+          cats: visitCats,
+          scheduledAt,
+          slots: 1,
+          salt: userId,
+        });
+        const next = scenes.find((scene) => !playedEventsRef.current.has(scene.eventId));
+        if (active && next) setVisit(next);
+      } catch {
+        // 방문 계획 실패는 조용히 넘어간다. 방은 그대로 보인다.
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [editing, phase, snapshot, visit]);
+
   /** draft가 있으면 이어서, 없으면 서버 스냅숏에서 편집을 시작한다. */
   const enterEdit = useCallback(() => {
     if (!stored) return;
+    setVisit(null);
+    setInteracting(false);
     const seed = stored.draft ?? {
       baseVersion: snapshot?.layoutVersion ?? 0,
       placements: snapshot?.placements ?? [],
@@ -496,6 +556,10 @@ export function SupportRoomV2Screen() {
               {placements.map((placement) => {
                 const spec = specLookup(placement.furnitureId);
                 if (!spec) return null;
+                // 합성 행동 재생 중에는 같은 자리의 독립 가구를 숨긴다(이중 표시 방지).
+                if (interacting && visit && placement.placementId === visit.placementId) {
+                  return null;
+                }
                 return (
                   <PlacedFurnitureView
                     editing={editing}
@@ -510,6 +574,29 @@ export function SupportRoomV2Screen() {
                   />
                 );
               })}
+
+              {!editing && visit
+                ? (() => {
+                    const target = placements.find((p) => p.placementId === visit.placementId);
+                    const targetSpec = target ? specLookup(target.furnitureId) : undefined;
+                    if (!target || !targetSpec) return null;
+                    return (
+                      <CatVisitView
+                        motionEnabled={motionEnabled}
+                        onDone={() => {
+                          playedEventsRef.current.add(visit.eventId);
+                          setVisit(null);
+                          setInteracting(false);
+                        }}
+                        onInteractChange={setInteracting}
+                        scale={scale}
+                        scene={visit}
+                        targetPlacement={target}
+                        targetSpec={targetSpec}
+                      />
+                    );
+                  })()
+                : null}
 
               {editing ? (
                 <GridOverlay
