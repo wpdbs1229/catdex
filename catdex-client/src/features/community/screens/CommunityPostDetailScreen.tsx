@@ -12,7 +12,6 @@ import {
   PawPrint,
   Send,
   StickyNote,
-  UserRound,
   X,
 } from 'lucide-react-native';
 import { useCallback, useMemo, useState } from 'react';
@@ -45,6 +44,7 @@ import {
   setCommunityPostLiked,
 } from '@/shared/api/community.api';
 import { getUserFacingError } from '@/shared/errors/user-facing-error';
+import { DEFAULT_PROFILE_AVATAR } from '@/shared/constants/profile.constants';
 import { nd } from '@/shared/styles/theme';
 import type {
   CommunityAuthor,
@@ -96,20 +96,15 @@ function formatDateTime(value: string | undefined) {
 function ProfileAvatar({ author, size = 42 }: { author: CommunityAuthor; size?: number }) {
   const [hasError, setHasError] = useState(false);
 
-  return author.profileImageUrl && !hasError ? (
+  const hasPhoto = Boolean(author.profileImageUrl) && !hasError;
+
+  return (
     <Image
-      accessibilityLabel={`${author.nickname} 프로필`}
+      accessibilityLabel={`${author.nickname} ${hasPhoto ? '프로필' : '기본 프로필'}`}
       onError={() => setHasError(true)}
-      source={{ uri: author.profileImageUrl }}
+      source={hasPhoto ? { uri: author.profileImageUrl } : DEFAULT_PROFILE_AVATAR}
       style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: nd.colors.field }}
     />
-  ) : (
-    <View
-      accessibilityLabel={`${author.nickname} 기본 프로필`}
-      style={[styles.avatarFallback, { width: size, height: size, borderRadius: size / 2 }]}
-    >
-      <UserRound color={nd.colors.sub} size={size * 0.48} strokeWidth={1.6} />
-    </View>
   );
 }
 
@@ -615,7 +610,6 @@ const styles = StyleSheet.create({
   authorCopy: { flex: 1 },
   authorName: { fontSize: 16, lineHeight: 23, fontWeight: '700', letterSpacing: -0.4, color: nd.colors.ink },
   authorMeta: { fontSize: 14, lineHeight: 20, letterSpacing: -0.35, color: '#505050' },
-  avatarFallback: { alignItems: 'center', justifyContent: 'center', backgroundColor: nd.colors.field },
   locationRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 12 },
   locationText: { fontSize: 14, lineHeight: 20, letterSpacing: -0.35, color: '#505050' },
   postBody: { marginTop: 12, fontSize: 15, lineHeight: 23, letterSpacing: -0.38, color: nd.colors.ink },

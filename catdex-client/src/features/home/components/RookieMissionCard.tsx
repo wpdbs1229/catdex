@@ -1,10 +1,10 @@
 import { ClipboardList, PawPrint, Search } from 'lucide-react-native';
 import type { ReactNode } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { DEFAULT_PROFILE_AVATAR } from '@/shared/constants/profile.constants';
 import { TRAINING_CAT_NAME } from '@/shared/constants/training.constants';
 import { createNdShadow, nd } from '@/shared/styles/theme';
 
-const defaultAvatar = require('../../../../assets/profile-setup/default-avatar.png');
 /** 클립보드 모서리를 붙잡고 빼꼼 내다보는 보리. 시안에서 오려낸 누끼다. */
 const boriPeek = require('../../../../assets/onboarding/bori-peek.png');
 
@@ -95,7 +95,7 @@ export function RookieMissionCard({ nickname, branch, onStart, onLater }: Rookie
           <View style={styles.pendingClip} />
           <Text style={styles.pendingTitle}>사원증 발급 대기</Text>
           <View style={styles.pendingBody}>
-            <Image resizeMode="cover" source={defaultAvatar} style={styles.pendingPhoto} />
+            <Image resizeMode="cover" source={DEFAULT_PROFILE_AVATAR} style={styles.pendingPhoto} />
             <View style={styles.pendingFields}>
               <Text numberOfLines={1} style={styles.pendingName}>
                 {nickname}

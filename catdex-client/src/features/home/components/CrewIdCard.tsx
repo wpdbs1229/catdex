@@ -4,6 +4,7 @@ import { Animated, Image, StyleSheet, Text, useWindowDimensions, View } from 're
 import Svg, { Path } from 'react-native-svg';
 import { nd } from '@/shared/styles/theme';
 import { CREW_COMPANY_SHORT_NAME } from '@/shared/constants/crew.constants';
+import { DEFAULT_PROFILE_AVATAR } from '@/shared/constants/profile.constants';
 
 const caseBack = require('../../../../assets/badge/case-back.png');
 const caseFront = require('../../../../assets/badge/case-front.png');
@@ -192,13 +193,11 @@ export function CrewIdCard({ nickname, profileImageUrl, rank, city, joinedAt, pu
           </View>
 
           <View style={styles.bodyTop}>
-            {profileImageUrl ? (
-              <Image resizeMode="cover" source={{ uri: profileImageUrl }} style={styles.photo} />
-            ) : (
-              <View style={[styles.photo, styles.photoFallback]}>
-                <PawPrint color={nd.colors.subtle} size={26} strokeWidth={1.6} />
-              </View>
-            )}
+            <Image
+              resizeMode="cover"
+              source={profileImageUrl ? { uri: profileImageUrl } : DEFAULT_PROFILE_AVATAR}
+              style={styles.photo}
+            />
 
             <View style={styles.fields}>
               <Text adjustsFontSizeToFit minimumFontScale={0.5} numberOfLines={1} style={styles.name}>
@@ -389,10 +388,6 @@ function createStyles(screenWidth: number) {
     borderWidth: 1,
     borderColor: '#111111',
     backgroundColor: '#FFFFFF',
-  },
-  photoFallback: {
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   fields: {
     flex: 1,

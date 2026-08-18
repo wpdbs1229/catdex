@@ -20,6 +20,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { formatBranch, formatSerial } from '@/features/home/components/CrewIdCard';
 import { fetchMyProfile, updateMyProfile } from '@/shared/api/auth.api';
 import { checkInAndFetchCrewStatus } from '@/shared/api/crew.api';
+import { DEFAULT_PROFILE_AVATAR } from '@/shared/constants/profile.constants';
 import { getActiveNeighborhood, setActiveNeighborhood } from '@/shared/neighborhood/active-neighborhood';
 import { detectCurrentNeighborhood } from '@/shared/neighborhood/neighborhood-location';
 import { nd } from '@/shared/styles/theme';
@@ -27,7 +28,6 @@ import type { AuthUser } from '@/shared/types/auth';
 import type { SavedNeighborhood } from '@/shared/types/neighborhood';
 
 const deskHero = require('../../../../assets/profile-setup/desk-hero.png');
-const defaultAvatar = require('../../../../assets/profile-setup/default-avatar.png');
 
 const NICKNAME_MIN_LENGTH = 2;
 const NICKNAME_MAX_LENGTH = 10;
@@ -225,7 +225,7 @@ export function ProfileEditScreen() {
                   <Image resizeMode="cover" source={{ uri: previewImage }} style={styles.avatar} />
                 ) : (
                   <View style={[styles.avatar, styles.avatarFallback]}>
-                    <Image resizeMode="contain" source={defaultAvatar} style={styles.defaultAvatar} />
+                    <Image resizeMode="cover" source={DEFAULT_PROFILE_AVATAR} style={styles.defaultAvatar} />
                   </View>
                 )}
                 <View style={styles.cameraBadge}>
@@ -445,14 +445,13 @@ const styles = StyleSheet.create({
     borderColor: nd.colors.border,
     backgroundColor: '#FAFAFC',
   },
+  // 기본 프로필은 배경까지 그려진 정사각형이라 원을 꽉 채운다.
   avatarFallback: {
     overflow: 'hidden',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
   },
   defaultAvatar: {
-    width: '92%',
-    height: '92%',
+    width: '100%',
+    height: '100%',
   },
   cameraBadge: {
     position: 'absolute',
