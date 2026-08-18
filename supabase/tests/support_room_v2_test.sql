@@ -9,7 +9,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(33);
+select plan(38);
 
 -- ── 준비: 테스트 사용자 2명 ─────────────────────────────────────────────
 
@@ -190,6 +190,50 @@ select is(
   )->>'status'),
   'ok',
   'A: 구매한 벽지는 적용 성공'
+);
+
+-- ── 방문 기록·보상 멱등 ─────────────────────────────────────────────────
+
+select is(
+  (select public.record_support_room_visit(
+    'a:1000:0', '33333333-3333-3333-3333-333333333333', 'visitor_cushion_orange', 'use_cushion',
+    to_timestamp(1000), 0, '{"catName":"감자"}'::jsonb
+  )->>'isFirstDiscovery'),
+  'true',
+  'A: 최초 발견 기록'
+);
+
+select is(
+  (select balance from public.support_room_wallets where user_id = '11111111-1111-1111-1111-111111111111'),
+  300,
+  'A: 최초 발견 보상 300P'
+);
+
+select is(
+  (select public.record_support_room_visit(
+    'a:1000:0', '33333333-3333-3333-3333-333333333333', 'visitor_cushion_orange', 'use_cushion',
+    to_timestamp(1000), 0, '{}'::jsonb
+  )->>'status'),
+  'duplicate',
+  'A: 같은 eventId 재기록은 duplicate (이중 보상 없음)'
+);
+
+select is(
+  (select public.record_support_room_visit(
+    'a:2000:0', '33333333-3333-3333-3333-333333333333', 'visitor_cushion_orange', 'use_cushion',
+    to_timestamp(2000), 0, '{}'::jsonb
+  )->>'isFirstDiscovery'),
+  'false',
+  'A: 같은 조합 재방문은 최초 발견이 아님 (+100P)'
+);
+
+select is(
+  (select public.record_support_room_visit(
+    'a:2000:0-other', '33333333-3333-3333-3333-333333333333', 'visitor_cushion_orange', 'use_cushion',
+    to_timestamp(2000), 0, '{}'::jsonb
+  )->>'status'),
+  'duplicate',
+  'A: 같은 (시각, slot)에 다른 eventId도 중복 처리'
 );
 
 -- ── 사용자 B와 교차 접근 차단 ───────────────────────────────────────────

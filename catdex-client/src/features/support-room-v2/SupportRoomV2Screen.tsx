@@ -32,13 +32,19 @@ import { validatePlacement, validateLayout } from './domain/placement';
 import { DEFAULT_ROOM_SHELL } from './domain/room-shell';
 import { WORLD } from './render/projection';
 import { V2_ROOM_SHELL, V2_SURFACE_IMAGES } from './support-room-v2.assets.generated';
-import { purchaseSupportRoomItem, saveSupportRoomLayout } from '@/shared/api/support-room-v2.api';
+import {
+  fetchVisitRecords,
+  purchaseSupportRoomItem,
+  recordSupportRoomVisit,
+  saveSupportRoomLayout,
+} from '@/shared/api/support-room-v2.api';
 import { fetchMyCats } from '@/shared/api/cats.api';
 import { getCurrentUserId } from '@/shared/api/auth.api';
 import { selectCharacter } from '@/features/support-room/character-matcher';
 import { CatVisitView } from './components/CatVisitView';
+import { RecordsSheet } from './components/RecordsSheet';
 import { ShopSheet, type ShopEntry } from './components/ShopSheet';
-import { planVisits, SETTLE_WINDOW_MS, type VisitScene } from './domain/scheduler';
+import { planVisits, settleOfflineVisits, SETTLE_WINDOW_MS, type VisitScene } from './domain/scheduler';
 import { syncRoomV2 } from './support-room-v2.service';
 import {
   saveStoredRoomV2,
@@ -76,6 +82,10 @@ export function SupportRoomV2Screen() {
   const [inventory, setInventory] = useState<Map<string, number>>(new Map());
   const [balance, setBalance] = useState(0);
   const [shopOpen, setShopOpen] = useState(false);
+  const [recordsOpen, setRecordsOpen] = useState(false);
+  const [unread, setUnread] = useState(0);
+  /** 포커스마다 한 번만 미접속 정산을 돌린다. */
+  const settledThisFocusRef = useRef(false);
   const [purchasing, setPurchasing] = useState(false);
   /** 구매 직후 '바로 배치'로 넘어올 때 편집 모드가 준비되면 놓을 가구 */
   const pendingPlaceRef = useRef<FurnitureId | null>(null);
@@ -116,6 +126,7 @@ export function SupportRoomV2Screen() {
   useFocusEffect(
     useCallback(() => {
       let active = true;
+      settledThisFocusRef.current = false;
       setPhase('loading');
       syncRoomV2()
         .then((result) => {
@@ -145,6 +156,83 @@ export function SupportRoomV2Screen() {
   const placements = editing ? editor.placements : (snapshot?.placements ?? []);
   const wallSurfaceId = editSurfaces?.wall ?? snapshot?.wallSurfaceId ?? 'wallpaper_cream_plaster';
   const floorSurfaceId = editSurfaces?.floor ?? snapshot?.floorSurfaceId ?? 'flooring_honey_oak';
+
+  // 미접속 정산과 새 기록 배지. 포커스당 한 번, 서버가 닿을 때만.
+  useEffect(() => {
+    if (phase !== 'ready' || offline || !stored || settledThisFocusRef.current) return;
+    settledThisFocusRef.current = true;
+    let active = true;
+    (async () => {
+      try {
+        const [userId, cats] = await Promise.all([getCurrentUserId(), fetchMyCats()]);
+        if (!active || !userId) return;
+
+        // 1) 지난 시간 창의 장면을 결정적으로 정산해 기록한다(멱등).
+        const summaries =
+          stored.lastSettledAt > 0 && stored.snapshot && cats.length > 0
+            ? settleOfflineVisits(
+                {
+                  placements: stored.snapshot.placements,
+                  lookup: specLookup,
+                  shell: DEFAULT_ROOM_SHELL,
+                  cats: cats.map((cat) => ({
+                    catId: cat.id,
+                    catName: cat.name,
+                    characterAssetKey: selectCharacter(cat.coatColors, cat.coatPattern, cat.id).key,
+                  })),
+                  salt: userId,
+                },
+                stored.lastSettledAt,
+                Date.now(),
+              )
+            : [];
+        for (const scene of summaries) {
+          try {
+            await recordSupportRoomVisit({
+              eventId: scene.eventId,
+              catId: scene.catId,
+              furnitureId: scene.furnitureId,
+              behaviorId: scene.behaviorId,
+              scheduledAt: scene.scheduledAt,
+              slot: scene.slot,
+              catName: scene.catName,
+              characterAssetKey: scene.characterAssetKey,
+            });
+          } catch {
+            // 일부 실패해도 다음 정산에서 같은 eventId로 재시도된다.
+          }
+        }
+        setStored((prev) => {
+          if (!prev) return prev;
+          const next = { ...prev, lastSettledAt: Date.now() };
+          void saveStoredRoomV2(next);
+          return next;
+        });
+        if (active && summaries.length > 0) {
+          Alert.alert(
+            '부재 중 고객 방문',
+            summaries
+              .map(
+                (scene) =>
+                  `· ${scene.catName} 고객 — ${FURNITURE_CATALOG.find((f) => f.id === scene.furnitureId)?.name ?? '비품'}`,
+              )
+              .join('\n'),
+          );
+        }
+
+        // 2) 서버 기록 기준 새 기록 배지
+        const recent = await fetchVisitRecords(20);
+        if (active) {
+          setUnread(recent.filter((r) => r.createdAt > stored.lastReadEventAt).length);
+        }
+      } catch {
+        // 정산 실패는 조용히 넘어간다. 다음 진입에서 다시 시도한다.
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [offline, phase, stored]);
 
   // 관찰 모드에서 자율 방문 한 건을 결정적으로 계획해 재생한다.
   // 편집 중에는 계획하지 않고, 같은 eventId는 두 번 재생하지 않는다.
@@ -558,6 +646,28 @@ export function SupportRoomV2Screen() {
           ) : (
             <>
               <Pressable
+                accessibilityLabel={`상담일지 열기, 새 기록 ${unread}개`}
+                accessibilityRole="button"
+                onPress={() => {
+                  setRecordsOpen(true);
+                  setUnread(0);
+                  setStored((prev) => {
+                    if (!prev) return prev;
+                    const next = { ...prev, lastReadEventAt: Date.now() };
+                    void saveStoredRoomV2(next);
+                    return next;
+                  });
+                }}
+                style={({ pressed }) => [styles.hudButton, pressed && styles.pressed]}
+              >
+                <Text style={styles.hudText}>기록</Text>
+                {unread > 0 ? (
+                  <View style={styles.badge}>
+                    <Text style={styles.badgeText}>{unread}</Text>
+                  </View>
+                ) : null}
+              </Pressable>
+              <Pressable
                 accessibilityLabel={`비품 상점 열기, 보유 ${balance} 포인트`}
                 accessibilityRole="button"
                 onPress={() => setShopOpen(true)}
@@ -661,8 +771,26 @@ export function SupportRoomV2Screen() {
                         motionEnabled={motionEnabled}
                         onDone={() => {
                           playedEventsRef.current.add(visit.eventId);
+                          const done = visit;
                           setVisit(null);
                           setInteracting(false);
+                          void recordSupportRoomVisit({
+                            eventId: done.eventId,
+                            catId: done.catId,
+                            furnitureId: done.furnitureId,
+                            behaviorId: done.behaviorId,
+                            scheduledAt: done.scheduledAt,
+                            slot: done.slot,
+                            catName: done.catName,
+                            characterAssetKey: done.characterAssetKey,
+                          })
+                            .then((result) => {
+                              setBalance(result.balance);
+                              if (result.status === 'ok') setUnread((count) => count + 1);
+                            })
+                            .catch(() => {
+                              // 기록 실패 시 다음 정산에서 같은 eventId로 재시도된다.
+                            });
                         }}
                         onInteractChange={setInteracting}
                         scale={scale}
@@ -728,6 +856,8 @@ export function SupportRoomV2Screen() {
           </View>
         ) : null}
       </View>
+
+      <RecordsSheet onClose={() => setRecordsOpen(false)} visible={recordsOpen} />
 
       <ShopSheet
         balance={balance}
@@ -823,6 +953,23 @@ const styles = StyleSheet.create({
   },
   roomViewport: {
     overflow: 'hidden',
+  },
+  badge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: nd.colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  badgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
   banner: {
     fontSize: 12,

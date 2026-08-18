@@ -145,6 +145,90 @@ export async function purchaseSupportRoomItem(
   };
 }
 
+export interface VisitRecord {
+  eventId: string;
+  catId: string;
+  furnitureId: FurnitureId;
+  behaviorId: string;
+  scheduledAt: number;
+  createdAt: number;
+  catName: string;
+  characterAssetKey: string;
+  isFirstDiscovery: boolean;
+}
+
+interface VisitEventRow {
+  event_id: string;
+  cat_id: string;
+  furniture_id: string;
+  behavior_id: string;
+  scheduled_at: string;
+  created_at: string;
+  payload: {
+    catName?: string;
+    characterAssetKey?: string;
+    isFirstDiscovery?: boolean;
+  } | null;
+}
+
+export async function fetchVisitRecords(limit = 50): Promise<VisitRecord[]> {
+  const { data, error } = await supabase
+    .from('support_room_visit_events')
+    .select('event_id, cat_id, furniture_id, behavior_id, scheduled_at, created_at, payload')
+    .order('scheduled_at', { ascending: false })
+    .limit(limit)
+    .returns<VisitEventRow[]>();
+  throwIfSupabaseError(error);
+  return (data ?? []).map((row) => ({
+    eventId: row.event_id,
+    catId: row.cat_id,
+    furnitureId: row.furniture_id as FurnitureId,
+    behaviorId: row.behavior_id,
+    scheduledAt: Date.parse(row.scheduled_at),
+    createdAt: Date.parse(row.created_at),
+    catName: row.payload?.catName ?? '이름 모를 고객',
+    characterAssetKey: row.payload?.characterAssetKey ?? 'fallback_cream',
+    isFirstDiscovery: row.payload?.isFirstDiscovery === true,
+  }));
+}
+
+export interface RecordVisitInput {
+  eventId: string;
+  catId: string;
+  furnitureId: FurnitureId;
+  behaviorId: string;
+  scheduledAt: number;
+  slot: number;
+  catName: string;
+  characterAssetKey: string;
+}
+
+export interface RecordVisitResult {
+  status: 'ok' | 'duplicate';
+  isFirstDiscovery: boolean;
+  balance: number;
+}
+
+/** 같은 eventId 재호출은 기록·보상 모두 중복 없이 duplicate로 끝난다. */
+export async function recordSupportRoomVisit(input: RecordVisitInput): Promise<RecordVisitResult> {
+  const { data, error } = await supabase.rpc('record_support_room_visit', {
+    p_event_id: input.eventId,
+    p_cat_id: input.catId,
+    p_furniture_id: input.furnitureId,
+    p_behavior_id: input.behaviorId,
+    p_scheduled_at: new Date(input.scheduledAt).toISOString(),
+    p_slot: input.slot,
+    p_payload: { catName: input.catName, characterAssetKey: input.characterAssetKey },
+  });
+  throwIfSupabaseError(error);
+  const result = data as { status: string; isFirstDiscovery?: boolean; balance?: number };
+  return {
+    status: result.status === 'duplicate' ? 'duplicate' : 'ok',
+    isFirstDiscovery: result.isFirstDiscovery === true,
+    balance: result.balance ?? 0,
+  };
+}
+
 export async function migrateSupportRoomV1(
   unlockedFurniture: readonly FurnitureId[],
   layout: readonly Placement[],

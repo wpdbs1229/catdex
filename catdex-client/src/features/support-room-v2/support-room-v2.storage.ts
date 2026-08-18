@@ -39,6 +39,10 @@ export interface StoredRoomV2 {
   draft: RoomDraft | null;
   /** V1 이전이 서버에서 성공 확인된 뒤에만 true로 바꾼다. */
   v1MigrationDone: boolean;
+  /** 이 시각 이후의 기록이 "새 기록" 배지 대상이다. */
+  lastReadEventAt: number;
+  /** 미접속 정산을 마친 시각. 0이면 아직 한 번도 방을 열지 않음. */
+  lastSettledAt: number;
 }
 
 function storageKey(userId: string) {
@@ -46,7 +50,14 @@ function storageKey(userId: string) {
 }
 
 export function createInitialStoredRoomV2(): StoredRoomV2 {
-  return { schemaVersion: SCHEMA_VERSION, snapshot: null, draft: null, v1MigrationDone: false };
+  return {
+    schemaVersion: SCHEMA_VERSION,
+    snapshot: null,
+    draft: null,
+    v1MigrationDone: false,
+    lastReadEventAt: 0,
+    lastSettledAt: 0,
+  };
 }
 
 function isSurfaceId(value: unknown): value is SurfaceId {
@@ -106,7 +117,14 @@ export function reviveStoredRoomV2(raw: unknown): StoredRoomV2 {
     draft = { ...draftLayout, baseVersion: rawDraft.baseVersion };
   }
 
-  return { schemaVersion: SCHEMA_VERSION, snapshot, draft, v1MigrationDone: value.v1MigrationDone === true };
+  return {
+    schemaVersion: SCHEMA_VERSION,
+    snapshot,
+    draft,
+    v1MigrationDone: value.v1MigrationDone === true,
+    lastReadEventAt: typeof value.lastReadEventAt === 'number' ? value.lastReadEventAt : 0,
+    lastSettledAt: typeof value.lastSettledAt === 'number' ? value.lastSettledAt : 0,
+  };
 }
 
 /** 로그아웃 상태면 초기 상태를 돌려주고 저장하지 않는다. */
