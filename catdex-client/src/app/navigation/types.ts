@@ -47,6 +47,8 @@ export type RootStackParamList = {
   MyPostDetail: { postId: string };
   /** 마이페이지 > 신고 목록. 내가 접수한 신고들의 내역이다. */
   MyReports: undefined;
+  /** 마이페이지 > 프로필 수정. 사진·닉네임·소속 지부를 접수서 양식으로 고친다. */
+  ProfileEdit: undefined;
   /** 마이페이지 > 냥냥 비품상점. 고객 파일의 배경지·케이스·라벨을 판다. */
   /** owned: true면 보유 비품(보관함)부터 보여준다. 홈의 비품 태그가 쓴다. */
   Shop: { owned?: boolean } | undefined;
