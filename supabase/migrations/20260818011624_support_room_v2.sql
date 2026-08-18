@@ -124,7 +124,8 @@ create table public.support_room_economy_ledger (
 -- ── 방문 장면 ───────────────────────────────────────────────────────────
 
 create table public.support_room_visit_events (
-  event_id uuid primary key default gen_random_uuid(),
+  -- 결정적 클라이언트 키 salt:scheduledAt:slot. 서버 unique와 재생 멱등이 같은 키를 쓴다.
+  event_id text primary key,
   user_id uuid not null references auth.users(id) on delete cascade,
   cat_id uuid not null,
   furniture_id text not null references public.support_room_catalog(item_id),
