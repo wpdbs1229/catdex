@@ -30,7 +30,7 @@ const V1_PROP_TO_V2: Record<PropId, FurnitureId> = {
 
 export interface SyncRoomV2Result {
   stored: StoredRoomV2;
-  inventory: Map<FurnitureId, number>;
+  inventory: Map<string, number>;
   balance: number;
   /** 서버에 닿지 못해 캐시로 그리는 중인지 */
   offline: boolean;

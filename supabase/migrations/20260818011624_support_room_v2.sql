@@ -90,12 +90,13 @@ create table public.support_room_placements (
   check ((surface = 'floor' and grid_y < 8) or (surface = 'wall' and grid_y < 5))
 );
 
+-- 가구·표면 공통 소유 기록. 시작 지급 상품은 행이 없어도 보유로 취급한다.
 create table public.support_room_inventory (
   user_id uuid not null references auth.users(id) on delete cascade,
-  furniture_id text not null references public.support_room_catalog(item_id),
+  item_id text not null references public.support_room_catalog(item_id),
   owned_quantity integer not null default 0 check (owned_quantity >= 0),
   updated_at timestamptz not null default now(),
-  primary key (user_id, furniture_id)
+  primary key (user_id, item_id)
 );
 
 -- ── 경제 ────────────────────────────────────────────────────────────────
@@ -217,11 +218,11 @@ begin
   on conflict (user_id) do nothing;
 
   -- 시작 지급 가구. 이미 행이 있으면 건드리지 않는다(중복 지급 방지).
-  insert into public.support_room_inventory (user_id, furniture_id, owned_quantity)
+  insert into public.support_room_inventory (user_id, item_id, owned_quantity)
   select current_user_id, c.item_id, 1
   from public.support_room_catalog c
   where c.item_type = 'furniture' and c.acquisition = 'starter'
-  on conflict (user_id, furniture_id) do nothing;
+  on conflict (user_id, item_id) do nothing;
 
   return jsonb_build_object('status', 'ok');
 end;
@@ -275,15 +276,18 @@ begin
     );
   end if;
 
-  -- 표면은 카탈로그의 판매 중 surface만 허용
-  if not exists (
-    select 1 from public.support_room_catalog
-    where item_id = p_wall_surface_id and item_type = 'surface' and is_active
-  ) or not exists (
-    select 1 from public.support_room_catalog
-    where item_id = p_floor_surface_id and item_type = 'surface' and is_active
+  -- 표면은 판매 중이면서 시작 지급이거나 구매한 것만 적용 가능
+  if exists (
+    select 1
+    from unnest(array[p_wall_surface_id, p_floor_surface_id]) as wanted(surface_id)
+    left join public.support_room_catalog c
+      on c.item_id = wanted.surface_id and c.item_type = 'surface' and c.is_active
+    left join public.support_room_inventory inv
+      on inv.user_id = current_user_id and inv.item_id = wanted.surface_id and inv.owned_quantity > 0
+    where c.item_id is null
+       or (c.acquisition <> 'starter' and inv.item_id is null)
   ) then
-    raise exception '적용할 수 없는 벽지·바닥이에요' using errcode = '22023';
+    raise exception '보유하지 않은 벽지·바닥은 적용할 수 없어요' using errcode = '42501';
   end if;
 
   -- 배치 수량이 보관함 소유량을 넘으면 거절
@@ -295,7 +299,7 @@ begin
       group by 1
     ) placed
     left join public.support_room_inventory inv
-      on inv.user_id = current_user_id and inv.furniture_id = placed.furniture_id
+      on inv.user_id = current_user_id and inv.item_id = placed.furniture_id
     where coalesce(inv.owned_quantity, 0) < placed.used
   ) then
     raise exception '보유하지 않은 가구는 배치할 수 없어요' using errcode = '42501';
@@ -414,14 +418,12 @@ begin
   values
     (current_user_id, p_idempotency_key, 'purchase', -catalog_item.price, next_balance, p_item_id);
 
-  if catalog_item.item_type = 'furniture' then
-    insert into public.support_room_inventory (user_id, furniture_id, owned_quantity)
-    values (current_user_id, p_item_id, 1)
-    on conflict (user_id, furniture_id)
-      do update set owned_quantity = public.support_room_inventory.owned_quantity + 1,
-                    updated_at = now()
-    returning owned_quantity into next_quantity;
-  end if;
+  insert into public.support_room_inventory (user_id, item_id, owned_quantity)
+  values (current_user_id, p_item_id, 1)
+  on conflict (user_id, item_id)
+    do update set owned_quantity = public.support_room_inventory.owned_quantity + 1,
+                  updated_at = now()
+  returning owned_quantity into next_quantity;
 
   return jsonb_build_object(
     'status', 'ok',

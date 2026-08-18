@@ -9,7 +9,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(30);
+select plan(33);
 
 -- ── 준비: 테스트 사용자 2명 ─────────────────────────────────────────────
 
@@ -83,7 +83,7 @@ select is(
 
 select is(
   (select owned_quantity from public.support_room_inventory
-   where user_id = '11111111-1111-1111-1111-111111111111' and furniture_id = 'service_bell_brass'),
+   where user_id = '11111111-1111-1111-1111-111111111111' and item_id = 'service_bell_brass'),
   1,
   'A: 구매 후 보관함 수량 1'
 );
@@ -167,6 +167,31 @@ select throws_ok(
   'A: 그리드 밖 좌표는 DB 제약으로 거절'
 );
 
+-- ── 표면 소유 검증 ─────────────────────────────────────────────────────
+
+select throws_ok(
+  $$select public.save_support_room_layout(
+    'main', 1, 'wallpaper_sage_linen', 'flooring_honey_oak', '[]'::jsonb
+  )$$,
+  '42501',
+  '보유하지 않은 벽지·바닥은 적용할 수 없어요',
+  'A: 구매하지 않은 벽지는 적용 거절'
+);
+
+select is(
+  (select public.purchase_support_room_item('buy-wall', 'wallpaper_sage_linen')->>'status'),
+  'ok',
+  'A: 벽지 구매 성공 (1,200P 차감)'
+);
+
+select is(
+  (select public.save_support_room_layout(
+    'main', 1, 'wallpaper_sage_linen', 'flooring_honey_oak', '[]'::jsonb
+  )->>'status'),
+  'ok',
+  'A: 구매한 벽지는 적용 성공'
+);
+
 -- ── 사용자 B와 교차 접근 차단 ───────────────────────────────────────────
 
 set local request.jwt.claims to '{"sub":"22222222-2222-2222-2222-222222222222","role":"authenticated"}';
@@ -204,7 +229,7 @@ select is(
 
 select is(
   (select owned_quantity from public.support_room_inventory
-   where user_id = '22222222-2222-2222-2222-222222222222' and furniture_id = 'service_bell_brass'),
+   where user_id = '22222222-2222-2222-2222-222222222222' and item_id = 'service_bell_brass'),
   1,
   'B: 이전으로 해금 비품이 보관함에 들어옴'
 );
@@ -247,7 +272,7 @@ reset role;
 
 select throws_ok(
   $$update public.support_room_inventory set owned_quantity = -1
-    where user_id = '11111111-1111-1111-1111-111111111111' and furniture_id = 'service_bell_brass'$$,
+    where user_id = '11111111-1111-1111-1111-111111111111' and item_id = 'service_bell_brass'$$,
   '23514',
   null,
   '재고 수량은 음수가 될 수 없다'

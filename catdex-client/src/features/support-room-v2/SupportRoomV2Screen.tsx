@@ -21,7 +21,7 @@ import { nd } from '@/shared/styles/theme';
 import { GridOverlay } from './components/GridOverlay';
 import { InventorySheet } from './components/InventorySheet';
 import { PlacedFurnitureView } from './components/PlacedFurnitureView';
-import { FURNITURE_CATALOG } from './domain/catalog.generated';
+import { FURNITURE_CATALOG, SURFACE_CATALOG } from './domain/catalog.generated';
 import { applyCommand, createEditorState, type EditorState } from './domain/editor';
 import { specLookup } from './domain/fixtures';
 import type { FurnitureId, SurfaceId } from './domain/furniture';
@@ -32,11 +32,12 @@ import { validatePlacement, validateLayout } from './domain/placement';
 import { DEFAULT_ROOM_SHELL } from './domain/room-shell';
 import { WORLD } from './render/projection';
 import { V2_ROOM_SHELL, V2_SURFACE_IMAGES } from './support-room-v2.assets.generated';
-import { saveSupportRoomLayout } from '@/shared/api/support-room-v2.api';
+import { purchaseSupportRoomItem, saveSupportRoomLayout } from '@/shared/api/support-room-v2.api';
 import { fetchMyCats } from '@/shared/api/cats.api';
 import { getCurrentUserId } from '@/shared/api/auth.api';
 import { selectCharacter } from '@/features/support-room/character-matcher';
 import { CatVisitView } from './components/CatVisitView';
+import { ShopSheet, type ShopEntry } from './components/ShopSheet';
 import { planVisits, SETTLE_WINDOW_MS, type VisitScene } from './domain/scheduler';
 import { syncRoomV2 } from './support-room-v2.service';
 import {
@@ -72,7 +73,12 @@ export function SupportRoomV2Screen() {
   const tabBarBottomGap = useTabBarBottomGap();
 
   const [stored, setStored] = useState<StoredRoomV2 | null>(null);
-  const [inventory, setInventory] = useState<Map<FurnitureId, number>>(new Map());
+  const [inventory, setInventory] = useState<Map<string, number>>(new Map());
+  const [balance, setBalance] = useState(0);
+  const [shopOpen, setShopOpen] = useState(false);
+  const [purchasing, setPurchasing] = useState(false);
+  /** 구매 직후 '바로 배치'로 넘어올 때 편집 모드가 준비되면 놓을 가구 */
+  const pendingPlaceRef = useRef<FurnitureId | null>(null);
   const [offline, setOffline] = useState(false);
   const [phase, setPhase] = useState<LoadPhase>('loading');
   const [editor, setEditor] = useState<EditorState | null>(null);
@@ -116,6 +122,7 @@ export function SupportRoomV2Screen() {
           if (active) {
             setStored(result.stored);
             setInventory(result.inventory);
+            setBalance(result.balance);
             setOffline(result.offline);
             setPhase('ready');
           }
@@ -298,12 +305,21 @@ export function SupportRoomV2Screen() {
     [dispatch, editor, inventory, scale, viewportWidth],
   );
 
-  const pickSurface = useCallback((id: SurfaceId) => {
-    setEditSurfaces((current) => {
-      if (!current) return current;
-      return id.startsWith('wallpaper') ? { ...current, wall: id } : { ...current, floor: id };
-    });
-  }, []);
+  const pickSurface = useCallback(
+    (id: SurfaceId) => {
+      const entry = SURFACE_CATALOG.find((surface) => surface.id === id);
+      const owned = entry?.acquisition === 'starter' || (inventory.get(id) ?? 0) > 0;
+      if (!owned) {
+        Alert.alert('아직 없는 상품이에요', '상점에서 구매하면 적용할 수 있어요.');
+        return;
+      }
+      setEditSurfaces((current) => {
+        if (!current) return current;
+        return id.startsWith('wallpaper') ? { ...current, wall: id } : { ...current, floor: id };
+      });
+    },
+    [inventory],
+  );
 
   const moveSelected = useCallback(
     (dx: number, dy: number) => {
@@ -386,6 +402,7 @@ export function SupportRoomV2Screen() {
                   .then((r) => {
                     setStored(r.stored);
                     setInventory(r.inventory);
+                    setBalance(r.balance);
                     setOffline(r.offline);
                     setPhase('ready');
                   })
@@ -444,6 +461,55 @@ export function SupportRoomV2Screen() {
     [placements],
   );
 
+  // 구매 직후 '바로 배치': 편집 모드가 열리면 대기 중인 가구를 놓는다.
+  useEffect(() => {
+    if (!editing || !pendingPlaceRef.current) return;
+    const furnitureId = pendingPlaceRef.current;
+    pendingPlaceRef.current = null;
+    placeFromInventory(furnitureId);
+  }, [editing, placeFromInventory]);
+
+  const purchase = useCallback(
+    async (entry: ShopEntry) => {
+      if (purchasing) return;
+      setPurchasing(true);
+      try {
+        const userId = await getCurrentUserId();
+        // 중복 탭 잠금은 purchasing 플래그, 중복 요청 방지는 서버 멱등 키가 맡는다.
+        const idempotencyKey = `shop:${userId ?? 'anon'}:${entry.id}:${Date.now()}`;
+        const result = await purchaseSupportRoomItem(idempotencyKey, entry.id);
+        setBalance(result.balance);
+        setInventory((prev) => new Map(prev).set(entry.id, result.ownedQuantity));
+        if (entry.kind === 'furniture') {
+          Alert.alert('구매 완료', `${entry.name}을(를) 보관함에 넣어 뒀어요.`, [
+            { text: '나중에' },
+            {
+              text: '바로 배치',
+              onPress: () => {
+                setShopOpen(false);
+                pendingPlaceRef.current = entry.id as FurnitureId;
+                enterEdit();
+              },
+            },
+          ]);
+        } else {
+          Alert.alert('구매 완료', '꾸미기의 바닥·벽지에서 적용할 수 있어요.');
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : '';
+        Alert.alert(
+          '구매하지 못했어요',
+          message.includes('부족')
+            ? '복지포인트가 부족해요. 고객 방문 기록으로 포인트를 모아보세요.'
+            : message || '연결을 확인하고 다시 시도해주세요.',
+        );
+      } finally {
+        setPurchasing(false);
+      }
+    },
+    [enterEdit, purchasing],
+  );
+
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.screen}>
       <View style={styles.header}>
@@ -490,14 +556,24 @@ export function SupportRoomV2Screen() {
               </Pressable>
             </>
           ) : (
-            <Pressable
-              accessibilityLabel="꾸미기 시작"
-              accessibilityRole="button"
-              onPress={enterEdit}
-              style={({ pressed }) => [styles.saveButton, pressed && styles.pressed]}
-            >
-              <Text style={styles.saveText}>꾸미기</Text>
-            </Pressable>
+            <>
+              <Pressable
+                accessibilityLabel={`비품 상점 열기, 보유 ${balance} 포인트`}
+                accessibilityRole="button"
+                onPress={() => setShopOpen(true)}
+                style={({ pressed }) => [styles.hudButton, pressed && styles.pressed]}
+              >
+                <Text style={styles.hudText}>상점</Text>
+              </Pressable>
+              <Pressable
+                accessibilityLabel="꾸미기 시작"
+                accessibilityRole="button"
+                onPress={enterEdit}
+                style={({ pressed }) => [styles.saveButton, pressed && styles.pressed]}
+              >
+                <Text style={styles.saveText}>꾸미기</Text>
+              </Pressable>
+            </>
           )}
         </View>
       </View>
@@ -652,6 +728,16 @@ export function SupportRoomV2Screen() {
           </View>
         ) : null}
       </View>
+
+      <ShopSheet
+        balance={balance}
+        onClose={() => setShopOpen(false)}
+        onPurchase={(entry) => void purchase(entry)}
+        ownedCount={(id) => inventory.get(id) ?? 0}
+        placements={snapshot?.placements ?? []}
+        purchasing={purchasing}
+        visible={shopOpen}
+      />
 
       {editing ? (
         <InventorySheet

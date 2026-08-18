@@ -42,12 +42,12 @@ begin
   end if;
 
   -- 해금 비품 지급: 카탈로그에 있는 가구만, 이미 가진 것은 건드리지 않는다.
-  insert into public.support_room_inventory (user_id, furniture_id, owned_quantity)
+  insert into public.support_room_inventory (user_id, item_id, owned_quantity)
   select current_user_id, c.item_id, 1
   from unnest(p_unlocked_furniture) as unlocked(furniture_id)
   join public.support_room_catalog c
     on c.item_id = unlocked.furniture_id and c.item_type = 'furniture' and c.is_active
-  on conflict (user_id, furniture_id) do nothing;
+  on conflict (user_id, item_id) do nothing;
 
   get diagnostics granted = row_count;
 
@@ -61,7 +61,7 @@ begin
       -- 보유하지 않은 가구가 섞여 있으면 그 항목만 조용히 건너뛴다.
       if exists (
         select 1 from public.support_room_inventory
-        where user_id = current_user_id and furniture_id = item->>'furnitureId' and owned_quantity > 0
+        where user_id = current_user_id and item_id = item->>'furnitureId' and owned_quantity > 0
       ) then
         insert into public.support_room_placements
           (user_id, room_id, placement_id, furniture_id, surface, grid_x, grid_y, flip_x)
