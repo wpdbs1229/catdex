@@ -36,13 +36,13 @@ export const DEFAULT_ROOM_SHELL: RoomShellConfig = {
       ],
     },
     {
-      // 중앙 우측 내부문: 뒷벽 쪽 바닥 앞 2칸
+      // 중앙 우측 내부문(원본 x≈2290~2540 → 18~19열): 뒷벽 쪽 바닥 앞 2칸
       id: 'door_interior_center_right',
       clearanceCells: [
+        { x: 18, y: 0 },
+        { x: 18, y: 1 },
         { x: 19, y: 0 },
         { x: 19, y: 1 },
-        { x: 20, y: 0 },
-        { x: 20, y: 1 },
       ],
     },
   ],

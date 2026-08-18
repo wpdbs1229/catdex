@@ -17,6 +17,8 @@ import { CatDetailScreen } from '../../features/cats/screens/CatDetailScreen';
 import { CatDexScreen } from '../../features/cats/screens/CatDexScreen';
 import { ClientMapScreen } from '../../features/cats/screens/ClientMapScreen';
 import { SupportRoomScreen } from '../../features/support-room/SupportRoomScreen';
+import { SupportRoomV2Screen } from '../../features/support-room-v2/SupportRoomV2Screen';
+import { SUPPORT_ROOM_V2_ENABLED } from '../../shared/constants/support-room-v2.constants';
 import { AttendanceMonthScreen } from '../../features/attendance/screens/AttendanceMonthScreen';
 import { AttendanceScreen } from '../../features/attendance/screens/AttendanceScreen';
 import { HomeScreen } from '../../features/home/screens/HomeScreen';
@@ -70,7 +72,11 @@ function ClientNavigator() {
     <ClientStack.Navigator screenOptions={{ headerShown: false, animation: 'fade' }}>
       <ClientStack.Screen name="ClientRoster" component={CatDexScreen} />
       <ClientStack.Screen name="ClientMap" component={ClientMapScreen} />
-      <ClientStack.Screen name="ClientSupportRoom" component={SupportRoomScreen} />
+      {/* V2 검수 완료 전까지 기존 화면이 기본. 플래그를 켠 빌드만 V2로 들어간다. */}
+      <ClientStack.Screen
+        name="ClientSupportRoom"
+        component={SUPPORT_ROOM_V2_ENABLED ? SupportRoomV2Screen : SupportRoomScreen}
+      />
     </ClientStack.Navigator>
   );
 }

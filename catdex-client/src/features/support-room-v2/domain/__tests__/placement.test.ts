@@ -10,7 +10,7 @@ import {
   walkableFloorCells,
 } from '../placement';
 import { DEFAULT_ROOM_SHELL } from '../room-shell';
-import { INTERACTIVE_FURNITURE_SPECS, STARTER_LAYOUT, fixtureSpecLookup } from '../fixtures';
+import { INTERACTIVE_FURNITURE_SPECS, STARTER_LAYOUT, specLookup } from '../fixtures';
 
 const cushion = (over: Partial<Placement> = {}): Placement => ({
   placementId: 'p1',
@@ -37,26 +37,26 @@ const rugSpec: FurnitureSpec = {
   layerMode: 'standalone',
   baselineY: 0.5,
 };
-const lookupWithRug: SpecLookup = (id) => (id === RUG_ID ? rugSpec : fixtureSpecLookup(id));
+const lookupWithRug: SpecLookup = (id) => (id === RUG_ID ? rugSpec : specLookup(id));
 
 describe('validatePlacement', () => {
   it('경계 밖 배치를 거절한다', () => {
-    const issues = validatePlacement(cushion({ gridX: 29, gridY: 7 }), [], fixtureSpecLookup);
+    const issues = validatePlacement(cushion({ gridX: 29, gridY: 7 }), [], specLookup);
     expect(issues.map((i) => i.code)).toContain('out_of_bounds');
   });
 
   it('음수 좌표와 소수 좌표를 거절한다', () => {
-    expect(validatePlacement(cushion({ gridX: -1 }), [], fixtureSpecLookup)[0]?.code).toBe(
+    expect(validatePlacement(cushion({ gridX: -1 }), [], specLookup)[0]?.code).toBe(
       'out_of_bounds',
     );
-    expect(validatePlacement(cushion({ gridY: 1.5 }), [], fixtureSpecLookup)[0]?.code).toBe(
+    expect(validatePlacement(cushion({ gridY: 1.5 }), [], specLookup)[0]?.code).toBe(
       'out_of_bounds',
     );
   });
 
   it('일반 가구끼리 충돌하면 거절한다', () => {
     const existing = cushion({ placementId: 'p0', gridX: 6, gridY: 6 });
-    const issues = validatePlacement(cushion(), [existing], fixtureSpecLookup);
+    const issues = validatePlacement(cushion(), [existing], specLookup);
     expect(issues.map((i) => i.code)).toContain('overlap');
   });
 
@@ -74,25 +74,25 @@ describe('validatePlacement', () => {
   });
 
   it('표면이 다르면 거절한다', () => {
-    const issues = validatePlacement(cushion({ surface: 'wall', gridY: 2 }), [], fixtureSpecLookup);
+    const issues = validatePlacement(cushion({ surface: 'wall', gridY: 2 }), [], specLookup);
     expect(issues.map((i) => i.code)).toContain('surface_mismatch');
   });
 
   it('반전 불가 가구의 flipX를 거절한다', () => {
     const station = cushion({ furnitureId: 'customer_water_station', flipX: true });
-    const issues = validatePlacement(station, [], fixtureSpecLookup);
+    const issues = validatePlacement(station, [], specLookup);
     expect(issues.map((i) => i.code)).toContain('flip_not_allowed');
   });
 });
 
 describe('validateLayout', () => {
   it('시작 레이아웃은 문·통로·앵커 검증을 모두 통과한다', () => {
-    expect(validateLayout(STARTER_LAYOUT, fixtureSpecLookup, DEFAULT_ROOM_SHELL)).toEqual([]);
+    expect(validateLayout(STARTER_LAYOUT, specLookup, DEFAULT_ROOM_SHELL)).toEqual([]);
   });
 
   it('출입문 앞을 막으면 거절한다', () => {
     const blocking = cushion({ gridX: 0, gridY: 3 });
-    const issues = validateLayout([blocking], fixtureSpecLookup, DEFAULT_ROOM_SHELL);
+    const issues = validateLayout([blocking], specLookup, DEFAULT_ROOM_SHELL);
     expect(issues.map((i) => i.code)).toContain('door_blocked');
   });
 
@@ -106,7 +106,7 @@ describe('validateLayout', () => {
       gridY: y,
       flipX: false,
     }));
-    const issues = validateLayout(wall, fixtureSpecLookup, DEFAULT_ROOM_SHELL);
+    const issues = validateLayout(wall, specLookup, DEFAULT_ROOM_SHELL);
     expect(issues.map((i) => i.code)).toContain('walkway_blocked');
   });
 
@@ -117,7 +117,7 @@ describe('validateLayout', () => {
     const blockerRight = cushion({ placementId: 'b2', gridX: 6, gridY: 6 });
     const issues = validateLayout(
       [target, blockerLeft, blockerRight],
-      fixtureSpecLookup,
+      specLookup,
       DEFAULT_ROOM_SHELL,
     );
     expect(issues.some((i) => i.code === 'anchor_blocked' && i.placementId === 'p1')).toBe(true);
