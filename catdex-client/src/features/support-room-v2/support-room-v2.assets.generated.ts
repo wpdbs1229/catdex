@@ -73,6 +73,16 @@ export const V2_SURFACE_IMAGES: Record<SurfaceId, ImageSource> = {
   flooring_warm_gray_carpet: require('../../../assets/support-room-v2/surfaces/flooring_warm_gray_carpet.webp'),
 };
 
+/** 벽·바닥 영역 마스크와 셸 음영이 적용된 표면 오버레이. 셸 바로 위에 그린다. */
+export const V2_SURFACE_OVERLAYS: Record<SurfaceId, ImageSource> = {
+  wallpaper_cream_plaster: require('../../../assets/support-room-v2/surface-overlays/wallpaper_cream_plaster.webp'),
+  wallpaper_sage_linen: require('../../../assets/support-room-v2/surface-overlays/wallpaper_sage_linen.webp'),
+  wallpaper_apricot_pinstripe: require('../../../assets/support-room-v2/surface-overlays/wallpaper_apricot_pinstripe.webp'),
+  flooring_honey_oak: require('../../../assets/support-room-v2/surface-overlays/flooring_honey_oak.webp'),
+  flooring_cream_terrazzo: require('../../../assets/support-room-v2/surface-overlays/flooring_cream_terrazzo.webp'),
+  flooring_warm_gray_carpet: require('../../../assets/support-room-v2/surface-overlays/flooring_warm_gray_carpet.webp'),
+};
+
 /** 신규 2행동의 캐릭터별 합성 이미지. 기존 7행동은 V1 CAT_ACTION_IMAGES 재사용. */
 export const V2_NEW_CAT_ACTION_IMAGES: Record<string, Record<'watch_window' | 'drink_water', ImageSource>> = {
   bicolor_cow: {

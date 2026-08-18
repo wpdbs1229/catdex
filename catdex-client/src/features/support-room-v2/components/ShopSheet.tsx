@@ -20,6 +20,7 @@ import {
   V2_FURNITURE_THUMBS,
   V2_ROOM_SHELL,
   V2_SURFACE_IMAGES,
+  V2_SURFACE_OVERLAYS,
 } from '../support-room-v2.assets.generated';
 
 export interface ShopEntry {
@@ -80,18 +81,11 @@ function RoomPreview({ entry, placements }: { entry: ShopEntry; placements: read
   return (
     <View style={[styles.preview, { width: previewWidth, height: previewHeight }]}>
       <Image source={V2_ROOM_SHELL} style={{ width: previewWidth, height: previewHeight }} />
-      {entry.kind === 'surface' && entry.id.startsWith('flooring') ? (
+      {entry.kind === 'surface' ? (
         <Image
-          resizeMode="repeat"
-          source={V2_SURFACE_IMAGES[entry.id as SurfaceId]}
-          style={{
-            position: 'absolute',
-            left: 0,
-            top: WORLD.floorBand.top * scale,
-            width: previewWidth,
-            height: (WORLD.floorBand.bottom - WORLD.floorBand.top) * scale,
-            opacity: 0.92,
-          }}
+          resizeMode="stretch"
+          source={V2_SURFACE_OVERLAYS[entry.id as SurfaceId]}
+          style={{ position: 'absolute', left: 0, top: 0, width: previewWidth, height: previewHeight }}
         />
       ) : null}
       {[...placements, ...(ghost ? [ghost] : [])].map((placement) => {
@@ -114,13 +108,6 @@ function RoomPreview({ entry, placements }: { entry: ShopEntry; placements: read
           />
         );
       })}
-      {entry.kind === 'surface' && entry.id.startsWith('wallpaper') ? (
-        <Image
-          resizeMode="cover"
-          source={V2_SURFACE_IMAGES[entry.id as SurfaceId]}
-          style={styles.surfaceSwatch}
-        />
-      ) : null}
     </View>
   );
 }

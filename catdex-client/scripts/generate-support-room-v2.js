@@ -113,6 +113,11 @@ const thumbLines = catalog.furniture
 const surfaceLines = catalog.surfaces
   .map((s) => `  ${s.id}: ${req(`surfaces/${s.id}.webp`)},`)
   .join('\n');
+// 셸 위에 얹는 표면 오버레이(마스크·음영 적용본). scripts/make-surface-overlays.py가 만든다.
+for (const s of catalog.surfaces) mustExist(`surface-overlays/${s.id}.webp`);
+const overlayLines = catalog.surfaces
+  .map((s) => `  ${s.id}: ${req(`surface-overlays/${s.id}.webp`)},`)
+  .join('\n');
 const catActionLines = characterKeys
   .map(
     (key) =>
@@ -137,6 +142,11 @@ ${thumbLines}
 
 export const V2_SURFACE_IMAGES: Record<SurfaceId, ImageSource> = {
 ${surfaceLines}
+};
+
+/** 벽·바닥 영역 마스크와 셸 음영이 적용된 표면 오버레이. 셸 바로 위에 그린다. */
+export const V2_SURFACE_OVERLAYS: Record<SurfaceId, ImageSource> = {
+${overlayLines}
 };
 
 /** 신규 2행동의 캐릭터별 합성 이미지. 기존 7행동은 V1 CAT_ACTION_IMAGES 재사용. */
