@@ -1,44 +1,48 @@
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import {
-  Image,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  useWindowDimensions,
-  View,
-} from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { ClientStackParamList } from '@/app/navigation/types';
 import { CAT_ACTION_IMAGES } from '@/features/support-room/support-room.assets';
 import type { FurnitureId } from '@/features/support-room-v2/domain/furniture';
-import { V2_FURNITURE_IMAGES } from '@/features/support-room-v2/support-room-v2.assets.generated';
-import { V3_FIXTURE_IMAGES } from './support-room-v3.assets';
+import {
+  V2_FURNITURE_IMAGES,
+  V2_SURFACE_IMAGES,
+} from '@/features/support-room-v2/support-room-v2.assets.generated';
 import { nd } from '@/shared/styles/theme';
-import { IsoRoom, type IsoFixture } from './components/IsoRoom';
-import { ISO, isoDepth, isoPoint } from './render/iso';
 
 /**
  * 프롬프트 A - 아이소메트릭 컷어웨이 렌더 스파이크 (docs/16).
- * 시안(docs/17) 룩을 신규 아트 없이 어디까지 재현할 수 있는지 확인한다.
- * 프롬프트 C에서 편집·서버 연결과 함께 정식 화면으로 승격한다.
+ *
+ * 목적: 기존 표면 타일·가구 스프라이트가 아이소 방에서 성립하는지,
+ * 세로 화면 가독성과 팬·핀치 감각을 실기에서 확인한다.
+ * 에셋을 새로 굽지 않고 RN transform만으로 사영한다:
+ *   바닥 = 반복 타일 사각형에 scaleY(0.5)·rotate(45°)
+ *   벽   = 반복 타일 사각형에 skewY(±26.565°)  (tan 26.565° = 0.5)
+ * 이 파일은 스파이크 전용이며 프롬프트 C에서 정식 렌더러로 대체한다.
  */
 
 const COLS = 8;
 const ROWS = 6;
+/** 셀 다이아의 화면 폭. 높이는 항상 절반(2:1 아이소). */
+const TILE_W = 64;
+const TILE_H = TILE_W / 2;
+/** 원본 타일 좌표계에서의 셀 한 변 */
+const CELL_SRC = TILE_W / Math.SQRT2;
+const WALL_H = 148;
+const ISO_SKEW_DEG = 26.565;
 
-const FIXTURES: readonly IsoFixture[] = [
-  // 셸에서 추출한 구조물
-  { key: 'door-ext', source: V3_FIXTURE_IMAGES.door_exterior, wall: 'left', cell: 3.4, cells: 1.9, lift: 0, height: 132 },
-  { key: 'win-left', source: V3_FIXTURE_IMAGES.window_arch_left, wall: 'left', cell: 0.7, cells: 1.7, lift: 52, height: 78 },
-  { key: 'win-right', source: V3_FIXTURE_IMAGES.window_arch_right, wall: 'right', cell: 2.2, cells: 1.7, lift: 52, height: 82 },
-  { key: 'door-int', source: V3_FIXTURE_IMAGES.door_interior, wall: 'right', cell: 5.6, cells: 1.7, lift: 0, height: 118 },
-  { key: 'lamp', source: V3_FIXTURE_IMAGES.wall_lamp, wall: 'right', cell: 0.9, cells: 0.6, lift: 78, height: 36 },
-  // 기존 벽 장식 가구도 같은 방식으로 붙는다
-  { key: 'clock', source: V2_FURNITURE_IMAGES.wall_clock_agency, wall: 'left', cell: 1.9, cells: 1.1, lift: 82, height: 40 },
-  { key: 'board', source: V2_FURNITURE_IMAGES.bulletin_board_customer, wall: 'right', cell: 3.9, cells: 1.5, lift: 66, height: 46 },
-];
+const WORLD_W = 760;
+const WORLD_H = 980;
+const ORIGIN_X = WORLD_W / 2;
+const ORIGIN_Y = 360;
+
+function iso(x: number, y: number): { x: number; y: number } {
+  return {
+    x: ORIGIN_X + ((x - y) * TILE_W) / 2,
+    y: ORIGIN_Y + ((x + y) * TILE_H) / 2,
+  };
+}
 
 interface SpikePlacement {
   furnitureId: FurnitureId;
@@ -48,48 +52,52 @@ interface SpikePlacement {
   scale?: number;
 }
 
-const PLACEMENTS: readonly SpikePlacement[] = [
-  { furnitureId: 'low_bookshelf_honey', gridX: 4.6, gridY: 0.2, cells: 3, scale: 0.92 },
-  { furnitureId: 'file_cabinet_olive', gridX: 0.15, gridY: 1.2, cells: 2, scale: 0.9 },
-  { furnitureId: 'consultation_desk_honey', gridX: 2.6, gridY: 1.9, cells: 3, scale: 0.98 },
-  { furnitureId: 'customer_water_station', gridX: 6.1, gridY: 1.6, cells: 2, scale: 0.9 },
-  { furnitureId: 'visitor_cushion_orange', gridX: 1.1, gridY: 3.5, cells: 2 },
-  { furnitureId: 'paper_basket_cream', gridX: 5.4, gridY: 3.6, cells: 2, scale: 0.95 },
-  { furnitureId: 'plant_large_rubber', gridX: 3.3, gridY: 4.4, cells: 2, scale: 0.88 },
+const SPIKE_PLACEMENTS: SpikePlacement[] = [
+  { furnitureId: 'swivel_chair_lavender', gridX: 1, gridY: 0.6, cells: 2 },
+  { furnitureId: 'customer_water_station', gridX: 5.6, gridY: 0.4, cells: 2, scale: 0.95 },
+  { furnitureId: 'plant_large_rubber', gridX: 0.4, gridY: 3.6, cells: 2, scale: 0.9 },
+  { furnitureId: 'visitor_cushion_orange', gridX: 4.4, gridY: 3, cells: 2 },
+  { furnitureId: 'low_bookshelf_honey', gridX: 2.8, gridY: 0.2, cells: 3, scale: 0.9 },
 ];
-
-const CATS = [
-  { key: 'tabby_orange', behavior: 'press_bell', gridX: 3.5, gridY: 3.2, size: 70 },
-  { key: 'solid_gray', behavior: 'use_cushion', gridX: 1.4, gridY: 3.8, size: 62 },
-  { key: 'bicolor_tuxedo', behavior: 'hide_paper_basket', gridX: 5.7, gridY: 3.9, size: 62 },
-] as const;
 
 export function IsoRoomSpikeScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<ClientStackParamList>>();
   const { width: viewportWidth, height: viewportHeight } = useWindowDimensions();
-
   // 진입 시 방 중앙이 화면 중앙에 오도록 초기 스크롤을 맞춘다.
-  const center = isoPoint(COLS / 2, ROWS / 2);
+  const roomCenter = iso(COLS / 2, ROWS / 2);
   const initialOffset = {
-    x: Math.max(0, center.x - viewportWidth / 2),
-    y: Math.max(0, center.y - (viewportHeight - 260) / 2),
+    x: Math.max(0, roomCenter.x - viewportWidth / 2),
+    y: Math.max(0, roomCenter.y - (viewportHeight - 200) / 2),
   };
+
+  const floorW = COLS * CELL_SRC;
+  const floorD = ROWS * CELL_SRC;
+  const floorCenter = iso(COLS / 2, ROWS / 2);
+
+  const rightWallW = (COLS * TILE_W) / 2;
+  const leftWallW = (ROWS * TILE_W) / 2;
+  const corner = iso(0, 0);
 
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.screen}>
       <View style={styles.header}>
         <View>
-          <Text style={styles.headerTitle}>고객지원실</Text>
-          <Text style={styles.headerSub}>행운동지부 · 임시 상담실</Text>
+          <Text style={styles.headerCompany}>대한냥냥공사 · V3 스파이크</Text>
+          <Text style={styles.headerTitle}>임시 상담실 8×6</Text>
         </View>
-        <View style={styles.balance}>
-          <Text style={styles.balanceText}>1,240 BP</Text>
-        </View>
+        <Pressable
+          accessibilityLabel="뒤로"
+          accessibilityRole="button"
+          onPress={() => navigation.goBack()}
+          style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}
+        >
+          <Text style={styles.backText}>닫기</Text>
+        </Pressable>
       </View>
 
       <ScrollView
         bouncesZoom
-        contentContainerStyle={{ width: ISO.worldW, height: ISO.worldH }}
+        contentContainerStyle={{ width: WORLD_W, height: WORLD_H }}
         contentOffset={initialOffset}
         maximumZoomScale={2.5}
         minimumZoomScale={0.55}
@@ -97,82 +105,117 @@ export function IsoRoomSpikeScreen() {
         showsVerticalScrollIndicator={false}
         style={styles.world}
       >
-        <View style={{ width: ISO.worldW, height: ISO.worldH }}>
-          <IsoRoom
-            cols={COLS}
-            fixtures={FIXTURES}
-            floorSurfaceId="flooring_honey_oak"
-            rows={ROWS}
-            wallSurfaceId="wallpaper_cream_plaster"
-          >
-            {PLACEMENTS.map((placement) => {
-              const size = placement.cells * ISO.tileW * 0.74 * (placement.scale ?? 1);
-              const anchor = isoPoint(
-                placement.gridX + placement.cells / 2,
-                placement.gridY + placement.cells / 2,
-              );
-              return (
+        <View style={{ width: WORLD_W, height: WORLD_H }}>
+          {/* 뒷벽 두 면. 면별 음영 차이와 걸레받이로 입체를 읽게 한다. */}
+          {([
+            { descend: 1, width: rightWallW, left: corner.x, tint: 'rgba(96, 74, 52, 0.05)' },
+            { descend: -1, width: leftWallW, left: corner.x - leftWallW, tint: 'rgba(96, 74, 52, 0.16)' },
+          ] as const).map((wall) => {
+            const skew = `${wall.descend * ISO_SKEW_DEG}deg`;
+            const top = corner.y - WALL_H + wall.width / 4;
+            return (
+              <View key={skew}>
                 <Image
-                  key={placement.furnitureId}
-                  resizeMode="contain"
-                  source={V2_FURNITURE_IMAGES[placement.furnitureId]}
+                  resizeMode="repeat"
+                  source={V2_SURFACE_IMAGES.wallpaper_cream_plaster}
                   style={{
                     position: 'absolute',
-                    left: anchor.x - size / 2,
-                    top: anchor.y - size + ISO.tileH / 2,
-                    width: size,
-                    height: size,
-                    zIndex: isoDepth(placement.gridX, placement.gridY),
+                    left: wall.left,
+                    top,
+                    width: wall.width,
+                    height: WALL_H,
+                    transform: [{ skewY: skew }],
                   }}
                 />
-              );
-            })}
+                {/* 면 음영 */}
+                <View
+                  style={{
+                    position: 'absolute',
+                    left: wall.left,
+                    top,
+                    width: wall.width,
+                    height: WALL_H,
+                    backgroundColor: wall.tint,
+                    transform: [{ skewY: skew }],
+                  }}
+                />
+                {/* 걸레받이 */}
+                <View
+                  style={{
+                    position: 'absolute',
+                    left: wall.left,
+                    top: top + WALL_H - 10,
+                    width: wall.width,
+                    height: 10,
+                    backgroundColor: '#B99A6B',
+                    borderTopWidth: 2,
+                    borderTopColor: '#8A6B45',
+                    transform: [{ skewY: skew }],
+                  }}
+                />
+              </View>
+            );
+          })}
 
-            {CATS.map((cat) => {
-              const anchor = isoPoint(cat.gridX, cat.gridY);
-              return (
-                <Image
-                  key={cat.key}
-                  resizeMode="contain"
-                  source={
-                    CAT_ACTION_IMAGES[cat.key as keyof typeof CAT_ACTION_IMAGES][
-                      cat.behavior as 'idle'
-                    ]
-                  }
-                  style={{
-                    position: 'absolute',
-                    left: anchor.x - cat.size / 2,
-                    top: anchor.y - cat.size + ISO.tileH / 2,
-                    width: cat.size,
-                    height: cat.size,
-                    zIndex: isoDepth(cat.gridX, cat.gridY) + 1,
-                  }}
-                />
-              );
-            })}
-          </IsoRoom>
+          {/* 바닥: 반복 타일 사각형을 다이아로 사영 */}
+          <Image
+            resizeMode="repeat"
+            source={V2_SURFACE_IMAGES.flooring_honey_oak}
+            style={{
+              position: 'absolute',
+              left: floorCenter.x - floorW / 2,
+              top: floorCenter.y - floorD / 2,
+              width: floorW,
+              height: floorD,
+              transform: [{ scaleY: 0.5 }, { rotate: '45deg' }],
+            }}
+          />
+
+          {/* 가구: 기존 3/4뷰 스프라이트, footprint 중심 정렬 */}
+          {SPIKE_PLACEMENTS.map((placement) => {
+            const size = placement.cells * TILE_W * 0.74 * (placement.scale ?? 1);
+            const center = iso(
+              placement.gridX + placement.cells / 2,
+              placement.gridY + placement.cells / 2,
+            );
+            return (
+              <Image
+                key={placement.furnitureId}
+                resizeMode="contain"
+                source={V2_FURNITURE_IMAGES[placement.furnitureId]}
+                style={{
+                  position: 'absolute',
+                  left: center.x - size / 2,
+                  top: center.y - size + TILE_H / 2,
+                  width: size,
+                  height: size,
+                  zIndex: Math.round(placement.gridX + placement.gridY) + 10,
+                }}
+              />
+            );
+          })}
+
+          {/* 고양이 */}
+          <Image
+            resizeMode="contain"
+            source={CAT_ACTION_IMAGES.tabby_orange.idle}
+            style={(() => {
+              const size = 52;
+              const center = iso(3.1, 4.3);
+              return {
+                position: 'absolute' as const,
+                left: center.x - size / 2,
+                top: center.y - size + TILE_H / 2,
+                width: size,
+                height: size,
+                zIndex: 18,
+              };
+            })()}
+          />
         </View>
       </ScrollView>
 
-      <View style={styles.footer}>
-        <View style={styles.progressRow}>
-          <Text style={styles.progressLabel}>
-            정식 고객지원실까지 <Text style={styles.progressAccent}>1,760 BP</Text>
-          </Text>
-          <Text style={styles.progressPercent}>41%</Text>
-        </View>
-        <View style={styles.progressTrack}>
-          <View style={[styles.progressFill, { width: '41%' }]} />
-        </View>
-        <Pressable
-          accessibilityLabel="닫기"
-          accessibilityRole="button"
-          onPress={() => navigation.goBack()}
-          style={({ pressed }) => [styles.closeButton, pressed && styles.pressed]}
-        >
-          <Text style={styles.closeText}>닫기</Text>
-        </Pressable>
-      </View>
+      <Text style={styles.hint}>핀치로 확대·축소, 확대 상태에서 드래그로 이동</Text>
     </SafeAreaView>
   );
 }
@@ -180,87 +223,47 @@ export function IsoRoomSpikeScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#F6EEE0',
+    backgroundColor: '#EDE3CF',
   },
   header: {
+    height: 64,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingBottom: 8,
+    paddingHorizontal: 16,
+  },
+  headerCompany: {
+    fontSize: 12,
+    color: nd.colors.sub,
   },
   headerTitle: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: '#3A2E22',
-  },
-  headerSub: {
-    fontSize: 13,
-    color: '#8B7A66',
-    marginTop: 2,
-  },
-  balance: {
-    borderRadius: 999,
-    borderWidth: 1.5,
-    borderColor: '#F0C89B',
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 14,
-    minHeight: 40,
-    justifyContent: 'center',
-  },
-  balanceText: {
-    fontSize: 15,
+    fontSize: 18,
     fontWeight: '700',
-    color: nd.colors.accent,
+    color: nd.colors.ink,
+  },
+  backButton: {
+    minWidth: 44,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    backgroundColor: nd.colors.field,
+  },
+  backText: {
+    fontSize: 14,
+    color: nd.colors.ink,
+  },
+  pressed: {
+    opacity: 0.7,
   },
   world: {
     flex: 1,
   },
-  footer: {
-    paddingHorizontal: 20,
-    paddingTop: 8,
-    gap: 8,
-  },
-  progressRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-end',
-  },
-  progressLabel: {
-    fontSize: 14,
-    color: '#5C4B39',
-  },
-  progressAccent: {
-    color: nd.colors.accent,
-    fontWeight: '700',
-  },
-  progressPercent: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: nd.colors.accent,
-  },
-  progressTrack: {
-    height: 10,
-    borderRadius: 999,
-    backgroundColor: '#E6DCCB',
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-    borderRadius: 999,
-    backgroundColor: nd.colors.accent,
-  },
-  closeButton: {
-    alignSelf: 'center',
-    minHeight: 44,
-    justifyContent: 'center',
-    paddingHorizontal: 20,
-  },
-  closeText: {
-    fontSize: 14,
+  hint: {
+    textAlign: 'center',
+    fontSize: 12.5,
     color: nd.colors.sub,
-  },
-  pressed: {
-    opacity: 0.7,
+    paddingVertical: 10,
   },
 });

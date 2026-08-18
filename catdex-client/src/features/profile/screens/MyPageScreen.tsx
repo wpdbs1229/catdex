@@ -8,7 +8,6 @@ import {
   FileText,
   Flag,
   Megaphone,
-  PawPrint,
   ShoppingBag,
 } from 'lucide-react-native';
 import type { ComponentType } from 'react';
@@ -18,7 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import type { RootStackParamList } from '@/app/navigation/types';
 import { useTabBarInset } from '@/app/navigation/useTabBarInset';
 import { fetchMyProfile, signOut, withdrawMyAccount } from '@/shared/api/auth.api';
-import { DEFAULT_PROFILE_NICKNAME } from '@/shared/constants/profile.constants';
+import { DEFAULT_PROFILE_AVATAR, DEFAULT_PROFILE_NICKNAME } from '@/shared/constants/profile.constants';
 import { SUPPORT_CONTACT_URL, SUPPORT_PRIVACY_URL } from '@/shared/constants/support.constants';
 import { getUserFacingErrorMessage } from '@/shared/errors/user-facing-error';
 import { fetchAnnouncements } from '@/shared/api/announcements.api';
@@ -206,13 +205,11 @@ export function MyPageScreen() {
           onPress={() => navigation.navigate('ProfileEdit')}
           style={({ pressed }) => [styles.card, styles.profileRow, pressed && styles.pressed]}
         >
-          {profile?.profileImageUrl ? (
-            <Image resizeMode="cover" source={{ uri: profile.profileImageUrl }} style={styles.avatar} />
-          ) : (
-            <View style={[styles.avatar, styles.avatarFallback]}>
-              <PawPrint color={nd.colors.subtle} size={22} strokeWidth={1.6} />
-            </View>
-          )}
+          <Image
+            resizeMode="cover"
+            source={profile?.profileImageUrl ? { uri: profile.profileImageUrl } : DEFAULT_PROFILE_AVATAR}
+            style={styles.avatar}
+          />
           <Text numberOfLines={1} style={styles.nickname}>
             {profile?.nickname ?? DEFAULT_PROFILE_NICKNAME}
           </Text>
@@ -311,10 +308,6 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: 22,
     backgroundColor: nd.colors.field,
-  },
-  avatarFallback: {
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   nickname: {
     flex: 1,
