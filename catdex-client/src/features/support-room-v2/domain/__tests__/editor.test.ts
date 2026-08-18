@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { MAX_HISTORY, applyCommand, createEditorState } from '../editor';
 import type { EditorState } from '../editor';
-import { fixtureSpecLookup } from '../fixtures';
+import { specLookup } from '../fixtures';
 
 function place(state: EditorState, id: string, gridX: number, gridY: number) {
   return applyCommand(
@@ -15,34 +15,34 @@ function place(state: EditorState, id: string, gridX: number, gridY: number) {
       gridX,
       gridY,
     },
-    fixtureSpecLookup,
+    specLookup,
   );
 }
 
 describe('editor reducer', () => {
   it('배치 → 이동 → Undo → Redo가 좌표를 정확히 되돌린다', () => {
     let { state } = place(createEditorState(), 'a', 2, 2);
-    ({ state } = applyCommand(state, { type: 'move', placementId: 'a', gridX: 8, gridY: 4 }, fixtureSpecLookup));
+    ({ state } = applyCommand(state, { type: 'move', placementId: 'a', gridX: 8, gridY: 4 }, specLookup));
     expect(state.placements[0]).toMatchObject({ gridX: 8, gridY: 4 });
 
-    ({ state } = applyCommand(state, { type: 'undo' }, fixtureSpecLookup));
+    ({ state } = applyCommand(state, { type: 'undo' }, specLookup));
     expect(state.placements[0]).toMatchObject({ gridX: 2, gridY: 2 });
 
-    ({ state } = applyCommand(state, { type: 'redo' }, fixtureSpecLookup));
+    ({ state } = applyCommand(state, { type: 'redo' }, specLookup));
     expect(state.placements[0]).toMatchObject({ gridX: 8, gridY: 4 });
   });
 
   it('보관(store)과 뒤집기(flip)도 Undo 대상이다', () => {
     let { state } = place(createEditorState(), 'a', 2, 2);
-    ({ state } = applyCommand(state, { type: 'flip', placementId: 'a' }, fixtureSpecLookup));
+    ({ state } = applyCommand(state, { type: 'flip', placementId: 'a' }, specLookup));
     expect(state.placements[0]?.flipX).toBe(true);
 
-    ({ state } = applyCommand(state, { type: 'store', placementId: 'a' }, fixtureSpecLookup));
+    ({ state } = applyCommand(state, { type: 'store', placementId: 'a' }, specLookup));
     expect(state.placements).toHaveLength(0);
 
-    ({ state } = applyCommand(state, { type: 'undo' }, fixtureSpecLookup));
+    ({ state } = applyCommand(state, { type: 'undo' }, specLookup));
     expect(state.placements[0]?.flipX).toBe(true);
-    ({ state } = applyCommand(state, { type: 'undo' }, fixtureSpecLookup));
+    ({ state } = applyCommand(state, { type: 'undo' }, specLookup));
     expect(state.placements[0]?.flipX).toBe(false);
   });
 
@@ -56,7 +56,7 @@ describe('editor reducer', () => {
 
   it('새 명령은 redo 스택을 비운다', () => {
     let { state } = place(createEditorState(), 'a', 2, 2);
-    ({ state } = applyCommand(state, { type: 'undo' }, fixtureSpecLookup));
+    ({ state } = applyCommand(state, { type: 'undo' }, specLookup));
     expect(state.future).toHaveLength(1);
     ({ state } = place(state, 'b', 10, 2));
     expect(state.future).toHaveLength(0);
@@ -66,14 +66,14 @@ describe('editor reducer', () => {
     let { state } = place(createEditorState(), 'a', 0, 0);
     for (let i = 0; i < MAX_HISTORY + 10; i += 1) {
       const x = 4 + (i % 2);
-      ({ state } = applyCommand(state, { type: 'move', placementId: 'a', gridX: x, gridY: 4 }, fixtureSpecLookup));
+      ({ state } = applyCommand(state, { type: 'move', placementId: 'a', gridX: x, gridY: 4 }, specLookup));
     }
     expect(state.past).toHaveLength(MAX_HISTORY);
     // 20번 Undo 후 더 이상 되돌아가지 않는다
     for (let i = 0; i < MAX_HISTORY; i += 1) {
-      ({ state } = applyCommand(state, { type: 'undo' }, fixtureSpecLookup));
+      ({ state } = applyCommand(state, { type: 'undo' }, specLookup));
     }
-    const extra = applyCommand(state, { type: 'undo' }, fixtureSpecLookup);
+    const extra = applyCommand(state, { type: 'undo' }, specLookup);
     expect(extra.state.placements).toEqual(state.placements);
     expect(extra.state.past).toHaveLength(0);
   });
