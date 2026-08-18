@@ -31,10 +31,11 @@ import { validatePlacement, validateLayout } from './domain/placement';
 import { DEFAULT_ROOM_SHELL } from './domain/room-shell';
 import { WORLD } from './render/projection';
 import { V2_ROOM_SHELL, V2_SURFACE_IMAGES } from './support-room-v2.assets.generated';
+import { saveSupportRoomLayout } from '@/shared/api/support-room-v2.api';
+import { syncRoomV2 } from './support-room-v2.service';
 import {
-  createInitialStoredRoomV2,
-  loadRoomV2,
-  saveRoomV2,
+  saveStoredRoomV2,
+  type RoomDraft,
   type StoredRoomV2,
 } from './support-room-v2.storage';
 
@@ -65,6 +66,8 @@ export function SupportRoomV2Screen() {
   const tabBarBottomGap = useTabBarBottomGap();
 
   const [stored, setStored] = useState<StoredRoomV2 | null>(null);
+  const [inventory, setInventory] = useState<Map<FurnitureId, number>>(new Map());
+  const [offline, setOffline] = useState(false);
   const [phase, setPhase] = useState<LoadPhase>('loading');
   const [editor, setEditor] = useState<EditorState | null>(null);
   const [editSurfaces, setEditSurfaces] = useState<{ wall: SurfaceId; floor: SurfaceId } | null>(null);
@@ -77,6 +80,9 @@ export function SupportRoomV2Screen() {
   const scrollRef = useRef<ScrollView>(null);
   const scrollXRef = useRef(0);
   const nextIdRef = useRef(1);
+  /** 편집을 시작한 시점의 서버 layoutVersion. 저장 시 expectedVersion으로 보낸다. */
+  const baseVersionRef = useRef(0);
+  const [saving, setSaving] = useState(false);
 
   const editing = editor !== null;
 
@@ -84,10 +90,12 @@ export function SupportRoomV2Screen() {
     useCallback(() => {
       let active = true;
       setPhase('loading');
-      loadRoomV2()
-        .then((room) => {
+      syncRoomV2()
+        .then((result) => {
           if (active) {
-            setStored(room);
+            setStored(result.stored);
+            setInventory(result.inventory);
+            setOffline(result.offline);
             setPhase('ready');
           }
         })
@@ -105,24 +113,55 @@ export function SupportRoomV2Screen() {
   const roomWidth = WORLD.width * scale;
   const renderedRoomHeight = WORLD.height * scale;
 
-  const placements = editing ? editor.placements : (stored?.placements ?? []);
-  const wallSurfaceId = editSurfaces?.wall ?? stored?.wallSurfaceId ?? 'wallpaper_cream_plaster';
-  const floorSurfaceId = editSurfaces?.floor ?? stored?.floorSurfaceId ?? 'flooring_honey_oak';
+  const snapshot = stored?.snapshot ?? null;
+  const placements = editing ? editor.placements : (snapshot?.placements ?? []);
+  const wallSurfaceId = editSurfaces?.wall ?? snapshot?.wallSurfaceId ?? 'wallpaper_cream_plaster';
+  const floorSurfaceId = editSurfaces?.floor ?? snapshot?.floorSurfaceId ?? 'flooring_honey_oak';
 
+  /** draft가 있으면 이어서, 없으면 서버 스냅숏에서 편집을 시작한다. */
   const enterEdit = useCallback(() => {
     if (!stored) return;
-    setEditor(createEditorState(stored.placements));
-    setEditSurfaces({ wall: stored.wallSurfaceId, floor: stored.floorSurfaceId });
+    const seed = stored.draft ?? {
+      baseVersion: snapshot?.layoutVersion ?? 0,
+      placements: snapshot?.placements ?? [],
+      wallSurfaceId: snapshot?.wallSurfaceId ?? 'wallpaper_cream_plaster',
+      floorSurfaceId: snapshot?.floorSurfaceId ?? 'flooring_honey_oak',
+    };
+    baseVersionRef.current = seed.baseVersion;
+    setEditor(createEditorState(seed.placements));
+    setEditSurfaces({ wall: seed.wallSurfaceId, floor: seed.floorSurfaceId });
     setSelectedId(null);
     setBlocked({ surface: 'floor', cells: [] });
-  }, [stored]);
+  }, [snapshot, stored]);
 
-  const exitEdit = useCallback(() => {
-    setEditor(null);
-    setEditSurfaces(null);
-    setSelectedId(null);
-    setBlocked({ surface: 'floor', cells: [] });
-  }, []);
+  /** 닫기: 저장하지 않은 편집이 있으면 draft로 보존한다(유실 금지). */
+  const exitEdit = useCallback(
+    (keepDraft: boolean) => {
+      if (keepDraft && editor && editSurfaces && stored) {
+        const unchanged =
+          snapshot !== null &&
+          JSON.stringify(editor.placements) === JSON.stringify(snapshot.placements) &&
+          editSurfaces.wall === snapshot.wallSurfaceId &&
+          editSurfaces.floor === snapshot.floorSurfaceId;
+        const draft: RoomDraft | null = unchanged
+          ? null
+          : {
+              baseVersion: baseVersionRef.current,
+              placements: [...editor.placements],
+              wallSurfaceId: editSurfaces.wall,
+              floorSurfaceId: editSurfaces.floor,
+            };
+        const next = { ...stored, draft };
+        setStored(next);
+        void saveStoredRoomV2(next);
+      }
+      setEditor(null);
+      setEditSurfaces(null);
+      setSelectedId(null);
+      setBlocked({ surface: 'floor', cells: [] });
+    },
+    [editSurfaces, editor, snapshot, stored],
+  );
 
   const dispatch = useCallback(
     (command: Parameters<typeof applyCommand>[1]) => {
@@ -149,6 +188,12 @@ export function SupportRoomV2Screen() {
     (furnitureId: FurnitureId) => {
       const spec = specLookup(furnitureId);
       if (!spec || !editor) return;
+      const owned = inventory.get(furnitureId) ?? 0;
+      const placed = editor.placements.filter((p) => p.furnitureId === furnitureId).length;
+      if (placed >= owned) {
+        Alert.alert('보유 수량을 모두 배치했어요', '상점에서 구매하면 더 놓을 수 있어요.');
+        return;
+      }
       const grid = spec.surface === 'wall' ? WALL_GRID : FLOOR_GRID;
       const centerColumn = Math.round(
         (scrollXRef.current + viewportWidth / 2) / scale / (WORLD.width / FLOOR_GRID.columns),
@@ -190,7 +235,7 @@ export function SupportRoomV2Screen() {
       }
       Alert.alert('빈자리가 없어요', '가구를 정리한 뒤 다시 놓아주세요.');
     },
-    [dispatch, editor, scale, viewportWidth],
+    [dispatch, editor, inventory, scale, viewportWidth],
   );
 
   const pickSurface = useCallback((id: SurfaceId) => {
@@ -235,7 +280,7 @@ export function SupportRoomV2Screen() {
   }, [editor, selectedId]);
 
   const save = useCallback(async () => {
-    if (!editor || !editSurfaces || !stored) return;
+    if (!editor || !editSurfaces || !stored || saving) return;
     const issues = validateLayout(editor.placements, specLookup, DEFAULT_ROOM_SHELL);
     if (issues.length > 0) {
       const first = issues[0];
@@ -243,16 +288,90 @@ export function SupportRoomV2Screen() {
       Alert.alert('아직 저장할 수 없어요', issues.map((i) => `· ${ISSUE_MESSAGE[i.code]}`).join('\n'));
       return;
     }
-    const next: StoredRoomV2 = {
-      ...(stored ?? createInitialStoredRoomV2()),
+
+    const draft: RoomDraft = {
+      baseVersion: baseVersionRef.current,
       placements: [...editor.placements],
       wallSurfaceId: editSurfaces.wall,
       floorSurfaceId: editSurfaces.floor,
     };
-    setStored(next);
-    await saveRoomV2(next);
-    exitEdit();
-  }, [editSurfaces, editor, exitEdit, stored]);
+
+    setSaving(true);
+    try {
+      const result = await saveSupportRoomLayout(
+        draft.baseVersion,
+        draft.wallSurfaceId,
+        draft.floorSurfaceId,
+        draft.placements,
+      );
+
+      if (result.status === 'conflict') {
+        // 서버본과 로컬안 둘 다 보존하고 사용자가 고른다. 자동 병합 금지.
+        const next = { ...stored, draft };
+        setStored(next);
+        await saveStoredRoomV2(next);
+        Alert.alert(
+          '다른 기기에서 먼저 저장했어요',
+          '어느 배치를 남길지 골라주세요. 어느 쪽도 사라지지 않아요.',
+          [
+            {
+              text: '서버 최신본 불러오기',
+              onPress: () => {
+                const discarded = { ...next, draft: null };
+                setStored(discarded);
+                void saveStoredRoomV2(discarded);
+                exitEdit(false);
+                setPhase('loading');
+                syncRoomV2()
+                  .then((r) => {
+                    setStored(r.stored);
+                    setInventory(r.inventory);
+                    setOffline(r.offline);
+                    setPhase('ready');
+                  })
+                  .catch(() => setPhase('failed'));
+              },
+            },
+            {
+              text: '내 배치를 유지',
+              onPress: () => {
+                // 다음 저장이 성공하도록 서버 버전 위에 로컬안을 새 draft로 올린다.
+                baseVersionRef.current = result.serverVersion;
+                const kept = { ...next, draft: { ...draft, baseVersion: result.serverVersion } };
+                setStored(kept);
+                void saveStoredRoomV2(kept);
+              },
+            },
+          ],
+        );
+        return;
+      }
+
+      // 저장 성공: 스냅숏 갱신, draft와 Undo/Redo 제거.
+      const next: StoredRoomV2 = {
+        ...stored,
+        snapshot: {
+          layoutVersion: result.layoutVersion,
+          placements: draft.placements,
+          wallSurfaceId: draft.wallSurfaceId,
+          floorSurfaceId: draft.floorSurfaceId,
+        },
+        draft: null,
+      };
+      setStored(next);
+      await saveStoredRoomV2(next);
+      exitEdit(false);
+    } catch (error) {
+      // 네트워크 실패: draft를 로컬에 남기고 재시도를 안내한다.
+      console.warn('[support-room-v2] save failed', error);
+      const next = { ...stored, draft };
+      setStored(next);
+      await saveStoredRoomV2(next);
+      Alert.alert('저장하지 못했어요', '연결을 확인한 뒤 다시 저장을 눌러주세요. 편집안은 보관해 뒀어요.');
+    } finally {
+      setSaving(false);
+    }
+  }, [editSurfaces, editor, exitEdit, saving, stored]);
 
   const selectedSpec = useMemo(() => {
     if (!selectedId) return null;
@@ -294,9 +413,9 @@ export function SupportRoomV2Screen() {
                 <Text style={styles.hudText}>↪︎</Text>
               </Pressable>
               <Pressable
-                accessibilityLabel="편집 취소"
+                accessibilityLabel="편집 닫기, 저장하지 않은 편집은 보관"
                 accessibilityRole="button"
-                onPress={exitEdit}
+                onPress={() => exitEdit(true)}
                 style={({ pressed }) => [styles.hudButton, pressed && styles.pressed]}
               >
                 <Text style={styles.hudText}>닫기</Text>
@@ -322,6 +441,13 @@ export function SupportRoomV2Screen() {
           )}
         </View>
       </View>
+
+      {offline ? (
+        <Text style={styles.banner}>오프라인이에요. 마지막 저장본을 보여드리고 있어요.</Text>
+      ) : null}
+      {!editing && stored?.draft ? (
+        <Text style={styles.banner}>저장하지 않은 편집안이 있어요. 꾸미기를 누르면 이어서 편집해요.</Text>
+      ) : null}
 
       <View style={[styles.roomViewport, { height: roomHeight }]}>
         {phase === 'loading' ? (
@@ -446,6 +572,7 @@ export function SupportRoomV2Screen() {
           currentWallSurfaceId={wallSurfaceId}
           onPickFurniture={placeFromInventory}
           onPickSurface={pickSurface}
+          ownedCount={(id) => inventory.get(id) ?? 0}
           placedCount={placedCount}
         />
       ) : (
@@ -523,6 +650,13 @@ const styles = StyleSheet.create({
   },
   roomViewport: {
     overflow: 'hidden',
+  },
+  banner: {
+    fontSize: 12,
+    color: nd.colors.sub,
+    backgroundColor: nd.colors.bgSecondary,
+    paddingHorizontal: 16,
+    paddingVertical: 6,
   },
   stateBox: {
     flex: 1,

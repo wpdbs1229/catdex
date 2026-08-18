@@ -19,18 +19,18 @@ const TABS: Array<{ id: TabId; label: string }> = [
 interface InventorySheetProps {
   /** 배치된 수량(placementId 수). 카드에 표시한다. */
   placedCount: (id: FurnitureId) => number;
+  /** 서버 보관함 보유 수량 */
+  ownedCount: (id: FurnitureId) => number;
   currentWallSurfaceId: SurfaceId;
   currentFloorSurfaceId: SurfaceId;
   onPickFurniture: (id: FurnitureId) => void;
   onPickSurface: (id: SurfaceId) => void;
 }
 
-/**
- * 편집 모드 하단 보관함.
- * 프로토타입은 25종 전체를 보유한 것으로 취급한다(보유 수량은 프롬프트 4·6에서 서버 연결).
- */
+/** 편집 모드 하단 보관함. 보유 수량은 서버 inventory가 정본이다. */
 export function InventorySheet({
   placedCount,
+  ownedCount,
   currentWallSurfaceId,
   currentFloorSurfaceId,
   onPickFurniture,
@@ -91,23 +91,26 @@ export function InventorySheet({
           horizontal
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => {
-            const count = placedCount(item.id);
+            const placed = placedCount(item.id);
+            const owned = ownedCount(item.id);
+            const exhausted = owned === 0 || placed >= owned;
             return (
               <Pressable
-                accessibilityLabel={`${item.name} 배치하기, ${
-                  item.acquisition === 'starter' ? '시작 지급' : `${item.price} 포인트`
-                }${count > 0 ? `, 배치 ${count}개` : ''}`}
+                accessibilityLabel={`${item.name} 배치하기, 보유 ${owned}개, 배치 ${placed}개`}
                 accessibilityRole="button"
                 onPress={() => onPickFurniture(item.id)}
-                style={styles.card}
+                style={[styles.card, exhausted && styles.cardExhausted]}
               >
                 <Image resizeMode="contain" source={V2_FURNITURE_THUMBS[item.id]} style={styles.thumb} />
                 <Text numberOfLines={1} style={styles.cardName}>
                   {item.name}
                 </Text>
                 <Text style={styles.cardPrice}>
-                  {item.acquisition === 'starter' ? '시작 지급' : `${item.price.toLocaleString()}P`}
-                  {count > 0 ? ` · 배치 ${count}` : ''}
+                  {owned === 0
+                    ? item.acquisition === 'starter'
+                      ? '시작 지급'
+                      : `${item.price.toLocaleString()}P`
+                    : `보유 ${owned} · 배치 ${placed}`}
                 </Text>
               </Pressable>
             );
@@ -153,6 +156,9 @@ const styles = StyleSheet.create({
     width: 92,
     marginHorizontal: 6,
     alignItems: 'center',
+  },
+  cardExhausted: {
+    opacity: 0.45,
   },
   cardApplied: {
     borderWidth: 2,
