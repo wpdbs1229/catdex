@@ -201,9 +201,9 @@ export function MyPageScreen() {
         showsVerticalScrollIndicator={false}
       >
         <Pressable
-          accessibilityLabel="프로필 보기"
+          accessibilityLabel="프로필 수정"
           accessibilityRole="button"
-          onPress={() => Alert.alert('프로필 수정은 준비 중이에요', '다음 단계에서 열려요.')}
+          onPress={() => navigation.navigate('ProfileEdit')}
           style={({ pressed }) => [styles.card, styles.profileRow, pressed && styles.pressed]}
         >
           {profile?.profileImageUrl ? (

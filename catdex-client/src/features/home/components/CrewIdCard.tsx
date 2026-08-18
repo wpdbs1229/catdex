@@ -103,7 +103,7 @@ const colors = {
 };
 
 /** 가입 날짜·시각을 합쳐 계정마다 고정된 사번을 만든다. */
-function formatSerial(joinedAt?: string) {
+export function formatSerial(joinedAt?: string) {
   const joined = joinedAt ? new Date(joinedAt) : null;
 
   if (!joined || Number.isNaN(joined.getTime())) {
