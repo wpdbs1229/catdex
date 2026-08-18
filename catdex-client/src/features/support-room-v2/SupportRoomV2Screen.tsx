@@ -10,10 +10,12 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  Share,
   useWindowDimensions,
   View,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { captureRef } from 'react-native-view-shot';
 import type { ClientStackParamList } from '@/app/navigation/types';
 import { useTabBarBottomGap, useTabBarInset } from '@/app/navigation/useTabBarInset';
 import { ClientTabBar } from '@/features/cats/components/ClientTabBar';
@@ -83,6 +85,11 @@ export function SupportRoomV2Screen() {
   const [balance, setBalance] = useState(0);
   const [shopOpen, setShopOpen] = useState(false);
   const [recordsOpen, setRecordsOpen] = useState(false);
+  /** 촬영 모드. HUD를 숨기고 현재 viewport를 세로형/정사각형으로 캡처한다. */
+  const [cameraMode, setCameraMode] = useState<'portrait' | 'square' | null>(null);
+  const [stampOn, setStampOn] = useState(false);
+  const [capturing, setCapturing] = useState(false);
+  const captureViewRef = useRef<View>(null);
   const [unread, setUnread] = useState(0);
   /** 포커스마다 한 번만 미접속 정산을 돌린다. */
   const settledThisFocusRef = useRef(false);
@@ -598,8 +605,71 @@ export function SupportRoomV2Screen() {
     [enterEdit, purchasing],
   );
 
+  const squareSide = Math.min(viewportWidth, roomHeight);
+
+  const capture = useCallback(async () => {
+    if (capturing) return;
+    setCapturing(true);
+    try {
+      const uri = await captureRef(captureViewRef, { format: 'jpg', quality: 0.92 });
+      await Share.share({ url: uri });
+    } catch (error) {
+      console.warn('[support-room-v2] capture failed', error);
+      Alert.alert('촬영하지 못했어요', '잠시 뒤 다시 시도해주세요.');
+    } finally {
+      setCapturing(false);
+    }
+  }, [capturing]);
+
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.screen}>
+      {cameraMode ? (
+        <View style={styles.header}>
+          <View style={styles.headerRight}>
+            <Pressable
+              accessibilityLabel="세로형 구도"
+              accessibilityRole="button"
+              onPress={() => setCameraMode('portrait')}
+              style={({ pressed }) => [styles.hudButton, cameraMode === 'portrait' && styles.hudButtonActive, pressed && styles.pressed]}
+            >
+              <Text style={styles.hudText}>세로형</Text>
+            </Pressable>
+            <Pressable
+              accessibilityLabel="정사각형 구도"
+              accessibilityRole="button"
+              onPress={() => setCameraMode('square')}
+              style={({ pressed }) => [styles.hudButton, cameraMode === 'square' && styles.hudButtonActive, pressed && styles.pressed]}
+            >
+              <Text style={styles.hudText}>정사각</Text>
+            </Pressable>
+            <Pressable
+              accessibilityLabel={`공사 도장 ${stampOn ? '끄기' : '켜기'}`}
+              accessibilityRole="button"
+              onPress={() => setStampOn((on) => !on)}
+              style={({ pressed }) => [styles.hudButton, stampOn && styles.hudButtonActive, pressed && styles.pressed]}
+            >
+              <Text style={styles.hudText}>도장</Text>
+            </Pressable>
+            <Pressable
+              accessibilityLabel="촬영해서 공유"
+              accessibilityRole="button"
+              disabled={capturing}
+              onPress={() => void capture()}
+              style={({ pressed }) => [styles.saveButton, pressed && styles.pressed, capturing && styles.disabled]}
+            >
+              <Text style={styles.saveText}>촬영</Text>
+            </Pressable>
+            <Pressable
+              accessibilityLabel="촬영 모드 닫기"
+              accessibilityRole="button"
+              onPress={() => setCameraMode(null)}
+              style={({ pressed }) => [styles.hudButton, pressed && styles.pressed]}
+            >
+              <Text style={styles.hudText}>닫기</Text>
+            </Pressable>
+          </View>
+        </View>
+      ) : (
       <View style={styles.header}>
         <View>
           <Text style={styles.headerCompany}>대한냥냥공사</Text>
@@ -646,6 +716,14 @@ export function SupportRoomV2Screen() {
           ) : (
             <>
               <Pressable
+                accessibilityLabel="촬영 모드 열기"
+                accessibilityRole="button"
+                onPress={() => setCameraMode('portrait')}
+                style={({ pressed }) => [styles.hudButton, pressed && styles.pressed]}
+              >
+                <Text style={styles.hudText}>촬영</Text>
+              </Pressable>
+              <Pressable
                 accessibilityLabel={`상담일지 열기, 새 기록 ${unread}개`}
                 accessibilityRole="button"
                 onPress={() => {
@@ -687,6 +765,7 @@ export function SupportRoomV2Screen() {
           )}
         </View>
       </View>
+      )}
 
       {offline ? (
         <Text style={styles.banner}>오프라인이에요. 마지막 저장본을 보여드리고 있어요.</Text>
@@ -695,7 +774,15 @@ export function SupportRoomV2Screen() {
         <Text style={styles.banner}>저장하지 않은 편집안이 있어요. 꾸미기를 누르면 이어서 편집해요.</Text>
       ) : null}
 
-      <View style={[styles.roomViewport, { height: roomHeight }]}>
+      <View
+        collapsable={false}
+        ref={captureViewRef}
+        style={[
+          styles.roomViewport,
+          { height: cameraMode === 'square' ? squareSide : roomHeight },
+        ]}
+      >
+        <View style={cameraMode === 'square' ? { marginTop: -(roomHeight - squareSide) / 2 } : null}>
         {phase === 'loading' ? (
           <View style={styles.stateBox}>
             <ActivityIndicator color={nd.colors.accent} />
@@ -813,6 +900,13 @@ export function SupportRoomV2Screen() {
             </View>
           </ScrollView>
         )}
+        </View>
+
+        {cameraMode && stampOn ? (
+          <View pointerEvents="none" style={styles.stamp}>
+            <Text style={styles.stampText}>대한냥냥공사</Text>
+          </View>
+        ) : null}
 
         {editing && selectedId ? (
           <View style={styles.toolbar}>
@@ -953,6 +1047,26 @@ const styles = StyleSheet.create({
   },
   roomViewport: {
     overflow: 'hidden',
+  },
+  hudButtonActive: {
+    borderWidth: 1,
+    borderColor: nd.colors.accent,
+  },
+  stamp: {
+    position: 'absolute',
+    right: 12,
+    bottom: 12,
+    borderWidth: 2,
+    borderColor: 'rgba(224, 60, 60, 0.75)',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    transform: [{ rotate: '-8deg' }],
+  },
+  stampText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: 'rgba(224, 60, 60, 0.8)',
   },
   badge: {
     position: 'absolute',
