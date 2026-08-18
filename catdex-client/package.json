@@ -21,7 +21,8 @@
     "submit:prd": "eas submit --profile production",
     "android": "expo run:android",
     "ios": "expo run:ios",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "2.2.0",
@@ -60,7 +61,8 @@
   "devDependencies": {
     "@types/react": "~19.1.10",
     "babel-preset-expo": "~54.0.10",
-    "typescript": "~5.9.2"
+    "typescript": "~5.9.2",
+    "vitest": "^4.1.10"
   },
   "overrides": {
     "@babel/core": "7.29.7",
