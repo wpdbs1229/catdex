@@ -5,8 +5,9 @@ import {
   type NativeStackNavigationProp,
 } from '@react-navigation/native-stack';
 import { useState } from 'react';
-import { Alert } from 'react-native';
+import { Alert, StyleSheet, View } from 'react-native';
 
+import { LoginScreen } from '../../features/auth/screens/LoginScreen';
 import { ProfileSetupScreen } from '../../features/auth/screens/ProfileSetupScreen';
 import { useAuth } from '../../features/auth/hooks/useAuth';
 import { CameraScreen } from '../../features/capture/screens/CameraScreen';
@@ -39,6 +40,8 @@ import { ShopScreen } from '../../features/shop/screens/ShopScreen';
 import { ShopPreviewScreen } from '../../features/shop/screens/ShopPreviewScreen';
 import { ShopPurchaseCompleteScreen } from '../../features/shop/screens/ShopPurchaseCompleteScreen';
 import { PlaceholderScreen } from '../screens/PlaceholderScreen';
+import { nd } from '../../shared/styles/theme';
+import { isSupabaseConfigured } from '../../shared/supabase/client';
 import { MainTabBar } from './MainTabBar';
 import type {
   CaptureStackParamList,
@@ -135,10 +138,38 @@ function MainTabNavigator() {
 }
 
 export function RootNavigator() {
-  const { currentUser, isAuthenticated, updateProfile } = useAuth();
+  const {
+    currentUser,
+    isAuthenticated,
+    isRestoring,
+    authErrorMessage,
+    pendingProvider,
+    loginWithGoogle,
+    loginWithKakao,
+    updateProfile,
+  } = useAuth();
   const [isProfileSaving, setIsProfileSaving] = useState(false);
   const needsProfileSetup =
     isAuthenticated && currentUser !== null && currentUser.profileSetupCompleted === false;
+
+  // 저장된 세션을 되살리는 동안은 빈 화면을 둔다. 여기서 로그인 화면을 먼저
+  // 그리면 이미 로그인한 사람에게도 한 번 깜빡였다가 사라진다.
+  if (isRestoring) {
+    return <View style={styles.splash} />;
+  }
+
+  // Supabase 설정이 없는 환경(.env 미설정)에서는 로그인 자체가 불가능하다.
+  // 그럴 때까지 문을 잠그면 앱을 아예 열 수 없으므로 관문을 통과시킨다.
+  if (isSupabaseConfigured && !isAuthenticated) {
+    return (
+      <LoginScreen
+        errorMessage={authErrorMessage}
+        onLoginWithGoogle={loginWithGoogle}
+        onLoginWithKakao={loginWithKakao}
+        pendingProvider={pendingProvider}
+      />
+    );
+  }
 
   if (needsProfileSetup && currentUser) {
     return (
@@ -226,3 +257,10 @@ export function RootNavigator() {
     </NavigationContainer>
   );
 }
+
+const styles = StyleSheet.create({
+  splash: {
+    flex: 1,
+    backgroundColor: nd.colors.bg,
+  },
+});
