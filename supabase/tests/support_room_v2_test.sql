@@ -9,7 +9,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(25);
+select plan(30);
 
 -- ── 준비: 테스트 사용자 2명 ─────────────────────────────────────────────
 
@@ -189,6 +189,44 @@ select is(
   (select count(*) from public.support_room_placements),
   0::bigint,
   'B: A의 배치가 보이지 않는다'
+);
+
+-- ── V1 → V2 멱등 이전 ──────────────────────────────────────────────────
+
+select is(
+  (select public.migrate_support_room_v1(
+    array['service_bell_brass', 'no_such_prop'],
+    '[{"placementId":"m1","furnitureId":"visitor_cushion_orange","surface":"floor","gridX":5,"gridY":5,"flipX":false}]'::jsonb
+  )->>'status'),
+  'ok',
+  'B: V1 이전 성공 (알 수 없는 비품은 무시)'
+);
+
+select is(
+  (select owned_quantity from public.support_room_inventory
+   where user_id = '22222222-2222-2222-2222-222222222222' and furniture_id = 'service_bell_brass'),
+  1,
+  'B: 이전으로 해금 비품이 보관함에 들어옴'
+);
+
+select is(
+  (select count(*) from public.support_room_placements
+   where user_id = '22222222-2222-2222-2222-222222222222'),
+  1::bigint,
+  'B: 기본 레이아웃이 심어짐'
+);
+
+select is(
+  (select public.migrate_support_room_v1(array['service_bell_brass'], '[]'::jsonb)->>'status'),
+  'already_migrated',
+  'B: 이전 재실행은 already_migrated'
+);
+
+select is(
+  (select sum(owned_quantity) from public.support_room_inventory
+   where user_id = '22222222-2222-2222-2222-222222222222'),
+  4::bigint,
+  'B: 이전을 두 번 실행해도 수량이 한 번만 지급됨'
 );
 
 -- ── anon 차단 ───────────────────────────────────────────────────────────
