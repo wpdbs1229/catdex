@@ -271,9 +271,8 @@ export function ProfileEditScreen() {
               style={({ pressed }) => [styles.branchRow, pressed && styles.pressed]}
             >
               <MapPin color={nd.colors.sub} fill={nd.colors.sub} size={20} strokeWidth={1.7} />
-              <Text style={styles.branchName}>
-                {neighborhood ? formatBranch(neighborhood.city) : '지부 미확인'}
-              </Text>
+              {/* 지부가 없으면 사원증과 같은 규칙으로 '본사'가 된다. */}
+              <Text style={styles.branchName}>{formatBranch(neighborhood?.city)}</Text>
               {isDetectingLocation ? (
                 <ActivityIndicator color={nd.colors.accent} size="small" />
               ) : (
