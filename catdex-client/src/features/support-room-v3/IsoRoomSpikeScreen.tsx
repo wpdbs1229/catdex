@@ -35,6 +35,7 @@ import { fetchSupportRoomV3Placements, saveSupportRoomV3Placement } from '@/shar
 import type { Cat } from '@/shared/types/cat';
 import { useActiveNeighborhood } from '@/shared/neighborhood/useActiveNeighborhood';
 import { createNdShadow, nd } from '@/shared/styles/theme';
+import { IsoContactShadow } from './components/IsoContactShadow';
 import { IsoFurniture } from './components/IsoFurniture';
 import { IsoRoom, type LocalGridBounds } from './components/IsoRoom';
 import { RoomHud } from './components/RoomHud';
@@ -78,19 +79,7 @@ function IdleCat({
   const layout = calculateIdleCatLayout(projection, gridX, gridY);
   return (
     <>
-      <View
-        pointerEvents="none"
-        style={{
-          position: 'absolute',
-          left: layout.shadowLeft,
-          top: layout.shadowTop,
-          width: layout.shadowWidth,
-          height: layout.shadowHeight,
-          borderRadius: layout.shadowHeight / 2,
-          backgroundColor: 'rgba(73, 44, 20, 0.14)',
-          zIndex: layout.zIndex - 1,
-        }}
-      />
+      <IsoContactShadow layout={layout} />
       <Image
         resizeMode="contain"
         source={CAT_ACTION_IMAGES[catKey].idle}
