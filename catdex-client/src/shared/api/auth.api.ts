@@ -109,26 +109,12 @@ function isProfileSetupCompleted(user: User) {
   return value === true || value === 'true';
 }
 
-function getProviderNickname(user: User) {
-  const metadata = user.user_metadata;
-  const nickname = metadata.catdex_oauth_nickname ?? metadata.nickname ?? metadata.name ?? metadata.full_name;
-
-  return typeof nickname === 'string' && nickname.trim() ? nickname.trim() : undefined;
-}
-
-function getProviderProfileImageUrl(user: User) {
-  const metadata = user.user_metadata;
-  const imageUrl = metadata.catdex_oauth_profile_image_url ?? metadata.avatar_url ?? metadata.picture;
-
-  return typeof imageUrl === 'string' && imageUrl.trim() ? imageUrl : undefined;
-}
-
+/**
+ * 카카오·Google·Apple이 주는 이름과 프로필 사진은 앱으로 들여오지 않는다.
+ * 사원증에 실리는 값은 사원증 만들기 화면에서 사용자가 직접 정한 것만 쓴다.
+ */
 function toAuthUser(user: User, fallbackProvider: AuthProvider): AuthUser {
   const provider = getProvider(user, fallbackProvider);
-  const providerProfile = {
-    nickname: getProviderNickname(user),
-    profileImageUrl: getProviderProfileImageUrl(user),
-  };
 
   return {
     id: user.id,
@@ -138,10 +124,6 @@ function toAuthUser(user: User, fallbackProvider: AuthProvider): AuthUser {
     profileImageUrl: getProfileImageUrl(user),
     profileSetupCompleted: isProfileSetupCompleted(user),
     createdAt: user.created_at,
-    providerProfile:
-      providerProfile.nickname || providerProfile.profileImageUrl
-        ? providerProfile
-        : undefined,
   };
 }
 
@@ -407,8 +389,6 @@ export async function updateMyProfile(draft: ProfileUpdateDraft, fallbackProvide
   }
 
   const provider = getProvider(user, fallbackProvider);
-  const providerNickname = getProviderNickname(user);
-  const providerProfileImageUrl = getProviderProfileImageUrl(user);
   const currentProfileImageUrl = getProfileImageUrl(user);
   const profileImageUrl = draft.useDefaultProfileImage
     ? undefined
@@ -424,8 +404,6 @@ export async function updateMyProfile(draft: ProfileUpdateDraft, fallbackProvide
       avatar_url: profileImageUrl ?? null,
       picture: profileImageUrl ?? null,
       catdex_profile_setup_completed: true,
-      ...(providerNickname ? { catdex_oauth_nickname: providerNickname } : {}),
-      ...(providerProfileImageUrl ? { catdex_oauth_profile_image_url: providerProfileImageUrl } : {}),
     },
   });
 

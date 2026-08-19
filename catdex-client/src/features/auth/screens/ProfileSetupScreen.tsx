@@ -18,7 +18,7 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CREW_COMPANY_NAME } from '@/shared/constants/crew.constants';
-import { DEFAULT_PROFILE_AVATAR, DEFAULT_PROFILE_NICKNAME } from '@/shared/constants/profile.constants';
+import { DEFAULT_PROFILE_AVATAR } from '@/shared/constants/profile.constants';
 import { getActiveNeighborhood, setActiveNeighborhood } from '@/shared/neighborhood/active-neighborhood';
 import { detectCurrentNeighborhood } from '@/shared/neighborhood/neighborhood-location';
 import { nd } from '@/shared/styles/theme';
@@ -56,11 +56,12 @@ function formatBranch(city?: string, district?: string) {
 
 export function ProfileSetupScreen({ user, isSaving, onComplete }: ProfileSetupScreenProps) {
   const insets = useSafeAreaInsets();
-  const initialNickname = (user.providerProfile?.nickname ?? DEFAULT_PROFILE_NICKNAME).slice(0, NICKNAME_MAX_LENGTH);
-  const [nickname, setNickname] = useState(initialNickname);
+  // 로그인 제공자가 준 이름·사진은 채워 넣지 않는다. 비워 두어야 사용자가
+  // 사원증 정보를 직접 정하고 넘어간다(빈 닉네임이면 버튼이 잠긴다).
+  const [nickname, setNickname] = useState('');
   const [profileImageUri, setProfileImageUri] = useState<string | undefined>();
   const [profileImageMimeType, setProfileImageMimeType] = useState<string | undefined>();
-  const [profileImageUrl, setProfileImageUrl] = useState<string | undefined>(user.providerProfile?.profileImageUrl);
+  const [profileImageUrl, setProfileImageUrl] = useState<string | undefined>();
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [isNicknameTouched, setIsNicknameTouched] = useState(false);
