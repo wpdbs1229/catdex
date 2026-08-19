@@ -2,9 +2,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getCurrentUserId } from '@/shared/api/auth.api';
 import { validateObservationLayout, type ObservationPlacement } from './support-room-v3.layout';
 
-// ponytail: 기기 로컬 전용, 서버 동기화 없음. support_room_placements.grid_x가
-// integer라 V3의 0.5칸 좌표를 못 담는다 - 여러 기기 동기화가 필요해지면
-// V3 전용 좌표 컬럼(numeric) 마이그레이션부터 해야 한다.
+// 서버(support_room_v3_placements)가 정본이다. 여기는 오프라인 표시용
+// 캐시일 뿐 - 화면이 뜨자마자 보여줄 값을 담아두고, 서버 응답이 오면
+// 덮어쓴다. support-room-v3.api.ts의 fetch/save와 짝을 이룬다.
 const KEY_PREFIX = 'catdex.supportRoomV3.placements';
 
 export async function loadV3Placements(): Promise<ObservationPlacement[] | null> {

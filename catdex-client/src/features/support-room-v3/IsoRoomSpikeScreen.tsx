@@ -31,6 +31,7 @@ import {
 } from '@/shared/api/support-room-v2.api';
 import { fetchMyCats } from '@/shared/api/cats.api';
 import { getCurrentUserId } from '@/shared/api/auth.api';
+import { fetchSupportRoomV3Placements, saveSupportRoomV3Placement } from '@/shared/api/support-room-v3.api';
 import type { Cat } from '@/shared/types/cat';
 import { useActiveNeighborhood } from '@/shared/neighborhood/useActiveNeighborhood';
 import { createNdShadow, nd } from '@/shared/styles/theme';
@@ -148,7 +149,7 @@ export function IsoRoomSpikeScreen() {
   useEffect(() => {
     let active = true;
     (async () => {
-      const [id, cats, records, stored] = await Promise.all([
+      const [id, cats, records, cached] = await Promise.all([
         getCurrentUserId(),
         fetchMyCats().catch(() => []),
         fetchVisitRecords(50).catch(() => []),
@@ -158,7 +159,23 @@ export function IsoRoomSpikeScreen() {
       setUserId(id);
       setVisitorCats(cats);
       setVisitRecords(records);
-      if (stored) setPlacements(stored);
+      // 오프라인 캐시를 먼저 보여주고, 서버 값이 오면 정본으로 덮어쓴다.
+      if (cached) setPlacements(cached);
+
+      try {
+        const serverOverrides = await fetchSupportRoomV3Placements();
+        if (!active) return;
+        const merged = createDefaultObservationLayout().map((placement) => {
+          const override = serverOverrides.get(placement.furnitureId);
+          return override ? { ...placement, gridX: override.gridX, gridY: override.gridY } : placement;
+        });
+        if (validateObservationLayout(merged).length === 0) {
+          setPlacements(merged);
+          void saveV3Placements(merged);
+        }
+      } catch (error) {
+        console.warn('[support-room-v3] 서버 배치 조회 실패, 캐시로 대체', error);
+      }
     })();
     return () => {
       active = false;
@@ -251,6 +268,12 @@ export function IsoRoomSpikeScreen() {
             : placement,
         );
         if (validateObservationLayout(next).length > 0) return current;
+        const moved = next.find((placement) => placement.furnitureId === selectedFurnitureId);
+        if (moved) {
+          void saveSupportRoomV3Placement(moved.furnitureId, moved.gridX, moved.gridY).catch((error) => {
+            console.warn('[support-room-v3] 배치 저장 실패, 로컬 캐시만 반영됨', error);
+          });
+        }
         void saveV3Placements(next);
         return next;
       });
