@@ -1,97 +1,180 @@
-import { useNavigation } from '@react-navigation/native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  Alert,
   Image,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
   useWindowDimensions,
   View,
+  type LayoutChangeEvent,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import type { ClientStackParamList } from '@/app/navigation/types';
 import { CAT_ACTION_IMAGES } from '@/features/support-room/support-room.assets';
-import type { FurnitureId } from '@/features/support-room-v2/domain/furniture';
-import { V2_FURNITURE_IMAGES } from '@/features/support-room-v2/support-room-v2.assets.generated';
-import { V3_FIXTURE_IMAGES } from './support-room-v3.assets';
+import type { CharacterAssetKey } from '@/features/support-room/support-room.assets';
+import { RecordsSheet } from '@/features/support-room-v2/components/RecordsSheet';
+import { ShopSheet, type ShopEntry } from '@/features/support-room-v2/components/ShopSheet';
+import { syncRoomV2 } from '@/features/support-room-v2/support-room-v2.service';
+import { purchaseSupportRoomItem } from '@/shared/api/support-room-v2.api';
+import { getCurrentUserId } from '@/shared/api/auth.api';
 import { nd } from '@/shared/styles/theme';
 import { IsoFurniture } from './components/IsoFurniture';
+import { IsoRoom } from './components/IsoRoom';
 import { RoomHud } from './components/RoomHud';
-import { IsoRoom, type IsoFixture } from './components/IsoRoom';
-import { ISO, isoDepth, isoPoint } from './render/iso';
+import {
+  calculateShellFitScale,
+  createProjection,
+  type RoomViewport,
+  useProjection,
+} from './render/projection';
+import { calculateIdleCatLayout } from './render/sprite-layout';
+import { SHELL_GEOMETRY, type RoomStage } from './render/shells.generated';
+import {
+  createDefaultObservationLayout,
+  DEFAULT_BUSY_CATS,
+  DEFAULT_IDLE_CATS,
+} from './support-room-v3.layout';
+import { STAGE_LABELS } from './support-room-v3.assets';
 
 /**
- * 프롬프트 A - 아이소메트릭 컷어웨이 렌더 스파이크 (docs/16).
- * 시안(docs/17) 룩을 신규 아트 없이 어디까지 재현할 수 있는지 확인한다.
- * 프롬프트 C에서 편집·서버 연결과 함께 정식 화면으로 승격한다.
+ * V3 아이소메트릭 고객지원실.
+ * 방·가구·고양이·그림자는 단계별 공통 projection을 사용하고, 관찰 모드에서는
+ * 격자를 숨긴다. 꾸미기 버튼을 눌렀을 때만 선택 가구 주변 국소 격자가 나타난다.
  */
 
-const COLS = 8;
-const ROWS = 6;
+const STAGE: RoomStage = 'stage0';
+const PLACEMENTS = createDefaultObservationLayout();
 
-const FIXTURES: readonly IsoFixture[] = [
-  // 셸에서 추출한 구조물
-  { key: 'door-ext', source: V3_FIXTURE_IMAGES.door_exterior, wall: 'left', cell: 3.4, cells: 1.9, lift: 0, height: 132 },
-  { key: 'win-left', source: V3_FIXTURE_IMAGES.window_arch_left, wall: 'left', cell: 0.7, cells: 1.7, lift: 52, height: 78 },
-  { key: 'win-right', source: V3_FIXTURE_IMAGES.window_arch_right, wall: 'right', cell: 2.2, cells: 1.7, lift: 52, height: 82 },
-  { key: 'door-int', source: V3_FIXTURE_IMAGES.door_interior, wall: 'right', cell: 5.6, cells: 1.7, lift: 0, height: 118 },
-  { key: 'lamp', source: V3_FIXTURE_IMAGES.wall_lamp, wall: 'right', cell: 0.9, cells: 0.6, lift: 78, height: 36 },
-  // 기존 벽 장식 가구도 같은 방식으로 붙는다
-  { key: 'clock', source: V2_FURNITURE_IMAGES.wall_clock_agency, wall: 'left', cell: 1.9, cells: 1.1, lift: 82, height: 40 },
-  { key: 'board', source: V2_FURNITURE_IMAGES.bulletin_board_customer, wall: 'right', cell: 3.9, cells: 1.5, lift: 66, height: 46 },
-];
-
-interface SpikePlacement {
-  furnitureId: FurnitureId;
-  /** footprint 좌상단 셀 */
+function IdleCat({
+  catKey,
+  gridX,
+  gridY,
+}: {
+  catKey: CharacterAssetKey;
   gridX: number;
   gridY: number;
+}) {
+  const projection = useProjection();
+  const layout = calculateIdleCatLayout(projection, gridX, gridY);
+  return (
+    <>
+      <View
+        pointerEvents="none"
+        style={{
+          position: 'absolute',
+          left: layout.shadowLeft,
+          top: layout.shadowTop,
+          width: layout.shadowWidth,
+          height: layout.shadowHeight,
+          borderRadius: layout.shadowHeight / 2,
+          backgroundColor: 'rgba(73, 44, 20, 0.14)',
+          zIndex: layout.zIndex - 1,
+        }}
+      />
+      <Image
+        resizeMode="contain"
+        source={CAT_ACTION_IMAGES[catKey].idle}
+        style={{
+          position: 'absolute',
+          left: layout.left,
+          top: layout.top,
+          width: layout.imageSize,
+          height: layout.imageSize,
+          zIndex: layout.zIndex,
+        }}
+      />
+    </>
+  );
 }
 
-/** footprint(카탈로그 값)가 그리드에 맞는지 눈으로 확인하기 위한 배치 */
-const PLACEMENTS: readonly SpikePlacement[] = [
-  { furnitureId: 'low_bookshelf_honey', gridX: 5, gridY: 0 },   // 3×1
-  { furnitureId: 'file_cabinet_olive', gridX: 0, gridY: 1 },    // 2×1
-  { furnitureId: 'consultation_desk_honey', gridX: 2, gridY: 1 }, // 3×2
-  { furnitureId: 'customer_water_station', gridX: 6, gridY: 2 }, // 2×2
-  { furnitureId: 'visitor_cushion_orange', gridX: 0, gridY: 3 }, // 2×2
-  { furnitureId: 'paper_basket_cream', gridX: 5, gridY: 4 },     // 2×2
-  { furnitureId: 'plant_large_rubber', gridX: 2, gridY: 4 },     // 2×2
-];
-
-/**
- * 행동 중인 고객. 합성 PNG에 가구가 함께 그려져 있으므로 해당 가구의 footprint에
- * 합성본을 얹고 독립 가구는 그리지 않는다(두 개로 보이는 것 방지).
- */
-const BUSY_CATS = [
-  { key: 'solid_gray', behavior: 'use_cushion', on: 'visitor_cushion_orange' },
-  { key: 'bicolor_tuxedo', behavior: 'hide_paper_basket', on: 'paper_basket_cream' },
-] as const;
-
-/** 가구를 쓰지 않고 서 있는 고객 */
-const IDLE_CATS = [{ key: 'tabby_orange', gridX: 3.4, gridY: 3.4, cells: 1.5 }] as const;
-
 export function IsoRoomSpikeScreen() {
-  const navigation = useNavigation<NativeStackNavigationProp<ClientStackParamList>>();
   const { width: viewportWidth, height: viewportHeight } = useWindowDimensions();
+  const scrollRef = useRef<ScrollView>(null);
+  const [roomViewport, setRoomViewport] = useState<RoomViewport>({
+    width: viewportWidth,
+    height: viewportHeight * 0.62,
+  });
+  const [balance, setBalance] = useState(0);
+  const [inventory, setInventory] = useState<Map<string, number>>(new Map());
+  const [recordsOpen, setRecordsOpen] = useState(false);
+  const [shopOpen, setShopOpen] = useState(false);
+  const [purchasing, setPurchasing] = useState(false);
+  const [editing, setEditing] = useState(false);
 
-  // 진입 시 방 중앙이 화면 중앙에 오도록 초기 스크롤을 맞춘다.
-  const center = isoPoint(COLS / 2, ROWS / 2);
-  const initialOffset = {
-    x: Math.max(0, center.x - viewportWidth / 2),
-    y: Math.max(0, center.y - (viewportHeight - 260) / 2),
-  };
+  useEffect(() => {
+    let active = true;
+    syncRoomV2()
+      .then((result) => {
+        if (!active) return;
+        setBalance(result.balance);
+        setInventory(result.inventory);
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const geometry = SHELL_GEOMETRY[STAGE];
+  const scale = calculateShellFitScale(geometry, roomViewport);
+  const projection = createProjection(STAGE, scale);
+  const contentWidth = Math.max(roomViewport.width, projection.displayW);
+  const centeredOffsetX = Math.max(0, (contentWidth - roomViewport.width) / 2);
+
+  const centerRoom = useCallback(() => {
+    scrollRef.current?.scrollTo({ x: centeredOffsetX, y: 0, animated: false });
+  }, [centeredOffsetX]);
+
+  useEffect(() => {
+    const frame = requestAnimationFrame(centerRoom);
+    return () => cancelAnimationFrame(frame);
+  }, [centerRoom]);
+
+  const onRoomLayout = useCallback((event: LayoutChangeEvent) => {
+    const { width, height } = event.nativeEvent.layout;
+    setRoomViewport((current) => {
+      if (Math.abs(current.width - width) < 1 && Math.abs(current.height - height) < 1) {
+        return current;
+      }
+      return { width, height };
+    });
+  }, []);
+
+  const purchase = useCallback(
+    async (entry: ShopEntry) => {
+      if (purchasing) return;
+      setPurchasing(true);
+      try {
+        const userId = await getCurrentUserId();
+        const key = `shop:${userId ?? 'anon'}:${entry.id}:${Date.now()}`;
+        const result = await purchaseSupportRoomItem(key, entry.id);
+        setBalance(result.balance);
+        setInventory((previous) => new Map(previous).set(entry.id, result.ownedQuantity));
+        Alert.alert('구매 완료', `${entry.name}을(를) 보관함에 넣어 뒀어요.`);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : '';
+        Alert.alert(
+          '구매하지 못했어요',
+          message.includes('부족')
+            ? '복지포인트가 부족해요. 고객을 수집하면 포인트가 모여요.'
+            : message || '연결을 확인하고 다시 시도해주세요.',
+        );
+      } finally {
+        setPurchasing(false);
+      }
+    },
+    [purchasing],
+  );
 
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.screen}>
       <View style={styles.header}>
         <View>
           <Text style={styles.headerTitle}>고객지원실</Text>
-          <Text style={styles.headerSub}>행운동지부 · 임시 상담실</Text>
+          <Text style={styles.headerSub}>행운동지부 · {STAGE_LABELS[STAGE]}</Text>
         </View>
         <View style={styles.balance}>
-          <Text style={styles.balanceText}>1,240 BP</Text>
+          <Text style={styles.balanceText}>{balance.toLocaleString()} BP</Text>
         </View>
       </View>
 
@@ -101,106 +184,87 @@ export function IsoRoomSpikeScreen() {
         </Text>
       </View>
 
-      <View style={styles.roomArea}>
+      <View onLayout={onRoomLayout} style={styles.roomArea}>
         <ScrollView
-        bouncesZoom
-        contentContainerStyle={{ width: ISO.worldW, height: ISO.worldH }}
-        contentOffset={initialOffset}
-        maximumZoomScale={2.5}
-        minimumZoomScale={0.55}
-        showsHorizontalScrollIndicator={false}
-        showsVerticalScrollIndicator={false}
-        style={styles.world}
-      >
-        <View style={{ width: ISO.worldW, height: ISO.worldH }}>
+          bouncesZoom
+          contentContainerStyle={[
+            styles.roomContent,
+            {
+              width: contentWidth,
+              minHeight: roomViewport.height,
+            },
+          ]}
+          contentOffset={{ x: centeredOffsetX, y: 0 }}
+          maximumZoomScale={2.3}
+          minimumZoomScale={0.8}
+          onContentSizeChange={centerRoom}
+          ref={scrollRef}
+          showsHorizontalScrollIndicator={false}
+          showsVerticalScrollIndicator={false}
+          style={styles.world}
+        >
           <IsoRoom
-            cols={COLS}
-            fixtures={FIXTURES}
-            floorSurfaceId="flooring_honey_oak"
-            rows={ROWS}
-            showGrid
-            wallSurfaceId="wallpaper_cream_plaster"
+            gridBounds={editing ? { x: 2.7, y: 0, width: 5, depth: 4 } : undefined}
+            scale={scale}
+            stage={STAGE}
           >
             {PLACEMENTS.map((placement) => {
-              const busy = BUSY_CATS.find((cat) => cat.on === placement.furnitureId);
+              const busy = DEFAULT_BUSY_CATS.find((cat) => cat.on === placement.furnitureId);
               return (
                 <IsoFurniture
-                  compositeSource={
-                    busy
-                      ? CAT_ACTION_IMAGES[busy.key as keyof typeof CAT_ACTION_IMAGES][
-                          busy.behavior as 'idle'
-                        ]
-                      : undefined
-                  }
+                  compositeBehavior={busy?.behavior}
+                  compositeSource={busy ? CAT_ACTION_IMAGES[busy.key][busy.behavior] : undefined}
                   furnitureId={placement.furnitureId}
                   gridX={placement.gridX}
                   gridY={placement.gridY}
                   key={placement.furnitureId}
+                  selected={editing && placement.furnitureId === 'consultation_desk_honey'}
                 />
               );
             })}
-
-            {IDLE_CATS.map((cat) => {
-              // idle 스프라이트의 발은 이미지 하단에서 약 12% 위에 있다.
-              const size = cat.cells * ISO.tileW;
-              const foot = isoPoint(cat.gridX, cat.gridY);
-              return (
-                <Image
-                  key={cat.key}
-                  resizeMode="contain"
-                  source={CAT_ACTION_IMAGES[cat.key as keyof typeof CAT_ACTION_IMAGES].idle}
-                  style={{
-                    position: 'absolute',
-                    left: foot.x - size / 2,
-                    top: foot.y - size * 0.88,
-                    width: size,
-                    height: size,
-                    zIndex: isoDepth(cat.gridX, cat.gridY) + 1,
-                  }}
-                />
-              );
-            })}
+            {DEFAULT_IDLE_CATS.map((cat) => (
+              <IdleCat catKey={cat.key} gridX={cat.gridX} gridY={cat.gridY} key={cat.key} />
+            ))}
           </IsoRoom>
-        </View>
         </ScrollView>
 
         <RoomHud
-          hasNewSupply
-          onEdit={() => undefined}
-          onOpenRecords={() => undefined}
-          onOpenSupplies={() => undefined}
+          hasNewSupply={inventory.size > 0}
+          onEdit={() => setEditing((current) => !current)}
+          onOpenRecords={() => setRecordsOpen(true)}
+          onOpenSupplies={() => setShopOpen(true)}
           unreadRecords={3}
         />
       </View>
 
+      <RecordsSheet onClose={() => setRecordsOpen(false)} visible={recordsOpen} />
+      <ShopSheet
+        balance={balance}
+        onClose={() => setShopOpen(false)}
+        onPurchase={(entry) => void purchase(entry)}
+        ownedCount={(id) => inventory.get(id) ?? 0}
+        placements={[]}
+        purchasing={purchasing}
+        visible={shopOpen}
+      />
+
       <View style={styles.footer}>
         <View style={styles.progressRow}>
           <Text style={styles.progressLabel}>
-            정식 고객지원실까지 <Text style={styles.progressAccent}>1,760 BP</Text>
+            {STAGE_LABELS.stage1}까지 <Text style={styles.progressAccent}>1,760 BP</Text>
           </Text>
           <Text style={styles.progressPercent}>41%</Text>
         </View>
         <View style={styles.progressTrack}>
           <View style={[styles.progressFill, { width: '41%' }]} />
         </View>
-        <Pressable
-          accessibilityLabel="닫기"
-          accessibilityRole="button"
-          onPress={() => navigation.goBack()}
-          style={({ pressed }) => [styles.closeButton, pressed && styles.pressed]}
-        >
-          <Text style={styles.closeText}>닫기</Text>
-        </Pressable>
       </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: '#F6EEE0',
-  },
+  screen: { flex: 1, backgroundColor: '#F6EEE0' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -208,16 +272,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 8,
   },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: '#3A2E22',
-  },
-  headerSub: {
-    fontSize: 13,
-    color: '#8B7A66',
-    marginTop: 2,
-  },
+  headerTitle: { fontSize: 24, fontWeight: '800', color: '#3A2E22' },
+  headerSub: { fontSize: 13, color: '#8B7A66', marginTop: 2 },
   balance: {
     borderRadius: 999,
     borderWidth: 1.5,
@@ -227,17 +283,7 @@ const styles = StyleSheet.create({
     minHeight: 40,
     justifyContent: 'center',
   },
-  balanceText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: nd.colors.accent,
-  },
-  roomArea: {
-    flex: 1,
-  },
-  world: {
-    flex: 1,
-  },
+  balanceText: { fontSize: 15, fontWeight: '700', color: nd.colors.accent },
   rewardChip: {
     alignSelf: 'flex-start',
     marginLeft: 20,
@@ -249,59 +295,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
   },
-  rewardChipText: {
-    fontSize: 13,
-    color: '#5C4B39',
-  },
-  rewardChipAccent: {
-    color: nd.colors.accent,
-    fontWeight: '800',
-  },
-  footer: {
-    paddingHorizontal: 20,
-    paddingTop: 8,
-    gap: 8,
-  },
-  progressRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-end',
-  },
-  progressLabel: {
-    fontSize: 14,
-    color: '#5C4B39',
-  },
-  progressAccent: {
-    color: nd.colors.accent,
-    fontWeight: '700',
-  },
-  progressPercent: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: nd.colors.accent,
-  },
+  rewardChipText: { fontSize: 13, color: '#5C4B39' },
+  rewardChipAccent: { color: nd.colors.accent, fontWeight: '800' },
+  roomArea: { flex: 1, minHeight: 0 },
+  world: { flex: 1 },
+  roomContent: { justifyContent: 'center', alignItems: 'center' },
+  footer: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 12, gap: 8 },
+  progressRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' },
+  progressLabel: { fontSize: 14, color: '#5C4B39' },
+  progressAccent: { color: nd.colors.accent, fontWeight: '700' },
+  progressPercent: { fontSize: 15, fontWeight: '800', color: nd.colors.accent },
   progressTrack: {
     height: 10,
     borderRadius: 999,
     backgroundColor: '#E6DCCB',
     overflow: 'hidden',
   },
-  progressFill: {
-    height: '100%',
-    borderRadius: 999,
-    backgroundColor: nd.colors.accent,
-  },
-  closeButton: {
-    alignSelf: 'center',
-    minHeight: 44,
-    justifyContent: 'center',
-    paddingHorizontal: 20,
-  },
-  closeText: {
-    fontSize: 14,
-    color: nd.colors.sub,
-  },
-  pressed: {
-    opacity: 0.7,
-  },
+  progressFill: { height: '100%', borderRadius: 999, backgroundColor: nd.colors.accent },
 });
