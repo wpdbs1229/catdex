@@ -94,13 +94,21 @@ export interface ActionCompositeAnchor extends SpriteAnchor, SpriteRenderMeta {
   catBodyWidthRatio: number;
 }
 
-/** 행동 합성본은 일반 가구와 투명 여백·접지선이 달라 반드시 별도 측정값을 쓴다. */
+/**
+ * 행동 합성본은 일반 가구와 투명 여백·접지선이 달라 반드시 별도 측정값을 쓴다.
+ *
+ * ponytail: use_cushion·sit_swivel_chair의 visualScale은 GRID_FIT_SCALE로
+ * 통일 못 한다 - 고양이+가구가 한 장에 합쳐진 이미지라 스케일 손잡이가
+ * 하나뿐인데, "고양이 몸 크기를 idle과 ±15% 안으로 맞추기"와 "가구를
+ * footprint 비율대로 보이기"가 서로 다른 값을 요구한다(sprite-layout.test.ts가
+ * 몸 크기 쪽으로 고정해둠). 그 결과 의자(2×2)가 책상(3×2)보다 훨씬 작게
+ * 보이는 등, 합성 가구만 grid 비율에서 어긋난다.
+ * 천장: 캐릭터별 "고양이만 있는 행동 포즈" 아트(가구 제외)가 나와야
+ * 풀린다 - 그러면 가구는 FURNITURE_ANCHORS로, 고양이는 별도 anchor로 각자
+ * 독립적으로 grid 비율에 맞춰 그릴 수 있다. 지금은 idle.webp만
+ * 고양이 단독이고 행동 포즈는 전부 가구가 함께 그려져 있다(직접 확인함).
+ */
 export const ACTION_COMPOSITE_ANCHORS: Record<CompositeBehavior, ActionCompositeAnchor> = {
-  // 이 세 값의 visualScale은 GRID_FIT_SCALE로 통일하지 않는다 - 같은
-  // 2×2 footprint라도 catBodyWidthRatio(합성본에서 고양이 몸이 차지하는
-  // 비율)가 서로 달라서, 몸 체감 크기를 idle과 ±15% 안으로 맞추려면
-  // visualScale이 그 비율을 상쇄하도록 각자 달라야 한다. 아래
-  // sprite-layout.test.ts가 이 관계를 고정한다.
   use_cushion: {
     contentX: 0.0801,
     contentY: 0.1523,
