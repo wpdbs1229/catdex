@@ -15,8 +15,10 @@ import type { CharacterAssetKey } from '@/features/support-room/support-room.ass
 import { RecordsSheet } from '@/features/support-room-v2/components/RecordsSheet';
 import { ShopSheet, type ShopEntry } from '@/features/support-room-v2/components/ShopSheet';
 import { syncRoomV2 } from '@/features/support-room-v2/support-room-v2.service';
+import { formatBranch } from '@/features/home/components/CrewIdCard';
 import { purchaseSupportRoomItem } from '@/shared/api/support-room-v2.api';
 import { getCurrentUserId } from '@/shared/api/auth.api';
+import { useActiveNeighborhood } from '@/shared/neighborhood/useActiveNeighborhood';
 import { nd } from '@/shared/styles/theme';
 import { IsoFurniture } from './components/IsoFurniture';
 import { IsoRoom } from './components/IsoRoom';
@@ -89,6 +91,7 @@ function IdleCat({
 
 export function IsoRoomSpikeScreen() {
   const { width: viewportWidth, height: viewportHeight } = useWindowDimensions();
+  const { neighborhood } = useActiveNeighborhood();
   const scrollRef = useRef<ScrollView>(null);
   const [roomViewport, setRoomViewport] = useState<RoomViewport>({
     width: viewportWidth,
@@ -171,7 +174,9 @@ export function IsoRoomSpikeScreen() {
       <View style={styles.header}>
         <View>
           <Text style={styles.headerTitle}>고객지원실</Text>
-          <Text style={styles.headerSub}>행운동지부 · {STAGE_LABELS[STAGE]}</Text>
+          <Text style={styles.headerSub}>
+            {formatBranch(neighborhood?.city)} · {STAGE_LABELS[STAGE]}
+          </Text>
         </View>
         <View style={styles.balance}>
           <Text style={styles.balanceText}>{balance.toLocaleString()} BP</Text>
