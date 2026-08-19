@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Image,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -14,14 +15,27 @@ import { CAT_ACTION_IMAGES } from '@/features/support-room/support-room.assets';
 import type { CharacterAssetKey } from '@/features/support-room/support-room.assets';
 import { RecordsSheet } from '@/features/support-room-v2/components/RecordsSheet';
 import { ShopSheet, type ShopEntry } from '@/features/support-room-v2/components/ShopSheet';
+import type { FurnitureId } from '@/features/support-room-v2/domain/furniture';
 import { syncRoomV2 } from '@/features/support-room-v2/support-room-v2.service';
+import {
+  loadStoredRoomV2,
+  saveStoredRoomV2,
+  type StoredRoomV2,
+} from '@/features/support-room-v2/support-room-v2.storage';
 import { formatBranch } from '@/features/home/components/CrewIdCard';
-import { purchaseSupportRoomItem } from '@/shared/api/support-room-v2.api';
+import {
+  fetchVisitRecords,
+  purchaseSupportRoomItem,
+  recordSupportRoomVisit,
+  type VisitRecord,
+} from '@/shared/api/support-room-v2.api';
+import { fetchMyCats } from '@/shared/api/cats.api';
 import { getCurrentUserId } from '@/shared/api/auth.api';
+import type { Cat } from '@/shared/types/cat';
 import { useActiveNeighborhood } from '@/shared/neighborhood/useActiveNeighborhood';
-import { nd } from '@/shared/styles/theme';
+import { createNdShadow, nd } from '@/shared/styles/theme';
 import { IsoFurniture } from './components/IsoFurniture';
-import { IsoRoom } from './components/IsoRoom';
+import { IsoRoom, type LocalGridBounds } from './components/IsoRoom';
 import { RoomHud } from './components/RoomHud';
 import {
   calculateShellFitScale,
@@ -29,14 +43,17 @@ import {
   type RoomViewport,
   useProjection,
 } from './render/projection';
+import { FURNITURE_ANCHORS } from './render/furniture-anchors.generated';
 import { calculateIdleCatLayout } from './render/sprite-layout';
 import { SHELL_GEOMETRY, type RoomStage } from './render/shells.generated';
 import {
   createDefaultObservationLayout,
-  DEFAULT_BUSY_CATS,
-  DEFAULT_IDLE_CATS,
+  validateObservationLayout,
+  type ObservationPlacement,
 } from './support-room-v3.layout';
+import { loadV3Placements, saveV3Placements } from './support-room-v3.storage';
 import { STAGE_LABELS } from './support-room-v3.assets';
+import { assignBusyVisitors, assignIdleVisitor, todayStartMs, type RoomVisitor } from './support-room-v3.visitors';
 
 /**
  * V3 아이소메트릭 고객지원실.
@@ -45,7 +62,7 @@ import { STAGE_LABELS } from './support-room-v3.assets';
  */
 
 const STAGE: RoomStage = 'stage0';
-const PLACEMENTS = createDefaultObservationLayout();
+const NUDGE_STEP = 0.5;
 
 function IdleCat({
   catKey,
@@ -103,6 +120,15 @@ export function IsoRoomSpikeScreen() {
   const [shopOpen, setShopOpen] = useState(false);
   const [purchasing, setPurchasing] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [storedRoom, setStoredRoom] = useState<StoredRoomV2 | null>(null);
+  const [visitRecords, setVisitRecords] = useState<VisitRecord[]>([]);
+  const [visitorCats, setVisitorCats] = useState<Cat[]>([]);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [consultedEventIds, setConsultedEventIds] = useState<Set<string>>(new Set());
+  const [placements, setPlacements] = useState<ObservationPlacement[]>(() => [
+    ...createDefaultObservationLayout(),
+  ]);
+  const [selectedFurnitureId, setSelectedFurnitureId] = useState<FurnitureId | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -111,12 +137,127 @@ export function IsoRoomSpikeScreen() {
         if (!active) return;
         setBalance(result.balance);
         setInventory(result.inventory);
+        setStoredRoom(result.stored);
       })
       .catch(() => undefined);
     return () => {
       active = false;
     };
   }, []);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      const [id, cats, records, stored] = await Promise.all([
+        getCurrentUserId(),
+        fetchMyCats().catch(() => []),
+        fetchVisitRecords(50).catch(() => []),
+        loadV3Placements(),
+      ]);
+      if (!active) return;
+      setUserId(id);
+      setVisitorCats(cats);
+      setVisitRecords(records);
+      if (stored) setPlacements(stored);
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const dayStartMs = todayStartMs();
+
+  useEffect(() => {
+    const eventIds = new Set(visitRecords.map((record) => record.eventId));
+    setConsultedEventIds(eventIds);
+  }, [visitRecords]);
+
+  const busyVisitors = useMemo<RoomVisitor[]>(() => {
+    if (!userId) return [];
+    return assignBusyVisitors(visitorCats, userId, dayStartMs, consultedEventIds);
+  }, [visitorCats, userId, dayStartMs, consultedEventIds]);
+
+  const idleVisitor = useMemo(() => {
+    if (!userId) return null;
+    const busyIds = new Set(busyVisitors.map((visitor) => visitor.catId));
+    return assignIdleVisitor(visitorCats, userId, dayStartMs, busyIds);
+  }, [visitorCats, userId, dayStartMs, busyVisitors]);
+
+  const unreadCount = visitRecords.filter(
+    (record) => record.createdAt > (storedRoom?.lastReadEventAt ?? 0),
+  ).length;
+
+  const openRecords = useCallback(() => {
+    setRecordsOpen(true);
+    const now = Date.now();
+    setStoredRoom((current) => (current ? { ...current, lastReadEventAt: now } : current));
+    void (async () => {
+      const latest = await loadStoredRoomV2();
+      await saveStoredRoomV2({ ...latest, lastReadEventAt: now });
+    })();
+  }, []);
+
+  const consultVisitor = useCallback(
+    (visitor: RoomVisitor) => {
+      Alert.alert(`${visitor.catName} 고객 상담을 완료할까요?`, '상담일지에 기록되고, 오늘은 이 자리가 비어요.', [
+        { style: 'cancel', text: '취소' },
+        {
+          onPress: () => {
+            void (async () => {
+              try {
+                const result = await recordSupportRoomVisit({
+                  behaviorId: visitor.behavior,
+                  catId: visitor.catId,
+                  catName: visitor.catName,
+                  characterAssetKey: visitor.key,
+                  eventId: visitor.eventId,
+                  furnitureId: visitor.on,
+                  live: true,
+                  scheduledAt: visitor.scheduledAt,
+                  slot: visitor.slot,
+                });
+                setBalance(result.balance);
+                setConsultedEventIds((current) => new Set(current).add(visitor.eventId));
+                setVisitRecords(await fetchVisitRecords(50));
+              } catch {
+                Alert.alert('상담을 기록하지 못했어요', '연결을 확인하고 다시 시도해주세요.');
+              }
+            })();
+          },
+          text: '완료',
+        },
+      ]);
+    },
+    [],
+  );
+
+  const nudgeSelected = useCallback(
+    (dx: number, dy: number) => {
+      if (!selectedFurnitureId) return;
+      setPlacements((current) => {
+        const next = current.map((placement) =>
+          placement.furnitureId === selectedFurnitureId
+            ? { ...placement, gridX: placement.gridX + dx, gridY: placement.gridY + dy }
+            : placement,
+        );
+        if (validateObservationLayout(next).length > 0) return current;
+        void saveV3Placements(next);
+        return next;
+      });
+    },
+    [selectedFurnitureId],
+  );
+
+  const selectedPlacement = placements.find((p) => p.furnitureId === selectedFurnitureId);
+  const editGridBounds: LocalGridBounds | undefined =
+    editing && selectedPlacement
+      ? {
+          depth: FURNITURE_ANCHORS[selectedPlacement.furnitureId].footprintD + 1,
+          width: FURNITURE_ANCHORS[selectedPlacement.furnitureId].footprintW + 1,
+          x: selectedPlacement.gridX - 0.5,
+          y: selectedPlacement.gridY - 0.5,
+        }
+      : undefined;
 
   const geometry = SHELL_GEOMETRY[STAGE];
   const scale = calculateShellFitScale(geometry, roomViewport);
@@ -208,38 +349,73 @@ export function IsoRoomSpikeScreen() {
           showsVerticalScrollIndicator={false}
           style={styles.world}
         >
-          <IsoRoom
-            gridBounds={editing ? { x: 2.7, y: 0, width: 5, depth: 4 } : undefined}
-            scale={scale}
-            stage={STAGE}
-          >
-            {PLACEMENTS.map((placement) => {
-              const busy = DEFAULT_BUSY_CATS.find((cat) => cat.on === placement.furnitureId);
+          <IsoRoom gridBounds={editGridBounds} scale={scale} stage={STAGE}>
+            {placements.map((placement) => {
+              const occupant = busyVisitors.find((visitor) => visitor.on === placement.furnitureId);
               return (
                 <IsoFurniture
-                  compositeBehavior={busy?.behavior}
-                  compositeSource={busy ? CAT_ACTION_IMAGES[busy.key][busy.behavior] : undefined}
+                  accessibilityLabel={
+                    editing
+                      ? `${placement.furnitureId} 선택`
+                      : occupant
+                        ? `${occupant.catName} 고객 상담`
+                        : undefined
+                  }
+                  compositeBehavior={occupant?.behavior}
+                  compositeSource={occupant ? CAT_ACTION_IMAGES[occupant.key][occupant.behavior] : undefined}
                   furnitureId={placement.furnitureId}
                   gridX={placement.gridX}
                   gridY={placement.gridY}
                   key={placement.furnitureId}
-                  selected={editing && placement.furnitureId === 'consultation_desk_honey'}
+                  onPress={
+                    editing
+                      ? () => setSelectedFurnitureId(placement.furnitureId)
+                      : occupant
+                        ? () => consultVisitor(occupant)
+                        : undefined
+                  }
+                  selected={editing && placement.furnitureId === selectedFurnitureId}
                 />
               );
             })}
-            {DEFAULT_IDLE_CATS.map((cat) => (
-              <IdleCat catKey={cat.key} gridX={cat.gridX} gridY={cat.gridY} key={cat.key} />
-            ))}
+            {idleVisitor ? (
+              <IdleCat catKey={idleVisitor.key} gridX={idleVisitor.gridX} gridY={idleVisitor.gridY} />
+            ) : null}
           </IsoRoom>
         </ScrollView>
 
         <RoomHud
           hasNewSupply={inventory.size > 0}
-          onEdit={() => setEditing((current) => !current)}
-          onOpenRecords={() => setRecordsOpen(true)}
+          onEdit={() => {
+            setEditing((current) => !current);
+            setSelectedFurnitureId(null);
+          }}
+          onOpenRecords={openRecords}
           onOpenSupplies={() => setShopOpen(true)}
-          unreadRecords={3}
+          unreadRecords={unreadCount}
         />
+
+        {editing && selectedFurnitureId ? (
+          <View style={styles.editToolbar}>
+            <Pressable onPress={() => nudgeSelected(0, -NUDGE_STEP)} style={styles.editButton}>
+              <Text style={styles.editButtonText}>↑</Text>
+            </Pressable>
+            <View style={styles.editRow}>
+              <Pressable onPress={() => nudgeSelected(-NUDGE_STEP, 0)} style={styles.editButton}>
+                <Text style={styles.editButtonText}>←</Text>
+              </Pressable>
+              <Pressable onPress={() => setSelectedFurnitureId(null)} style={styles.editDoneButton}>
+                <Text style={styles.editDoneText}>완료</Text>
+              </Pressable>
+              <Pressable onPress={() => nudgeSelected(NUDGE_STEP, 0)} style={styles.editButton}>
+                <Text style={styles.editButtonText}>→</Text>
+              </Pressable>
+            </View>
+            <Pressable onPress={() => nudgeSelected(0, NUDGE_STEP)} style={styles.editButton}>
+              <Text style={styles.editButtonText}>↓</Text>
+            </Pressable>
+          </View>
+        ) : null}
       </View>
 
       <RecordsSheet onClose={() => setRecordsOpen(false)} visible={recordsOpen} />
@@ -317,4 +493,31 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   progressFill: { height: '100%', borderRadius: 999, backgroundColor: nd.colors.accent },
+  editToolbar: {
+    position: 'absolute',
+    bottom: 16,
+    left: 16,
+    alignItems: 'center',
+    gap: 6,
+  },
+  editRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  editButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...createNdShadow(0.14, 8),
+  },
+  editButtonText: { fontSize: 18, fontWeight: '700', color: nd.colors.accent },
+  editDoneButton: {
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: nd.colors.accent,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  editDoneText: { fontSize: 14, fontWeight: '700', color: '#FFFFFF' },
 });

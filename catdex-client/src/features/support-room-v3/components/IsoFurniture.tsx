@@ -1,4 +1,4 @@
-import { Image, View } from 'react-native';
+import { Image, Pressable, View } from 'react-native';
 import type { FurnitureId } from '@/features/support-room-v2/domain/furniture';
 import { V2_FURNITURE_IMAGES } from '@/features/support-room-v2/support-room-v2.assets.generated';
 import {
@@ -16,6 +16,9 @@ export interface IsoFurnitureProps {
   gridX: number;
   gridY: number;
   selected?: boolean;
+  /** 있으면 이 가구(또는 위에 앉은 고양이)를 누를 수 있다. */
+  onPress?: () => void;
+  accessibilityLabel?: string;
 }
 
 export function IsoFurniture({
@@ -25,6 +28,8 @@ export function IsoFurniture({
   gridX,
   gridY,
   selected = false,
+  onPress,
+  accessibilityLabel,
 }: IsoFurnitureProps) {
   const projection = useProjection();
   const meta = furnitureRenderMeta(furnitureId);
@@ -55,8 +60,11 @@ export function IsoFurniture({
           zIndex: layout.zIndex - 1,
         }}
       />
-      <View
-        pointerEvents="none"
+      <Pressable
+        accessibilityLabel={accessibilityLabel}
+        accessibilityRole={onPress ? 'button' : undefined}
+        onPress={onPress}
+        pointerEvents={onPress ? 'auto' : 'none'}
         style={{
           position: 'absolute',
           left: layout.left,
@@ -87,7 +95,7 @@ export function IsoFurniture({
             }}
           />
         ) : null}
-      </View>
+      </Pressable>
     </>
   );
 }
