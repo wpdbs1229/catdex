@@ -42,6 +42,14 @@ function GridLine({ from, to }: { from: { x: number; y: number }; to: { x: numbe
   );
 }
 
+/**
+ * bounds는 정수 격자가 아니라 선택한 가구의 실제(소수) footprint다.
+ * 예전엔 Math.floor/ceil로 정수 칸에 스냅해서 그렸는데, 가구가 0.25·1.65
+ * 같은 소수 좌표에 놓이면 격자선이 가구 가장자리와 어긋나 보였다(원점 근처
+ * 가구는 방 가장자리 클램프까지 겹쳐 오버레이가 부풀어 보이는 문제도 있었다).
+ * 지금은 클램프 없이 bounds를 footprintW×footprintD 칸으로 등분해서 그린다 -
+ * 항상 가구 하나의 실제 크기·위치와 정확히 겹친다.
+ */
 function LocalGridOverlay({
   projection,
   bounds,
@@ -49,27 +57,27 @@ function LocalGridOverlay({
   projection: IsoProjection;
   bounds: LocalGridBounds;
 }) {
-  const startX = Math.max(0, Math.floor(bounds.x));
-  const endX = Math.min(projection.geometry.cols, Math.ceil(bounds.x + bounds.width));
-  const startY = Math.max(0, Math.floor(bounds.y));
-  const endY = Math.min(projection.geometry.rows, Math.ceil(bounds.y + bounds.depth));
+  const cols = Math.max(1, Math.round(bounds.width));
+  const rows = Math.max(1, Math.round(bounds.depth));
   const lines: React.JSX.Element[] = [];
 
-  for (let y = startY; y <= endY; y += 1) {
+  for (let row = 0; row <= rows; row += 1) {
+    const y = bounds.y + (bounds.depth * row) / rows;
     lines.push(
       <GridLine
-        from={projection.point(startX, y)}
-        key={`x-${y}`}
-        to={projection.point(endX, y)}
+        from={projection.point(bounds.x, y)}
+        key={`row-${row}`}
+        to={projection.point(bounds.x + bounds.width, y)}
       />,
     );
   }
-  for (let x = startX; x <= endX; x += 1) {
+  for (let col = 0; col <= cols; col += 1) {
+    const x = bounds.x + (bounds.width * col) / cols;
     lines.push(
       <GridLine
-        from={projection.point(x, startY)}
-        key={`y-${x}`}
-        to={projection.point(x, endY)}
+        from={projection.point(x, bounds.y)}
+        key={`col-${col}`}
+        to={projection.point(x, bounds.y + bounds.depth)}
       />,
     );
   }

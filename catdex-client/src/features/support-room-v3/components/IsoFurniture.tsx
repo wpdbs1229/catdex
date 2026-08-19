@@ -1,4 +1,5 @@
-import { Image, Pressable, View } from 'react-native';
+import { useRef } from 'react';
+import { Image, PanResponder, View } from 'react-native';
 import type { FurnitureId } from '@/features/support-room-v2/domain/furniture';
 import { V2_FURNITURE_IMAGES } from '@/features/support-room-v2/support-room-v2.assets.generated';
 import {
@@ -17,10 +18,19 @@ export interface IsoFurnitureProps {
   gridX: number;
   gridY: number;
   selected?: boolean;
-  /** 있으면 이 가구(또는 위에 앉은 고양이)를 누를 수 있다. */
+  /** 있으면 이 가구(또는 위에 앉은 고양이)를 누를 수 있다. 드래그가 아니었을 때만 불린다. */
   onPress?: () => void;
   accessibilityLabel?: string;
+  /** 켜져 있으면 눌러서 바로 옮길 수 있다. */
+  draggable?: boolean;
+  /** 드래그 제스처가 시작된 순간(선택 처리용). */
+  onDragStart?: () => void;
+  /** 드래그 시작점 대비 누적 그리드 이동량. */
+  onDragMove?: (dxGrid: number, dyGrid: number) => void;
+  onDragEnd?: () => void;
 }
+
+const TAP_THRESHOLD_PX = 4;
 
 export function IsoFurniture({
   furnitureId,
@@ -31,9 +41,54 @@ export function IsoFurniture({
   selected = false,
   onPress,
   accessibilityLabel,
+  draggable = false,
+  onDragStart,
+  onDragMove,
+  onDragEnd,
 }: IsoFurnitureProps) {
   const projection = useProjection();
   const meta = furnitureRenderMeta(furnitureId);
+
+  // 최신 콜백/상태를 ref로 미러링한다 - PanResponder는 생성 시점 클로저를
+  // 그대로 붙들고 있어서, 매 렌더마다 새로 만들지 않는 한 이 방법뿐이다.
+  const draggableRef = useRef(draggable);
+  draggableRef.current = draggable;
+  const onPressRef = useRef(onPress);
+  onPressRef.current = onPress;
+  const onDragStartRef = useRef(onDragStart);
+  onDragStartRef.current = onDragStart;
+  const onDragMoveRef = useRef(onDragMove);
+  onDragMoveRef.current = onDragMove;
+  const onDragEndRef = useRef(onDragEnd);
+  onDragEndRef.current = onDragEnd;
+  const projectionRef = useRef(projection);
+  projectionRef.current = projection;
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: () => draggableRef.current || !!onPressRef.current,
+      onPanResponderGrant: () => {
+        if (draggableRef.current) onDragStartRef.current?.();
+      },
+      onPanResponderMove: (_evt, gesture) => {
+        if (!draggableRef.current) return;
+        const { dx, dy } = projectionRef.current.screenDeltaToGrid(gesture.dx, gesture.dy);
+        onDragMoveRef.current?.(dx, dy);
+      },
+      onPanResponderRelease: (_evt, gesture) => {
+        const moved = Math.hypot(gesture.dx, gesture.dy) >= TAP_THRESHOLD_PX;
+        if (draggableRef.current && moved) {
+          onDragEndRef.current?.();
+        } else {
+          onPressRef.current?.();
+        }
+      },
+      onPanResponderTerminate: () => {
+        if (draggableRef.current) onDragEndRef.current?.();
+      },
+      onStartShouldSetPanResponder: () => draggableRef.current || !!onPressRef.current,
+    }),
+  ).current;
 
   // 시점이 맞지 않는 일반 가구는 새 아트가 나오기 전 기본 장면에 억지로 넣지 않는다.
   if (meta.needsArtReexport && !compositeSource) return null;
@@ -46,14 +101,15 @@ export function IsoFurniture({
     compositeBehavior,
   });
 
+  const interactive = draggable || !!onPress;
+
   return (
     <>
       <IsoContactShadow layout={layout} />
-      <Pressable
+      <View
         accessibilityLabel={accessibilityLabel}
-        accessibilityRole={onPress ? 'button' : undefined}
-        onPress={onPress}
-        pointerEvents={onPress ? 'auto' : 'none'}
+        accessibilityRole={interactive ? 'button' : undefined}
+        pointerEvents={interactive ? 'auto' : 'none'}
         style={{
           position: 'absolute',
           left: layout.left,
@@ -62,6 +118,7 @@ export function IsoFurniture({
           height: layout.imageSize,
           zIndex: layout.zIndex,
         }}
+        {...(interactive ? panResponder.panHandlers : null)}
       >
         <Image
           resizeMode="contain"
@@ -84,7 +141,7 @@ export function IsoFurniture({
             }}
           />
         ) : null}
-      </Pressable>
+      </View>
     </>
   );
 }

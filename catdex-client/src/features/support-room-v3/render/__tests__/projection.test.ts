@@ -31,6 +31,22 @@ describe('support-room-v3 projection', () => {
     }
   });
 
+  it('screenDeltaToGrid가 point()의 정확한 역변환이다(드래그 이동량 복원)', () => {
+    const projection = createProjection('stage0', 0.5);
+    for (const [dx, dy] of [
+      [1, 0],
+      [0, 1],
+      [2.5, -1.5],
+      [-3, 4],
+    ] as const) {
+      const from = projection.point(2, 2);
+      const to = projection.point(2 + dx, 2 + dy);
+      const recovered = projection.screenDeltaToGrid(to.x - from.x, to.y - from.y);
+      expect(recovered.dx).toBeCloseTo(dx, 6);
+      expect(recovered.dy).toBeCloseTo(dy, 6);
+    }
+  });
+
   it('앞쪽 접지점의 depth가 항상 더 크다', () => {
     expect(isoDepth(4, 5)).toBeGreaterThan(isoDepth(4, 4));
     expect(isoDepth(5, 4)).toBeGreaterThan(isoDepth(4, 4));

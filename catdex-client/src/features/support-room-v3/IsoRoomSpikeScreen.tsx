@@ -34,7 +34,7 @@ import { getCurrentUserId } from '@/shared/api/auth.api';
 import { fetchSupportRoomV3Placements, saveSupportRoomV3Placement } from '@/shared/api/support-room-v3.api';
 import type { Cat } from '@/shared/types/cat';
 import { useActiveNeighborhood } from '@/shared/neighborhood/useActiveNeighborhood';
-import { createNdShadow, nd } from '@/shared/styles/theme';
+import { nd } from '@/shared/styles/theme';
 import { IsoContactShadow } from './components/IsoContactShadow';
 import { IsoFurniture } from './components/IsoFurniture';
 import { IsoRoom, type LocalGridBounds } from './components/IsoRoom';
@@ -64,7 +64,6 @@ import { assignBusyVisitors, assignIdleVisitor, todayStartMs, type RoomVisitor }
  */
 
 const STAGE: RoomStage = 'stage0';
-const NUDGE_STEP = 0.5;
 
 function IdleCat({
   catKey,
@@ -247,37 +246,74 @@ export function IsoRoomSpikeScreen() {
     [],
   );
 
-  const nudgeSelected = useCallback(
-    (dx: number, dy: number) => {
-      if (!selectedFurnitureId) return;
-      setPlacements((current) => {
-        const next = current.map((placement) =>
-          placement.furnitureId === selectedFurnitureId
-            ? { ...placement, gridX: placement.gridX + dx, gridY: placement.gridY + dy }
+  // 드래그 시작 시점의 위치. 화면 델타를 매번 여기 더해서 다음 위치를 낸다
+  // (전 위치에 델타를 계속 누적하면 반올림 오차가 쌓인다).
+  const dragStartRef = useRef<{ furnitureId: FurnitureId; gridX: number; gridY: number } | null>(null);
+
+  const handleDragStart = useCallback((furnitureId: FurnitureId) => {
+    setPlacements((current) => {
+      const found = current.find((placement) => placement.furnitureId === furnitureId);
+      if (found) {
+        dragStartRef.current = { furnitureId, gridX: found.gridX, gridY: found.gridY };
+      }
+      return current;
+    });
+    setSelectedFurnitureId(furnitureId);
+  }, []);
+
+  const handleDragMove = useCallback((furnitureId: FurnitureId, dxGrid: number, dyGrid: number) => {
+    const start = dragStartRef.current;
+    if (!start || start.furnitureId !== furnitureId) return;
+    const anchor = FURNITURE_ANCHORS[furnitureId];
+    const nextX = Math.min(Math.max(start.gridX + dxGrid, 0), 8 - anchor.footprintW);
+    const nextY = Math.min(Math.max(start.gridY + dyGrid, 0), 6 - anchor.footprintD);
+    setPlacements((current) =>
+      current.map((placement) =>
+        placement.furnitureId === furnitureId ? { ...placement, gridX: nextX, gridY: nextY } : placement,
+      ),
+    );
+  }, []);
+
+  const handleDragEnd = useCallback((furnitureId: FurnitureId) => {
+    const start = dragStartRef.current;
+    dragStartRef.current = null;
+    setPlacements((current) => {
+      const moved = current.find((placement) => placement.furnitureId === furnitureId);
+      if (!moved) return current;
+      // 0.5칸 단위로 스냅해서 내려놓는다.
+      const snapped = {
+        ...moved,
+        gridX: Math.round(moved.gridX * 2) / 2,
+        gridY: Math.round(moved.gridY * 2) / 2,
+      };
+      const next = current.map((placement) =>
+        placement.furnitureId === furnitureId ? snapped : placement,
+      );
+      if (validateObservationLayout(next).length > 0) {
+        // 겹침·통로 막힘 등 규칙을 어기면 드래그 시작 위치로 되돌린다.
+        if (!start) return current;
+        return current.map((placement) =>
+          placement.furnitureId === furnitureId
+            ? { ...placement, gridX: start.gridX, gridY: start.gridY }
             : placement,
         );
-        if (validateObservationLayout(next).length > 0) return current;
-        const moved = next.find((placement) => placement.furnitureId === selectedFurnitureId);
-        if (moved) {
-          void saveSupportRoomV3Placement(moved.furnitureId, moved.gridX, moved.gridY).catch((error) => {
-            console.warn('[support-room-v3] 배치 저장 실패, 로컬 캐시만 반영됨', error);
-          });
-        }
-        void saveV3Placements(next);
-        return next;
+      }
+      void saveSupportRoomV3Placement(snapped.furnitureId, snapped.gridX, snapped.gridY).catch((error) => {
+        console.warn('[support-room-v3] 배치 저장 실패, 로컬 캐시만 반영됨', error);
       });
-    },
-    [selectedFurnitureId],
-  );
+      void saveV3Placements(next);
+      return next;
+    });
+  }, []);
 
   const selectedPlacement = placements.find((p) => p.furnitureId === selectedFurnitureId);
   const editGridBounds: LocalGridBounds | undefined =
     editing && selectedPlacement
       ? {
-          depth: FURNITURE_ANCHORS[selectedPlacement.furnitureId].footprintD + 1,
-          width: FURNITURE_ANCHORS[selectedPlacement.furnitureId].footprintW + 1,
-          x: selectedPlacement.gridX - 0.5,
-          y: selectedPlacement.gridY - 0.5,
+          depth: FURNITURE_ANCHORS[selectedPlacement.furnitureId].footprintD,
+          width: FURNITURE_ANCHORS[selectedPlacement.furnitureId].footprintW,
+          x: selectedPlacement.gridX,
+          y: selectedPlacement.gridY,
         }
       : undefined;
 
@@ -352,6 +388,10 @@ export function IsoRoomSpikeScreen() {
         </Text>
       </View>
 
+      {editing && !selectedFurnitureId ? (
+        <Text style={styles.editHint}>가구를 눌러서 옮겨보세요</Text>
+      ) : null}
+
       <View onLayout={onRoomLayout} style={styles.roomArea}>
         <ScrollView
           bouncesZoom
@@ -366,7 +406,9 @@ export function IsoRoomSpikeScreen() {
           maximumZoomScale={2.3}
           minimumZoomScale={0.8}
           onContentSizeChange={centerRoom}
+          pinchGestureEnabled={!editing}
           ref={scrollRef}
+          scrollEnabled={!editing}
           showsHorizontalScrollIndicator={false}
           showsVerticalScrollIndicator={false}
           style={styles.world}
@@ -385,10 +427,14 @@ export function IsoRoomSpikeScreen() {
                   }
                   compositeBehavior={occupant?.behavior}
                   compositeSource={occupant ? CAT_ACTION_IMAGES[occupant.key][occupant.behavior] : undefined}
+                  draggable={editing}
                   furnitureId={placement.furnitureId}
                   gridX={placement.gridX}
                   gridY={placement.gridY}
                   key={placement.furnitureId}
+                  onDragEnd={() => handleDragEnd(placement.furnitureId)}
+                  onDragMove={(dx, dy) => handleDragMove(placement.furnitureId, dx, dy)}
+                  onDragStart={() => handleDragStart(placement.furnitureId)}
                   onPress={
                     editing
                       ? () => setSelectedFurnitureId(placement.furnitureId)
@@ -419,22 +465,8 @@ export function IsoRoomSpikeScreen() {
 
         {editing && selectedFurnitureId ? (
           <View style={styles.editToolbar}>
-            <Pressable onPress={() => nudgeSelected(0, -NUDGE_STEP)} style={styles.editButton}>
-              <Text style={styles.editButtonText}>↑</Text>
-            </Pressable>
-            <View style={styles.editRow}>
-              <Pressable onPress={() => nudgeSelected(-NUDGE_STEP, 0)} style={styles.editButton}>
-                <Text style={styles.editButtonText}>←</Text>
-              </Pressable>
-              <Pressable onPress={() => setSelectedFurnitureId(null)} style={styles.editDoneButton}>
-                <Text style={styles.editDoneText}>완료</Text>
-              </Pressable>
-              <Pressable onPress={() => nudgeSelected(NUDGE_STEP, 0)} style={styles.editButton}>
-                <Text style={styles.editButtonText}>→</Text>
-              </Pressable>
-            </View>
-            <Pressable onPress={() => nudgeSelected(0, NUDGE_STEP)} style={styles.editButton}>
-              <Text style={styles.editButtonText}>↓</Text>
+            <Pressable onPress={() => setSelectedFurnitureId(null)} style={styles.editDoneButton}>
+              <Text style={styles.editDoneText}>완료</Text>
             </Pressable>
           </View>
         ) : null}
@@ -500,6 +532,12 @@ const styles = StyleSheet.create({
   },
   rewardChipText: { fontSize: 13, color: '#5C4B39' },
   rewardChipAccent: { color: nd.colors.accent, fontWeight: '800' },
+  editHint: {
+    alignSelf: 'center',
+    marginBottom: 4,
+    fontSize: 12,
+    color: '#8B7A66',
+  },
   roomArea: { flex: 1, minHeight: 0 },
   world: { flex: 1 },
   roomContent: { justifyContent: 'center', alignItems: 'center' },
@@ -519,20 +557,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 16,
     left: 16,
-    alignItems: 'center',
-    gap: 6,
   },
-  editRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  editButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...createNdShadow(0.14, 8),
-  },
-  editButtonText: { fontSize: 18, fontWeight: '700', color: nd.colors.accent },
   editDoneButton: {
     height: 44,
     borderRadius: 22,

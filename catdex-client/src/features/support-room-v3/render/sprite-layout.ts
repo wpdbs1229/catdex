@@ -20,8 +20,16 @@ export interface SpriteRenderMeta {
   needsArtReexport?: boolean;
 }
 
+/**
+ * 가구·고양이가 모두 공유하는 "칸당 체감 크기" 비율. 예전엔 항목마다
+ * 0.56~0.72 사이에서 따로 튜닝해서(고양이는 별도 tileW*0.98 공식까지 써서)
+ * 같은 1칸이어도 물체마다 그리드를 채우는 정도가 제각각으로 보였다.
+ * 하나로 통일해서 "1×1은 1×1답게, 2×2는 2×2답게" 보이게 한다.
+ */
+export const GRID_FIT_SCALE = 0.9;
+
 const DEFAULT_FURNITURE_META: SpriteRenderMeta = {
-  visualScale: 0.6,
+  visualScale: GRID_FIT_SCALE,
   shadowWidth: 0.5,
   shadowOffsetY: 0.015,
   allowedRotations: [0],
@@ -60,11 +68,8 @@ const FURNITURE_ANCHOR_OVERRIDES: Partial<Record<FurnitureId, SpriteAnchor>> = {
  * 기본 장면에서 제외한 3종은 정면성이 강해 새 아이소 아트가 필요하다.
  */
 export const FURNITURE_RENDER_META: Partial<Record<FurnitureId, SpriteRenderMeta>> = {
-  consultation_desk_honey: { ...DEFAULT_FURNITURE_META, visualScale: 0.58 },
-  visitor_cushion_orange: { ...DEFAULT_FURNITURE_META, visualScale: 0.62 },
-  paper_basket_cream: { ...DEFAULT_FURNITURE_META, visualScale: 0.62 },
-  plant_small_desk: { ...DEFAULT_FURNITURE_META, visualScale: 0.56, shadowWidth: 0.46 },
-  service_bell_brass: { ...DEFAULT_FURNITURE_META, visualScale: 0.56, shadowWidth: 0.46 },
+  plant_small_desk: { ...DEFAULT_FURNITURE_META, shadowWidth: 0.46 },
+  service_bell_brass: { ...DEFAULT_FURNITURE_META, shadowWidth: 0.46 },
   customer_water_station: {
     ...DEFAULT_FURNITURE_META,
     needsArtReexport: true,
@@ -91,6 +96,11 @@ export interface ActionCompositeAnchor extends SpriteAnchor, SpriteRenderMeta {
 
 /** 행동 합성본은 일반 가구와 투명 여백·접지선이 달라 반드시 별도 측정값을 쓴다. */
 export const ACTION_COMPOSITE_ANCHORS: Record<CompositeBehavior, ActionCompositeAnchor> = {
+  // 이 세 값의 visualScale은 GRID_FIT_SCALE로 통일하지 않는다 - 같은
+  // 2×2 footprint라도 catBodyWidthRatio(합성본에서 고양이 몸이 차지하는
+  // 비율)가 서로 달라서, 몸 체감 크기를 idle과 ±15% 안으로 맞추려면
+  // visualScale이 그 비율을 상쇄하도록 각자 달라야 한다. 아래
+  // sprite-layout.test.ts가 이 관계를 고정한다.
   use_cushion: {
     contentX: 0.0801,
     contentY: 0.1523,
@@ -212,27 +222,34 @@ export function calculateFurnitureSpriteLayout({
   };
 }
 
+/**
+ * idle 고양이도 가구와 같은 1×1 footprint 물체로 취급해서 같은 공식으로
+ * 그린다. 예전엔 tileW*0.98이라는 별도 공식을 써서 가구와 "1칸"의 체감이
+ * 서로 달랐다.
+ */
 export function calculateIdleCatLayout(
   projection: IsoProjection,
   gridX: number,
   gridY: number,
 ): GroundedSpriteLayout {
-  const ground = projection.point(gridX, gridY);
-  const visibleWidth = projection.tileW * 0.98;
+  const footprint = projection.footprint(gridX, gridY, 1, 1);
+  const visibleWidth = footprint.width * GRID_FIT_SCALE;
   const imageSize = visibleWidth / IDLE_CAT_ANCHOR.contentW;
-  const shadowWidth = visibleWidth * 0.72;
+  const groundX = footprint.ground.x;
+  const groundY = footprint.ground.y;
+  const shadowWidth = footprint.width * 0.5;
   const shadowHeight = shadowWidth * 0.19;
   return {
-    left: ground.x - (IDLE_CAT_ANCHOR.contentX + IDLE_CAT_ANCHOR.contentW / 2) * imageSize,
-    top: ground.y - IDLE_CAT_ANCHOR.baselineY * imageSize,
+    left: groundX - (IDLE_CAT_ANCHOR.contentX + IDLE_CAT_ANCHOR.contentW / 2) * imageSize,
+    top: groundY - IDLE_CAT_ANCHOR.baselineY * imageSize,
     imageSize,
-    groundX: ground.x,
-    groundY: ground.y,
-    shadowLeft: ground.x - shadowWidth / 2,
-    shadowTop: ground.y - shadowHeight * 0.4,
+    groundX,
+    groundY,
+    shadowLeft: groundX - shadowWidth / 2,
+    shadowTop: groundY + footprint.height * 0.015 - shadowHeight / 2,
     shadowWidth,
     shadowHeight,
-    zIndex: isoDepth(gridX, gridY),
+    zIndex: isoDepth(gridX + 1, gridY + 1),
   };
 }
 

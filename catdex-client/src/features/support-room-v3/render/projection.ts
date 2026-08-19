@@ -28,6 +28,8 @@ export interface IsoProjection {
   tileH: number;
   point: (x: number, y: number) => ScreenPoint;
   footprint: (x: number, y: number, width: number, depth: number) => ProjectedFootprint;
+  /** point()의 역변환. 화면 픽셀 드래그량을 그리드 칸 이동량으로 바꾼다. */
+  screenDeltaToGrid: (dxScreen: number, dyScreen: number) => { dx: number; dy: number };
   /** 투명 여백을 제외하고 실제로 표시되는 셸 크기 */
   displayW: number;
   displayH: number;
@@ -76,6 +78,18 @@ export function createProjection(stage: RoomStage, scale: number): IsoProjection
       scale,
   });
 
+  // point()가 쓰는 2×2 행렬 [axisX axisY]의 역행렬. 화면 델타 → 그리드 델타.
+  const det =
+    geometry.axisX.x * geometry.axisY.y - geometry.axisY.x * geometry.axisX.y;
+  const screenDeltaToGrid = (dxScreen: number, dyScreen: number) => {
+    const sx = dxScreen / scale;
+    const sy = dyScreen / scale;
+    return {
+      dx: (geometry.axisY.y * sx - geometry.axisY.x * sy) / det,
+      dy: (geometry.axisX.x * sy - geometry.axisX.y * sx) / det,
+    };
+  };
+
   return {
     stage,
     geometry,
@@ -83,6 +97,7 @@ export function createProjection(stage: RoomStage, scale: number): IsoProjection
     tileW: (Math.abs(geometry.axisX.x) + Math.abs(geometry.axisY.x)) * scale,
     tileH: (Math.abs(geometry.axisX.y) + Math.abs(geometry.axisY.y)) * scale,
     point,
+    screenDeltaToGrid,
     footprint: (x, y, width, depth) =>
       footprintFromPoints([
         point(x, y),
