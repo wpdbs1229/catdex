@@ -249,6 +249,7 @@ export function IsoRoomSpikeScreen() {
   // 드래그 시작 시점의 위치. 화면 델타를 매번 여기 더해서 다음 위치를 낸다
   // (전 위치에 델타를 계속 누적하면 반올림 오차가 쌓인다).
   const dragStartRef = useRef<{ furnitureId: FurnitureId; gridX: number; gridY: number } | null>(null);
+  const [draggingFurnitureId, setDraggingFurnitureId] = useState<FurnitureId | null>(null);
 
   const handleDragStart = useCallback((furnitureId: FurnitureId) => {
     setPlacements((current) => {
@@ -259,14 +260,25 @@ export function IsoRoomSpikeScreen() {
       return current;
     });
     setSelectedFurnitureId(furnitureId);
+    setDraggingFurnitureId(furnitureId);
+  }, []);
+
+  // 드래그가 아니라 짧은 탭으로 끝나면 onDragEnd가 안 불리므로, 탭 쪽에서
+  // 드래그 중 표시(전체 격자)를 직접 꺼준다.
+  const selectFurniture = useCallback((furnitureId: FurnitureId | null) => {
+    setSelectedFurnitureId(furnitureId);
+    setDraggingFurnitureId(null);
   }, []);
 
   const handleDragMove = useCallback((furnitureId: FurnitureId, dxGrid: number, dyGrid: number) => {
     const start = dragStartRef.current;
     if (!start || start.furnitureId !== furnitureId) return;
     const anchor = FURNITURE_ANCHORS[furnitureId];
-    const nextX = Math.min(Math.max(start.gridX + dxGrid, 0), 8 - anchor.footprintW);
-    const nextY = Math.min(Math.max(start.gridY + dyGrid, 0), 6 - anchor.footprintD);
+    // 칸 단위로 미리 스냅해서 끌고 다니는 동안에도 정면이 격자선에 딱
+    // 맞물리는 게 바로 보이게 한다(끝에 가서야 스냅되면 어디 놓일지
+    // 드래그 중엔 알 수 없다).
+    const nextX = Math.min(Math.max(Math.round(start.gridX + dxGrid), 0), 8 - anchor.footprintW);
+    const nextY = Math.min(Math.max(Math.round(start.gridY + dyGrid), 0), 6 - anchor.footprintD);
     setPlacements((current) =>
       current.map((placement) =>
         placement.furnitureId === furnitureId ? { ...placement, gridX: nextX, gridY: nextY } : placement,
@@ -277,14 +289,15 @@ export function IsoRoomSpikeScreen() {
   const handleDragEnd = useCallback((furnitureId: FurnitureId) => {
     const start = dragStartRef.current;
     dragStartRef.current = null;
+    setDraggingFurnitureId(null);
     setPlacements((current) => {
       const moved = current.find((placement) => placement.furnitureId === furnitureId);
       if (!moved) return current;
-      // 0.5칸 단위로 스냅해서 내려놓는다.
+      // 드래그 중에 이미 칸 단위로 스냅해뒀으니 반올림만 한 번 더 확실히 한다.
       const snapped = {
         ...moved,
-        gridX: Math.round(moved.gridX * 2) / 2,
-        gridY: Math.round(moved.gridY * 2) / 2,
+        gridX: Math.round(moved.gridX),
+        gridY: Math.round(moved.gridY),
       };
       const next = current.map((placement) =>
         placement.furnitureId === furnitureId ? snapped : placement,
@@ -307,8 +320,11 @@ export function IsoRoomSpikeScreen() {
   }, []);
 
   const selectedPlacement = placements.find((p) => p.furnitureId === selectedFurnitureId);
-  const editGridBounds: LocalGridBounds | undefined =
-    editing && selectedPlacement
+  // 끌고 다니는 동안엔 바닥 전체 격자를 보여줘서 어느 칸에 놓일지 보이게
+  // 하고, 선택만 하고 안 끌 때는 그 가구 크기만큼만 좁게 보여준다.
+  const editGridBounds: LocalGridBounds | undefined = draggingFurnitureId
+    ? { depth: SHELL_GEOMETRY[STAGE].rows, width: SHELL_GEOMETRY[STAGE].cols, x: 0, y: 0 }
+    : editing && selectedPlacement
       ? {
           depth: FURNITURE_ANCHORS[selectedPlacement.furnitureId].footprintD,
           width: FURNITURE_ANCHORS[selectedPlacement.furnitureId].footprintW,
@@ -437,7 +453,7 @@ export function IsoRoomSpikeScreen() {
                   onDragStart={() => handleDragStart(placement.furnitureId)}
                   onPress={
                     editing
-                      ? () => setSelectedFurnitureId(placement.furnitureId)
+                      ? () => selectFurniture(placement.furnitureId)
                       : occupant
                         ? () => consultVisitor(occupant)
                         : undefined
@@ -456,7 +472,7 @@ export function IsoRoomSpikeScreen() {
           hasNewSupply={inventory.size > 0}
           onEdit={() => {
             setEditing((current) => !current);
-            setSelectedFurnitureId(null);
+            selectFurniture(null);
           }}
           onOpenRecords={openRecords}
           onOpenSupplies={() => setShopOpen(true)}
@@ -465,7 +481,7 @@ export function IsoRoomSpikeScreen() {
 
         {editing && selectedFurnitureId ? (
           <View style={styles.editToolbar}>
-            <Pressable onPress={() => setSelectedFurnitureId(null)} style={styles.editDoneButton}>
+            <Pressable onPress={() => selectFurniture(null)} style={styles.editDoneButton}>
               <Text style={styles.editDoneText}>완료</Text>
             </Pressable>
           </View>
