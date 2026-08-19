@@ -172,16 +172,26 @@ export function IsoRoomSpikeScreen() {
     setConsultedEventIds(eventIds);
   }, [visitRecords]);
 
+  // 오늘 이미 상담 완료된 고양이 개체. 슬롯이 아니라 개체 기준으로 걸러야
+  // 방금 끝난 고객이 idle 자리나 다른 자리에 곧바로 재등장하지 않는다.
+  const consultedCatIdsToday = useMemo(() => {
+    if (!userId) return new Set<string>();
+    const prefix = `${userId}:${dayStartMs}:`;
+    return new Set(
+      visitRecords.filter((record) => record.eventId.startsWith(prefix)).map((record) => record.catId),
+    );
+  }, [visitRecords, userId, dayStartMs]);
+
   const busyVisitors = useMemo<RoomVisitor[]>(() => {
     if (!userId) return [];
-    return assignBusyVisitors(visitorCats, userId, dayStartMs, consultedEventIds);
-  }, [visitorCats, userId, dayStartMs, consultedEventIds]);
+    return assignBusyVisitors(visitorCats, userId, dayStartMs, consultedEventIds, consultedCatIdsToday);
+  }, [visitorCats, userId, dayStartMs, consultedEventIds, consultedCatIdsToday]);
 
   const idleVisitor = useMemo(() => {
     if (!userId) return null;
     const busyIds = new Set(busyVisitors.map((visitor) => visitor.catId));
-    return assignIdleVisitor(visitorCats, userId, dayStartMs, busyIds);
-  }, [visitorCats, userId, dayStartMs, busyVisitors]);
+    return assignIdleVisitor(visitorCats, userId, dayStartMs, consultedCatIdsToday, busyIds);
+  }, [visitorCats, userId, dayStartMs, consultedCatIdsToday, busyVisitors]);
 
   const unreadCount = visitRecords.filter(
     (record) => record.createdAt > (storedRoom?.lastReadEventAt ?? 0),
