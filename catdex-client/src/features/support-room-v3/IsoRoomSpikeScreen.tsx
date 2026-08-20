@@ -129,6 +129,8 @@ export function IsoRoomSpikeScreen() {
    */
   const [draft, setDraft] = useState<ObservationPlacement[] | null>(null);
   const [stored, setStored] = useState<FurnitureId[]>([]);
+  /** 서버에 보관 상태로 저장돼 있는 가구. 꾸미기를 시작할 때 트레이에 채운다. */
+  const [storedOnServer, setStoredOnServer] = useState<FurnitureId[]>([]);
   const [undoStack, setUndoStack] = useState<
     Array<{ placements: ObservationPlacement[]; stored: FurnitureId[] }>
   >([]);
@@ -169,10 +171,31 @@ export function IsoRoomSpikeScreen() {
       try {
         const serverOverrides = await fetchSupportRoomV3Placements();
         if (!active) return;
-        const merged = createDefaultObservationLayout().map((placement) => {
-          const override = serverOverrides.get(placement.furnitureId);
-          return override ? { ...placement, gridX: override.gridX, gridY: override.gridY } : placement;
-        });
+        const defaults = createDefaultObservationLayout();
+        const merged = defaults
+          .map((placement) => {
+            const override = serverOverrides.get(placement.furnitureId);
+            return override
+              ? {
+                  ...placement,
+                  gridX: override.gridX,
+                  gridY: override.gridY,
+                  flipX: override.flipX,
+                  stored: override.stored,
+                }
+              : { ...placement, stored: false };
+          })
+          .filter((placement) => !placement.stored)
+          .map(({ stored: _stored, ...placement }) => placement);
+        // 보관함에 넣어 둔 가구도 되살린다. 안 그러면 꾸미기에 다시 들어갔을 때
+        // 뺀 가구를 어디서도 꺼낼 수 없다.
+        setStoredOnServer(
+          defaults
+            .filter((placement) => serverOverrides.get(placement.furnitureId)?.stored)
+            .map((placement) => placement.furnitureId),
+        );
+        // 격자 규칙만 본다. 화면 폭 기준 safe area로 거르면 좁은 기기에서
+        // 사용자가 저장해 둔 배치가 조용히 사라진다.
         if (validateObservationLayout(merged).length === 0) {
           setPlacements(merged);
           void saveV3Placements(merged);
@@ -268,8 +291,20 @@ export function IsoRoomSpikeScreen() {
   const [draggingFurnitureId, setDraggingFurnitureId] = useState<FurnitureId | null>(null);
   /** 드래그 중인 자리가 규칙에 맞는지. footprint 색을 실시간으로 바꾼다. */
   const [dragValid, setDragValid] = useState(true);
+  /** 이번 드래그에서 칸이 실제로 바뀌었는지. 탭과 드래그를 가른다. */
+  const movedDuringDragRef = useRef(false);
 
   /** 되돌리기용 스냅숏. 상태를 바꾸기 직전에 부른다. */
+  /** 화면 폭까지 반영한 배치 검사. 드래그·저장이 모두 이걸 쓴다. */
+  const checkLayout = useCallback(
+    (next: readonly ObservationPlacement[]) =>
+      validateObservationLayout(next, {
+        projection: createProjection(STAGE, calculateShellFitScale(SHELL_GEOMETRY[STAGE], roomViewport)),
+        viewportWidth: roomViewport.width,
+      }),
+    [roomViewport],
+  );
+
   const pushUndo = useCallback(() => {
     setUndoStack((current) => {
       const snapshot = { placements: [...(draft ?? placements)], stored: [...stored] };
@@ -279,24 +314,24 @@ export function IsoRoomSpikeScreen() {
 
   const enterEdit = useCallback(() => {
     setDraft([...placements]);
-    setStored([]);
+    setStored([...storedOnServer]);
     setUndoStack([]);
     setIssueText(null);
     setSelectedFurnitureId(null);
-  }, [placements]);
+  }, [placements, storedOnServer]);
 
   const cancelEdit = useCallback(() => {
     setDraft(null);
-    setStored([]);
+    setStored([...storedOnServer]);
     setUndoStack([]);
     setIssueText(null);
     setSelectedFurnitureId(null);
     setDraggingFurnitureId(null);
-  }, []);
+  }, [storedOnServer]);
 
   const saveEdit = useCallback(() => {
     const next = draft ?? placements;
-    const issues = validateObservationLayout(next);
+    const issues = checkLayout(next);
     if (issues.length > 0) {
       setIssueText(primaryIssueText(issues));
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -304,18 +339,42 @@ export function IsoRoomSpikeScreen() {
     }
     setPlacements(next);
     setDraft(null);
-    setStored([]);
+    setStoredOnServer([...stored]);
     setUndoStack([]);
     setIssueText(null);
     setSelectedFurnitureId(null);
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     void saveV3Placements(next);
-    for (const placement of next) {
-      void saveSupportRoomV3Placement(placement.furnitureId, placement.gridX, placement.gridY).catch(
-        (error) => console.warn('[support-room-v3] 배치 저장 실패, 로컬 캐시만 반영됨', error),
+
+    // 놓인 것과 보관한 것을 함께 보낸다. 놓인 것만 보내면 보관이 사라진다.
+    const rows = [
+      ...next.map((placement) => ({
+        furnitureId: placement.furnitureId,
+        gridX: placement.gridX,
+        gridY: placement.gridY,
+        flipX: placement.flipX ?? false,
+        stored: false,
+      })),
+      ...stored.map((furnitureId) => {
+        const previous = placements.find((placement) => placement.furnitureId === furnitureId);
+        return {
+          furnitureId,
+          gridX: previous?.gridX ?? 0,
+          gridY: previous?.gridY ?? 0,
+          flipX: previous?.flipX ?? false,
+          stored: true,
+        };
+      }),
+    ];
+    for (const row of rows) {
+      void saveSupportRoomV3Placement(row.furnitureId, row.gridX, row.gridY, {
+        flipX: row.flipX,
+        stored: row.stored,
+      }).catch((error) =>
+        console.warn('[support-room-v3] 배치 저장 실패, 로컬 캐시만 반영됨', error),
       );
     }
-  }, [draft, placements]);
+  }, [draft, placements, stored, checkLayout]);
 
   const undo = useCallback(() => {
     setUndoStack((current) => {
@@ -361,7 +420,7 @@ export function IsoRoomSpikeScreen() {
       for (let y = 0; y + anchor.footprintD <= SHELL_GEOMETRY[STAGE].rows; y += 1) {
         for (let x = 0; x + anchor.footprintW <= SHELL_GEOMETRY[STAGE].cols; x += 1) {
           const candidate = [...current, { furnitureId, gridX: x, gridY: y }];
-          if (validateObservationLayout(candidate).length === 0) {
+          if (checkLayout(candidate).length === 0) {
             pushUndo();
             setDraft(candidate);
             setStored((list) => list.filter((id) => id !== furnitureId));
@@ -374,7 +433,7 @@ export function IsoRoomSpikeScreen() {
       setIssueText('놓을 자리가 없어요. 다른 가구를 먼저 옮겨 주세요');
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     },
-    [draft, placements, pushUndo],
+    [draft, placements, pushUndo, checkLayout],
   );
 
   const handleDragStart = useCallback(
@@ -384,8 +443,10 @@ export function IsoRoomSpikeScreen() {
       );
       if (found) {
         dragStartRef.current = { furnitureId, gridX: found.gridX, gridY: found.gridY };
-        pushUndo();
       }
+      // 여기서 스냅숏을 쌓으면 탭만 해도 되돌리기가 한 칸씩 낭비된다.
+      // 실제로 칸이 바뀐 순간(handleDragMove)에만 쌓는다.
+      movedDuringDragRef.current = false;
       setSelectedFurnitureId(furnitureId);
       setDraggingFurnitureId(furnitureId);
       setIssueText(null);
@@ -416,6 +477,11 @@ export function IsoRoomSpikeScreen() {
         Math.max(Math.round(start.gridY + dyGrid), 0),
         SHELL_GEOMETRY[STAGE].rows - anchor.footprintD,
       );
+      if (nextX === start.gridX && nextY === start.gridY) return;
+      if (!movedDuringDragRef.current) {
+        movedDuringDragRef.current = true;
+        pushUndo();
+      }
       setDraft((current) => {
         const base = current ?? placements;
         const next = base.map((placement) =>
@@ -423,13 +489,13 @@ export function IsoRoomSpikeScreen() {
             ? { ...placement, gridX: nextX, gridY: nextY }
             : placement,
         );
-        const issues = validateObservationLayout(next);
+        const issues = checkLayout(next);
         setDragValid(issues.length === 0);
         setIssueText(primaryIssueText(issues));
         return next;
       });
     },
-    [placements],
+    [placements, checkLayout, pushUndo],
   );
 
   const handleDragEnd = useCallback(
@@ -439,7 +505,7 @@ export function IsoRoomSpikeScreen() {
       setDraggingFurnitureId(null);
       setDraft((current) => {
         const base = current ?? placements;
-        const issues = validateObservationLayout(base);
+        const issues = checkLayout(base);
         if (issues.length === 0) {
           setIssueText(null);
           setDragValid(true);
@@ -458,9 +524,11 @@ export function IsoRoomSpikeScreen() {
         );
       });
     },
-    [placements],
+    [placements, checkLayout],
   );
 
+  // 배치 검사에 화면 폭을 함께 넘겨야 "화면 밖으로 잘림"까지 잡힌다.
+  // projection은 아래에서 만들어지므로 여기서는 지연 평가로 감싼다.
   const editing = draft !== null;
   const selectedPlacement = shown.find((p) => p.furnitureId === selectedFurnitureId);
   const expansion = calculateExpansionProgress(balance, STAGE);
@@ -657,7 +725,7 @@ export function IsoRoomSpikeScreen() {
       <View style={styles.footer}>
         <View style={styles.progressRow}>
           <Text style={styles.progressLabel}>
-            {expansion.nextStage ? (
+            {expansion.nextStage && expansion.remaining > 0 ? (
               <>
                 {STAGE_LABELS[expansion.nextStage]}까지{' '}
                 <Text style={styles.progressAccent}>

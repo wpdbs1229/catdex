@@ -171,22 +171,23 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   trayChipText: { fontSize: 13, fontWeight: '600', color: '#5C4B39' },
+  // 320~360px 기기에서 도구 3개 + 취소·저장이 한 줄에 안 들어간다.
+  // 도구 줄과 확정 줄을 세로로 나누고, 각 줄 안에서만 균등 분배한다.
   bar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
     borderRadius: 20,
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 10,
     paddingVertical: 8,
+    gap: 8,
     ...createNdShadow(0.12, 12),
   },
   tools: { flexDirection: 'row', gap: 4 },
   tool: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 2,
-    minWidth: 58,
+    minWidth: 0,
     paddingVertical: 4,
     borderRadius: 12,
   },
@@ -195,6 +196,7 @@ const styles = StyleSheet.create({
   dimmed: { opacity: 0.35 },
   commit: { flexDirection: 'row', gap: 8 },
   cancel: {
+    flex: 1,
     height: 40,
     paddingHorizontal: 16,
     borderRadius: 20,
@@ -205,6 +207,7 @@ const styles = StyleSheet.create({
   },
   cancelText: { fontSize: 14, fontWeight: '700', color: '#8B7A66' },
   save: {
+    flex: 1.4,
     height: 40,
     paddingHorizontal: 20,
     borderRadius: 20,
