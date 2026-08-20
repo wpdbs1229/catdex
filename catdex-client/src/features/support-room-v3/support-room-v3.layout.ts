@@ -11,7 +11,7 @@ import {
   type CompositeBehavior,
   type VisualBox,
 } from './render/sprite-layout';
-import { SHELL_GEOMETRY } from './render/shells.generated';
+import { SHELL_GEOMETRY, type RoomStage } from './render/shells.generated';
 
 export interface ObservationPlacement {
   furnitureId: FurnitureId;
@@ -33,8 +33,38 @@ export interface BusyObservationCat {
   on: FurnitureId;
 }
 
-const COLS = SHELL_GEOMETRY.stage0.cols;
-const ROWS = SHELL_GEOMETRY.stage0.rows;
+/**
+ * 단계별 방 규칙. 셸 그림에서 문 밑선을 재서 격자로 되돌린 값이다.
+ *
+ * 여기에 있는 단계만 실제로 열 수 있다(문 위치와 정사각 칸을 확인한 단계).
+ * 새 단계를 열려면 같은 방법으로 재서 한 줄 추가하면 된다.
+ */
+export interface StageRules {
+  /** 항상 비워 두는 출입문 앞 */
+  doorClearances: readonly GridRect[];
+  /** 문에서 방 가운데로 이어지는 통로 */
+  centerAisle: GridRect;
+}
+
+export const STAGE_RULES: Partial<Record<RoomStage, StageRules>> = {
+  // 문 밑선 (170,768)-(300,690) -> 격자 y 4.73~6.65
+  stage0: {
+    doorClearances: [{ x: 0, y: 4.6, width: 2, depth: 2 }],
+    centerAisle: { x: 2, y: 4.6, width: 3, depth: 2 },
+  },
+  // 문 밑선 (128,712)-(232,655) -> 격자 y 4.87~6.37
+  stage1: {
+    doorClearances: [{ x: 0, y: 4.7, width: 2, depth: 2 }],
+    centerAisle: { x: 2, y: 4.7, width: 4, depth: 2 },
+  },
+};
+
+/** 셸을 실제로 그릴 수 있는 단계. 확장 구매는 서버가 따로 판단한다. */
+export const CALIBRATED_STAGES = Object.keys(STAGE_RULES) as RoomStage[];
+
+export function stageRules(stage: RoomStage): StageRules {
+  return STAGE_RULES[stage] ?? STAGE_RULES.stage0!;
+}
 
 /**
  * 기본 장면 배치.
@@ -66,18 +96,9 @@ export interface GridRect {
   depth: number;
 }
 
-/**
- * 왼쪽 출입문 앞에 항상 비워 두는 2×2.
- *
- * 셸 원본에서 문지방 양 끝(170,768)·(300,690)을 재서 격자로 되돌리면
- * 문은 x≈0.28의 벽면에서 y 4.73~6.65를 차지한다(8행 격자 기준). 그 앞 2칸을 비운다.
- */
-export const STAGE0_DOOR_CLEARANCES: readonly GridRect[] = [
-  { x: 0, y: 4.6, width: 2, depth: 2 },
-];
-
-/** 문에서 방 가운데로 이어지는 통로. 가구로 막으면 고양이가 들어올 길이 없다. */
-export const STAGE0_CENTER_AISLE: GridRect = { x: 2, y: 4.6, width: 3, depth: 2 };
+/** 이전 이름 호환. 새 코드는 stageRules(stage)를 쓴다. */
+export const STAGE0_DOOR_CLEARANCES = STAGE_RULES.stage0!.doorClearances;
+export const STAGE0_CENTER_AISLE = STAGE_RULES.stage0!.centerAisle;
 
 const ACTION_APPROACHES = [
   { furnitureId: 'visitor_cushion_orange' as const, x: 3.9, y: 3.2 },
@@ -111,9 +132,9 @@ function pointInRect(point: { x: number; y: number }, rect: GridRect): boolean {
 
 export function observationFootprintCoverage(
   placements: readonly ObservationPlacement[],
-  cols = COLS,
-  rows = ROWS,
+  stage: RoomStage = 'stage0',
 ): number {
+  const { cols, rows } = SHELL_GEOMETRY[stage];
   const used = placements.reduce((sum, placement) => {
     const anchor = FURNITURE_ANCHORS[placement.furnitureId];
     return sum + anchor.footprintW * anchor.footprintD;
@@ -121,7 +142,11 @@ export function observationFootprintCoverage(
   return used / (cols * rows);
 }
 
-function hasPathToCenter(placements: readonly ObservationPlacement[]): boolean {
+function hasPathToCenter(
+  placements: readonly ObservationPlacement[],
+  stage: RoomStage,
+): boolean {
+  const { cols: COLS, rows: ROWS } = SHELL_GEOMETRY[stage];
   const step = 0.5;
   const obstacles = placements.map(placementRect);
   const start = { x: 0.25, y: 5.75 };
@@ -223,6 +248,8 @@ export function primaryIssueText(issues: readonly ObservationLayoutIssue[]): str
 }
 
 export interface LayoutCheckOptions {
+  /** 검사할 단계. 방 크기와 문 위치가 달라진다. */
+  stage?: RoomStage;
   /** 주면 화면 폭 기준 safe inset까지 검사한다. */
   projection?: IsoProjection;
   viewportWidth?: number;
@@ -235,18 +262,21 @@ export function validateObservationLayout(
   options: LayoutCheckOptions = {},
 ): ObservationLayoutIssue[] {
   const issues = new Set<ObservationLayoutIssue>();
+  const stage = options.stage ?? 'stage0';
+  const { cols: COLS, rows: ROWS } = SHELL_GEOMETRY[stage];
+  const rules = stageRules(stage);
   if (placements.length > 6) issues.add('too_many_furniture');
-  if (observationFootprintCoverage(placements) > 0.35) issues.add('too_dense');
+  if (observationFootprintCoverage(placements, stage) > 0.35) issues.add('too_dense');
 
   const rects = placements.map(placementRect);
   rects.forEach((rect, index) => {
     if (rect.x < 0 || rect.y < 0 || rect.x + rect.width > COLS || rect.y + rect.depth > ROWS) {
       issues.add('out_of_bounds');
     }
-    if (STAGE0_DOOR_CLEARANCES.some((clearance) => rectsOverlap(rect, clearance))) {
+    if (rules.doorClearances.some((clearance) => rectsOverlap(rect, clearance))) {
       issues.add('door_blocked');
     }
-    if (rectsOverlap(rect, STAGE0_CENTER_AISLE)) {
+    if (rectsOverlap(rect, rules.centerAisle)) {
       issues.add('aisle_blocked');
     }
     if (rects.some((other, otherIndex) => otherIndex !== index && rectsOverlap(rect, other))) {
@@ -267,10 +297,10 @@ export function validateObservationLayout(
       issues.add('approach_blocked');
     }
   }
-  if (!hasPathToCenter(placements)) issues.add('walkway_blocked');
+  if (!hasPathToCenter(placements, stage)) issues.add('walkway_blocked');
 
   // 격자만으로는 못 잡는 것들. 그림이 실제로 겹치는지, 화면 밖으로 나가는지.
-  const projection = options.projection ?? createProjection('stage0', 1);
+  const projection = options.projection ?? createProjection(stage, 1);
   const busyCats = options.busyCats ?? DEFAULT_BUSY_CATS;
   const idleCats = options.idleCats ?? DEFAULT_IDLE_CATS;
 
@@ -326,7 +356,10 @@ export function createDefaultObservationLayout(): readonly ObservationPlacement[
  */
 export function wanderableCells(
   placements: readonly ObservationPlacement[],
+  stage: RoomStage = 'stage0',
 ): { x: number; y: number }[] {
+  const { cols: COLS, rows: ROWS } = SHELL_GEOMETRY[stage];
+  const rules = stageRules(stage);
   const blocked = placements.map(placementRect);
   const cells: { x: number; y: number }[] = [];
 
@@ -334,8 +367,8 @@ export function wanderableCells(
     for (let x = 0; x < COLS; x += 1) {
       const point = { x: x + 0.5, y: y + 0.5 };
       if (blocked.some((rect) => pointInRect(point, rect))) continue;
-      if (STAGE0_DOOR_CLEARANCES.some((rect) => pointInRect(point, rect))) continue;
-      if (pointInRect(point, STAGE0_CENTER_AISLE)) continue;
+      if (rules.doorClearances.some((rect) => pointInRect(point, rect))) continue;
+      if (pointInRect(point, rules.centerAisle)) continue;
       cells.push({ x, y });
     }
   }

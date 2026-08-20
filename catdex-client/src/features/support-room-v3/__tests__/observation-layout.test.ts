@@ -2,9 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { FURNITURE_CATALOG } from '@/features/support-room-v2/domain/catalog.generated';
 import { FURNITURE_ANCHORS } from '../render/furniture-anchors.generated';
 import { createProjection } from '../render/projection';
+import { SHELL_GEOMETRY } from '../render/shells.generated';
 import {
+  CALIBRATED_STAGES,
   STAGE0_CENTER_AISLE,
   STAGE0_DOOR_CLEARANCES,
+  stageRules,
   createDefaultObservationLayout,
   observationFootprintCoverage,
   primaryIssueText,
@@ -86,5 +89,38 @@ describe('기본 배치와 보관함', () => {
       const entry = FURNITURE_CATALOG.find((f) => f.id === placement.furnitureId);
       expect(entry?.acquisition, placement.furnitureId).toBe('starter');
     }
+  });
+});
+
+describe('단계별 방 규칙', () => {
+  it('열 수 있는 단계는 문 위치와 통로가 모두 정의돼 있다', () => {
+    expect(CALIBRATED_STAGES.length).toBeGreaterThan(0);
+    for (const stage of CALIBRATED_STAGES) {
+      const rules = stageRules(stage);
+      expect(rules.doorClearances.length, stage).toBeGreaterThan(0);
+      expect(rules.centerAisle.width, stage).toBeGreaterThan(0);
+    }
+  });
+
+  it('열 수 있는 단계는 칸이 정사각형이다', () => {
+    for (const stage of CALIBRATED_STAGES) {
+      const { axisX, axisY } = SHELL_GEOMETRY[stage];
+      const ratio = Math.hypot(axisY.x, axisY.y) / Math.hypot(axisX.x, axisX.y);
+      expect(ratio, stage).toBeGreaterThan(0.95);
+      expect(ratio, stage).toBeLessThan(1.05);
+    }
+  });
+
+  it('stage1은 방이 넓어져 기본 배치가 그대로 통과한다', () => {
+    expect(validateObservationLayout(base, { stage: 'stage1' })).toEqual([]);
+  });
+
+  it('stage1 문 앞을 막으면 잡아낸다', () => {
+    const clearance = stageRules('stage1').doorClearances[0];
+    const issues = validateObservationLayout(
+      moved('visitor_cushion_orange', clearance.x, clearance.y),
+      { stage: 'stage1' },
+    );
+    expect(issues).toContain('door_blocked');
   });
 });

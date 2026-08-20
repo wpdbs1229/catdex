@@ -47,7 +47,16 @@ export const SHADOW_COLOR = SHADOW.color;
  * 세던 버그를 손으로 때운 것이라, 생성기를 고치면서 지웠다.)
  */
 const FURNITURE_ANCHOR_OVERRIDES: Partial<Record<FurnitureId, SpriteAnchor>> = {
-  // 2026-08-20에 아이소 시점으로 다시 그린 6종. generated 파일은 옛 그림 기준이다.
+  // 2026-08-20에 아이소 시점으로 다시 그린 그림들. 패키지 catalog의 assetPath는
+  // 아직 옛 furniture.png를 가리켜서 생성기가 옛 값을 낸다. 앱이 쓰는 그림 기준으로
+  // 여기서 덮는다. assetPath가 furniture-iso로 바뀌면 이 표는 지워도 된다.
+  consultation_desk_honey: { contentX: 0.1289, contentY: 0.0801, contentW: 0.7422, contentH: 0.8398, baselineY: 0.9199 },
+  reception_desk_cream: { contentX: 0.0801, contentY: 0.2578, contentW: 0.8398, contentH: 0.6602, baselineY: 0.918 },
+  office_sofa_sage: { contentX: 0.0801, contentY: 0.1973, contentW: 0.8398, contentH: 0.7227, baselineY: 0.9199 },
+  meeting_table_round: { contentX: 0.2363, contentY: 0.0801, contentW: 0.5254, contentH: 0.8398, baselineY: 0.9199 },
+  office_partition_cream: { contentX: 0.0801, contentY: 0.2441, contentW: 0.8379, contentH: 0.6758, baselineY: 0.9199 },
+  document_organizer_cream: { contentX: 0.2109, contentY: 0.0801, contentW: 0.5781, contentH: 0.8398, baselineY: 0.9199 },
+  paw_stamp_pad_orange: { contentX: 0.082, contentY: 0.3301, contentW: 0.8359, contentH: 0.5898, baselineY: 0.9199 },
   visitor_cushion_orange: { contentX: 0.0625, contentY: 0.2637, contentW: 0.875, contentH: 0.6113, baselineY: 0.875 },
   swivel_chair_lavender: { contentX: 0.2461, contentY: 0.0938, contentW: 0.5059, contentH: 0.7812, baselineY: 0.875 },
   paper_basket_cream: { contentX: 0.1484, contentY: 0.0938, contentW: 0.7031, contentH: 0.7812, baselineY: 0.875 },

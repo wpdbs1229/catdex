@@ -62,6 +62,7 @@ import { FURNITURE_ANCHORS } from './render/furniture-anchors.generated';
 import { calculateIdleCatLayout } from './render/sprite-layout';
 import { SHELL_GEOMETRY, type RoomStage } from './render/shells.generated';
 import {
+  CALIBRATED_STAGES,
   createDefaultObservationLayout,
   primaryIssueText,
   validateObservationLayout,
@@ -92,14 +93,9 @@ import {
  */
 
 /**
- * 셸 그림·문 위치·격자 보정이 끝난 단계.
- *
- * 서버는 이미 stage4까지 팔 수 있지만, 방을 실제로 그리려면 단계마다
- * 문 위치와 정사각 칸 행 수를 셸에서 재야 한다. 아직 stage0만 재 뒀다.
- * 잰 단계를 여기 추가하면 그때부터 그 단계로 열린다.
+ * 셸 그림·문 위치·정사각 칸을 확인한 단계만 실제로 그린다.
+ * 목록은 layout의 STAGE_RULES가 정본이다(잰 값이 거기 있다).
  */
-const CALIBRATED_STAGES: readonly RoomStage[] = ['stage0'];
-
 function renderableStage(stage: string): RoomStage {
   return CALIBRATED_STAGES.includes(stage as RoomStage) ? (stage as RoomStage) : 'stage0';
 }
@@ -245,7 +241,7 @@ export function IsoRoomSpikeScreen() {
         );
         // 격자 규칙만 본다. 화면 폭 기준 safe area로 거르면 좁은 기기에서
         // 사용자가 저장해 둔 배치가 조용히 사라진다.
-        if (validateObservationLayout(merged).length === 0) {
+        if (validateObservationLayout(merged, { stage: 'stage0' }).length === 0) {
           setPlacements(merged);
           void saveV3Placements(merged);
         }
@@ -286,8 +282,8 @@ export function IsoRoomSpikeScreen() {
    */
   const { seated: seatedVisitors, wandering: wanderingVisitors } = useMemo(() => {
     const placedIds = new Set(shown.map((placement) => placement.furnitureId));
-    return splitVisitorsByFurniture(busyVisitors, placedIds, wanderableCells(shown));
-  }, [busyVisitors, shown]);
+    return splitVisitorsByFurniture(busyVisitors, placedIds, wanderableCells(shown, STAGE));
+  }, [busyVisitors, shown, STAGE]);
 
   const idleVisitor = useMemo(() => {
     if (!userId) return null;
@@ -358,9 +354,10 @@ export function IsoRoomSpikeScreen() {
     (next: readonly ObservationPlacement[]) =>
       validateObservationLayout(next, {
         projection: createProjection(STAGE, calculateShellFitScale(SHELL_GEOMETRY[STAGE], roomViewport)),
+        stage: STAGE,
         viewportWidth: roomViewport.width,
       }),
-    [roomViewport],
+    [roomViewport, STAGE],
   );
 
   const pushUndo = useCallback(() => {
