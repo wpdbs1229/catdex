@@ -9,7 +9,6 @@ import {
   type CompositeBehavior,
 } from '../render/sprite-layout';
 import { useProjection } from '../render/projection';
-import { IsoContactShadow } from './IsoContactShadow';
 
 export interface IsoFurnitureProps {
   furnitureId: FurnitureId;
@@ -109,7 +108,6 @@ export function IsoFurniture({
 
   return (
     <>
-      <IsoContactShadow layout={layout} />
       <View
         accessibilityLabel={accessibilityLabel}
         accessibilityRole={interactive ? 'button' : undefined}

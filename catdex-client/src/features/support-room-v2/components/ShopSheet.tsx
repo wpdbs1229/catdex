@@ -157,12 +157,17 @@ function InventoryGrid({
   placedIds: readonly FurnitureId[];
   onPlace: (id: FurnitureId) => void;
 }) {
+  // 방에 놓여 있는 건 무조건 포함한다. 카탈로그가 어긋나도 "방에는 있는데
+  // 보관함에는 없는" 상태를 만들지 않기 위해서다.
   const owned = useMemo(
     () =>
       FURNITURE_CATALOG.filter(
-        (f) => f.acquisition === 'starter' || ownedCount(f.id as FurnitureId) > 0,
+        (f) =>
+          f.acquisition === 'starter' ||
+          ownedCount(f.id as FurnitureId) > 0 ||
+          placedIds.includes(f.id as FurnitureId),
       ),
-    [ownedCount],
+    [ownedCount, placedIds],
   );
 
   if (owned.length === 0) {

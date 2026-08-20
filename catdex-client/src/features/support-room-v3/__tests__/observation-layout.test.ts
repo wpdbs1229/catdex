@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { FURNITURE_CATALOG } from '@/features/support-room-v2/domain/catalog.generated';
 import { FURNITURE_ANCHORS } from '../render/furniture-anchors.generated';
 import { createProjection } from '../render/projection';
 import {
@@ -76,5 +77,14 @@ describe('관찰 모드 기본 배치', () => {
   it('여러 이유가 겹치면 가장 먼저 고칠 하나만 말한다', () => {
     expect(primaryIssueText(['cat_occluded', 'overlap'])).toBe('다른 가구와 겹쳐요');
     expect(primaryIssueText([])).toBeNull();
+  });
+});
+
+describe('기본 배치와 보관함', () => {
+  it('기본 배치가 놓는 가구는 전부 시작 지급이다', () => {
+    for (const placement of base) {
+      const entry = FURNITURE_CATALOG.find((f) => f.id === placement.furnitureId);
+      expect(entry?.acquisition, placement.furnitureId).toBe('starter');
+    }
   });
 });

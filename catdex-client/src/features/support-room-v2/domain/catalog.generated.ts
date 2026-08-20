@@ -942,8 +942,8 @@ export const FURNITURE_CATALOG: readonly CatalogFurnitureEntry[] = [
       2
     ],
     "behaviors": [],
-    "price": 900,
-    "acquisition": "welfarePoint",
+    "price": 0,
+    "acquisition": "starter",
     "artStatus": "ready",
     "assetPath": "furniture/consultation_desk_honey/furniture.png"
   },
@@ -1032,8 +1032,8 @@ export const FURNITURE_CATALOG: readonly CatalogFurnitureEntry[] = [
       1
     ],
     "behaviors": [],
-    "price": 650,
-    "acquisition": "welfarePoint",
+    "price": 0,
+    "acquisition": "starter",
     "artStatus": "ready",
     "assetPath": "furniture/floor_lamp_warm/furniture.png"
   },
@@ -1062,8 +1062,8 @@ export const FURNITURE_CATALOG: readonly CatalogFurnitureEntry[] = [
       1
     ],
     "behaviors": [],
-    "price": 200,
-    "acquisition": "welfarePoint",
+    "price": 0,
+    "acquisition": "starter",
     "artStatus": "ready",
     "assetPath": "furniture/plant_small_desk/furniture.png"
   },
