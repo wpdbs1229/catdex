@@ -57,6 +57,16 @@ export const STAGE_RULES: Partial<Record<RoomStage, StageRules>> = {
     doorClearances: [{ x: 0, y: 4.7, width: 2, depth: 2 }],
     centerAisle: { x: 2, y: 4.7, width: 4, depth: 2 },
   },
+  // 문이 둘이다.
+  //   왼쪽 (122,632)-(200,586) -> x≈0.08 벽면의 y 5.08~6.41
+  //   오른쪽 (1065,727)-(1145,772) -> y≈0.3 벽면의 x 9.55~10.89
+  stage2: {
+    doorClearances: [
+      { x: 0, y: 4.7, width: 2, depth: 2 },
+      { x: 9.4, y: 0, width: 2, depth: 2 },
+    ],
+    centerAisle: { x: 2, y: 4.7, width: 5, depth: 2 },
+  },
 };
 
 /** 셸을 실제로 그릴 수 있는 단계. 확장 구매는 서버가 따로 판단한다. */
@@ -142,15 +152,23 @@ export function observationFootprintCoverage(
   return used / (cols * rows);
 }
 
+/**
+ * 문 앞에서 방 한가운데까지 걸어갈 수 있는지 본다.
+ * 출발점은 단계마다 다르므로 문 clearance 한가운데에서 시작한다.
+ */
 function hasPathToCenter(
   placements: readonly ObservationPlacement[],
   stage: RoomStage,
 ): boolean {
   const { cols: COLS, rows: ROWS } = SHELL_GEOMETRY[stage];
+  const door = stageRules(stage).doorClearances[0];
+  const start = {
+    x: Math.round((door.x + door.width / 2) * 2) / 2,
+    y: Math.round((door.y + door.depth / 2) * 2) / 2,
+  };
+  const goal = { x: Math.round(COLS / 2) - 0.25, y: Math.round(ROWS / 2) + 0.25 };
   const step = 0.5;
   const obstacles = placements.map(placementRect);
-  const start = { x: 0.25, y: 5.75 };
-  const goal = { x: 4.25, y: 4.25 };
   const key = (point: { x: number; y: number }) => `${point.x.toFixed(2)},${point.y.toFixed(2)}`;
   const queue = [start];
   const seen = new Set([key(start)]);

@@ -21,8 +21,10 @@ CALIBRATION = {
                    axis_x=(72.625, 38.875), axis_y=(-71.0, 38.875), annex=False),
     'stage1': dict(cols=10, rows=8, bbox=(29, 142, 1236, 1169), origin=(564, 466),
                    axis_x=(66.9, 35), axis_y=(-66.625, 39.625), annex=False),
-    'stage2': dict(cols=12, rows=10, bbox=(23, 144, 1237, 1130), origin=(491, 407),
-                   axis_x=(61.75, 32.5), axis_y=(-46.6, 27.8), annex=False),
+    # stage2도 세로 칸이 짧아 정사각형이 아니었다(비율 0.778).
+    # 같은 바닥을 8행으로 나누면 0.97이 된다.
+    'stage2': dict(cols=12, rows=8, bbox=(23, 144, 1237, 1130), origin=(491, 407),
+                   axis_x=(61.75, 32.5), axis_y=(-58.25, 34.75), annex=False),
     'stage3': dict(cols=14, rows=12, bbox=(0, 173, 1239, 1254), origin=(409, 398),
                    axis_x=(59.143, 29.071), axis_y=(-32.583, 21), annex=False),
     'stage4': dict(cols=14, rows=12, bbox=(15, 238, 1235, 1056), origin=(363, 429),

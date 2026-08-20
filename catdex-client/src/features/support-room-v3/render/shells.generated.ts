@@ -44,13 +44,13 @@ export const SHELL_GEOMETRY: Record<RoomStage, ShellGeometry> = {
   },
   stage2: {
     cols: 12,
-    rows: 10,
+    rows: 8,
     imageW: 1254,
     imageH: 1254,
     artBounds: { x: 23, y: 144, width: 1214, height: 986 },
     origin: { x: 491, y: 407 },
     axisX: { x: 61.75, y: 32.5 },
-    axisY: { x: -46.6, y: 27.8 },
+    axisY: { x: -58.25, y: 34.75 },
     hasAnnex: false,
   },
   stage3: {
