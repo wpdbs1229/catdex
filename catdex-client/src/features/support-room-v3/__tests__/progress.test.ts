@@ -5,10 +5,10 @@ describe('고객지원실 확장 진행도', () => {
   it('잔액과 퍼센트가 서로 어긋나지 않는다', () => {
     const progress = calculateExpansionProgress(4_000, 'stage0');
     expect(progress.cost).toBe(STAGE_UNLOCK_COST.stage1);
-    expect(progress.percent).toBe(40);
-    expect(progress.remaining).toBe(6_000);
+    expect(progress.percent).toBe(50);
+    expect(progress.remaining).toBe(4_000);
     // 화면 문구가 말하는 금액과 막대 비율이 같은 값에서 나와야 한다.
-    expect(progress.label).toContain('6,000 BP 남음');
+    expect(progress.label).toContain('4,000 BP 남음');
     expect(progress.remaining + 4_000).toBe(progress.cost);
   });
 

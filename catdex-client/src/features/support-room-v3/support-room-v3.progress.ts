@@ -9,10 +9,12 @@ import { STAGE_LABELS } from './support-room-v3.assets';
  */
 export const STAGE_UNLOCK_COST: Record<RoomStage, number> = {
   stage0: 0,
-  stage1: 10_000,
-  stage2: 26_000,
-  stage3: 52_000,
-  stage4: 90_000,
+  // 하루 3마리 기준 수입 곡선에 맞춘 값이다. stage1은 5일차,
+  // 카탈로그 전체(25,000P)와 합쳐 30일차에 완주하도록 잡았다.
+  stage1: 8_000,
+  stage2: 22_000,
+  stage3: 48_000,
+  stage4: 95_000,
 };
 
 const STAGE_ORDER: readonly RoomStage[] = ['stage0', 'stage1', 'stage2', 'stage3', 'stage4'];
