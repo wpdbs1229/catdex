@@ -10,3 +10,9 @@ export const SUPPORT_ROOM_V2_ENABLED = process.env.EXPO_PUBLIC_SUPPORT_ROOM_V2 =
  * V2보다 우선한다. (docs/16 프롬프트 A 검증용)
  */
 export const SUPPORT_ROOM_V3_SPIKE_ENABLED = process.env.EXPO_PUBLIC_SUPPORT_ROOM_V3 === 'true';
+
+/**
+ * 3D 스파이크 플래그(단계 0). 켜면 ClientSupportRoom이 three.js 스파이크로 열린다.
+ * V3보다 우선한다. 에셋 없이 성능·드래그·회전만 보는 화면이다.
+ */
+export const SUPPORT_ROOM_3D_SPIKE_ENABLED = process.env.EXPO_PUBLIC_SUPPORT_ROOM_3D === 'true';
