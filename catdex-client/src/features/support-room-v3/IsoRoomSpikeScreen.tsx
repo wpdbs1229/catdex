@@ -32,7 +32,12 @@ import {
 } from '@/shared/api/support-room-v2.api';
 import { fetchMyCats } from '@/shared/api/cats.api';
 import { getCurrentUserId } from '@/shared/api/auth.api';
-import { fetchSupportRoomV3Placements, saveSupportRoomV3Placement } from '@/shared/api/support-room-v3.api';
+import {
+  expandSupportRoom,
+  fetchSupportRoomStage,
+  fetchSupportRoomV3Placements,
+  saveSupportRoomV3Placement,
+} from '@/shared/api/support-room-v3.api';
 import type { Cat } from '@/shared/types/cat';
 import { useActiveNeighborhood } from '@/shared/neighborhood/useActiveNeighborhood';
 import { nd } from '@/shared/styles/theme';
@@ -69,7 +74,18 @@ import { assignBusyVisitors, assignIdleVisitor, todayStartMs, type RoomVisitor }
  * 격자를 숨긴다. 꾸미기 버튼을 눌렀을 때만 선택 가구 주변 국소 격자가 나타난다.
  */
 
-const STAGE: RoomStage = 'stage0';
+/**
+ * 셸 그림·문 위치·격자 보정이 끝난 단계.
+ *
+ * 서버는 이미 stage4까지 팔 수 있지만, 방을 실제로 그리려면 단계마다
+ * 문 위치와 정사각 칸 행 수를 셸에서 재야 한다. 아직 stage0만 재 뒀다.
+ * 잰 단계를 여기 추가하면 그때부터 그 단계로 열린다.
+ */
+const CALIBRATED_STAGES: readonly RoomStage[] = ['stage0'];
+
+function renderableStage(stage: string): RoomStage {
+  return CALIBRATED_STAGES.includes(stage as RoomStage) ? (stage as RoomStage) : 'stage0';
+}
 
 function IdleCat({
   catKey,
@@ -113,6 +129,9 @@ export function IsoRoomSpikeScreen() {
   const [inventory, setInventory] = useState<Map<string, number>>(new Map());
   const [recordsOpen, setRecordsOpen] = useState(false);
   const [shopOpen, setShopOpen] = useState(false);
+  const [expanding, setExpanding] = useState(false);
+  const [roomStage, setRoomStage] = useState<string>('stage0');
+  const STAGE = renderableStage(roomStage);
   const [purchasing, setPurchasing] = useState(false);
   const [storedRoom, setStoredRoom] = useState<StoredRoomV2 | null>(null);
   const [visitRecords, setVisitRecords] = useState<VisitRecord[]>([]);
@@ -165,6 +184,11 @@ export function IsoRoomSpikeScreen() {
       if (!active) return;
       setUserId(id);
       setVisitorCats(cats);
+      fetchSupportRoomStage()
+        .then((state) => {
+          if (active) setRoomStage(state.stage);
+        })
+        .catch((error: unknown) => console.warn('[support-room-v3] 단계 조회 실패', error));
       setVisitRecords(records);
       // 오프라인 캐시를 먼저 보여주고, 서버 값이 오면 정본으로 덮어쓴다.
       if (cached) setPlacements(cached);
@@ -578,6 +602,35 @@ export function IsoRoomSpikeScreen() {
     });
   }, []);
 
+  const expand = useCallback(async () => {
+    if (expanding) return;
+    setExpanding(true);
+    try {
+      const key = `expand:${userId ?? 'anon'}:${roomStage}`;
+      const result = await expandSupportRoom(key);
+      setBalance(result.balance);
+      setRoomStage(result.stage);
+      Alert.alert(
+        '방을 넓혔어요',
+        CALIBRATED_STAGES.includes(result.stage as RoomStage)
+          ? '새 공간에 비품을 놓아 보세요.'
+          : '새 방 그림은 준비 중이라 지금은 이전 방으로 보여요.',
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '';
+      Alert.alert(
+        '넓히지 못했어요',
+        message.includes('부족')
+          ? '복지포인트가 부족해요.'
+          : message.includes('더 넓힐')
+            ? '마지막 단계까지 넓혔어요.'
+            : message || '연결을 확인하고 다시 시도해주세요.',
+      );
+    } finally {
+      setExpanding(false);
+    }
+  }, [expanding, userId, roomStage]);
+
   const purchase = useCallback(
     async (entry: ShopEntry) => {
       if (purchasing) return;
@@ -730,6 +783,8 @@ export function IsoRoomSpikeScreen() {
           // enterEdit이 draft를 세운 직후에 놓아야 해서 다음 프레임으로 미룬다.
           requestAnimationFrame(() => placeStored(furnitureId));
         }}
+        expanding={expanding}
+        onExpand={() => void expand()}
         placedIds={shown.map((placement) => placement.furnitureId)}
         expansion={
           expansion.nextStage

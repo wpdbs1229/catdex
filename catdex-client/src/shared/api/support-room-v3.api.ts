@@ -58,3 +58,53 @@ export async function saveSupportRoomV3Placement(
   });
   throwIfSupabaseError(error);
 }
+
+export interface RoomStageState {
+  /** 지금 열려 있는 단계 */
+  stage: string;
+  /** 바로 다음 단계. 마지막이면 null이다. */
+  nextStage: { stage: string; name: string; cost: number } | null;
+}
+
+/**
+ * 지금 단계와 바로 다음 단계를 함께 읽는다.
+ * 다음 단계는 sequence + 1로만 고르므로 건너뛰기가 불가능하다.
+ */
+export async function fetchSupportRoomStage(): Promise<RoomStageState> {
+  const [room, stages] = await Promise.all([
+    supabase
+      .from('support_rooms')
+      .select('stage')
+      .eq('room_id', 'main')
+      .maybeSingle<{ stage: string }>(),
+    supabase
+      .from('support_room_stages')
+      .select('stage, sequence, name, cost')
+      .order('sequence')
+      .returns<Array<{ stage: string; sequence: number; name: string; cost: number }>>(),
+  ]);
+  throwIfSupabaseError(room.error);
+  throwIfSupabaseError(stages.error);
+
+  const stage = room.data?.stage ?? 'stage0';
+  const list = stages.data ?? [];
+  const current = list.find((row) => row.stage === stage);
+  const next = current ? list.find((row) => row.sequence === current.sequence + 1) : undefined;
+
+  return {
+    stage,
+    nextStage: next ? { stage: next.stage, name: next.name, cost: next.cost } : null,
+  };
+}
+
+/** 방을 한 단계 넓힌다. 잔액과 순서 검사는 서버가 한다. */
+export async function expandSupportRoom(
+  idempotencyKey: string,
+): Promise<{ balance: number; stage: string }> {
+  const { data, error } = await supabase.rpc('expand_support_room', {
+    p_idempotency_key: idempotencyKey,
+  });
+  throwIfSupabaseError(error);
+  const result = data as { balance?: number; stage?: string };
+  return { balance: result.balance ?? 0, stage: result.stage ?? 'stage0' };
+}

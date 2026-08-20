@@ -44,6 +44,9 @@ interface ShopSheetProps {
   balance: number;
   /** 다음 확장 단계. 마지막 단계면 없다. */
   expansion?: ShopExpansion | null;
+  /** 방 넓히기. 서버가 순서와 잔액을 검사한다. */
+  onExpand?: () => void;
+  expanding?: boolean;
   /** 이미 방에 놓여 있는 가구. 보관함에서 "놓기"를 잠그는 데 쓴다. */
   placedIds?: readonly FurnitureId[];
   /** 보관함에서 가구를 골라 방에 놓을 때. 없으면 보관함 탭을 숨긴다. */
@@ -218,9 +221,13 @@ function InventoryGrid({
 function ExpansionCard({
   balance,
   expansion,
+  onExpand,
+  expanding,
 }: {
   balance: number;
   expansion: ShopExpansion | null;
+  onExpand?: () => void;
+  expanding: boolean;
 }) {
   if (!expansion) {
     return (
@@ -245,7 +252,23 @@ function ExpansionCard({
       <Text style={styles.expansionMeta}>
         {balance.toLocaleString()} / {expansion.cost.toLocaleString()}P · {expansion.percent}%
       </Text>
-      <Text style={styles.expansionNote}>방 넓히기는 준비 중이에요</Text>
+      <Pressable
+        accessibilityLabel={`${expansion.name}로 넓히기, ${expansion.cost} 포인트`}
+        accessibilityRole="button"
+        accessibilityState={{ disabled: !ready || expanding }}
+        disabled={!ready || expanding || !onExpand}
+        onPress={onExpand}
+        style={[styles.buyButton, (!ready || expanding) && styles.buyDisabled]}
+      >
+        {expanding ? (
+          <ActivityIndicator color="#FFFFFF" />
+        ) : (
+          <Text style={styles.buyText}>{expansion.cost.toLocaleString()}P로 넓히기</Text>
+        )}
+      </Pressable>
+      <Text style={styles.expansionNote}>
+        한 단계씩만 넓힐 수 있어요. 다음 단계는 이걸 마친 뒤에 열려요.
+      </Text>
     </View>
   );
 }
@@ -258,6 +281,8 @@ export function ShopSheet({
   visible,
   balance,
   expansion,
+  onExpand,
+  expanding = false,
   placedIds = [],
   onPlace,
   ownedCount,
@@ -337,7 +362,12 @@ export function ShopSheet({
           </View>
 
           {category === 'expansion' ? (
-            <ExpansionCard balance={balance} expansion={expansion ?? null} />
+            <ExpansionCard
+              balance={balance}
+              expanding={expanding}
+              expansion={expansion ?? null}
+              onExpand={onExpand}
+            />
           ) : null}
 
           {category !== 'expansion' && selected ? (
