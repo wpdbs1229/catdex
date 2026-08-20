@@ -8,6 +8,7 @@ import {
   STAGE0_CENTER_AISLE,
   STAGE0_DOOR_CLEARANCES,
   stageRules,
+  wanderableCells,
   createDefaultObservationLayout,
   observationFootprintCoverage,
   primaryIssueText,
@@ -122,5 +123,40 @@ describe('단계별 방 규칙', () => {
       { stage: 'stage1' },
     );
     expect(issues).toContain('door_blocked');
+  });
+});
+
+describe('L자 방의 바닥 마스크 (stage4)', () => {
+  const voidRect = stageRules('stage4').voidRects?.[0];
+
+  it('별관 밖 허공에는 가구를 못 놓는다', () => {
+    if (!voidRect) throw new Error('stage4 voidRects가 없다');
+    const issues = validateObservationLayout(
+      moved('visitor_cushion_orange', voidRect.x, voidRect.y + 1),
+      { stage: 'stage4' },
+    );
+    expect(issues).toContain('out_of_bounds');
+  });
+
+  it('바로 옆 바닥 칸에는 놓을 수 있다', () => {
+    if (!voidRect) throw new Error('stage4 voidRects가 없다');
+    const issues = validateObservationLayout(
+      moved('visitor_cushion_orange', voidRect.x - 2, voidRect.y + 1),
+      { stage: 'stage4' },
+    );
+    expect(issues).not.toContain('out_of_bounds');
+  });
+
+  it('돌아다닐 칸에 허공이 섞이지 않는다', () => {
+    if (!voidRect) throw new Error('stage4 voidRects가 없다');
+    const cells = wanderableCells(base, 'stage4');
+    const inside = cells.filter(
+      (cell) =>
+        cell.x >= voidRect.x &&
+        cell.x < voidRect.x + voidRect.width &&
+        cell.y >= voidRect.y &&
+        cell.y < voidRect.y + voidRect.depth,
+    );
+    expect(inside).toEqual([]);
   });
 });

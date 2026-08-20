@@ -44,6 +44,14 @@ export interface StageRules {
   doorClearances: readonly GridRect[];
   /** 문에서 방 가운데로 이어지는 통로 */
   centerAisle: GridRect;
+  /**
+   * 격자 안이지만 바닥이 아닌 칸.
+   *
+   * 별관이 붙은 L자 방은 사각 격자로 다 덮을 수 없어서 일부 칸이 허공이다.
+   * 셸 위에 칸 번호를 찍어 눈으로 읽은 값이다(색으로 자동 검출하면 뒷줄
+   * 그늘에서 바닥을 바닥이 아니라고 잡는다).
+   */
+  voidRects?: readonly GridRect[];
 }
 
 export const STAGE_RULES: Partial<Record<RoomStage, StageRules>> = {
@@ -76,6 +84,13 @@ export const STAGE_RULES: Partial<Record<RoomStage, StageRules>> = {
       { x: 11.6, y: 0, width: 2, depth: 2 },
     ],
     centerAisle: { x: 2, y: 3.9, width: 6, depth: 2 },
+  },
+  // 본관 + 별관(L자). 문 밑선 (115,580)-(75,603) -> x≈-0.1 벽면의 y 4.21~4.87
+  stage4: {
+    doorClearances: [{ x: 0, y: 3.5, width: 2, depth: 2 }],
+    centerAisle: { x: 2, y: 3.5, width: 6, depth: 2 },
+    // 오른쪽 아래 8칸이 별관 밖 허공이다(x 12~13, y 2~5).
+    voidRects: [{ x: 12, y: 2, width: 2, depth: 4 }],
   },
 };
 
@@ -198,6 +213,7 @@ function hasPathToCenter(
       const next = { x: current.x + dx, y: current.y + dy };
       if (next.x < 0 || next.y < 0 || next.x >= COLS || next.y >= ROWS) continue;
       if (obstacles.some((rect) => pointInRect(next, rect))) continue;
+      if (stageRules(stage).voidRects?.some((rect) => pointInRect(next, rect))) continue;
       const nextKey = key(next);
       if (seen.has(nextKey)) continue;
       seen.add(nextKey);
@@ -301,6 +317,10 @@ export function validateObservationLayout(
     if (rect.x < 0 || rect.y < 0 || rect.x + rect.width > COLS || rect.y + rect.depth > ROWS) {
       issues.add('out_of_bounds');
     }
+    // 격자 안이어도 바닥이 없는 칸에는 못 놓는다(L자 방의 허공).
+    if (rules.voidRects?.some((rect2) => rectsOverlap(rect, rect2))) {
+      issues.add('out_of_bounds');
+    }
     if (rules.doorClearances.some((clearance) => rectsOverlap(rect, clearance))) {
       issues.add('door_blocked');
     }
@@ -395,6 +415,7 @@ export function wanderableCells(
     for (let x = 0; x < COLS; x += 1) {
       const point = { x: x + 0.5, y: y + 0.5 };
       if (blocked.some((rect) => pointInRect(point, rect))) continue;
+      if (rules.voidRects?.some((rect) => pointInRect(point, rect))) continue;
       if (rules.doorClearances.some((rect) => pointInRect(point, rect))) continue;
       if (pointInRect(point, rules.centerAisle)) continue;
       cells.push({ x, y });
