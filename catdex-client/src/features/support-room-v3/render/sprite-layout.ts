@@ -35,8 +35,12 @@ const SHADOW = {
 export const SHADOW_COLOR = SHADOW.color;
 
 /**
- * 일부 1254px WebP는 압축된 반투명 픽셀이 캔버스 가장자리까지 남아 getbbox가 전체
- * 이미지로 측정됐다. alpha > 32 기준으로 다시 잰 기본 장면 에셋의 정본이다.
+ * 앱에서만 교체한 그림의 anchor.
+ *
+ * 생성기(measure-furniture-anchors.py)는 패키지의 원본 그림을 재는데,
+ * 아래 6종은 앱 쪽 파일만 아이소 재작업본으로 바꿔 뒀다.
+ * (예전에 있던 책상·스탠드·화분 override는 생성기가 반투명 잔여 픽셀까지
+ * 세던 버그를 손으로 때운 것이라, 생성기를 고치면서 지웠다.)
  */
 const FURNITURE_ANCHOR_OVERRIDES: Partial<Record<FurnitureId, SpriteAnchor>> = {
   // 2026-08-20에 아이소 시점으로 다시 그린 6종. generated 파일은 옛 그림 기준이다.
@@ -46,27 +50,6 @@ const FURNITURE_ANCHOR_OVERRIDES: Partial<Record<FurnitureId, SpriteAnchor>> = {
   customer_water_station: { contentX: 0.1914, contentY: 0.0938, contentW: 0.6152, contentH: 0.7812, baselineY: 0.875 },
   file_cabinet_olive: { contentX: 0.2402, contentY: 0.0938, contentW: 0.5195, contentH: 0.7812, baselineY: 0.875 },
   low_bookshelf_honey: { contentX: 0.0625, contentY: 0.1738, contentW: 0.875, contentH: 0.7012, baselineY: 0.875 },
-  consultation_desk_honey: {
-    contentX: 0.0845,
-    contentY: 0.2448,
-    contentW: 0.8621,
-    contentH: 0.5646,
-    baselineY: 0.8094,
-  },
-  floor_lamp_warm: {
-    contentX: 0.3604,
-    contentY: 0.1053,
-    contentW: 0.2728,
-    contentH: 0.7631,
-    baselineY: 0.8684,
-  },
-  plant_small_desk: {
-    contentX: 0.2703,
-    contentY: 0.2097,
-    contentW: 0.4578,
-    contentH: 0.5806,
-    baselineY: 0.7903,
-  },
 };
 
 /**

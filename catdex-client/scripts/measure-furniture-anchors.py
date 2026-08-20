@@ -20,7 +20,12 @@ for entry in catalog['furniture']:
     meta = json.load(open(f'{PKG}/furniture/{fid}/metadata.json'))
     img = Image.open(f'{PKG}/{entry["assetPath"]}').convert('RGBA')
     w, h = img.size
-    bbox = img.getbbox()  # 투명 여백을 제외한 실제 그림 영역
+    # getbbox()는 alpha>0을 쓴다. WebP 압축이 남긴 반투명 잔여 픽셀이
+    # 캔버스 가장자리까지 깔려 있어서 bbox가 이미지 전체로 잡혔고,
+    # 그 결과 가구가 실제보다 작게 그려지며 바닥에서 떠 보였다.
+    # 눈에 보이는 픽셀만 세도록 문턱을 둔다.
+    alpha = img.getchannel('A').point(lambda v: 255 if v > 32 else 0)
+    bbox = alpha.getbbox()
     if bbox is None:
         bbox = (0, 0, w, h)
     x0, y0, x1, y1 = bbox
