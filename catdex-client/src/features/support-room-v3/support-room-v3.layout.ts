@@ -67,6 +67,16 @@ export const STAGE_RULES: Partial<Record<RoomStage, StageRules>> = {
     ],
     centerAisle: { x: 2, y: 4.7, width: 5, depth: 2 },
   },
+  // 문 둘.
+  //   왼쪽  (100,588)-(160,553) -> x≈-0.1 벽면의 y 4.37~5.39
+  //   오른쪽 (1076,762)-(1160,806) -> y≈0.6 벽면의 x 11.82~13.28
+  stage3: {
+    doorClearances: [
+      { x: 0, y: 3.9, width: 2, depth: 2 },
+      { x: 11.6, y: 0, width: 2, depth: 2 },
+    ],
+    centerAisle: { x: 2, y: 3.9, width: 6, depth: 2 },
+  },
 };
 
 /** 셸을 실제로 그릴 수 있는 단계. 확장 구매는 서버가 따로 판단한다. */

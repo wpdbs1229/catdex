@@ -25,10 +25,12 @@ CALIBRATION = {
     # 같은 바닥을 8행으로 나누면 0.97이 된다.
     'stage2': dict(cols=12, rows=8, bbox=(23, 144, 1237, 1130), origin=(491, 407),
                    axis_x=(61.75, 32.5), axis_y=(-58.25, 34.75), annex=False),
-    'stage3': dict(cols=14, rows=12, bbox=(0, 173, 1239, 1254), origin=(409, 398),
-                   axis_x=(59.143, 29.071), axis_y=(-32.583, 21), annex=False),
-    'stage4': dict(cols=14, rows=12, bbox=(15, 238, 1235, 1056), origin=(363, 429),
-                   axis_x=(62.143, 26), axis_y=(-28.833, 18.167), annex=True),
+    # 세로 칸이 훨씬 짧았다(비율 0.588). 7행으로 나누면 1.008이다.
+    'stage3': dict(cols=14, rows=7, bbox=(0, 173, 1239, 1254), origin=(409, 398),
+                   axis_x=(59.143, 29.071), axis_y=(-55.857, 36.0), annex=False),
+    # 비율 0.506. 6행으로 나누면 1.012다.
+    'stage4': dict(cols=14, rows=6, bbox=(15, 238, 1235, 1056), origin=(363, 429),
+                   axis_x=(62.143, 26), axis_y=(-57.666, 36.334), annex=True),
 }
 
 
