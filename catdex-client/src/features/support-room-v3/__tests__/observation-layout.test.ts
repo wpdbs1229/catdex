@@ -1,20 +1,72 @@
 import { describe, expect, it } from 'vitest';
+import { createProjection } from '../render/projection';
 import {
+  STAGE0_CENTER_AISLE,
+  STAGE0_DOOR_CLEARANCES,
   createDefaultObservationLayout,
   observationFootprintCoverage,
+  primaryIssueText,
   validateObservationLayout,
+  type ObservationPlacement,
 } from '../support-room-v3.layout';
 
-describe('support-room-v3 default observation layout', () => {
-  const placements = createDefaultObservationLayout();
+const base = createDefaultObservationLayout();
 
-  it('바닥 점유율이 35% 이하이고 가구가 6개 이하다', () => {
-    expect(placements).toHaveLength(5);
-    expect(observationFootprintCoverage(placements)).toBeCloseTo(16 / 48, 6);
-    expect(observationFootprintCoverage(placements)).toBeLessThanOrEqual(0.35);
+function moved(furnitureId: string, gridX: number, gridY: number): ObservationPlacement[] {
+  return base.map((placement) =>
+    placement.furnitureId === furnitureId ? { ...placement, gridX, gridY } : placement,
+  );
+}
+
+describe('관찰 모드 기본 배치', () => {
+  it('기본 배치가 모든 규칙을 통과한다', () => {
+    expect(validateObservationLayout(base)).toEqual([]);
   });
 
-  it('겹침·문 앞·접근점·중앙 통로 검사를 모두 통과한다', () => {
-    expect(validateObservationLayout(placements)).toEqual([]);
+  it('바닥을 35% 넘게 채우지 않는다', () => {
+    expect(observationFootprintCoverage(base)).toBeLessThanOrEqual(0.35);
+  });
+
+  it('출입문 앞 2×2를 침범하면 잡아낸다', () => {
+    const clearance = STAGE0_DOOR_CLEARANCES[0];
+    const issues = validateObservationLayout(
+      moved('visitor_cushion_orange', clearance.x, clearance.y),
+    );
+    expect(issues).toContain('door_blocked');
+  });
+
+  it('가운데 통로를 막으면 잡아낸다', () => {
+    const issues = validateObservationLayout(
+      moved('visitor_cushion_orange', STAGE0_CENTER_AISLE.x, STAGE0_CENTER_AISLE.y),
+    );
+    expect(issues).toContain('aisle_blocked');
+  });
+
+  it('방 밖으로 나가면 잡아낸다', () => {
+    expect(validateObservationLayout(moved('consultation_desk_honey', 7, 5))).toContain(
+      'out_of_bounds',
+    );
+  });
+
+  it('격자는 안 겹쳐도 그림이 고양이를 가리면 잡아낸다', () => {
+    // 화분(1×1)을 의자 고양이 바로 앞 칸으로 옮긴다. footprint는 안 겹치지만
+    // 큰 화분 그림이 고양이 몸을 덮는다.
+    const issues = validateObservationLayout(moved('plant_small_desk', 5.6, 4.6));
+    expect(issues).toContain('cat_occluded');
+  });
+
+  it('좁은 화면에서 가구가 잘리면 잡아낸다', () => {
+    const projection = createProjection('stage0', 0.4);
+    const issues = validateObservationLayout(base, {
+      projection,
+      // 셸보다 한참 좁은 화면이면 양옆 가구가 safe area 밖으로 나간다.
+      viewportWidth: 200,
+    });
+    expect(issues).toContain('outside_safe_area');
+  });
+
+  it('여러 이유가 겹치면 가장 먼저 고칠 하나만 말한다', () => {
+    expect(primaryIssueText(['cat_occluded', 'overlap'])).toBe('다른 가구와 겹쳐요');
+    expect(primaryIssueText([])).toBeNull();
   });
 });

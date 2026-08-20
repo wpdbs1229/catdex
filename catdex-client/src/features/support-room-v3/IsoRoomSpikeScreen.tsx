@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Image,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -11,10 +10,12 @@ import {
   type LayoutChangeEvent,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as Haptics from 'expo-haptics';
 import { CAT_ACTION_IMAGES } from '@/features/support-room/support-room.assets';
 import type { CharacterAssetKey } from '@/features/support-room/support-room.assets';
 import { RecordsSheet } from '@/features/support-room-v2/components/RecordsSheet';
 import { ShopSheet, type ShopEntry } from '@/features/support-room-v2/components/ShopSheet';
+import { specLookup } from '@/features/support-room-v2/domain/fixtures';
 import type { FurnitureId } from '@/features/support-room-v2/domain/furniture';
 import { syncRoomV2 } from '@/features/support-room-v2/support-room-v2.service';
 import {
@@ -35,7 +36,9 @@ import { fetchSupportRoomV3Placements, saveSupportRoomV3Placement } from '@/shar
 import type { Cat } from '@/shared/types/cat';
 import { useActiveNeighborhood } from '@/shared/neighborhood/useActiveNeighborhood';
 import { nd } from '@/shared/styles/theme';
+import { EditToolbar } from './components/EditToolbar';
 import { IsoContactShadow } from './components/IsoContactShadow';
+import { IsoFootprintOverlay } from './components/IsoFootprintOverlay';
 import { IsoFurniture } from './components/IsoFurniture';
 import { IsoRoom, type LocalGridBounds } from './components/IsoRoom';
 import { RoomHud } from './components/RoomHud';
@@ -50,9 +53,11 @@ import { calculateIdleCatLayout } from './render/sprite-layout';
 import { SHELL_GEOMETRY, type RoomStage } from './render/shells.generated';
 import {
   createDefaultObservationLayout,
+  primaryIssueText,
   validateObservationLayout,
   type ObservationPlacement,
 } from './support-room-v3.layout';
+import { calculateExpansionProgress } from './support-room-v3.progress';
 import { loadV3Placements, saveV3Placements } from './support-room-v3.storage';
 import { STAGE_LABELS } from './support-room-v3.assets';
 import { assignBusyVisitors, assignIdleVisitor, todayStartMs, type RoomVisitor } from './support-room-v3.visitors';
@@ -108,7 +113,6 @@ export function IsoRoomSpikeScreen() {
   const [recordsOpen, setRecordsOpen] = useState(false);
   const [shopOpen, setShopOpen] = useState(false);
   const [purchasing, setPurchasing] = useState(false);
-  const [editing, setEditing] = useState(false);
   const [storedRoom, setStoredRoom] = useState<StoredRoomV2 | null>(null);
   const [visitRecords, setVisitRecords] = useState<VisitRecord[]>([]);
   const [visitorCats, setVisitorCats] = useState<Cat[]>([]);
@@ -118,6 +122,18 @@ export function IsoRoomSpikeScreen() {
     ...createDefaultObservationLayout(),
   ]);
   const [selectedFurnitureId, setSelectedFurnitureId] = useState<FurnitureId | null>(null);
+
+  /**
+   * 꾸미기 세션. 편집 중에는 draft만 바꾸고 방은 draft를 그린다.
+   * 취소하면 baseline으로 통째로 되돌아가고, 저장할 때만 서버로 나간다.
+   */
+  const [draft, setDraft] = useState<ObservationPlacement[] | null>(null);
+  const [stored, setStored] = useState<FurnitureId[]>([]);
+  const [undoStack, setUndoStack] = useState<
+    Array<{ placements: ObservationPlacement[]; stored: FurnitureId[] }>
+  >([]);
+  const [issueText, setIssueText] = useState<string | null>(null);
+  const shown = draft ?? placements;
 
   useEffect(() => {
     let active = true;
@@ -250,18 +266,133 @@ export function IsoRoomSpikeScreen() {
   // (전 위치에 델타를 계속 누적하면 반올림 오차가 쌓인다).
   const dragStartRef = useRef<{ furnitureId: FurnitureId; gridX: number; gridY: number } | null>(null);
   const [draggingFurnitureId, setDraggingFurnitureId] = useState<FurnitureId | null>(null);
+  /** 드래그 중인 자리가 규칙에 맞는지. footprint 색을 실시간으로 바꾼다. */
+  const [dragValid, setDragValid] = useState(true);
 
-  const handleDragStart = useCallback((furnitureId: FurnitureId) => {
-    setPlacements((current) => {
-      const found = current.find((placement) => placement.furnitureId === furnitureId);
+  /** 되돌리기용 스냅숏. 상태를 바꾸기 직전에 부른다. */
+  const pushUndo = useCallback(() => {
+    setUndoStack((current) => {
+      const snapshot = { placements: [...(draft ?? placements)], stored: [...stored] };
+      return [...current, snapshot].slice(-10);
+    });
+  }, [draft, placements, stored]);
+
+  const enterEdit = useCallback(() => {
+    setDraft([...placements]);
+    setStored([]);
+    setUndoStack([]);
+    setIssueText(null);
+    setSelectedFurnitureId(null);
+  }, [placements]);
+
+  const cancelEdit = useCallback(() => {
+    setDraft(null);
+    setStored([]);
+    setUndoStack([]);
+    setIssueText(null);
+    setSelectedFurnitureId(null);
+    setDraggingFurnitureId(null);
+  }, []);
+
+  const saveEdit = useCallback(() => {
+    const next = draft ?? placements;
+    const issues = validateObservationLayout(next);
+    if (issues.length > 0) {
+      setIssueText(primaryIssueText(issues));
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      return;
+    }
+    setPlacements(next);
+    setDraft(null);
+    setStored([]);
+    setUndoStack([]);
+    setIssueText(null);
+    setSelectedFurnitureId(null);
+    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    void saveV3Placements(next);
+    for (const placement of next) {
+      void saveSupportRoomV3Placement(placement.furnitureId, placement.gridX, placement.gridY).catch(
+        (error) => console.warn('[support-room-v3] 배치 저장 실패, 로컬 캐시만 반영됨', error),
+      );
+    }
+  }, [draft, placements]);
+
+  const undo = useCallback(() => {
+    setUndoStack((current) => {
+      const previous = current[current.length - 1];
+      if (!previous) return current;
+      setDraft(previous.placements);
+      setStored(previous.stored);
+      setIssueText(null);
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      return current.slice(0, -1);
+    });
+  }, []);
+
+  const flipSelected = useCallback(() => {
+    if (!selectedFurnitureId) return;
+    pushUndo();
+    setDraft((current) =>
+      (current ?? placements).map((placement) =>
+        placement.furnitureId === selectedFurnitureId
+          ? { ...placement, flipX: !placement.flipX }
+          : placement,
+      ),
+    );
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  }, [selectedFurnitureId, placements, pushUndo]);
+
+  const storeSelected = useCallback(() => {
+    if (!selectedFurnitureId) return;
+    pushUndo();
+    setDraft((current) =>
+      (current ?? placements).filter((placement) => placement.furnitureId !== selectedFurnitureId),
+    );
+    setStored((current) => [...current, selectedFurnitureId]);
+    setSelectedFurnitureId(null);
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+  }, [selectedFurnitureId, placements, pushUndo]);
+
+  /** 보관함에서 다시 꺼낸다. 빈 칸을 찾아 놓고, 없으면 이유를 알린다. */
+  const placeStored = useCallback(
+    (furnitureId: FurnitureId) => {
+      const current = draft ?? placements;
+      const anchor = FURNITURE_ANCHORS[furnitureId];
+      for (let y = 0; y + anchor.footprintD <= SHELL_GEOMETRY[STAGE].rows; y += 1) {
+        for (let x = 0; x + anchor.footprintW <= SHELL_GEOMETRY[STAGE].cols; x += 1) {
+          const candidate = [...current, { furnitureId, gridX: x, gridY: y }];
+          if (validateObservationLayout(candidate).length === 0) {
+            pushUndo();
+            setDraft(candidate);
+            setStored((list) => list.filter((id) => id !== furnitureId));
+            setSelectedFurnitureId(furnitureId);
+            void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            return;
+          }
+        }
+      }
+      setIssueText('놓을 자리가 없어요. 다른 가구를 먼저 옮겨 주세요');
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    },
+    [draft, placements, pushUndo],
+  );
+
+  const handleDragStart = useCallback(
+    (furnitureId: FurnitureId) => {
+      const found = (draft ?? placements).find(
+        (placement) => placement.furnitureId === furnitureId,
+      );
       if (found) {
         dragStartRef.current = { furnitureId, gridX: found.gridX, gridY: found.gridY };
+        pushUndo();
       }
-      return current;
-    });
-    setSelectedFurnitureId(furnitureId);
-    setDraggingFurnitureId(furnitureId);
-  }, []);
+      setSelectedFurnitureId(furnitureId);
+      setDraggingFurnitureId(furnitureId);
+      setIssueText(null);
+      setDragValid(true);
+    },
+    [draft, placements, pushUndo],
+  );
 
   // 드래그가 아니라 짧은 탭으로 끝나면 onDragEnd가 안 불리므로, 탭 쪽에서
   // 드래그 중 표시(전체 격자)를 직접 꺼준다.
@@ -270,56 +401,69 @@ export function IsoRoomSpikeScreen() {
     setDraggingFurnitureId(null);
   }, []);
 
-  const handleDragMove = useCallback((furnitureId: FurnitureId, dxGrid: number, dyGrid: number) => {
-    const start = dragStartRef.current;
-    if (!start || start.furnitureId !== furnitureId) return;
-    const anchor = FURNITURE_ANCHORS[furnitureId];
-    // 칸 단위로 미리 스냅해서 끌고 다니는 동안에도 정면이 격자선에 딱
-    // 맞물리는 게 바로 보이게 한다(끝에 가서야 스냅되면 어디 놓일지
-    // 드래그 중엔 알 수 없다).
-    const nextX = Math.min(Math.max(Math.round(start.gridX + dxGrid), 0), 8 - anchor.footprintW);
-    const nextY = Math.min(Math.max(Math.round(start.gridY + dyGrid), 0), 6 - anchor.footprintD);
-    setPlacements((current) =>
-      current.map((placement) =>
-        placement.furnitureId === furnitureId ? { ...placement, gridX: nextX, gridY: nextY } : placement,
-      ),
-    );
-  }, []);
-
-  const handleDragEnd = useCallback((furnitureId: FurnitureId) => {
-    const start = dragStartRef.current;
-    dragStartRef.current = null;
-    setDraggingFurnitureId(null);
-    setPlacements((current) => {
-      const moved = current.find((placement) => placement.furnitureId === furnitureId);
-      if (!moved) return current;
-      // 드래그 중에 이미 칸 단위로 스냅해뒀으니 반올림만 한 번 더 확실히 한다.
-      const snapped = {
-        ...moved,
-        gridX: Math.round(moved.gridX),
-        gridY: Math.round(moved.gridY),
-      };
-      const next = current.map((placement) =>
-        placement.furnitureId === furnitureId ? snapped : placement,
+  const handleDragMove = useCallback(
+    (furnitureId: FurnitureId, dxGrid: number, dyGrid: number) => {
+      const start = dragStartRef.current;
+      if (!start || start.furnitureId !== furnitureId) return;
+      const anchor = FURNITURE_ANCHORS[furnitureId];
+      // 칸 단위로 미리 스냅해서 끌고 다니는 동안에도 정면이 격자선에 딱
+      // 맞물리는 게 바로 보이게 한다.
+      const nextX = Math.min(
+        Math.max(Math.round(start.gridX + dxGrid), 0),
+        SHELL_GEOMETRY[STAGE].cols - anchor.footprintW,
       );
-      if (validateObservationLayout(next).length > 0) {
-        // 겹침·통로 막힘 등 규칙을 어기면 드래그 시작 위치로 되돌린다.
-        if (!start) return current;
-        return current.map((placement) =>
+      const nextY = Math.min(
+        Math.max(Math.round(start.gridY + dyGrid), 0),
+        SHELL_GEOMETRY[STAGE].rows - anchor.footprintD,
+      );
+      setDraft((current) => {
+        const base = current ?? placements;
+        const next = base.map((placement) =>
+          placement.furnitureId === furnitureId
+            ? { ...placement, gridX: nextX, gridY: nextY }
+            : placement,
+        );
+        const issues = validateObservationLayout(next);
+        setDragValid(issues.length === 0);
+        setIssueText(primaryIssueText(issues));
+        return next;
+      });
+    },
+    [placements],
+  );
+
+  const handleDragEnd = useCallback(
+    (furnitureId: FurnitureId) => {
+      const start = dragStartRef.current;
+      dragStartRef.current = null;
+      setDraggingFurnitureId(null);
+      setDraft((current) => {
+        const base = current ?? placements;
+        const issues = validateObservationLayout(base);
+        if (issues.length === 0) {
+          setIssueText(null);
+          setDragValid(true);
+          void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          return base;
+        }
+        // 조용히 되돌리지 않는다 - 왜 안 되는지 말해 주고 진동으로도 알린다.
+        setIssueText(primaryIssueText(issues));
+        setDragValid(true);
+        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        if (!start) return base;
+        return base.map((placement) =>
           placement.furnitureId === furnitureId
             ? { ...placement, gridX: start.gridX, gridY: start.gridY }
             : placement,
         );
-      }
-      void saveSupportRoomV3Placement(snapped.furnitureId, snapped.gridX, snapped.gridY).catch((error) => {
-        console.warn('[support-room-v3] 배치 저장 실패, 로컬 캐시만 반영됨', error);
       });
-      void saveV3Placements(next);
-      return next;
-    });
-  }, []);
+    },
+    [placements],
+  );
 
-  const selectedPlacement = placements.find((p) => p.furnitureId === selectedFurnitureId);
+  const editing = draft !== null;
+  const selectedPlacement = shown.find((p) => p.furnitureId === selectedFurnitureId);
+  const expansion = calculateExpansionProgress(balance, STAGE);
   // 끌고 다니는 동안엔 바닥 전체 격자를 보여줘서 어느 칸에 놓일지 보이게
   // 하고, 선택만 하고 안 끌 때는 그 가구 크기만큼만 좁게 보여준다.
   const editGridBounds: LocalGridBounds | undefined = draggingFurnitureId
@@ -404,10 +548,6 @@ export function IsoRoomSpikeScreen() {
         </Text>
       </View>
 
-      {editing && !selectedFurnitureId ? (
-        <Text style={styles.editHint}>가구를 눌러서 옮겨보세요</Text>
-      ) : null}
-
       <View onLayout={onRoomLayout} style={styles.roomArea}>
         <ScrollView
           bouncesZoom
@@ -430,7 +570,16 @@ export function IsoRoomSpikeScreen() {
           style={styles.world}
         >
           <IsoRoom gridBounds={editGridBounds} scale={scale} stage={STAGE}>
-            {placements.map((placement) => {
+            {editing && selectedPlacement ? (
+              <IsoFootprintOverlay
+                depth={FURNITURE_ANCHORS[selectedPlacement.furnitureId].footprintD}
+                gridX={selectedPlacement.gridX}
+                gridY={selectedPlacement.gridY}
+                valid={dragValid}
+                width={FURNITURE_ANCHORS[selectedPlacement.furnitureId].footprintW}
+              />
+            ) : null}
+            {shown.map((placement) => {
               const occupant = busyVisitors.find((visitor) => visitor.on === placement.furnitureId);
               return (
                 <IsoFurniture
@@ -444,6 +593,7 @@ export function IsoRoomSpikeScreen() {
                   compositeBehavior={occupant?.behavior}
                   compositeSource={occupant ? CAT_ACTION_IMAGES[occupant.key][occupant.behavior] : undefined}
                   draggable={editing}
+                  flipX={placement.flipX}
                   furnitureId={placement.furnitureId}
                   gridX={placement.gridX}
                   gridY={placement.gridY}
@@ -470,21 +620,26 @@ export function IsoRoomSpikeScreen() {
 
         <RoomHud
           hasNewSupply={inventory.size > 0}
-          onEdit={() => {
-            setEditing((current) => !current);
-            selectFurniture(null);
-          }}
+          onEdit={() => (editing ? cancelEdit() : enterEdit())}
           onOpenRecords={openRecords}
           onOpenSupplies={() => setShopOpen(true)}
           unreadRecords={unreadCount}
         />
 
-        {editing && selectedFurnitureId ? (
-          <View style={styles.editToolbar}>
-            <Pressable onPress={() => selectFurniture(null)} style={styles.editDoneButton}>
-              <Text style={styles.editDoneText}>완료</Text>
-            </Pressable>
-          </View>
+        {editing ? (
+          <EditToolbar
+            canFlip={specLookup(selectedFurnitureId ?? 'visitor_cushion_orange')?.canFlipX ?? false}
+            canUndo={undoStack.length > 0}
+            issueText={issueText}
+            onCancel={cancelEdit}
+            onFlip={flipSelected}
+            onPlaceStored={placeStored}
+            onSave={saveEdit}
+            onStore={storeSelected}
+            onUndo={undo}
+            selectedFurnitureId={selectedFurnitureId}
+            stored={stored}
+          />
         ) : null}
       </View>
 
@@ -502,12 +657,22 @@ export function IsoRoomSpikeScreen() {
       <View style={styles.footer}>
         <View style={styles.progressRow}>
           <Text style={styles.progressLabel}>
-            {STAGE_LABELS.stage1}까지 <Text style={styles.progressAccent}>1,760 BP</Text>
+            {expansion.nextStage ? (
+              <>
+                {STAGE_LABELS[expansion.nextStage]}까지{' '}
+                <Text style={styles.progressAccent}>
+                  {expansion.remaining.toLocaleString()} BP
+                </Text>{' '}
+                남음
+              </>
+            ) : (
+              expansion.label
+            )}
           </Text>
-          <Text style={styles.progressPercent}>41%</Text>
+          <Text style={styles.progressPercent}>{expansion.percent}%</Text>
         </View>
         <View style={styles.progressTrack}>
-          <View style={[styles.progressFill, { width: '41%' }]} />
+          <View style={[styles.progressFill, { width: `${expansion.percent}%` }]} />
         </View>
       </View>
     </SafeAreaView>
@@ -548,12 +713,6 @@ const styles = StyleSheet.create({
   },
   rewardChipText: { fontSize: 13, color: '#5C4B39' },
   rewardChipAccent: { color: nd.colors.accent, fontWeight: '800' },
-  editHint: {
-    alignSelf: 'center',
-    marginBottom: 4,
-    fontSize: 12,
-    color: '#8B7A66',
-  },
   roomArea: { flex: 1, minHeight: 0 },
   world: { flex: 1 },
   roomContent: { justifyContent: 'center', alignItems: 'center' },
@@ -569,18 +728,4 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   progressFill: { height: '100%', borderRadius: 999, backgroundColor: nd.colors.accent },
-  editToolbar: {
-    position: 'absolute',
-    bottom: 16,
-    left: 16,
-  },
-  editDoneButton: {
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: nd.colors.accent,
-    paddingHorizontal: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  editDoneText: { fontSize: 14, fontWeight: '700', color: '#FFFFFF' },
 });

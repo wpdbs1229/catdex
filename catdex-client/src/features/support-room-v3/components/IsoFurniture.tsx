@@ -17,6 +17,8 @@ export interface IsoFurnitureProps {
   compositeBehavior?: CompositeBehavior;
   gridX: number;
   gridY: number;
+  /** 좌우 반전해서 그린다. footprint는 대칭이라 충돌 판정은 바뀌지 않는다. */
+  flipX?: boolean;
   selected?: boolean;
   /** 있으면 이 가구(또는 위에 앉은 고양이)를 누를 수 있다. 드래그가 아니었을 때만 불린다. */
   onPress?: () => void;
@@ -38,6 +40,7 @@ export function IsoFurniture({
   compositeBehavior,
   gridX,
   gridY,
+  flipX = false,
   selected = false,
   onPress,
   accessibilityLabel,
@@ -126,7 +129,8 @@ export function IsoFurniture({
           style={{
             width: '100%',
             height: '100%',
-            opacity: selected ? 0.88 : 1,
+            opacity: selected ? 0.92 : 1,
+            transform: flipX ? [{ scaleX: -1 }] : undefined,
           }}
         />
         {selected ? (
