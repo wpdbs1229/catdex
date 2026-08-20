@@ -5,7 +5,7 @@ import { planVisits, settleOfflineVisits, type PlanInput } from '../scheduler';
 import { DEFAULT_ROOM_SHELL } from '../room-shell';
 import { STARTER_LAYOUT, specLookup } from '../fixtures';
 import { pointKey } from '../grid';
-import { walkableFloorCells } from '../placement';
+import { approachAnchorCells, walkableFloorCells } from '../placement';
 import type { Placement } from '../placement';
 
 function fullWalkable(): Set<string> {
@@ -86,13 +86,19 @@ describe('planVisits', () => {
   });
 
   it('접근 불가 가구는 후보에서 빠진다', () => {
-    // 방석(5,5 2×2)의 앵커 행(7)을 양옆 가구로 봉쇄 + 옆 칸도 봉쇄
-    const blockers: Placement[] = [
-      { placementId: 'b1', furnitureId: 'paper_basket_cream', surface: 'floor', gridX: 3, gridY: 6, flipX: false },
-      { placementId: 'b2', furnitureId: 'paper_basket_cream', surface: 'floor', gridX: 7, gridY: 6, flipX: false },
-      { placementId: 'b3', furnitureId: 'document_box_olive', surface: 'floor', gridX: 5, gridY: 3, flipX: false },
-    ];
-    const target = STARTER_LAYOUT[0]; // visitor_cushion (5,5)
+    // 방석의 접근 앵커 칸을 전부 다른 가구로 덮는다. footprint가 바뀌어도
+    // 앵커를 스펙에서 읽으므로 테스트가 흔들리지 않는다.
+    const target = STARTER_LAYOUT[0];
+    const spec = specLookup(target.furnitureId);
+    if (!spec) throw new Error('방석 스펙이 없다');
+    const blockers: Placement[] = approachAnchorCells(target, spec).map((cell, index) => ({
+      placementId: `b${index}`,
+      furnitureId: 'paper_basket_cream',
+      surface: 'floor',
+      gridX: cell.x,
+      gridY: cell.y,
+      flipX: false,
+    }));
     const scenes = planVisits(planInput({ placements: [target, ...blockers], slots: 6 }));
     expect(scenes.every((s) => s.placementId !== target.placementId)).toBe(true);
   });
@@ -106,10 +112,18 @@ describe('planVisits', () => {
   });
 
   it('여러 앵커 중 경로가 가장 짧은 유효 앵커를 고른다', () => {
-    const scenes = planVisits(planInput({ placements: [STARTER_LAYOUT[0]], slots: 1 }));
+    const target = STARTER_LAYOUT[0];
+    const spec = specLookup(target.furnitureId);
+    if (!spec) throw new Error('방석 스펙이 없다');
+    const scenes = planVisits(planInput({ placements: [target], slots: 1 }));
     const scene = scenes[0];
-    // 문(0,3)에서 방석(5,5)의 두 앵커 (5,7)·(6,7) 중 (5,7)이 더 가깝다
-    expect(scene.anchor).toEqual({ x: 5, y: 7 });
+    const anchors = approachAnchorCells(target, spec);
+    // 고른 앵커는 스펙의 앵커 중 하나여야 하고, 문에서 가장 가까운 것이어야 한다.
+    expect(anchors).toContainEqual(scene.anchor);
+    const distance = (cell: { x: number; y: number }) =>
+      Math.abs(cell.x - 0) + Math.abs(cell.y - 3);
+    const nearest = Math.min(...anchors.map(distance));
+    expect(distance(scene.anchor)).toBe(nearest);
   });
 });
 

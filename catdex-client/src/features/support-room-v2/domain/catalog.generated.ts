@@ -11,37 +11,20 @@ export const FURNITURE_SPECS: readonly FurnitureSpec[] = [
     "group": "interactive",
     "surface": "floor",
     "footprint": {
-      "width": 2,
-      "depth": 2
+      "width": 1,
+      "depth": 1
     },
     "collisionMask": [
       {
         "x": 0,
         "y": 0
-      },
-      {
-        "x": 1,
-        "y": 0
-      },
-      {
-        "x": 0,
-        "y": 1
-      },
-      {
-        "x": 1,
-        "y": 1
       }
     ],
     "approachAnchors": [
       {
         "x": 0,
-        "y": 2,
+        "y": 1,
         "facing": "right"
-      },
-      {
-        "x": 1,
-        "y": 2,
-        "facing": "left"
       }
     ],
     "canFlipX": true,
@@ -93,37 +76,20 @@ export const FURNITURE_SPECS: readonly FurnitureSpec[] = [
     "group": "interactive",
     "surface": "floor",
     "footprint": {
-      "width": 2,
-      "depth": 2
+      "width": 1,
+      "depth": 1
     },
     "collisionMask": [
       {
         "x": 0,
         "y": 0
-      },
-      {
-        "x": 1,
-        "y": 0
-      },
-      {
-        "x": 0,
-        "y": 1
-      },
-      {
-        "x": 1,
-        "y": 1
       }
     ],
     "approachAnchors": [
       {
         "x": 0,
-        "y": 2,
+        "y": 1,
         "facing": "right"
-      },
-      {
-        "x": 1,
-        "y": 2,
-        "facing": "left"
       }
     ],
     "canFlipX": true,
@@ -175,37 +141,20 @@ export const FURNITURE_SPECS: readonly FurnitureSpec[] = [
     "group": "interactive",
     "surface": "floor",
     "footprint": {
-      "width": 2,
-      "depth": 2
+      "width": 1,
+      "depth": 1
     },
     "collisionMask": [
       {
         "x": 0,
         "y": 0
-      },
-      {
-        "x": 1,
-        "y": 0
-      },
-      {
-        "x": 0,
-        "y": 1
-      },
-      {
-        "x": 1,
-        "y": 1
       }
     ],
     "approachAnchors": [
       {
         "x": 0,
-        "y": 2,
+        "y": 1,
         "facing": "right"
-      },
-      {
-        "x": 1,
-        "y": 2,
-        "facing": "left"
       }
     ],
     "canFlipX": true,
@@ -222,37 +171,20 @@ export const FURNITURE_SPECS: readonly FurnitureSpec[] = [
     "group": "interactive",
     "surface": "floor",
     "footprint": {
-      "width": 2,
-      "depth": 2
+      "width": 1,
+      "depth": 1
     },
     "collisionMask": [
       {
         "x": 0,
         "y": 0
-      },
-      {
-        "x": 1,
-        "y": 0
-      },
-      {
-        "x": 0,
-        "y": 1
-      },
-      {
-        "x": 1,
-        "y": 1
       }
     ],
     "approachAnchors": [
       {
         "x": 0,
-        "y": 2,
+        "y": 1,
         "facing": "right"
-      },
-      {
-        "x": 1,
-        "y": 2,
-        "facing": "left"
       }
     ],
     "canFlipX": true,
@@ -270,7 +202,7 @@ export const FURNITURE_SPECS: readonly FurnitureSpec[] = [
     "surface": "floor",
     "footprint": {
       "width": 3,
-      "depth": 2
+      "depth": 1
     },
     "collisionMask": [
       {
@@ -284,34 +216,17 @@ export const FURNITURE_SPECS: readonly FurnitureSpec[] = [
       {
         "x": 2,
         "y": 0
-      },
-      {
-        "x": 0,
-        "y": 1
-      },
-      {
-        "x": 1,
-        "y": 1
-      },
-      {
-        "x": 2,
-        "y": 1
       }
     ],
     "approachAnchors": [
       {
         "x": 0,
-        "y": 2,
+        "y": 1,
         "facing": "right"
       },
       {
-        "x": 1,
-        "y": 2,
-        "facing": "left"
-      },
-      {
         "x": 2,
-        "y": 2,
+        "y": 1,
         "facing": "left"
       }
     ],
@@ -329,37 +244,20 @@ export const FURNITURE_SPECS: readonly FurnitureSpec[] = [
     "group": "interactive",
     "surface": "floor",
     "footprint": {
-      "width": 2,
-      "depth": 2
+      "width": 1,
+      "depth": 1
     },
     "collisionMask": [
       {
         "x": 0,
         "y": 0
-      },
-      {
-        "x": 1,
-        "y": 0
-      },
-      {
-        "x": 0,
-        "y": 1
-      },
-      {
-        "x": 1,
-        "y": 1
       }
     ],
     "approachAnchors": [
       {
         "x": 0,
-        "y": 2,
+        "y": 1,
         "facing": "right"
-      },
-      {
-        "x": 1,
-        "y": 2,
-        "facing": "left"
       }
     ],
     "canFlipX": false,
@@ -376,7 +274,7 @@ export const FURNITURE_SPECS: readonly FurnitureSpec[] = [
     "group": "office",
     "surface": "floor",
     "footprint": {
-      "width": 4,
+      "width": 3,
       "depth": 2
     },
     "collisionMask": [
@@ -393,10 +291,6 @@ export const FURNITURE_SPECS: readonly FurnitureSpec[] = [
         "y": 0
       },
       {
-        "x": 3,
-        "y": 0
-      },
-      {
         "x": 0,
         "y": 1
       },
@@ -406,10 +300,6 @@ export const FURNITURE_SPECS: readonly FurnitureSpec[] = [
       },
       {
         "x": 2,
-        "y": 1
-      },
-      {
-        "x": 3,
         "y": 1
       }
     ],
@@ -426,7 +316,7 @@ export const FURNITURE_SPECS: readonly FurnitureSpec[] = [
     "group": "office",
     "surface": "floor",
     "footprint": {
-      "width": 3,
+      "width": 2,
       "depth": 2
     },
     "collisionMask": [
@@ -439,19 +329,11 @@ export const FURNITURE_SPECS: readonly FurnitureSpec[] = [
         "y": 0
       },
       {
-        "x": 2,
-        "y": 0
-      },
-      {
         "x": 0,
         "y": 1
       },
       {
         "x": 1,
-        "y": 1
-      },
-      {
-        "x": 2,
         "y": 1
       }
     ],
@@ -468,8 +350,8 @@ export const FURNITURE_SPECS: readonly FurnitureSpec[] = [
     "group": "office",
     "surface": "floor",
     "footprint": {
-      "width": 3,
-      "depth": 3
+      "width": 2,
+      "depth": 2
     },
     "collisionMask": [
       {
@@ -481,32 +363,12 @@ export const FURNITURE_SPECS: readonly FurnitureSpec[] = [
         "y": 0
       },
       {
-        "x": 2,
-        "y": 0
-      },
-      {
         "x": 0,
         "y": 1
       },
       {
         "x": 1,
         "y": 1
-      },
-      {
-        "x": 2,
-        "y": 1
-      },
-      {
-        "x": 0,
-        "y": 2
-      },
-      {
-        "x": 1,
-        "y": 2
-      },
-      {
-        "x": 2,
-        "y": 2
       }
     ],
     "approachAnchors": [],
@@ -522,7 +384,7 @@ export const FURNITURE_SPECS: readonly FurnitureSpec[] = [
     "group": "office",
     "surface": "floor",
     "footprint": {
-      "width": 4,
+      "width": 3,
       "depth": 2
     },
     "collisionMask": [
@@ -539,10 +401,6 @@ export const FURNITURE_SPECS: readonly FurnitureSpec[] = [
         "y": 0
       },
       {
-        "x": 3,
-        "y": 0
-      },
-      {
         "x": 0,
         "y": 1
       },
@@ -552,10 +410,6 @@ export const FURNITURE_SPECS: readonly FurnitureSpec[] = [
       },
       {
         "x": 2,
-        "y": 1
-      },
-      {
-        "x": 3,
         "y": 1
       }
     ],
@@ -572,7 +426,7 @@ export const FURNITURE_SPECS: readonly FurnitureSpec[] = [
     "group": "office",
     "surface": "floor",
     "footprint": {
-      "width": 3,
+      "width": 2,
       "depth": 1
     },
     "collisionMask": [
@@ -582,10 +436,6 @@ export const FURNITURE_SPECS: readonly FurnitureSpec[] = [
       },
       {
         "x": 1,
-        "y": 0
-      },
-      {
-        "x": 2,
         "y": 0
       }
     ],
@@ -602,16 +452,12 @@ export const FURNITURE_SPECS: readonly FurnitureSpec[] = [
     "group": "office",
     "surface": "floor",
     "footprint": {
-      "width": 2,
+      "width": 1,
       "depth": 1
     },
     "collisionMask": [
       {
         "x": 0,
-        "y": 0
-      },
-      {
-        "x": 1,
         "y": 0
       }
     ],
@@ -680,25 +526,13 @@ export const FURNITURE_SPECS: readonly FurnitureSpec[] = [
     "group": "decor",
     "surface": "floor",
     "footprint": {
-      "width": 2,
-      "depth": 2
+      "width": 1,
+      "depth": 1
     },
     "collisionMask": [
       {
         "x": 0,
         "y": 0
-      },
-      {
-        "x": 1,
-        "y": 0
-      },
-      {
-        "x": 0,
-        "y": 1
-      },
-      {
-        "x": 1,
-        "y": 1
       }
     ],
     "approachAnchors": [],
@@ -758,16 +592,12 @@ export const FURNITURE_SPECS: readonly FurnitureSpec[] = [
     "group": "decor",
     "surface": "floor",
     "footprint": {
-      "width": 2,
+      "width": 1,
       "depth": 1
     },
     "collisionMask": [
       {
         "x": 0,
-        "y": 0
-      },
-      {
-        "x": 1,
         "y": 0
       }
     ],
@@ -957,8 +787,8 @@ export const FURNITURE_CATALOG: readonly CatalogFurnitureEntry[] = [
     "group": "interactive",
     "surface": "floor",
     "footprint": [
-      2,
-      2
+      1,
+      1
     ],
     "behaviors": [
       "use_cushion"
@@ -991,8 +821,8 @@ export const FURNITURE_CATALOG: readonly CatalogFurnitureEntry[] = [
     "group": "interactive",
     "surface": "floor",
     "footprint": [
-      2,
-      2
+      1,
+      1
     ],
     "behaviors": [
       "sit_swivel_chair"
@@ -1025,8 +855,8 @@ export const FURNITURE_CATALOG: readonly CatalogFurnitureEntry[] = [
     "group": "interactive",
     "surface": "floor",
     "footprint": [
-      2,
-      2
+      1,
+      1
     ],
     "behaviors": [
       "hide_paper_basket"
@@ -1042,8 +872,8 @@ export const FURNITURE_CATALOG: readonly CatalogFurnitureEntry[] = [
     "group": "interactive",
     "surface": "floor",
     "footprint": [
-      2,
-      2
+      1,
+      1
     ],
     "behaviors": [
       "peek_document_box"
@@ -1060,7 +890,7 @@ export const FURNITURE_CATALOG: readonly CatalogFurnitureEntry[] = [
     "surface": "floor",
     "footprint": [
       3,
-      2
+      1
     ],
     "behaviors": [
       "watch_window"
@@ -1076,8 +906,8 @@ export const FURNITURE_CATALOG: readonly CatalogFurnitureEntry[] = [
     "group": "interactive",
     "surface": "floor",
     "footprint": [
-      2,
-      2
+      1,
+      1
     ],
     "behaviors": [
       "drink_water"
@@ -1093,7 +923,7 @@ export const FURNITURE_CATALOG: readonly CatalogFurnitureEntry[] = [
     "group": "office",
     "surface": "floor",
     "footprint": [
-      4,
+      3,
       2
     ],
     "behaviors": [],
@@ -1108,7 +938,7 @@ export const FURNITURE_CATALOG: readonly CatalogFurnitureEntry[] = [
     "group": "office",
     "surface": "floor",
     "footprint": [
-      3,
+      2,
       2
     ],
     "behaviors": [],
@@ -1123,8 +953,8 @@ export const FURNITURE_CATALOG: readonly CatalogFurnitureEntry[] = [
     "group": "office",
     "surface": "floor",
     "footprint": [
-      3,
-      3
+      2,
+      2
     ],
     "behaviors": [],
     "price": 1600,
@@ -1138,7 +968,7 @@ export const FURNITURE_CATALOG: readonly CatalogFurnitureEntry[] = [
     "group": "office",
     "surface": "floor",
     "footprint": [
-      4,
+      3,
       2
     ],
     "behaviors": [],
@@ -1153,7 +983,7 @@ export const FURNITURE_CATALOG: readonly CatalogFurnitureEntry[] = [
     "group": "office",
     "surface": "floor",
     "footprint": [
-      3,
+      2,
       1
     ],
     "behaviors": [],
@@ -1168,7 +998,7 @@ export const FURNITURE_CATALOG: readonly CatalogFurnitureEntry[] = [
     "group": "office",
     "surface": "floor",
     "footprint": [
-      2,
+      1,
       1
     ],
     "behaviors": [],
@@ -1213,8 +1043,8 @@ export const FURNITURE_CATALOG: readonly CatalogFurnitureEntry[] = [
     "group": "decor",
     "surface": "floor",
     "footprint": [
-      2,
-      2
+      1,
+      1
     ],
     "behaviors": [],
     "price": 700,
@@ -1258,7 +1088,7 @@ export const FURNITURE_CATALOG: readonly CatalogFurnitureEntry[] = [
     "group": "decor",
     "surface": "floor",
     "footprint": [
-      2,
+      1,
       1
     ],
     "behaviors": [],

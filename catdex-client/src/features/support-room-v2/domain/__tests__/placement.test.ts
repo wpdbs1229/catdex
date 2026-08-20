@@ -39,9 +39,20 @@ const rugSpec: FurnitureSpec = {
 };
 const lookupWithRug: SpecLookup = (id) => (id === RUG_ID ? rugSpec : specLookup(id));
 
+// 카탈로그의 footprint가 바뀌어도 테스트가 흔들리지 않게 스펙에서 읽는다.
+const cushionSpec = specLookup('visitor_cushion_orange');
+if (!cushionSpec) throw new Error('visitor_cushion_orange 스펙이 없다');
+const CUSHION_W = cushionSpec.footprint.width;
+const CUSHION_D = cushionSpec.footprint.depth;
+
 describe('validatePlacement', () => {
   it('경계 밖 배치를 거절한다', () => {
-    const issues = validatePlacement(cushion({ gridX: 29, gridY: 7 }), [], specLookup);
+    // 마지막 칸에서 footprint만큼 더 밀면 반드시 방 밖이다.
+    const issues = validatePlacement(
+      cushion({ gridX: 30 - CUSHION_W + 1, gridY: 8 - CUSHION_D + 1 }),
+      [],
+      specLookup,
+    );
     expect(issues.map((i) => i.code)).toContain('out_of_bounds');
   });
 
@@ -55,7 +66,8 @@ describe('validatePlacement', () => {
   });
 
   it('일반 가구끼리 충돌하면 거절한다', () => {
-    const existing = cushion({ placementId: 'p0', gridX: 6, gridY: 6 });
+    // footprint 크기와 무관하게 반드시 겹치도록 같은 칸에 둔다.
+    const existing = cushion({ placementId: 'p0', gridX: 5, gridY: 5 });
     const issues = validatePlacement(cushion(), [existing], specLookup);
     expect(issues.map((i) => i.code)).toContain('overlap');
   });
@@ -111,15 +123,17 @@ describe('validateLayout', () => {
   });
 
   it('행동 가구의 접근 앵커가 모두 막히면 거절한다', () => {
-    // 방석을 (5,5)에 두고 앵커 행(7)의 두 칸을 다른 가구로 봉쇄
+    // 방석 앞줄(앵커 행)을 다른 가구로 통째로 봉쇄한다.
     const target = cushion();
-    const blockerLeft = cushion({ placementId: 'b1', gridX: 4, gridY: 6 });
-    const blockerRight = cushion({ placementId: 'b2', gridX: 6, gridY: 6 });
-    const issues = validateLayout(
-      [target, blockerLeft, blockerRight],
-      specLookup,
-      DEFAULT_ROOM_SHELL,
-    );
+    const anchorRow = 5 + CUSHION_D;
+    const blockers = Array.from({ length: CUSHION_W + 2 }, (_, index) =>
+      cushion({
+        placementId: `b${index}`,
+        gridX: 5 - 1 + index * CUSHION_W,
+        gridY: anchorRow,
+      }),
+    ).filter((placement) => placement.gridX >= 0);
+    const issues = validateLayout([target, ...blockers], specLookup, DEFAULT_ROOM_SHELL);
     expect(issues.some((i) => i.code === 'anchor_blocked' && i.placementId === 'p1')).toBe(true);
   });
 

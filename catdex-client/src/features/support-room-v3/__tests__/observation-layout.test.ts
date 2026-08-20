@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { FURNITURE_ANCHORS } from '../render/furniture-anchors.generated';
 import { createProjection } from '../render/projection';
 import {
   STAGE0_CENTER_AISLE,
@@ -49,10 +50,17 @@ describe('관찰 모드 기본 배치', () => {
   });
 
   it('격자는 안 겹쳐도 그림이 고양이를 가리면 잡아낸다', () => {
-    // 화분(1×1)을 의자 고양이 바로 앞 칸으로 옮긴다. footprint는 안 겹치지만
-    // 큰 화분 그림이 고양이 몸을 덮는다.
-    const issues = validateObservationLayout(moved('plant_small_desk', 5.6, 4.6));
+    // 의자 바로 앞 칸으로 화분을 옮긴다. footprint는 맞닿기만 하고 겹치지 않지만
+    // 큰 화분 그림이 고양이 몸을 덮는다. 좌표를 박아두면 배치를 손볼 때마다
+    // 깨지므로 의자 위치에서 계산한다.
+    const chair = base.find((placement) => placement.furnitureId === 'swivel_chair_lavender');
+    if (!chair) throw new Error('의자가 기본 배치에 없다');
+    const chairDepth = FURNITURE_ANCHORS.swivel_chair_lavender.footprintD;
+    const issues = validateObservationLayout(
+      moved('plant_small_desk', chair.gridX, chair.gridY + chairDepth),
+    );
     expect(issues).toContain('cat_occluded');
+    expect(issues).not.toContain('overlap');
   });
 
   it('좁은 화면에서 가구가 잘리면 잡아낸다', () => {

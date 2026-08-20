@@ -43,11 +43,11 @@ const ROWS = SHELL_GEOMETRY.stage0.rows;
  * 이루도록 잡았다. 서로 가리지 않아야 얼굴 셋이 모두 보인다.
  */
 const CANDIDATE_PLACEMENTS: readonly ObservationPlacement[] = [
-  { furnitureId: 'floor_lamp_warm', gridX: 0.3, gridY: 0.3 },
-  { furnitureId: 'consultation_desk_honey', gridX: 4.2, gridY: 0.2 },
-  { furnitureId: 'plant_small_desk', gridX: 0.3, gridY: 1.9 },
-  { furnitureId: 'visitor_cushion_orange', gridX: 1.9, gridY: 1.1 },
-  { furnitureId: 'swivel_chair_lavender', gridX: 5.6, gridY: 3.4 },
+  { furnitureId: 'floor_lamp_warm', gridX: 0.4, gridY: 0.4 },
+  { furnitureId: 'consultation_desk_honey', gridX: 5.2, gridY: 0.5 },
+  { furnitureId: 'plant_small_desk', gridX: 0.4, gridY: 2 },
+  { furnitureId: 'visitor_cushion_orange', gridX: 2.6, gridY: 1.6 },
+  { furnitureId: 'swivel_chair_lavender', gridX: 6.2, gridY: 3.6 },
 ];
 
 export const DEFAULT_BUSY_CATS: readonly BusyObservationCat[] = [
@@ -56,7 +56,7 @@ export const DEFAULT_BUSY_CATS: readonly BusyObservationCat[] = [
 ];
 
 export const DEFAULT_IDLE_CATS: readonly ObservationCat[] = [
-  { key: 'tabby_orange', gridX: 3.0, gridY: 4.5 },
+  { key: 'tabby_orange', gridX: 3.2, gridY: 4.4 },
 ];
 
 export interface GridRect {
@@ -82,7 +82,7 @@ export const STAGE0_CENTER_AISLE: GridRect = { x: 2, y: 3.3, width: 3, depth: 1.
 
 const ACTION_APPROACHES = [
   { furnitureId: 'visitor_cushion_orange' as const, x: 3.9, y: 2.4 },
-  { furnitureId: 'swivel_chair_lavender' as const, x: 4.9, y: 4.2 },
+  { furnitureId: 'swivel_chair_lavender' as const, x: 5.4, y: 4.4 },
 ] as const;
 
 function placementRect(placement: ObservationPlacement): GridRect {
