@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Image,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -10,6 +11,8 @@ import {
   type LayoutChangeEvent,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
+import { ChevronLeft } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { CAT_ACTION_IMAGES } from '@/features/support-room/support-room.assets';
 import type { CharacterAssetKey } from '@/features/support-room/support-room.assets';
@@ -44,6 +47,8 @@ import { nd } from '@/shared/styles/theme';
 import { EditToolbar } from './components/EditToolbar';
 import { IsoContactShadow } from './components/IsoContactShadow';
 import { IsoFootprintOverlay } from './components/IsoFootprintOverlay';
+import { RoomOnboarding } from './components/RoomOnboarding';
+import { WanderingCat } from './components/WanderingCat';
 import { IsoFurniture } from './components/IsoFurniture';
 import { IsoRoom, type LocalGridBounds } from './components/IsoRoom';
 import { RoomHud } from './components/RoomHud';
@@ -60,13 +65,25 @@ import {
   createDefaultObservationLayout,
   primaryIssueText,
   validateObservationLayout,
+  wanderableCells,
   type ObservationPlacement,
 } from './support-room-v3.layout';
 import { calculateExpansionProgress } from './support-room-v3.progress';
 import { CAT_ONLY_ACTION_IMAGES } from './support-room-v3.cat-actions';
-import { loadV3Placements, saveV3Placements } from './support-room-v3.storage';
+import {
+  hasSeenRoomOnboarding,
+  loadV3Placements,
+  markRoomOnboardingSeen,
+  saveV3Placements,
+} from './support-room-v3.storage';
 import { STAGE_LABELS } from './support-room-v3.assets';
-import { assignBusyVisitors, assignIdleVisitor, todayStartMs, type RoomVisitor } from './support-room-v3.visitors';
+import {
+  assignBusyVisitors,
+  assignIdleVisitor,
+  splitVisitorsByFurniture,
+  todayStartMs,
+  type RoomVisitor,
+} from './support-room-v3.visitors';
 
 /**
  * V3 아이소메트릭 고객지원실.
@@ -120,6 +137,7 @@ function IdleCat({
 export function IsoRoomSpikeScreen() {
   const { width: viewportWidth, height: viewportHeight } = useWindowDimensions();
   const { neighborhood } = useActiveNeighborhood();
+  const navigation = useNavigation();
   const scrollRef = useRef<ScrollView>(null);
   const [roomViewport, setRoomViewport] = useState<RoomViewport>({
     width: viewportWidth,
@@ -131,6 +149,7 @@ export function IsoRoomSpikeScreen() {
   const [shopOpen, setShopOpen] = useState(false);
   const [expanding, setExpanding] = useState(false);
   const [roomStage, setRoomStage] = useState<string>('stage0');
+  const [onboardingOpen, setOnboardingOpen] = useState(false);
   const STAGE = renderableStage(roomStage);
   const [purchasing, setPurchasing] = useState(false);
   const [storedRoom, setStoredRoom] = useState<StoredRoomV2 | null>(null);
@@ -184,6 +203,11 @@ export function IsoRoomSpikeScreen() {
       if (!active) return;
       setUserId(id);
       setVisitorCats(cats);
+      hasSeenRoomOnboarding()
+        .then((seen) => {
+          if (active && !seen) setOnboardingOpen(true);
+        })
+        .catch(() => undefined);
       fetchSupportRoomStage()
         .then((state) => {
           if (active) setRoomStage(state.stage);
@@ -255,6 +279,15 @@ export function IsoRoomSpikeScreen() {
     if (!userId) return [];
     return assignBusyVisitors(visitorCats, userId, dayStartMs, consultedEventIds, consultedCatIdsToday);
   }, [visitorCats, userId, dayStartMs, consultedEventIds, consultedCatIdsToday]);
+
+  /**
+   * 앉을 가구가 방에 있는 손님만 자리에 앉힌다.
+   * 가구를 치웠다고 손님이 사라지면 안 되므로 나머지는 바닥으로 내보낸다.
+   */
+  const { seated: seatedVisitors, wandering: wanderingVisitors } = useMemo(() => {
+    const placedIds = new Set(shown.map((placement) => placement.furnitureId));
+    return splitVisitorsByFurniture(busyVisitors, placedIds, wanderableCells(shown));
+  }, [busyVisitors, shown]);
 
   const idleVisitor = useMemo(() => {
     if (!userId) return null;
@@ -660,7 +693,15 @@ export function IsoRoomSpikeScreen() {
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.screen}>
       <View style={styles.header}>
-        <View>
+        <Pressable
+          accessibilityLabel="고객지원실 나가기"
+          accessibilityRole="button"
+          onPress={() => navigation.goBack()}
+          style={({ pressed }) => [styles.back, pressed && { opacity: 0.6 }]}
+        >
+          <ChevronLeft color="#3A2E22" size={26} />
+        </Pressable>
+        <View style={styles.headerTexts}>
           <Text style={styles.headerTitle}>고객지원실</Text>
           <Text style={styles.headerSub}>
             {formatBranch(neighborhood?.city)} · {STAGE_LABELS[STAGE]}
@@ -709,7 +750,7 @@ export function IsoRoomSpikeScreen() {
               />
             ) : null}
             {shown.map((placement) => {
-              const occupant = busyVisitors.find((visitor) => visitor.on === placement.furnitureId);
+              const occupant = seatedVisitors.find((visitor) => visitor.on === placement.furnitureId);
               return (
                 <IsoFurniture
                   accessibilityLabel={
@@ -744,6 +785,9 @@ export function IsoRoomSpikeScreen() {
             {idleVisitor ? (
               <IdleCat catKey={idleVisitor.key} gridX={idleVisitor.gridX} gridY={idleVisitor.gridY} />
             ) : null}
+            {wanderingVisitors.map((visitor) => (
+              <WanderingCat catKey={visitor.key} key={visitor.catId} path={visitor.path} />
+            ))}
           </IsoRoom>
         </ScrollView>
 
@@ -771,6 +815,14 @@ export function IsoRoomSpikeScreen() {
           />
         ) : null}
       </View>
+
+      <RoomOnboarding
+        onDone={() => {
+          setOnboardingOpen(false);
+          void markRoomOnboardingSeen();
+        }}
+        visible={onboardingOpen}
+      />
 
       <RecordsSheet onClose={() => setRecordsOpen(false)} visible={recordsOpen} />
       <ShopSheet
@@ -813,10 +865,17 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
+    gap: 4,
+    paddingHorizontal: 12,
     paddingBottom: 8,
   },
+  back: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTexts: { flex: 1 },
   headerTitle: { fontSize: 24, fontWeight: '800', color: '#3A2E22' },
   headerSub: { fontSize: 13, color: '#8B7A66', marginTop: 2 },
   balance: {

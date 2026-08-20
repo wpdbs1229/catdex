@@ -31,3 +31,26 @@ export async function saveV3Placements(placements: readonly ObservationPlacement
     console.warn('[support-room-v3] save placements failed', error);
   }
 }
+
+const ONBOARDING_KEY = 'catdex.supportRoomV3.onboarded';
+
+/** 첫 진입 안내를 이미 봤는지. 사용자별로 한 번만 띄운다. */
+export async function hasSeenRoomOnboarding(): Promise<boolean> {
+  const userId = await getCurrentUserId();
+  if (!userId) return true;
+  try {
+    return (await AsyncStorage.getItem(`${ONBOARDING_KEY}:${userId}`)) === 'true';
+  } catch {
+    return true;
+  }
+}
+
+export async function markRoomOnboardingSeen(): Promise<void> {
+  const userId = await getCurrentUserId();
+  if (!userId) return;
+  try {
+    await AsyncStorage.setItem(`${ONBOARDING_KEY}:${userId}`, 'true');
+  } catch (error) {
+    console.warn('[support-room-v3] onboarding flag save failed', error);
+  }
+}

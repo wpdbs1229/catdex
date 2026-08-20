@@ -316,3 +316,29 @@ export function createDefaultObservationLayout(): readonly ObservationPlacement[
   }
   return CANDIDATE_PLACEMENTS;
 }
+
+/**
+ * 고양이가 돌아다닐 수 있는 빈 칸.
+ *
+ * 가구 footprint와 문 앞·통로를 뺀 바닥이다. 문 앞과 통로를 남기지 않으면
+ * 돌아다니는 고양이가 입구를 막고 서 있는 그림이 된다(그 둘은 비워 두기로 한
+ * 규칙이니 고양이도 지킨다).
+ */
+export function wanderableCells(
+  placements: readonly ObservationPlacement[],
+): { x: number; y: number }[] {
+  const blocked = placements.map(placementRect);
+  const cells: { x: number; y: number }[] = [];
+
+  for (let y = 0; y < ROWS; y += 1) {
+    for (let x = 0; x < COLS; x += 1) {
+      const point = { x: x + 0.5, y: y + 0.5 };
+      if (blocked.some((rect) => pointInRect(point, rect))) continue;
+      if (STAGE0_DOOR_CLEARANCES.some((rect) => pointInRect(point, rect))) continue;
+      if (pointInRect(point, STAGE0_CENTER_AISLE)) continue;
+      cells.push({ x, y });
+    }
+  }
+
+  return cells;
+}

@@ -18,6 +18,20 @@ export interface RoomVisitor extends BusyObservationCat {
   slot: number;
 }
 
+/**
+ * 앉을 가구가 방에 없어서 바닥을 돌아다니는 손님.
+ *
+ * 예전에는 배정된 가구가 방에 없으면 그 고양이가 통째로 사라졌다.
+ * 상담은 가구가 있어야 열리지만, 고양이는 그것과 무관하게 방에 와 있어야 한다.
+ */
+export interface WanderingVisitor {
+  catId: string;
+  catName: string;
+  key: CharacterAssetKey;
+  /** 오갈 지점들(격자 좌표). 첫 지점에서 시작해 순환한다. */
+  path: readonly { x: number; y: number }[];
+}
+
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** 로컬 자정 기준 오늘의 시작 시각. 방문 배정과 record eventId가 여기 물린다. */
@@ -93,4 +107,64 @@ export function assignIdleVisitor(
   const character = selectCharacter(cat.coatColors, cat.coatPattern, cat.id);
   const template = DEFAULT_IDLE_CATS[0];
   return { key: character.key as CharacterAssetKey, gridX: template.gridX, gridY: template.gridY };
+}
+
+/**
+ * 배정된 손님을 "앉은 손님"과 "돌아다니는 손님"으로 가른다.
+ *
+ * 앉으려던 가구가 방에 없으면 사라지게 두지 않고 바닥으로 내보낸다.
+ * 상담(기록 발생)은 앉은 손님에게만 열린다 - 가구가 있어야 상담이다.
+ */
+export function splitVisitorsByFurniture(
+  visitors: readonly RoomVisitor[],
+  placedFurnitureIds: ReadonlySet<string>,
+  freeCells: readonly { x: number; y: number }[],
+): { seated: RoomVisitor[]; wandering: WanderingVisitor[] } {
+  const seated: RoomVisitor[] = [];
+  const wandering: WanderingVisitor[] = [];
+
+  for (const visitor of visitors) {
+    if (placedFurnitureIds.has(visitor.on)) {
+      seated.push(visitor);
+      continue;
+    }
+    wandering.push({
+      catId: visitor.catId,
+      catName: visitor.catName,
+      key: visitor.key,
+      path: pickWanderPath(visitor.catId, freeCells),
+    });
+  }
+
+  return { seated, wandering };
+}
+
+/**
+ * 빈 칸 중 세 곳을 골라 순환 경로를 만든다.
+ * 고양이마다 다른 곳을 걷도록 id로 씨앗을 만들고, 서로 너무 가까운 곳은 건너뛴다.
+ */
+export function pickWanderPath(
+  catId: string,
+  freeCells: readonly { x: number; y: number }[],
+  stops = 3,
+): { x: number; y: number }[] {
+  if (freeCells.length === 0) return [];
+
+  const path: { x: number; y: number }[] = [];
+  let index = stableHash(`${catId}:wander`) % freeCells.length;
+
+  for (let picked = 0; picked < stops; picked += 1) {
+    let attempts = 0;
+    while (
+      attempts < freeCells.length &&
+      path.some((stop) => Math.hypot(stop.x - freeCells[index].x, stop.y - freeCells[index].y) < 2)
+    ) {
+      index = (index + 1) % freeCells.length;
+      attempts += 1;
+    }
+    path.push(freeCells[index]);
+    index = (index + 1 + stableHash(`${catId}:${picked}`) % 3) % freeCells.length;
+  }
+
+  return path;
 }
