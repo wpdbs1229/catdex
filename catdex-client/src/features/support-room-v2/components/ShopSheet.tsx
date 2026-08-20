@@ -31,9 +31,19 @@ export interface ShopEntry {
   kind: 'furniture' | 'surface';
 }
 
+/** 방 확장 카드에 필요한 것. 상점이 진행도까지 보여 준다. */
+export interface ShopExpansion {
+  name: string;
+  cost: number;
+  remaining: number;
+  percent: number;
+}
+
 interface ShopSheetProps {
   visible: boolean;
   balance: number;
+  /** 다음 확장 단계. 마지막 단계면 없다. */
+  expansion?: ShopExpansion | null;
   ownedCount: (id: FurnitureId) => number;
   /** 미리보기 배경으로 쓸 현재 방 배치 */
   placements: readonly Placement[];
@@ -59,6 +69,22 @@ const ENTRIES: ShopEntry[] = [
     kind: 'surface',
   })),
 ];
+
+type ShopCategory = 'expansion' | 'furniture' | 'wall' | 'surface';
+
+const CATEGORY_LABEL: Record<ShopCategory, string> = {
+  expansion: '확장하기',
+  furniture: '가구',
+  wall: '벽 장식',
+  surface: '벽지·바닥',
+};
+
+const CATEGORY_ORDER: readonly ShopCategory[] = ['expansion', 'furniture', 'wall', 'surface'];
+
+function categoryOf(entry: ShopEntry): ShopCategory {
+  if (entry.kind === 'surface') return 'surface';
+  return specLookup(entry.id as FurnitureId)?.surface === 'wall' ? 'wall' : 'furniture';
+}
 
 /** 내 방(현재 배치) 위에 선택 상품을 얹어 보여 주는 축소 미리보기. */
 function RoomPreview({ entry, placements }: { entry: ShopEntry; placements: readonly Placement[] }) {
@@ -113,20 +139,64 @@ function RoomPreview({ entry, placements }: { entry: ShopEntry; placements: read
 }
 
 /**
+ * 방 확장 카드.
+ *
+ * 예전에는 화면 아래 진행 막대로 늘 떠 있었는데, 평소에는 볼 일이 없어
+ * 자리만 차지했다. 상점 안 "확장하기" 칸으로 옮겨 필요할 때만 보게 한다.
+ */
+function ExpansionCard({
+  balance,
+  expansion,
+}: {
+  balance: number;
+  expansion: ShopExpansion | null;
+}) {
+  if (!expansion) {
+    return (
+      <View style={styles.expansion}>
+        <Text style={styles.expansionTitle}>마지막 단계까지 넓혔어요</Text>
+      </View>
+    );
+  }
+
+  const ready = expansion.remaining === 0;
+  return (
+    <View style={styles.expansion}>
+      <Text style={styles.expansionTitle}>{expansion.name}</Text>
+      <Text style={styles.expansionSub}>
+        {ready
+          ? '필요한 복지포인트를 다 모았어요'
+          : `${expansion.remaining.toLocaleString()}P 더 모으면 넓힐 수 있어요`}
+      </Text>
+      <View style={styles.expansionTrack}>
+        <View style={[styles.expansionFill, { width: `${expansion.percent}%` }]} />
+      </View>
+      <Text style={styles.expansionMeta}>
+        {balance.toLocaleString()} / {expansion.cost.toLocaleString()}P · {expansion.percent}%
+      </Text>
+      <Text style={styles.expansionNote}>방 넓히기는 준비 중이에요</Text>
+    </View>
+  );
+}
+
+/**
  * 복지포인트 상점. 목록 → 내 방 미리보기 → 구매 확인.
  * 가격·잔액 검증은 서버가 하고, 여기서는 표시와 요청 잠금만 담당한다.
  */
 export function ShopSheet({
   visible,
   balance,
+  expansion,
   ownedCount,
   placements,
   purchasing,
   onPurchase,
   onClose,
 }: ShopSheetProps) {
+  const [category, setCategory] = useState<ShopCategory>('furniture');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const selected = useMemo(() => ENTRIES.find((e) => e.id === selectedId) ?? null, [selectedId]);
+  const shown = useMemo(() => ENTRIES.filter((entry) => categoryOf(entry) === category), [category]);
 
   return (
     <Modal animationType="slide" onRequestClose={onClose} transparent visible={visible}>
@@ -142,10 +212,36 @@ export function ShopSheet({
             </Pressable>
           </View>
 
-          {selected ? <RoomPreview entry={selected} placements={placements} /> : null}
+          <View style={styles.tabs}>
+            {CATEGORY_ORDER.map((key) => (
+              <Pressable
+                accessibilityLabel={`${CATEGORY_LABEL[key]} 보기`}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: category === key }}
+                key={key}
+                onPress={() => {
+                  setCategory(key);
+                  setSelectedId(null);
+                }}
+                style={[styles.tab, category === key && styles.tabActive]}
+              >
+                <Text style={[styles.tabText, category === key && styles.tabTextActive]}>
+                  {CATEGORY_LABEL[key]}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
 
-          <FlatList
-            data={ENTRIES}
+          {category === 'expansion' ? (
+            <ExpansionCard balance={balance} expansion={expansion ?? null} />
+          ) : null}
+
+          {category !== 'expansion' && selected ? (
+            <RoomPreview entry={selected} placements={placements} />
+          ) : null}
+
+          {category === 'expansion' ? null : <FlatList
+            data={shown}
             keyExtractor={(item) => item.id}
             numColumns={3}
             renderItem={({ item }) => {
@@ -178,9 +274,9 @@ export function ShopSheet({
               );
             }}
             style={styles.list}
-          />
+          />}
 
-          {selected && selected.acquisition !== 'starter' ? (
+          {category !== 'expansion' && selected && selected.acquisition !== 'starter' ? (
             <Pressable
               accessibilityLabel={`${selected.name} ${selected.price} 포인트로 구매`}
               accessibilityRole="button"
@@ -204,6 +300,38 @@ export function ShopSheet({
 }
 
 const styles = StyleSheet.create({
+  tabs: { flexDirection: 'row', gap: 6, paddingHorizontal: 16, paddingBottom: 8 },
+  tab: {
+    paddingHorizontal: 12,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    backgroundColor: '#F1E7D7',
+  },
+  tabActive: { backgroundColor: nd.colors.accent },
+  tabText: { fontSize: 13, fontWeight: '600', color: '#8B7A66' },
+  tabTextActive: { color: '#FFFFFF' },
+  expansion: {
+    marginHorizontal: 16,
+    marginBottom: 12,
+    padding: 16,
+    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#EFE3D0',
+    gap: 8,
+  },
+  expansionTitle: { fontSize: 16, fontWeight: '800', color: '#3A2E22' },
+  expansionSub: { fontSize: 13, color: '#5C4B39' },
+  expansionTrack: {
+    height: 10,
+    borderRadius: 999,
+    backgroundColor: '#E6DCCB',
+    overflow: 'hidden',
+  },
+  expansionFill: { height: '100%', borderRadius: 999, backgroundColor: nd.colors.accent },
+  expansionMeta: { fontSize: 12, fontWeight: '700', color: nd.colors.accent },
+  expansionNote: { fontSize: 12, color: '#A2937F' },
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(17, 17, 17, 0.35)',

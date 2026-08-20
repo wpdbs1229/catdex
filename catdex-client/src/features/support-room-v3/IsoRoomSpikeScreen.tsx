@@ -715,6 +715,16 @@ export function IsoRoomSpikeScreen() {
       <RecordsSheet onClose={() => setRecordsOpen(false)} visible={recordsOpen} />
       <ShopSheet
         balance={balance}
+        expansion={
+          expansion.nextStage
+            ? {
+                cost: expansion.cost,
+                name: STAGE_LABELS[expansion.nextStage],
+                percent: expansion.percent,
+                remaining: expansion.remaining,
+              }
+            : null
+        }
         onClose={() => setShopOpen(false)}
         onPurchase={(entry) => void purchase(entry)}
         ownedCount={(id) => inventory.get(id) ?? 0}
@@ -723,27 +733,6 @@ export function IsoRoomSpikeScreen() {
         visible={shopOpen}
       />
 
-      <View style={styles.footer}>
-        <View style={styles.progressRow}>
-          <Text style={styles.progressLabel}>
-            {expansion.nextStage && expansion.remaining > 0 ? (
-              <>
-                {STAGE_LABELS[expansion.nextStage]}까지{' '}
-                <Text style={styles.progressAccent}>
-                  {expansion.remaining.toLocaleString()} BP
-                </Text>{' '}
-                남음
-              </>
-            ) : (
-              expansion.label
-            )}
-          </Text>
-          <Text style={styles.progressPercent}>{expansion.percent}%</Text>
-        </View>
-        <View style={styles.progressTrack}>
-          <View style={[styles.progressFill, { width: `${expansion.percent}%` }]} />
-        </View>
-      </View>
     </SafeAreaView>
   );
 }
@@ -785,16 +774,4 @@ const styles = StyleSheet.create({
   roomArea: { flex: 1, minHeight: 0 },
   world: { flex: 1 },
   roomContent: { justifyContent: 'center', alignItems: 'center' },
-  footer: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 12, gap: 8 },
-  progressRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' },
-  progressLabel: { fontSize: 14, color: '#5C4B39' },
-  progressAccent: { color: nd.colors.accent, fontWeight: '700' },
-  progressPercent: { fontSize: 15, fontWeight: '800', color: nd.colors.accent },
-  progressTrack: {
-    height: 10,
-    borderRadius: 999,
-    backgroundColor: '#E6DCCB',
-    overflow: 'hidden',
-  },
-  progressFill: { height: '100%', borderRadius: 999, backgroundColor: nd.colors.accent },
 });
