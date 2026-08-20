@@ -44,6 +44,10 @@ interface ShopSheetProps {
   balance: number;
   /** 다음 확장 단계. 마지막 단계면 없다. */
   expansion?: ShopExpansion | null;
+  /** 이미 방에 놓여 있는 가구. 보관함에서 "놓기"를 잠그는 데 쓴다. */
+  placedIds?: readonly FurnitureId[];
+  /** 보관함에서 가구를 골라 방에 놓을 때. 없으면 보관함 탭을 숨긴다. */
+  onPlace?: (id: FurnitureId) => void;
   ownedCount: (id: FurnitureId) => number;
   /** 미리보기 배경으로 쓸 현재 방 배치 */
   placements: readonly Placement[];
@@ -139,6 +143,68 @@ function RoomPreview({ entry, placements }: { entry: ShopEntry; placements: read
 }
 
 /**
+ * 보관함. 가진 비품을 보여 주고 방에 놓게 한다.
+ *
+ * 예전에는 HUD 버튼 이름이 "비품 보관함"인데 상점이 열려서, 산 물건을
+ * 어디서 꺼내는지 알 길이 없었다.
+ */
+function InventoryGrid({
+  ownedCount,
+  placedIds,
+  onPlace,
+}: {
+  ownedCount: (id: FurnitureId) => number;
+  placedIds: readonly FurnitureId[];
+  onPlace: (id: FurnitureId) => void;
+}) {
+  const owned = useMemo(
+    () =>
+      FURNITURE_CATALOG.filter(
+        (f) => f.acquisition === 'starter' || ownedCount(f.id as FurnitureId) > 0,
+      ),
+    [ownedCount],
+  );
+
+  if (owned.length === 0) {
+    return (
+      <View style={styles.empty}>
+        <Text style={styles.emptyText}>아직 가진 비품이 없어요</Text>
+        <Text style={styles.emptySub}>상점 칸에서 복지포인트로 사 오면 여기에 담겨요</Text>
+      </View>
+    );
+  }
+
+  return (
+    <FlatList
+      data={owned}
+      keyExtractor={(item) => item.id}
+      numColumns={3}
+      renderItem={({ item }) => {
+        const id = item.id as FurnitureId;
+        const placed = placedIds.includes(id);
+        return (
+          <Pressable
+            accessibilityLabel={`${item.name} ${placed ? '이미 방에 있음' : '방에 놓기'}`}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: placed }}
+            disabled={placed}
+            onPress={() => onPlace(id)}
+            style={[styles.card, placed && styles.cardPlaced]}
+          >
+            <Image resizeMode="contain" source={V2_FURNITURE_THUMBS[id]} style={styles.thumb} />
+            <Text numberOfLines={1} style={styles.cardName}>
+              {item.name}
+            </Text>
+            <Text style={styles.cardPrice}>{placed ? '방에 있음' : '방에 놓기'}</Text>
+          </Pressable>
+        );
+      }}
+      style={styles.list}
+    />
+  );
+}
+
+/**
  * 방 확장 카드.
  *
  * 예전에는 화면 아래 진행 막대로 늘 떠 있었는데, 평소에는 볼 일이 없어
@@ -187,12 +253,15 @@ export function ShopSheet({
   visible,
   balance,
   expansion,
+  placedIds = [],
+  onPlace,
   ownedCount,
   placements,
   purchasing,
   onPurchase,
   onClose,
 }: ShopSheetProps) {
+  const [mode, setMode] = useState<'inventory' | 'shop'>(onPlace ? 'inventory' : 'shop');
   const [category, setCategory] = useState<ShopCategory>('furniture');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const selected = useMemo(() => ENTRIES.find((e) => e.id === selectedId) ?? null, [selectedId]);
@@ -203,7 +272,7 @@ export function ShopSheet({
       <View style={styles.backdrop}>
         <View style={styles.sheet}>
           <View style={styles.header}>
-            <Text style={styles.title}>비품 상점</Text>
+            <Text style={styles.title}>{onPlace && mode === 'inventory' ? '비품 보관함' : '비품 상점'}</Text>
             <Text accessibilityLabel={`보유 복지포인트 ${balance}점`} style={styles.balance}>
               {balance.toLocaleString()}P
             </Text>
@@ -212,6 +281,36 @@ export function ShopSheet({
             </Pressable>
           </View>
 
+          {onPlace ? (
+            <View style={styles.modes}>
+              {(['inventory', 'shop'] as const).map((key) => (
+                <Pressable
+                  accessibilityLabel={key === 'inventory' ? '보관함 보기' : '상점 보기'}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: mode === key }}
+                  key={key}
+                  onPress={() => {
+                    setMode(key);
+                    setSelectedId(null);
+                  }}
+                  style={[styles.mode, mode === key && styles.modeActive]}
+                >
+                  <Text style={[styles.modeText, mode === key && styles.modeTextActive]}>
+                    {key === 'inventory' ? '보관함' : '상점'}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          ) : null}
+
+          {mode === 'inventory' ? (
+            <InventoryGrid
+              onPlace={(id) => onPlace?.(id)}
+              ownedCount={ownedCount}
+              placedIds={placedIds}
+            />
+          ) : (
+          <>
           <View style={styles.tabs}>
             {CATEGORY_ORDER.map((key) => (
               <Pressable
@@ -276,7 +375,10 @@ export function ShopSheet({
             style={styles.list}
           />}
 
-          {category !== 'expansion' && selected && selected.acquisition !== 'starter' ? (
+          </>
+          )}
+
+          {mode === 'shop' && category !== 'expansion' && selected && selected.acquisition !== 'starter' ? (
             <Pressable
               accessibilityLabel={`${selected.name} ${selected.price} 포인트로 구매`}
               accessibilityRole="button"
@@ -300,6 +402,22 @@ export function ShopSheet({
 }
 
 const styles = StyleSheet.create({
+  modes: { flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingBottom: 10 },
+  mode: {
+    flex: 1,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F1E7D7',
+  },
+  modeActive: { backgroundColor: '#3A2E22' },
+  modeText: { fontSize: 14, fontWeight: '700', color: '#8B7A66' },
+  modeTextActive: { color: '#FFFFFF' },
+  cardPlaced: { opacity: 0.45 },
+  empty: { paddingHorizontal: 24, paddingVertical: 40, gap: 6, alignItems: 'center' },
+  emptyText: { fontSize: 15, fontWeight: '700', color: '#3A2E22' },
+  emptySub: { fontSize: 13, color: '#8B7A66', textAlign: 'center' },
   tabs: { flexDirection: 'row', gap: 6, paddingHorizontal: 16, paddingBottom: 8 },
   tab: {
     paddingHorizontal: 12,

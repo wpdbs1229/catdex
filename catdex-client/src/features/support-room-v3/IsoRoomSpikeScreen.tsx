@@ -413,10 +413,17 @@ export function IsoRoomSpikeScreen() {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
   }, [selectedFurnitureId, placements, pushUndo]);
 
-  /** 보관함에서 다시 꺼낸다. 빈 칸을 찾아 놓고, 없으면 이유를 알린다. */
+  /**
+   * 가구를 방에 놓는다. 빈 칸을 왼쪽 위부터 훑어 규칙을 통과하는 첫 자리에
+   * 놓고, 없으면 이유를 알린다. 편집 중 보관함 트레이와 비품 보관함이 공유한다.
+   */
   const placeStored = useCallback(
     (furnitureId: FurnitureId) => {
       const current = draft ?? placements;
+      if (current.some((placement) => placement.furnitureId === furnitureId)) {
+        setIssueText('이미 방에 놓여 있어요');
+        return;
+      }
       const anchor = FURNITURE_ANCHORS[furnitureId];
       for (let y = 0; y + anchor.footprintD <= SHELL_GEOMETRY[STAGE].rows; y += 1) {
         for (let x = 0; x + anchor.footprintW <= SHELL_GEOMETRY[STAGE].cols; x += 1) {
@@ -715,6 +722,15 @@ export function IsoRoomSpikeScreen() {
       <RecordsSheet onClose={() => setRecordsOpen(false)} visible={recordsOpen} />
       <ShopSheet
         balance={balance}
+        onPlace={(furnitureId) => {
+          setShopOpen(false);
+          if (!editing) {
+            enterEdit();
+          }
+          // enterEdit이 draft를 세운 직후에 놓아야 해서 다음 프레임으로 미룬다.
+          requestAnimationFrame(() => placeStored(furnitureId));
+        }}
+        placedIds={shown.map((placement) => placement.furnitureId)}
         expansion={
           expansion.nextStage
             ? {

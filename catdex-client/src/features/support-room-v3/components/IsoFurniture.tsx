@@ -135,14 +135,19 @@ export function IsoFurniture({
           }}
         />
         {selected ? (
+          // 스프라이트는 투명 여백이 넓어서 정사각형 전체에 테두리를 두르면
+          // 가구 밖으로 한참 삐져나온다. 실제로 그려진 영역에만 두른다.
           <View
             pointerEvents="none"
             style={{
               position: 'absolute',
-              inset: 2,
+              left: layout.visual.left - layout.left,
+              top: layout.visual.top - layout.top,
+              width: layout.visual.width,
+              height: layout.visual.height,
               borderWidth: 2,
               borderColor: 'rgba(255, 108, 0, 0.72)',
-              borderRadius: 10,
+              borderRadius: 8,
             }}
           />
         ) : null}
