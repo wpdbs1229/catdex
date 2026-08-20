@@ -43,11 +43,11 @@ const ROWS = SHELL_GEOMETRY.stage0.rows;
  * 이루도록 잡았다. 서로 가리지 않아야 얼굴 셋이 모두 보인다.
  */
 const CANDIDATE_PLACEMENTS: readonly ObservationPlacement[] = [
-  { furnitureId: 'floor_lamp_warm', gridX: 0.4, gridY: 0.4 },
-  { furnitureId: 'consultation_desk_honey', gridX: 5.2, gridY: 0.5 },
-  { furnitureId: 'plant_small_desk', gridX: 0.4, gridY: 2 },
-  { furnitureId: 'visitor_cushion_orange', gridX: 2.6, gridY: 1.6 },
-  { furnitureId: 'swivel_chair_lavender', gridX: 6.2, gridY: 3.6 },
+  { furnitureId: 'floor_lamp_warm', gridX: 0.4, gridY: 0.5 },
+  { furnitureId: 'consultation_desk_honey', gridX: 5.2, gridY: 0.7 },
+  { furnitureId: 'plant_small_desk', gridX: 0.4, gridY: 2.7 },
+  { furnitureId: 'visitor_cushion_orange', gridX: 2.6, gridY: 2.1 },
+  { furnitureId: 'swivel_chair_lavender', gridX: 6.2, gridY: 4.8 },
 ];
 
 export const DEFAULT_BUSY_CATS: readonly BusyObservationCat[] = [
@@ -56,7 +56,7 @@ export const DEFAULT_BUSY_CATS: readonly BusyObservationCat[] = [
 ];
 
 export const DEFAULT_IDLE_CATS: readonly ObservationCat[] = [
-  { key: 'tabby_orange', gridX: 3.2, gridY: 4.4 },
+  { key: 'tabby_orange', gridX: 3.2, gridY: 5.9 },
 ];
 
 export interface GridRect {
@@ -70,19 +70,18 @@ export interface GridRect {
  * 왼쪽 출입문 앞에 항상 비워 두는 2×2.
  *
  * 셸 원본에서 문지방 양 끝(170,768)·(300,690)을 재서 격자로 되돌리면
- * 문은 x≈0.28의 벽면에서 y 3.55~4.99를 차지한다. 그 앞 2칸을 비운다.
- * (예전 값은 y 2.8~4.8이라 실제 문보다 위로 밀려 있었다.)
+ * 문은 x≈0.28의 벽면에서 y 4.73~6.65를 차지한다(8행 격자 기준). 그 앞 2칸을 비운다.
  */
 export const STAGE0_DOOR_CLEARANCES: readonly GridRect[] = [
-  { x: 0, y: 3.3, width: 2, depth: 2 },
+  { x: 0, y: 4.6, width: 2, depth: 2 },
 ];
 
 /** 문에서 방 가운데로 이어지는 통로. 가구로 막으면 고양이가 들어올 길이 없다. */
-export const STAGE0_CENTER_AISLE: GridRect = { x: 2, y: 3.3, width: 3, depth: 1.6 };
+export const STAGE0_CENTER_AISLE: GridRect = { x: 2, y: 4.6, width: 3, depth: 2 };
 
 const ACTION_APPROACHES = [
-  { furnitureId: 'visitor_cushion_orange' as const, x: 3.9, y: 2.4 },
-  { furnitureId: 'swivel_chair_lavender' as const, x: 5.4, y: 4.4 },
+  { furnitureId: 'visitor_cushion_orange' as const, x: 3.9, y: 3.2 },
+  { furnitureId: 'swivel_chair_lavender' as const, x: 5.4, y: 5.9 },
 ] as const;
 
 function placementRect(placement: ObservationPlacement): GridRect {
@@ -125,8 +124,8 @@ export function observationFootprintCoverage(
 function hasPathToCenter(placements: readonly ObservationPlacement[]): boolean {
   const step = 0.5;
   const obstacles = placements.map(placementRect);
-  const start = { x: 0.25, y: 4.25 };
-  const goal = { x: 4.25, y: 3.25 };
+  const start = { x: 0.25, y: 5.75 };
+  const goal = { x: 4.25, y: 4.25 };
   const key = (point: { x: number; y: number }) => `${point.x.toFixed(2)},${point.y.toFixed(2)}`;
   const queue = [start];
   const seen = new Set([key(start)]);

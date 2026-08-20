@@ -14,8 +14,11 @@ SHELLS = ROOT / 'assets' / 'support-room-v3' / 'shells'
 OUT = ROOT / 'src' / 'features' / 'support-room-v3' / 'render' / 'shells.generated.ts'
 
 CALIBRATION = {
-    'stage0': dict(cols=8, rows=6, bbox=(48, 77, 1206, 1177), origin=(619, 497),
-                   axis_x=(72.625, 38.875), axis_y=(-94.667, 51.833), annex=False),
+    # stage0은 8×6일 때 세로 칸이 가로보다 31% 길어 칸이 정사각형이 아니었다.
+    # 가구 아트는 정사각형 칸을 전제로 그려지므로 8×8로 나눠 비율을 0.98로 맞춘다.
+    # (바닥 그림은 그대로다. 같은 마름모를 몇 칸으로 쪼개느냐만 바뀐다.)
+    'stage0': dict(cols=8, rows=8, bbox=(48, 77, 1206, 1177), origin=(619, 497),
+                   axis_x=(72.625, 38.875), axis_y=(-71.0, 38.875), annex=False),
     'stage1': dict(cols=10, rows=8, bbox=(29, 142, 1236, 1169), origin=(564, 466),
                    axis_x=(66.9, 35), axis_y=(-66.625, 39.625), annex=False),
     'stage2': dict(cols=12, rows=10, bbox=(23, 144, 1237, 1130), origin=(491, 407),

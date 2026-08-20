@@ -22,13 +22,13 @@ export interface ShellGeometry {
 export const SHELL_GEOMETRY: Record<RoomStage, ShellGeometry> = {
   stage0: {
     cols: 8,
-    rows: 6,
+    rows: 8,
     imageW: 1254,
     imageH: 1254,
     artBounds: { x: 48, y: 77, width: 1158, height: 1100 },
     origin: { x: 619, y: 497 },
     axisX: { x: 72.625, y: 38.875 },
-    axisY: { x: -94.667, y: 51.833 },
+    axisY: { x: -71, y: 38.875 },
     hasAnnex: false,
   },
   stage1: {
