@@ -39,6 +39,13 @@ export const SHADOW_COLOR = SHADOW.color;
  * 이미지로 측정됐다. alpha > 32 기준으로 다시 잰 기본 장면 에셋의 정본이다.
  */
 const FURNITURE_ANCHOR_OVERRIDES: Partial<Record<FurnitureId, SpriteAnchor>> = {
+  // 2026-08-20에 아이소 시점으로 다시 그린 6종. generated 파일은 옛 그림 기준이다.
+  visitor_cushion_orange: { contentX: 0.0625, contentY: 0.2637, contentW: 0.875, contentH: 0.6113, baselineY: 0.875 },
+  swivel_chair_lavender: { contentX: 0.2461, contentY: 0.0938, contentW: 0.5059, contentH: 0.7812, baselineY: 0.875 },
+  paper_basket_cream: { contentX: 0.1484, contentY: 0.0938, contentW: 0.7031, contentH: 0.7812, baselineY: 0.875 },
+  customer_water_station: { contentX: 0.1914, contentY: 0.0938, contentW: 0.6152, contentH: 0.7812, baselineY: 0.875 },
+  file_cabinet_olive: { contentX: 0.2402, contentY: 0.0938, contentW: 0.5195, contentH: 0.7812, baselineY: 0.875 },
+  low_bookshelf_honey: { contentX: 0.0625, contentY: 0.1738, contentW: 0.875, contentH: 0.7012, baselineY: 0.875 },
   consultation_desk_honey: {
     contentX: 0.0845,
     contentY: 0.2448,
@@ -62,12 +69,11 @@ const FURNITURE_ANCHOR_OVERRIDES: Partial<Record<FurnitureId, SpriteAnchor>> = {
   },
 };
 
-/** 정면성이 강해 아이소 장면에 쓸 수 없는 가구. 새 아트가 나오면 지운다. */
-export const FURNITURE_RENDER_META: Partial<Record<FurnitureId, SpriteRenderMeta>> = {
-  customer_water_station: { needsArtReexport: true },
-  file_cabinet_olive: { needsArtReexport: true },
-  low_bookshelf_honey: { needsArtReexport: true },
-};
+/**
+ * 정면성이 강해 아이소 장면에 쓸 수 없는 가구.
+ * 급수대·서류함·책장 3종은 2026-08-20에 아이소로 다시 그려 받아 비었다.
+ */
+export const FURNITURE_RENDER_META: Partial<Record<FurnitureId, SpriteRenderMeta>> = {};
 
 export type CompositeBehavior = Extract<
   CatBehaviorId,
@@ -75,48 +81,38 @@ export type CompositeBehavior = Extract<
 >;
 
 /**
- * 합성본 한 장에 그려진 고양이 실루엣이 idle 고양이 실루엣의 몇 배인지.
- *
- * 캐릭터 16종의 같은 행동 이미지를 겹쳐 픽셀 분산을 내면 캐릭터마다 바뀌는
- * 영역(=고양이)과 고정된 영역(=가구)이 갈린다. 그 고양이 영역의 넓이를
- * idle 고양이 실루엣 넓이와 비교해 sqrt를 취한 값이다(자세가 달라도 실루엣
- * 넓이는 몸집을 비교적 잘 대변한다).
- *
- * 이 값으로 나눠서 그리면 어떤 자세든 고양이 몸집이 idle과 같아진다.
- * 손으로 고른 배율이 아니라 그림에서 잰 값이므로, 아트가 바뀌면 다시 재야 한다.
+ * 고양이 단독 행동 그림의 anchor. 16종 캐릭터의 평균이며 baseline은 셋 다 0.875다.
+ * 자세가 달라도 같은 배율로 그려져 있어서, 모든 고양이를 하나의 크기로 그리면
+ * 몸집이 저절로 맞는다(자세별 보정값이 없다).
  */
-export const CAT_SILHOUETTE_RATIO: Record<CompositeBehavior, number> = {
-  use_cushion: 0.91,
-  sit_swivel_chair: 0.82,
-  hide_paper_basket: 1.01,
+export const CAT_ACTION_ANCHORS: Record<CompositeBehavior, SpriteAnchor> = {
+  use_cushion: { contentX: 0.1644, contentY: 0.4242, contentW: 0.6704, contentH: 0.4508, baselineY: 0.875 },
+  sit_swivel_chair: { contentX: 0.1931, contentY: 0.0938, contentW: 0.6133, contentH: 0.7811, baselineY: 0.875 },
+  hide_paper_basket: { contentX: 0.1755, contentY: 0.3956, contentW: 0.6478, contentH: 0.4794, baselineY: 0.875 },
 };
 
-export interface ActionCompositeAnchor extends SpriteAnchor, SpriteRenderMeta {}
+/**
+ * 고양이가 올라가는 가구는 고양이 몸 폭을 자로 쓴다.
+ *
+ * 격자(footprint)로 재면 2×2가 고양이보다 훨씬 커져 고양이가 방석 위 점처럼
+ * 보인다. 실제 높이로 재도 안 되는데, 아이소에서 납작한 물건의 스프라이트
+ * 높이는 물리 높이가 아니라 깊이가 섞인 값이기 때문이다.
+ * 방석·의자·휴지통은 애초에 고양이한테 맞춰 만든 물건이므로 고양이를 자로 쓴다.
+ */
+export const PROP_WIDTH_IN_CAT_BODIES: Record<CompositeBehavior, number> = {
+  use_cushion: 1.3,
+  sit_swivel_chair: 1.25,
+  hide_paper_basket: 1.09,
+};
 
-/** 행동 합성본은 일반 가구와 투명 여백·접지선이 달라 별도 측정값을 쓴다. */
-export const ACTION_COMPOSITE_ANCHORS: Record<CompositeBehavior, ActionCompositeAnchor> = {
-  use_cushion: {
-    contentX: 0.0801,
-    contentY: 0.1523,
-    contentW: 0.8398,
-    contentH: 0.6934,
-    baselineY: 0.8457,
-  },
-  hide_paper_basket: {
-    contentX: 0.1934,
-    contentY: 0.0801,
-    contentW: 0.6133,
-    contentH: 0.8398,
-    baselineY: 0.9199,
-    needsArtReexport: true,
-  },
-  sit_swivel_chair: {
-    contentX: 0.2168,
-    contentY: 0.0801,
-    contentW: 0.5645,
-    contentH: 0.8398,
-    baselineY: 0.9199,
-  },
+/**
+ * 고양이 발이 닿는 지점. 가구 스프라이트 캔버스 기준 비율이다.
+ * (0.5, y)는 가로 한가운데를 뜻한다.
+ */
+export const PROP_SEAT_ANCHORS: Record<CompositeBehavior, { x: number; y: number }> = {
+  use_cushion: { x: 0.5, y: 0.52 },
+  sit_swivel_chair: { x: 0.5, y: 0.45 },
+  hide_paper_basket: { x: 0.5, y: 0.36 },
 };
 
 export const IDLE_CAT_ANCHOR: SpriteAnchor = {
@@ -227,19 +223,18 @@ export function calculateFurnitureSpriteLayout({
 }: FurnitureLayoutInput): GroundedSpriteLayout {
   const spec = FURNITURE_ANCHORS[furnitureId];
   const footprint = projection.footprint(gridX, gridY, spec.footprintW, spec.footprintD);
-
-  // 합성본은 가구가 아니라 그 안의 고양이를 기준으로 크기를 정한다.
-  // 그래야 어느 자세든 고양이 몸집이 idle과 같아진다.
-  const anchor = compositeBehavior
-    ? ACTION_COMPOSITE_ANCHORS[compositeBehavior]
-    : furnitureSpriteAnchor(furnitureId);
+  const anchor = furnitureSpriteAnchor(furnitureId);
   const world = createWorldScale(projection);
-  // 가구 크기는 footprint 폭에서 나오되, 문보다 높아지지 않게 한 번 눌러 준다.
-  const byWidth = (footprint.width * FURNITURE_TILE_FILL) / anchor.contentW;
-  const byHeightCap = world.maxFurnitureH / anchor.contentH;
+
+  // 고양이가 올라가는 가구는 고양이를 자로 쓰고, 나머지는 footprint 폭으로 잰다.
+  // 어느 쪽이든 문보다 높아지지는 않는다.
   const imageSize = compositeBehavior
-    ? catImageSize(projection) / CAT_SILHOUETTE_RATIO[compositeBehavior]
-    : Math.min(byWidth, byHeightCap);
+    ? (catBodyWidth(projection, compositeBehavior) * PROP_WIDTH_IN_CAT_BODIES[compositeBehavior]) /
+      anchor.contentW
+    : Math.min(
+        (footprint.width * FURNITURE_TILE_FILL) / anchor.contentW,
+        world.maxFurnitureH / anchor.contentH,
+      );
 
   return layoutGroundedSprite({
     projection,
@@ -249,6 +244,48 @@ export function calculateFurnitureSpriteLayout({
     groundY: footprint.ground.y,
     frontX: gridX + spec.footprintW,
     frontY: gridY + spec.footprintD,
+  });
+}
+
+/** 그 자세로 그렸을 때 고양이 몸이 차지하는 화면 폭. */
+function catBodyWidth(projection: IsoProjection, behavior: CompositeBehavior): number {
+  return catImageSize(projection) * CAT_ACTION_ANCHORS[behavior].contentW;
+}
+
+/**
+ * 가구 위에 앉은 고양이. 가구와 따로 그려서 각자 자기 anchor·크기·깊이를 가진다.
+ * 두 레이어는 같은 접지점(가구의 footprint 중심)에서 만난다.
+ */
+export function calculateCatOnFurnitureLayout(
+  projection: IsoProjection,
+  furnitureId: FurnitureId,
+  gridX: number,
+  gridY: number,
+  behavior: CompositeBehavior,
+): GroundedSpriteLayout {
+  const furniture = calculateFurnitureSpriteLayout({
+    projection,
+    furnitureId,
+    gridX,
+    gridY,
+    compositeBehavior: behavior,
+  });
+  const seat = PROP_SEAT_ANCHORS[behavior];
+  const anchor = CAT_ACTION_ANCHORS[behavior];
+
+  // 가구 스프라이트 안의 '앉는 지점'을 화면 좌표로 옮긴다.
+  const seatX = furniture.left + seat.x * furniture.imageSize;
+  const seatY = furniture.top + seat.y * furniture.imageSize;
+
+  return layoutGroundedSprite({
+    projection,
+    anchor,
+    imageSize: catImageSize(projection),
+    groundX: seatX,
+    groundY: seatY,
+    // 깊이는 앉은 가구와 같은 칸을 쓰되 한 칸 앞으로 둬서 가구보다 위에 그린다.
+    frontX: gridX + FURNITURE_ANCHORS[furnitureId].footprintW,
+    frontY: gridY + FURNITURE_ANCHORS[furnitureId].footprintD,
   });
 }
 
@@ -278,14 +315,11 @@ export function calculateIdleCatLayout(
   });
 }
 
+/** 가구 위 고양이는 바닥에 그림자를 따로 그리지 않는다(가구가 이미 그린다). */
+export const CAT_ON_FURNITURE_HAS_SHADOW = false;
+
 export const NEEDS_ART_REEXPORT = (
   Object.entries(FURNITURE_RENDER_META) as Array<[FurnitureId, SpriteRenderMeta]>
 )
   .filter(([, meta]) => meta.needsArtReexport)
   .map(([id]) => id);
-
-export const NEEDS_ACTION_ART_REEXPORT = (
-  Object.entries(ACTION_COMPOSITE_ANCHORS) as Array<[CompositeBehavior, ActionCompositeAnchor]>
-)
-  .filter(([, meta]) => meta.needsArtReexport)
-  .map(([behavior]) => behavior);

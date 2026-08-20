@@ -3,6 +3,7 @@ import { Image, PanResponder, View } from 'react-native';
 import type { FurnitureId } from '@/features/support-room-v2/domain/furniture';
 import { V2_FURNITURE_IMAGES } from '@/features/support-room-v2/support-room-v2.assets.generated';
 import {
+  calculateCatOnFurnitureLayout,
   calculateFurnitureSpriteLayout,
   furnitureRenderMeta,
   type CompositeBehavior,
@@ -12,8 +13,8 @@ import { IsoContactShadow } from './IsoContactShadow';
 
 export interface IsoFurnitureProps {
   furnitureId: FurnitureId;
-  /** 고양이+가구가 한 장에 그려진 행동 합성본. 독립 가구 대신 이 그림만 렌더한다. */
-  compositeSource?: ReturnType<typeof require>;
+  /** 가구 위에 앉은 고양이 그림(가구 없는 단독 포즈). 가구와 따로 그린다. */
+  catSource?: ReturnType<typeof require>;
   compositeBehavior?: CompositeBehavior;
   gridX: number;
   gridY: number;
@@ -36,7 +37,7 @@ const TAP_THRESHOLD_PX = 4;
 
 export function IsoFurniture({
   furnitureId,
-  compositeSource,
+  catSource,
   compositeBehavior,
   gridX,
   gridY,
@@ -94,7 +95,7 @@ export function IsoFurniture({
   ).current;
 
   // 시점이 맞지 않는 일반 가구는 새 아트가 나오기 전 기본 장면에 억지로 넣지 않는다.
-  if (meta.needsArtReexport && !compositeSource) return null;
+  if (meta.needsArtReexport && !catSource) return null;
 
   const layout = calculateFurnitureSpriteLayout({
     projection,
@@ -125,7 +126,7 @@ export function IsoFurniture({
       >
         <Image
           resizeMode="contain"
-          source={compositeSource ?? V2_FURNITURE_IMAGES[furnitureId]}
+          source={V2_FURNITURE_IMAGES[furnitureId]}
           style={{
             width: '100%',
             height: '100%',
@@ -146,6 +147,50 @@ export function IsoFurniture({
           />
         ) : null}
       </View>
+
+      {catSource && compositeBehavior ? <CatOnFurniture
+        behavior={compositeBehavior}
+        furnitureId={furnitureId}
+        gridX={gridX}
+        gridY={gridY}
+        source={catSource}
+      /> : null}
     </>
+  );
+}
+
+/**
+ * 가구 위에 앉은 고양이. 가구와 별개의 스프라이트라 크기·anchor·깊이를 따로 갖는다.
+ * 눌렀을 때의 상담 처리는 가구 쪽 pointer가 받으므로 여기는 그림만 그린다.
+ */
+function CatOnFurniture({
+  furnitureId,
+  gridX,
+  gridY,
+  behavior,
+  source,
+}: {
+  furnitureId: FurnitureId;
+  gridX: number;
+  gridY: number;
+  behavior: CompositeBehavior;
+  source: ReturnType<typeof require>;
+}) {
+  const projection = useProjection();
+  const layout = calculateCatOnFurnitureLayout(projection, furnitureId, gridX, gridY, behavior);
+
+  return (
+    <Image
+      resizeMode="contain"
+      source={source}
+      style={{
+        position: 'absolute',
+        left: layout.left,
+        top: layout.top,
+        width: layout.imageSize,
+        height: layout.imageSize,
+        zIndex: layout.zIndex + 1,
+      }}
+    />
   );
 }

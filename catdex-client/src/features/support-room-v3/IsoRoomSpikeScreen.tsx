@@ -58,6 +58,7 @@ import {
   type ObservationPlacement,
 } from './support-room-v3.layout';
 import { calculateExpansionProgress } from './support-room-v3.progress';
+import { CAT_ONLY_ACTION_IMAGES } from './support-room-v3.cat-actions';
 import { loadV3Placements, saveV3Placements } from './support-room-v3.storage';
 import { STAGE_LABELS } from './support-room-v3.assets';
 import { assignBusyVisitors, assignIdleVisitor, todayStartMs, type RoomVisitor } from './support-room-v3.visitors';
@@ -659,7 +660,7 @@ export function IsoRoomSpikeScreen() {
                         : undefined
                   }
                   compositeBehavior={occupant?.behavior}
-                  compositeSource={occupant ? CAT_ACTION_IMAGES[occupant.key][occupant.behavior] : undefined}
+                  catSource={occupant ? CAT_ONLY_ACTION_IMAGES[occupant.key][occupant.behavior] : undefined}
                   draggable={editing}
                   flipX={placement.flipX}
                   furnitureId={placement.furnitureId}
