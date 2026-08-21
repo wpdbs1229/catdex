@@ -55,6 +55,7 @@ import { IsoRoom, type LocalGridBounds } from './components/IsoRoom';
 import { ZoomPanStage } from './components/ZoomPanStage';
 import { RoomHud } from './components/RoomHud';
 import {
+  calculateInitialZoom,
   calculateMaxZoom,
   calculateOverviewScale,
   createProjection,
@@ -648,6 +649,7 @@ export function IsoRoomSpikeScreen() {
   const scale = calculateOverviewScale(geometry, roomViewport);
   const projection = createProjection(STAGE, scale);
   const maxZoom = calculateMaxZoom(geometry, roomViewport);
+  const initialZoom = calculateInitialZoom(geometry, roomViewport);
 
   /**
    * 방이 바뀌면 놓여 있던 가구를 새 바닥 위로 옮긴다.
@@ -762,6 +764,7 @@ export function IsoRoomSpikeScreen() {
       <View onLayout={onRoomLayout} style={styles.roomArea}>
         <ZoomPanStage
           height={projection.displayH}
+          initialZoom={initialZoom}
           maxZoom={maxZoom}
           panEnabled={!editing}
           viewportHeight={roomViewport.height}
