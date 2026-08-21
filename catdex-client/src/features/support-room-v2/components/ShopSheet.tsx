@@ -51,6 +51,8 @@ interface ShopSheetProps {
   placedIds?: readonly FurnitureId[];
   /** 보관함에서 가구를 골라 방에 놓을 때. 없으면 보관함 탭을 숨긴다. */
   onPlace?: (id: FurnitureId) => void;
+  /** 보관함에서 벽지·바닥재를 골라 방에 입힐 때. */
+  onApplySurface?: (id: SurfaceId) => void;
   ownedCount: (id: FurnitureId) => number;
   /** 미리보기 배경으로 쓸 현재 방 배치 */
   placements: readonly Placement[];
@@ -161,10 +163,12 @@ function InventoryGrid({
   ownedCount,
   placedIds,
   onPlace,
+  onApplySurface,
 }: {
   ownedCount: (id: FurnitureId) => number;
   placedIds: readonly FurnitureId[];
   onPlace: (id: FurnitureId) => void;
+  onApplySurface: (id: SurfaceId) => void;
 }) {
   // 가구와 표면(벽지·바닥)을 함께 담는다. 예전에는 가구만 훑어서 벽지를 사도
   // 보관함에 아무것도 안 생겼다.
@@ -202,21 +206,19 @@ function InventoryGrid({
       keyExtractor={(item) => item.id}
       numColumns={3}
       renderItem={({ item }) => {
-        // 표면은 아이소 방에 아직 못 입힌다(오버레이가 옛 가로 방 규격이다).
-        // 산 것을 안 보여 주면 사라진 것처럼 보이므로, 보여 주되 잠근다.
         const isSurface = item.kind === 'surface';
         const id = item.id as FurnitureId;
         const placed = !isSurface && placedIds.includes(id);
-        const disabled = isSurface || placed;
+        const disabled = placed;
         return (
           <Pressable
             accessibilityLabel={`${item.name} ${
-              isSurface ? '적용 준비 중' : placed ? '이미 방에 있음' : '방에 놓기'
+              isSurface ? '방에 입히기' : placed ? '이미 방에 있음' : '방에 놓기'
             }`}
             accessibilityRole="button"
             accessibilityState={{ disabled }}
             disabled={disabled}
-            onPress={() => onPlace(id)}
+            onPress={() => (isSurface ? onApplySurface(item.id as SurfaceId) : onPlace(id))}
             style={[styles.card, disabled && styles.cardPlaced]}
           >
             <Image
@@ -228,7 +230,7 @@ function InventoryGrid({
               {item.name}
             </Text>
             <Text style={styles.cardPrice}>
-              {isSurface ? '적용 준비 중' : placed ? '방에 있음' : '방에 놓기'}
+              {isSurface ? '방에 입히기' : placed ? '방에 있음' : '방에 놓기'}
             </Text>
           </Pressable>
         );
@@ -311,6 +313,7 @@ export function ShopSheet({
   expanding = false,
   placedIds = [],
   onPlace,
+  onApplySurface,
   ownedCount,
   placements,
   purchasing,
@@ -361,6 +364,7 @@ export function ShopSheet({
 
           {mode === 'inventory' ? (
             <InventoryGrid
+              onApplySurface={(id) => onApplySurface?.(id)}
               onPlace={(id) => onPlace?.(id)}
               ownedCount={ownedCount}
               placedIds={placedIds}

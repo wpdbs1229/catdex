@@ -1,7 +1,9 @@
 import { Image, View } from 'react-native';
 import { ProjectionProvider, createProjection, type IsoProjection } from '../render/projection';
 import type { RoomStage } from '../render/shells.generated';
+import type { SurfaceId } from '@/features/support-room-v2/domain/furniture';
 import { V3_SHELL_IMAGES } from '../support-room-v3.assets';
+import { V3_SURFACE_OVERLAYS } from '../support-room-v3.surfaces';
 
 export interface LocalGridBounds {
   x: number;
@@ -16,6 +18,9 @@ export interface IsoRoomProps {
   scale: number;
   /** 관찰 모드에는 없고, 편집 중 선택 가구 주변에만 표시한다. */
   gridBounds?: LocalGridBounds;
+  /** 골라 둔 벽지·바닥재. 셸 위에 겹쳐 그린다. */
+  wallSurfaceId?: SurfaceId;
+  floorSurfaceId?: SurfaceId;
   children?: React.ReactNode;
 }
 
@@ -84,7 +89,14 @@ function LocalGridOverlay({
   return <>{lines}</>;
 }
 
-export function IsoRoom({ stage, scale, gridBounds, children }: IsoRoomProps) {
+export function IsoRoom({
+  stage,
+  scale,
+  gridBounds,
+  wallSurfaceId,
+  floorSurfaceId,
+  children,
+}: IsoRoomProps) {
   const projection = createProjection(stage, scale);
 
   return (
@@ -98,6 +110,16 @@ export function IsoRoom({ stage, scale, gridBounds, children }: IsoRoomProps) {
             ...projection.imageFrame,
           }}
         />
+        {[floorSurfaceId, wallSurfaceId].map((surfaceId) =>
+          surfaceId ? (
+            <Image
+              key={surfaceId}
+              resizeMode="stretch"
+              source={V3_SURFACE_OVERLAYS[stage][surfaceId]}
+              style={{ position: 'absolute', ...projection.imageFrame }}
+            />
+          ) : null,
+        )}
         {gridBounds ? <LocalGridOverlay bounds={gridBounds} projection={projection} /> : null}
         {children}
       </View>

@@ -11,6 +11,7 @@ import {
   type CompositeBehavior,
   type VisualBox,
 } from './render/sprite-layout';
+import { isFloorCell } from './render/floor-masks.generated';
 import { SHELL_GEOMETRY, type RoomStage } from './render/shells.generated';
 
 export interface ObservationPlacement {
@@ -40,57 +41,48 @@ export interface BusyObservationCat {
  * 새 단계를 열려면 같은 방법으로 재서 한 줄 추가하면 된다.
  */
 export interface StageRules {
-  /** 항상 비워 두는 출입문 앞 */
-  doorClearances: readonly GridRect[];
-  /** 문에서 방 가운데로 이어지는 통로 */
-  centerAisle: GridRect;
   /**
-   * 격자 안이지만 바닥이 아닌 칸.
-   *
-   * 별관이 붙은 L자 방은 사각 격자로 다 덮을 수 없어서 일부 칸이 허공이다.
-   * 셸 위에 칸 번호를 찍어 눈으로 읽은 값이다(색으로 자동 검출하면 뒷줄
-   * 그늘에서 바닥을 바닥이 아니라고 잡는다).
+   * 출입문 앞. 배치를 막지는 않는다(사용자가 원하면 문 앞에도 놓을 수 있다).
+   * 돌아다니는 고양이가 입구에 서 있지 않도록 하는 데만 쓴다.
    */
-  voidRects?: readonly GridRect[];
+  doorClearances: readonly GridRect[];
+  /** 문에서 방 가운데로 이어지는 통로. 위와 같이 고양이 배회에만 쓴다. */
+  centerAisle: GridRect;
 }
 
 export const STAGE_RULES: Partial<Record<RoomStage, StageRules>> = {
-  // 문 밑선 (170,768)-(300,690) -> 격자 y 4.73~6.65
+  // 문 앞 비움과 통로는 물리 크기다(문 폭 1m, 통로 1m). 한 칸이 0.5m이므로
+  // 어느 단계에서나 2칸이다. 단계마다 달라지는 건 위치뿐이다.
+  // 문 밑선 (170,768)-(300,690)
   stage0: {
-    doorClearances: [{ x: 0, y: 4.6, width: 2, depth: 2 }],
-    centerAisle: { x: 2, y: 4.6, width: 3, depth: 2 },
+    doorClearances: [{ x: 0, y: 5.2, width: 2, depth: 2 }],
+    centerAisle: { x: 2, y: 5.2, width: 3, depth: 2 },
   },
-  // 문 밑선 (128,712)-(232,655) -> 격자 y 4.87~6.37
+  // 문 밑선 (128,712)-(232,655)
   stage1: {
-    doorClearances: [{ x: 0, y: 4.7, width: 2, depth: 2 }],
-    centerAisle: { x: 2, y: 4.7, width: 4, depth: 2 },
+    doorClearances: [{ x: 0, y: 6.5, width: 2, depth: 2 }],
+    centerAisle: { x: 2, y: 6.5, width: 5, depth: 2 },
   },
-  // 문이 둘이다.
-  //   왼쪽 (122,632)-(200,586) -> x≈0.08 벽면의 y 5.08~6.41
-  //   오른쪽 (1065,727)-(1145,772) -> y≈0.3 벽면의 x 9.55~10.89
+  // 문 둘. 왼쪽 (122,632)-(200,586) / 오른쪽 (1065,727)-(1145,772)
   stage2: {
     doorClearances: [
-      { x: 0, y: 4.7, width: 2, depth: 2 },
-      { x: 9.4, y: 0, width: 2, depth: 2 },
+      { x: 0, y: 7.1, width: 2, depth: 2 },
+      { x: 14.1, y: 0, width: 2, depth: 2 },
     ],
-    centerAisle: { x: 2, y: 4.7, width: 5, depth: 2 },
+    centerAisle: { x: 2, y: 7.1, width: 8, depth: 2 },
   },
-  // 문 둘.
-  //   왼쪽  (100,588)-(160,553) -> x≈-0.1 벽면의 y 4.37~5.39
-  //   오른쪽 (1076,762)-(1160,806) -> y≈0.6 벽면의 x 11.82~13.28
+  // 문 둘. 왼쪽 (100,588)-(160,553) / 오른쪽 (1076,762)-(1160,806)
   stage3: {
     doorClearances: [
-      { x: 0, y: 3.9, width: 2, depth: 2 },
-      { x: 11.6, y: 0, width: 2, depth: 2 },
+      { x: 0, y: 7.2, width: 2, depth: 2 },
+      { x: 22.4, y: 0, width: 2, depth: 2 },
     ],
-    centerAisle: { x: 2, y: 3.9, width: 6, depth: 2 },
+    centerAisle: { x: 2, y: 7.2, width: 12, depth: 2 },
   },
-  // 본관 + 별관(L자). 문 밑선 (115,580)-(75,603) -> x≈-0.1 벽면의 y 4.21~4.87
+  // 본관 + 별관(L자). 문 밑선 (115,580)-(75,603)
   stage4: {
-    doorClearances: [{ x: 0, y: 3.5, width: 2, depth: 2 }],
-    centerAisle: { x: 2, y: 3.5, width: 6, depth: 2 },
-    // 오른쪽 아래 8칸이 별관 밖 허공이다(x 12~13, y 2~5).
-    voidRects: [{ x: 12, y: 2, width: 2, depth: 4 }],
+    doorClearances: [{ x: 0, y: 10.5, width: 2, depth: 2 }],
+    centerAisle: { x: 2, y: 10.5, width: 18, depth: 2 },
   },
 };
 
@@ -108,11 +100,11 @@ export function stageRules(stage: RoomStage): StageRules {
  * 이루도록 잡았다. 서로 가리지 않아야 얼굴 셋이 모두 보인다.
  */
 const CANDIDATE_PLACEMENTS: readonly ObservationPlacement[] = [
-  { furnitureId: 'floor_lamp_warm', gridX: 0.4, gridY: 0.5 },
-  { furnitureId: 'consultation_desk_honey', gridX: 5.2, gridY: 0.7 },
-  { furnitureId: 'plant_small_desk', gridX: 0.4, gridY: 2.7 },
-  { furnitureId: 'visitor_cushion_orange', gridX: 2.6, gridY: 2.1 },
-  { furnitureId: 'swivel_chair_lavender', gridX: 6.2, gridY: 4.8 },
+  { furnitureId: 'floor_lamp_warm', gridX: 1.2, gridY: 1.1 },
+  { furnitureId: 'consultation_desk_honey', gridX: 5.9, gridY: 0.8 },
+  { furnitureId: 'plant_small_desk', gridX: 1.2, gridY: 3.2 },
+  { furnitureId: 'visitor_cushion_orange', gridX: 2.9, gridY: 2.4 },
+  { furnitureId: 'swivel_chair_lavender', gridX: 7, gridY: 5.4 },
 ];
 
 export const DEFAULT_BUSY_CATS: readonly BusyObservationCat[] = [
@@ -121,7 +113,7 @@ export const DEFAULT_BUSY_CATS: readonly BusyObservationCat[] = [
 ];
 
 export const DEFAULT_IDLE_CATS: readonly ObservationCat[] = [
-  { key: 'tabby_orange', gridX: 3.2, gridY: 5.9 },
+  { key: 'tabby_orange', gridX: 3.6, gridY: 6.6 },
 ];
 
 export interface GridRect {
@@ -131,13 +123,9 @@ export interface GridRect {
   depth: number;
 }
 
-/** 이전 이름 호환. 새 코드는 stageRules(stage)를 쓴다. */
-export const STAGE0_DOOR_CLEARANCES = STAGE_RULES.stage0!.doorClearances;
-export const STAGE0_CENTER_AISLE = STAGE_RULES.stage0!.centerAisle;
-
 const ACTION_APPROACHES = [
-  { furnitureId: 'visitor_cushion_orange' as const, x: 3.9, y: 3.2 },
-  { furnitureId: 'swivel_chair_lavender' as const, x: 5.4, y: 5.9 },
+  { furnitureId: 'visitor_cushion_orange' as const, x: 4.4, y: 3.6 },
+  { furnitureId: 'swivel_chair_lavender' as const, x: 6.1, y: 6.6 },
 ] as const;
 
 function placementRect(placement: ObservationPlacement): GridRect {
@@ -178,52 +166,6 @@ export function observationFootprintCoverage(
 }
 
 /**
- * 문 앞에서 방 한가운데까지 걸어갈 수 있는지 본다.
- * 출발점은 단계마다 다르므로 문 clearance 한가운데에서 시작한다.
- */
-function hasPathToCenter(
-  placements: readonly ObservationPlacement[],
-  stage: RoomStage,
-): boolean {
-  const { cols: COLS, rows: ROWS } = SHELL_GEOMETRY[stage];
-  const door = stageRules(stage).doorClearances[0];
-  const start = {
-    x: Math.round((door.x + door.width / 2) * 2) / 2,
-    y: Math.round((door.y + door.depth / 2) * 2) / 2,
-  };
-  const goal = { x: Math.round(COLS / 2) - 0.25, y: Math.round(ROWS / 2) + 0.25 };
-  const step = 0.5;
-  const obstacles = placements.map(placementRect);
-  const key = (point: { x: number; y: number }) => `${point.x.toFixed(2)},${point.y.toFixed(2)}`;
-  const queue = [start];
-  const seen = new Set([key(start)]);
-
-  while (queue.length > 0) {
-    const current = queue.shift();
-    if (!current) break;
-    if (Math.abs(current.x - goal.x) <= step / 2 && Math.abs(current.y - goal.y) <= step / 2) {
-      return true;
-    }
-    for (const [dx, dy] of [
-      [step, 0],
-      [-step, 0],
-      [0, step],
-      [0, -step],
-    ] as const) {
-      const next = { x: current.x + dx, y: current.y + dy };
-      if (next.x < 0 || next.y < 0 || next.x >= COLS || next.y >= ROWS) continue;
-      if (obstacles.some((rect) => pointInRect(next, rect))) continue;
-      if (stageRules(stage).voidRects?.some((rect) => pointInRect(next, rect))) continue;
-      const nextKey = key(next);
-      if (seen.has(nextKey)) continue;
-      seen.add(nextKey);
-      queue.push(next);
-    }
-  }
-  return false;
-}
-
-/**
  * 좁은 화면에서 방 좌우가 조금 잘려도 가구는 안 잘리게 하는 여백.
  *
  * 셸을 화면 높이의 60~70%로 키우면 가로가 화면보다 넓어져 양옆이 잘린다.
@@ -251,10 +193,7 @@ export type ObservationLayoutIssue =
   | 'too_many_furniture'
   | 'overlap'
   | 'out_of_bounds'
-  | 'door_blocked'
-  | 'aisle_blocked'
   | 'approach_blocked'
-  | 'walkway_blocked'
   | 'cat_occluded'
   | 'outside_safe_area';
 
@@ -264,10 +203,7 @@ export const LAYOUT_ISSUE_TEXT: Record<ObservationLayoutIssue, string> = {
   too_many_furniture: '가구를 더 놓을 수 없어요',
   overlap: '다른 가구와 겹쳐요',
   out_of_bounds: '방 밖으로 나가요',
-  door_blocked: '출입문 앞은 비워 둬야 해요',
-  aisle_blocked: '가운데 통로를 막아요',
   approach_blocked: '고양이가 다가갈 자리가 막혀요',
-  walkway_blocked: '고양이가 지나갈 길이 없어져요',
   cat_occluded: '고양이가 가려져요',
   outside_safe_area: '화면 밖으로 잘려요',
 };
@@ -277,9 +213,6 @@ const ISSUE_PRIORITY: readonly ObservationLayoutIssue[] = [
   'out_of_bounds',
   'outside_safe_area',
   'overlap',
-  'door_blocked',
-  'aisle_blocked',
-  'walkway_blocked',
   'approach_blocked',
   'cat_occluded',
   'too_dense',
@@ -317,15 +250,13 @@ export function validateObservationLayout(
     if (rect.x < 0 || rect.y < 0 || rect.x + rect.width > COLS || rect.y + rect.depth > ROWS) {
       issues.add('out_of_bounds');
     }
-    // 격자 안이어도 바닥이 없는 칸에는 못 놓는다(L자 방의 허공).
-    if (rules.voidRects?.some((rect2) => rectsOverlap(rect, rect2))) {
-      issues.add('out_of_bounds');
-    }
-    if (rules.doorClearances.some((clearance) => rectsOverlap(rect, clearance))) {
-      issues.add('door_blocked');
-    }
-    if (rectsOverlap(rect, rules.centerAisle)) {
-      issues.add('aisle_blocked');
+    // 격자 안이어도 바닥이 없는 칸에는 못 놓는다(L자 방, 테두리에 걸친 칸).
+    for (let dy = 0; dy < rect.depth; dy += 1) {
+      for (let dx = 0; dx < rect.width; dx += 1) {
+        if (!isFloorCell(stage, rect.x + dx, rect.y + dy)) {
+          issues.add('out_of_bounds');
+        }
+      }
     }
     if (rects.some((other, otherIndex) => otherIndex !== index && rectsOverlap(rect, other))) {
       issues.add('overlap');
@@ -345,7 +276,6 @@ export function validateObservationLayout(
       issues.add('approach_blocked');
     }
   }
-  if (!hasPathToCenter(placements, stage)) issues.add('walkway_blocked');
 
   // 격자만으로는 못 잡는 것들. 그림이 실제로 겹치는지, 화면 밖으로 나가는지.
   const projection = options.projection ?? createProjection(stage, 1);
@@ -415,7 +345,7 @@ export function wanderableCells(
     for (let x = 0; x < COLS; x += 1) {
       const point = { x: x + 0.5, y: y + 0.5 };
       if (blocked.some((rect) => pointInRect(point, rect))) continue;
-      if (rules.voidRects?.some((rect) => pointInRect(point, rect))) continue;
+      if (!isFloorCell(stage, x, y)) continue;
       if (rules.doorClearances.some((rect) => pointInRect(point, rect))) continue;
       if (pointInRect(point, rules.centerAisle)) continue;
       cells.push({ x, y });

@@ -35,9 +35,11 @@ import {
 } from '@/shared/api/support-room-v2.api';
 import { fetchMyCats } from '@/shared/api/cats.api';
 import { getCurrentUserId } from '@/shared/api/auth.api';
+import type { SurfaceId } from '@/features/support-room-v2/domain/furniture';
 import {
   expandSupportRoom,
   fetchSupportRoomStage,
+  setSupportRoomSurfaces,
   fetchSupportRoomV3Placements,
   saveSupportRoomV3Placement,
 } from '@/shared/api/support-room-v3.api';
@@ -146,6 +148,8 @@ export function IsoRoomSpikeScreen() {
   const [expanding, setExpanding] = useState(false);
   const [roomStage, setRoomStage] = useState<string>('stage0');
   const [onboardingOpen, setOnboardingOpen] = useState(false);
+  const [wallSurfaceId, setWallSurfaceId] = useState<SurfaceId>('wallpaper_cream_plaster');
+  const [floorSurfaceId, setFloorSurfaceId] = useState<SurfaceId>('flooring_honey_oak');
   const STAGE = renderableStage(roomStage);
   const [purchasing, setPurchasing] = useState(false);
   const [storedRoom, setStoredRoom] = useState<StoredRoomV2 | null>(null);
@@ -180,6 +184,11 @@ export function IsoRoomSpikeScreen() {
         setBalance(result.balance);
         setInventory(result.inventory);
         setStoredRoom(result.stored);
+        // 표면은 v2 스냅숏에 들어 있다(방 자체는 v3가 따로 그린다).
+        if (result.stored.snapshot) {
+          setWallSurfaceId(result.stored.snapshot.wallSurfaceId);
+          setFloorSurfaceId(result.stored.snapshot.floorSurfaceId);
+        }
       })
       .catch(() => undefined);
     return () => {
@@ -256,9 +265,14 @@ export function IsoRoomSpikeScreen() {
 
   const dayStartMs = todayStartMs();
 
+  // 서버 기록을 더하기만 한다. 통째로 갈아끼우면, 상담 직후 낙관적으로
+  // 표시해 둔 건이 아직 목록에 안 잡힌 사이에 지워져 손님이 되살아났다.
   useEffect(() => {
-    const eventIds = new Set(visitRecords.map((record) => record.eventId));
-    setConsultedEventIds(eventIds);
+    setConsultedEventIds((current) => {
+      const next = new Set(current);
+      for (const record of visitRecords) next.add(record.eventId);
+      return next;
+    });
   }, [visitRecords]);
 
   // 오늘 이미 상담 완료된 고양이 개체. 슬롯이 아니라 개체 기준으로 걸러야
@@ -736,7 +750,13 @@ export function IsoRoomSpikeScreen() {
           showsVerticalScrollIndicator={false}
           style={styles.world}
         >
-          <IsoRoom gridBounds={editGridBounds} scale={scale} stage={STAGE}>
+          <IsoRoom
+            floorSurfaceId={floorSurfaceId}
+            gridBounds={editGridBounds}
+            scale={scale}
+            stage={STAGE}
+            wallSurfaceId={wallSurfaceId}
+          >
             {editing && selectedPlacement ? (
               <IsoFootprintOverlay
                 depth={FURNITURE_ANCHORS[selectedPlacement.furnitureId].footprintD}
@@ -824,6 +844,17 @@ export function IsoRoomSpikeScreen() {
       <RecordsSheet onClose={() => setRecordsOpen(false)} visible={recordsOpen} />
       <ShopSheet
         balance={balance}
+        onApplySurface={(surfaceId) => {
+          const isWall = surfaceId.startsWith('wallpaper');
+          const nextWall = isWall ? surfaceId : wallSurfaceId;
+          const nextFloor = isWall ? floorSurfaceId : surfaceId;
+          setWallSurfaceId(nextWall);
+          setFloorSurfaceId(nextFloor);
+          setShopOpen(false);
+          void setSupportRoomSurfaces(nextWall, nextFloor).catch((error: unknown) => {
+            console.warn('[support-room-v3] 표면 저장 실패', error);
+          });
+        }}
         onPlace={(furnitureId) => {
           setShopOpen(false);
           if (!editing) {

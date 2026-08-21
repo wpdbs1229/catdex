@@ -14,23 +14,29 @@ SHELLS = ROOT / 'assets' / 'support-room-v3' / 'shells'
 OUT = ROOT / 'src' / 'features' / 'support-room-v3' / 'render' / 'shells.generated.ts'
 
 CALIBRATION = {
-    # stage0은 8×6일 때 세로 칸이 가로보다 31% 길어 칸이 정사각형이 아니었다.
-    # 가구 아트는 정사각형 칸을 전제로 그려지므로 8×8로 나눠 비율을 0.98로 맞춘다.
-    # (바닥 그림은 그대로다. 같은 마름모를 몇 칸으로 쪼개느냐만 바뀐다.)
-    'stage0': dict(cols=8, rows=8, bbox=(48, 77, 1206, 1177), origin=(619, 497),
-                   axis_x=(72.625, 38.875), axis_y=(-71.0, 38.875), annex=False),
-    'stage1': dict(cols=10, rows=8, bbox=(29, 142, 1236, 1169), origin=(564, 466),
-                   axis_x=(66.9, 35), axis_y=(-66.625, 39.625), annex=False),
+    # 칸은 정사각형이면서 실제 0.5m여야 한다.
+    #
+    # 칸 수를 단계마다 비슷하게 두면 방이 넓어질수록 한 칸이 커진다. 실제로
+    # stage4에서 한 칸이 1.46m가 되어 "2×2 책상"이 3m짜리가 됐다.
+    # 셸마다 그려진 문 폭을 1m로 보고(문 그림은 단계가 달라도 같다) 칸이
+    # 0.5m가 되도록 칸 수를 다시 잡았다. 다섯 단계 모두 0.48~0.51m다.
+    #
+    # 칸 수는 바닥 픽셀을 격자 좌표로 되돌려 몇 칸까지 뻗는지 재서 맞췄다.
+    # 원래 보정값은 방보다 얕아서 stage4가 3행, stage3이 2행 모자랐다.
+    'stage0': dict(cols=9, rows=9, bbox=(48, 77, 1206, 1177), origin=(619, 497),
+                   axis_x=(64.5556, 34.5556), axis_y=(-63.1111, 34.5556), annex=False),
+    'stage1': dict(cols=13, rows=11, bbox=(29, 142, 1236, 1169), origin=(564, 466),
+                   axis_x=(51.4615, 26.9231), axis_y=(-48.4545, 28.8182), annex=False),
     # stage2도 세로 칸이 짧아 정사각형이 아니었다(비율 0.778).
     # 같은 바닥을 8행으로 나누면 0.97이 된다.
-    'stage2': dict(cols=12, rows=8, bbox=(23, 144, 1237, 1130), origin=(491, 407),
-                   axis_x=(61.75, 32.5), axis_y=(-58.25, 34.75), annex=False),
+    'stage2': dict(cols=18, rows=13, bbox=(23, 144, 1237, 1130), origin=(491, 407),
+                   axis_x=(41.1667, 21.6667), axis_y=(-38.8333, 23.1667), annex=False),
     # 세로 칸이 훨씬 짧았다(비율 0.588). 7행으로 나누면 1.008이다.
-    'stage3': dict(cols=14, rows=7, bbox=(0, 173, 1239, 1254), origin=(409, 398),
-                   axis_x=(59.143, 29.071), axis_y=(-55.857, 36.0), annex=False),
+    'stage3': dict(cols=27, rows=14, bbox=(0, 173, 1239, 1254), origin=(409, 398),
+                   axis_x=(30.6667, 15.0739), axis_y=(-30.0768, 19.3846), annex=False),
     # 비율 0.506. 6행으로 나누면 1.012다.
-    'stage4': dict(cols=14, rows=6, bbox=(15, 238, 1235, 1056), origin=(363, 429),
-                   axis_x=(62.143, 26), axis_y=(-57.666, 36.334), annex=True),
+    'stage4': dict(cols=40, rows=20, bbox=(15, 238, 1235, 1056), origin=(363, 429),
+                   axis_x=(21.2196, 8.878), axis_y=(-19.222, 12.1113), annex=True),
 }
 
 

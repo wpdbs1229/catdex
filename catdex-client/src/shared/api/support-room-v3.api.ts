@@ -108,3 +108,16 @@ export async function expandSupportRoom(
   const result = data as { balance?: number; stage?: string };
   return { balance: result.balance ?? 0, stage: result.stage ?? 'stage0' };
 }
+
+/** 벽지·바닥재만 바꾼다. v2 배치를 건드리지 않는 좁은 입구다. */
+export async function setSupportRoomSurfaces(
+  wallSurfaceId: string,
+  floorSurfaceId: string,
+): Promise<void> {
+  const { error } = await supabase.rpc('set_support_room_surfaces', {
+    p_room_id: 'main',
+    p_wall_surface_id: wallSurfaceId,
+    p_floor_surface_id: floorSurfaceId,
+  });
+  throwIfSupabaseError(error);
+}

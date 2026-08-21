@@ -2,11 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { FURNITURE_CATALOG } from '@/features/support-room-v2/domain/catalog.generated';
 import { FURNITURE_ANCHORS } from '../render/furniture-anchors.generated';
 import { createProjection } from '../render/projection';
+import { FLOOR_MASKS, isFloorCell } from '../render/floor-masks.generated';
 import { SHELL_GEOMETRY } from '../render/shells.generated';
 import {
   CALIBRATED_STAGES,
-  STAGE0_CENTER_AISLE,
-  STAGE0_DOOR_CLEARANCES,
   stageRules,
   wanderableCells,
   createDefaultObservationLayout,
@@ -33,25 +32,14 @@ describe('관찰 모드 기본 배치', () => {
     expect(observationFootprintCoverage(base)).toBeLessThanOrEqual(0.35);
   });
 
-  it('출입문 앞 2×2를 침범하면 잡아낸다', () => {
-    const clearance = STAGE0_DOOR_CLEARANCES[0];
-    const issues = validateObservationLayout(
-      moved('visitor_cushion_orange', clearance.x, clearance.y),
-    );
-    expect(issues).toContain('door_blocked');
-  });
 
-  it('가운데 통로를 막으면 잡아낸다', () => {
-    const issues = validateObservationLayout(
-      moved('visitor_cushion_orange', STAGE0_CENTER_AISLE.x, STAGE0_CENTER_AISLE.y),
-    );
-    expect(issues).toContain('aisle_blocked');
-  });
 
   it('방 밖으로 나가면 잡아낸다', () => {
-    expect(validateObservationLayout(moved('consultation_desk_honey', 7, 5))).toContain(
-      'out_of_bounds',
-    );
+    // 격자 크기가 바뀌어도 흔들리지 않게 마지막 칸 밖으로 민다.
+    const { cols, rows } = SHELL_GEOMETRY.stage0;
+    expect(
+      validateObservationLayout(moved('consultation_desk_honey', cols - 1, rows - 1)),
+    ).toContain('out_of_bounds');
   });
 
   it('격자는 안 겹쳐도 그림이 고양이를 가리면 잡아낸다', () => {
@@ -116,47 +104,47 @@ describe('단계별 방 규칙', () => {
     expect(validateObservationLayout(base, { stage: 'stage1' })).toEqual([]);
   });
 
-  it('stage1 문 앞을 막으면 잡아낸다', () => {
-    const clearance = stageRules('stage1').doorClearances[0];
-    const issues = validateObservationLayout(
-      moved('visitor_cushion_orange', clearance.x, clearance.y),
-      { stage: 'stage1' },
-    );
-    expect(issues).toContain('door_blocked');
-  });
 });
 
-describe('L자 방의 바닥 마스크 (stage4)', () => {
-  const voidRect = stageRules('stage4').voidRects?.[0];
+describe('바닥 마스크', () => {
+  it('모든 단계에서 마스크가 격자 크기와 맞는다', () => {
+    for (const stage of CALIBRATED_STAGES) {
+      const { cols, rows } = SHELL_GEOMETRY[stage];
+      const mask = FLOOR_MASKS[stage];
+      expect(mask.length, stage).toBe(rows);
+      expect(mask[0].length, stage).toBe(cols);
+    }
+  });
 
-  it('별관 밖 허공에는 가구를 못 놓는다', () => {
-    if (!voidRect) throw new Error('stage4 voidRects가 없다');
+  it('stage4는 별관 밖이 허공으로 표시돼 있다', () => {
+    const mask = FLOOR_MASKS.stage4;
+    const usable = mask.reduce((sum, row) => sum + row.split('.').length - 1, 0);
+    const total = mask.length * mask[0].length;
+    // L자라 사각 격자를 다 쓰지 못한다.
+    expect(usable).toBeLessThan(total);
+    expect(usable / total).toBeGreaterThan(0.6);
+  });
+
+  it('허공 칸에는 가구를 못 놓는다', () => {
+    const mask = FLOOR_MASKS.stage4;
+    let target: { x: number; y: number } | null = null;
+    for (let y = 0; y < mask.length && !target; y += 1) {
+      const x = mask[y].indexOf('X', 5);
+      if (x >= 0) target = { x, y };
+    }
+    if (!target) throw new Error('stage4에 허공 칸이 없다');
     const issues = validateObservationLayout(
-      moved('visitor_cushion_orange', voidRect.x, voidRect.y + 1),
+      moved('visitor_cushion_orange', target.x, target.y),
       { stage: 'stage4' },
     );
     expect(issues).toContain('out_of_bounds');
   });
 
-  it('바로 옆 바닥 칸에는 놓을 수 있다', () => {
-    if (!voidRect) throw new Error('stage4 voidRects가 없다');
-    const issues = validateObservationLayout(
-      moved('visitor_cushion_orange', voidRect.x - 2, voidRect.y + 1),
-      { stage: 'stage4' },
-    );
-    expect(issues).not.toContain('out_of_bounds');
-  });
-
-  it('돌아다닐 칸에 허공이 섞이지 않는다', () => {
-    if (!voidRect) throw new Error('stage4 voidRects가 없다');
-    const cells = wanderableCells(base, 'stage4');
-    const inside = cells.filter(
-      (cell) =>
-        cell.x >= voidRect.x &&
-        cell.x < voidRect.x + voidRect.width &&
-        cell.y >= voidRect.y &&
-        cell.y < voidRect.y + voidRect.depth,
-    );
-    expect(inside).toEqual([]);
+  it('돌아다닐 칸은 전부 바닥이다', () => {
+    for (const stage of CALIBRATED_STAGES) {
+      for (const cell of wanderableCells(base, stage)) {
+        expect(isFloorCell(stage, cell.x, cell.y), `${stage} ${cell.x},${cell.y}`).toBe(true);
+      }
+    }
   });
 });
