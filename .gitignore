@@ -4,3 +4,4 @@
 
 # Supabase CLI 링크 상태 (로컬 전용)
 supabase/.temp/
+__pycache__/

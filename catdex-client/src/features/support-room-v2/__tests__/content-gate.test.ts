@@ -67,9 +67,14 @@ describe('콘텐츠 게이트', () => {
     }
   });
 
-  it('시작 지급 구성: 가구 3종 + 벽지·바닥 각 1종', () => {
+  it('시작 지급 구성: 기본 방에 놓인 가구 + 벽지·바닥 각 1종', () => {
+    // 기본 배치가 방에 놓아 주는 가구는 전부 시작 지급이어야 한다.
+    // 아니면 방에는 있는데 보관함에는 없어서 다시 놓을 수가 없다.
     expect(FURNITURE_CATALOG.filter((c) => c.acquisition === 'starter').map((c) => c.id).sort()).toEqual([
+      'consultation_desk_honey',
+      'floor_lamp_warm',
       'paper_basket_cream',
+      'plant_small_desk',
       'swivel_chair_lavender',
       'visitor_cushion_orange',
     ]);

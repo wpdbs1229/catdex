@@ -7,15 +7,28 @@ import {
 import { SHELL_GEOMETRY } from '../shells.generated';
 
 describe('support-room-v3 projection', () => {
-  it('stage0의 네 바닥 꼭짓점이 검수된 셸 모서리와 일치한다', () => {
+  it('바닥 네 꼭짓점이 검수된 셸 모서리와 일치한다', () => {
     const projection = createProjection('stage0', 1);
-    expect(projection.point(0, 0)).toEqual({ x: 571, y: 420 });
-    expect(projection.point(8, 0).x).toBeCloseTo(1152, 2);
-    expect(projection.point(8, 0).y).toBeCloseTo(731, 2);
-    expect(projection.point(0, 6).x).toBeCloseTo(3, 2);
-    expect(projection.point(0, 6).y).toBeCloseTo(731, 2);
-    expect(projection.point(8, 6).x).toBeCloseTo(584, 1);
-    expect(projection.point(8, 6).y).toBeCloseTo(1042, 1);
+    const { cols, rows } = SHELL_GEOMETRY.stage0;
+    // scripts/fit-room-grids.py가 바닥 픽셀에서 잰 네 귀퉁이(artBounds 기준).
+    // 격자가 조용히 어긋나면 여기서 먼저 걸린다.
+    expect(projection.point(0, 0)).toEqual({ x: 604, y: 411 });
+    expect(projection.point(cols, 0).x).toBeCloseTo(1096.9, 1);
+    expect(projection.point(cols, 0).y).toBeCloseTo(741.4, 1);
+    expect(projection.point(0, rows).x).toBeCloseTo(81.7, 1);
+    expect(projection.point(0, rows).y).toBeCloseTo(757.8, 1);
+    expect(projection.point(cols, rows).x).toBeCloseTo(574.6, 1);
+    expect(projection.point(cols, rows).y).toBeCloseTo(1088.2, 1);
+  });
+
+  it('한 칸이 정사각형이다 - 가구 아트가 정사각 칸을 전제로 그려진다', () => {
+    const { axisX, axisY } = SHELL_GEOMETRY.stage0;
+    const lengthX = Math.hypot(axisX.x, axisX.y);
+    const lengthY = Math.hypot(axisY.x, axisY.y);
+    // 예전 8×6에서는 세로가 31% 길었다. 격자를 그림에 맞춰 잡으면 칸 수가
+    // 정수라 완전한 정사각은 안 나온다 - 실측 다섯 단계가 0.95~1.06이다.
+    expect(lengthY / lengthX).toBeGreaterThan(0.94);
+    expect(lengthY / lengthX).toBeLessThan(1.06);
   });
 
   it('390/430 폭에서 실제 roomArea 높이의 68%를 방이 차지한다', () => {

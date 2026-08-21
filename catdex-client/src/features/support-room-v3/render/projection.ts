@@ -15,7 +15,11 @@ export interface ProjectedFootprint {
   width: number;
   height: number;
   center: ScreenPoint;
-  /** 물체의 접지 기준. 중심에서 앞 모서리 쪽으로 70% 내려온 지점이다. */
+  /**
+   * 물체가 바닥에 닿는 기준점 = footprint 다이아의 중심.
+   * 예전엔 "중심에서 앞 모서리 쪽으로 70%"라는 눈대중 값이었는데, 그러면
+   * footprint가 깊을수록 물체가 앞으로 밀려 격자와 어긋났다.
+   */
   ground: ScreenPoint;
 }
 
@@ -59,10 +63,7 @@ function footprintFromPoints(
     width: maxX - minX,
     height: maxY - minY,
     center,
-    ground: {
-      x: center.x,
-      y: center.y + (maxY - center.y) * 0.7,
-    },
+    ground: center,
   };
 }
 
@@ -122,27 +123,67 @@ export interface RoomViewport {
 }
 
 /**
- * 실제 roomArea를 기준으로 셸을 맞춘다. 세로 68%를 목표로 하되 가로가 너무 많이
- * 잘리지 않도록 최대 1.34 화면 폭까지만 초기 확대한다. 이후 사용자가 직접 줌할 수 있다.
+ * 방을 roomArea 안에 앉히는 배율.
+ *
+ * 기준은 두 가지다.
+ *   1) 세로 - 방이 쓸 수 있는 높이의 68%를 차지한다. 60~70% 밖으로 나가면
+ *      위아래에 큰 여백이 생기거나(작을 때) 잘려 나간다(클 때).
+ *   2) 가로 - 셸은 옆으로 긴 마름모라 68%를 맞추면 화면보다 넓어진다.
+ *      잘려도 되는 건 바닥 테두리까지이므로 넘침을 화면 폭의 18%까지만 허용하고,
+ *      가구는 layout의 safe area 검사로 따로 막는다.
+ *
+ * artBounds는 셸 WebP의 알파 경계라 투명 여백이 이미 빠져 있다.
  */
+export const ROOM_TARGET_HEIGHT_RATIO = 0.68;
+export const ROOM_MAX_WIDTH_RATIO = 1.18;
+
 export function calculateShellFitScale(
   geometry: ShellGeometry,
   viewport: RoomViewport,
   options: {
-    horizontalPadding?: number;
     targetHeightRatio?: number;
     maxWidthRatio?: number;
   } = {},
 ): number {
-  const horizontalPadding = options.horizontalPadding ?? 24;
-  const targetHeightRatio = options.targetHeightRatio ?? 0.68;
-  const maxWidthRatio = options.maxWidthRatio ?? 1.34;
-  const widthFit = Math.max(1, viewport.width - horizontalPadding) / geometry.artBounds.width;
-  const heightFit =
-    Math.max(1, viewport.height) * targetHeightRatio / geometry.artBounds.height;
-  const maxScale =
-    Math.max(1, viewport.width) * maxWidthRatio / geometry.artBounds.width;
-  return Math.min(Math.max(widthFit, heightFit), Math.max(widthFit, maxScale));
+  const targetHeightRatio = options.targetHeightRatio ?? ROOM_TARGET_HEIGHT_RATIO;
+  const maxWidthRatio = options.maxWidthRatio ?? ROOM_MAX_WIDTH_RATIO;
+  const byHeight = (Math.max(1, viewport.height) * targetHeightRatio) / geometry.artBounds.height;
+  const byWidth = (Math.max(1, viewport.width) * maxWidthRatio) / geometry.artBounds.width;
+  return Math.min(byHeight, byWidth);
+}
+
+/**
+ * 최소 줌(overview) 배율 - 방 전체가 roomArea 안에 다 들어온다.
+ *
+ * calculateShellFitScale은 가로로 18%까지 넘치도록 허용한다. 작은 방에서는
+ * 바닥 테두리만 잘려서 괜찮지만, 5단계처럼 옆으로 긴 방에서는 방 끝이
+ * 화면 밖으로 나가 "전체가 보인다"가 깨진다. 확대·축소가 붙은 뒤로는
+ * 축소 상태에서 전체가 보이는 게 기준이라 넘침을 허용하지 않는다.
+ */
+export function calculateOverviewScale(
+  geometry: ShellGeometry,
+  viewport: RoomViewport,
+): number {
+  return Math.min(
+    (Math.max(1, viewport.height) * 0.96) / geometry.artBounds.height,
+    (Math.max(1, viewport.width) * 0.98) / geometry.artBounds.width,
+  );
+}
+
+/**
+ * 최대 줌 - 고양이 표정과 가구 디테일이 보이는 배율.
+ *
+ * 단계별 상수가 아니라 overview에서 한 칸이 화면 몇 px인지로 낸다. 5단계는
+ * 한 칸이 10px 남짓이라 더 당겨야 하고, 0단계는 이미 커서 조금만 당기면
+ * 된다. 어느 쪽이든 2.5~3배 사이로 묶는다.
+ */
+export const MIN_ZOOM = 1;
+export const TARGET_TILE_PX = 52;
+
+export function calculateMaxZoom(geometry: ShellGeometry, viewport: RoomViewport): number {
+  const scale = calculateOverviewScale(geometry, viewport);
+  const tileW = (Math.abs(geometry.axisX.x) + Math.abs(geometry.axisY.x)) * scale;
+  return Math.min(3, Math.max(2.5, TARGET_TILE_PX / Math.max(tileW, 1)));
 }
 
 /** 앞쪽 접지점(x+y가 큰 쪽)이 위에 오도록 하는 안정적인 정렬 키. */

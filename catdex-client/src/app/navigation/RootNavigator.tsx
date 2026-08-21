@@ -9,7 +9,6 @@ import { Alert, StyleSheet, View } from 'react-native';
 
 import { LoginScreen } from '../../features/auth/screens/LoginScreen';
 import { ProfileSetupScreen } from '../../features/auth/screens/ProfileSetupScreen';
-import { Room3DSpikeScreen } from '../../features/support-room-3d/Room3DSpikeScreen';
 import { useAuth } from '../../features/auth/hooks/useAuth';
 import { CameraScreen } from '../../features/capture/screens/CameraScreen';
 import { CaptureMatchScreen } from '../../features/capture/screens/CaptureMatchScreen';
@@ -22,7 +21,6 @@ import { SupportRoomScreen } from '../../features/support-room/SupportRoomScreen
 import { SupportRoomV2Screen } from '../../features/support-room-v2/SupportRoomV2Screen';
 import {
   SUPPORT_ROOM_V2_ENABLED,
-  SUPPORT_ROOM_3D_SPIKE_ENABLED,
   SUPPORT_ROOM_V3_SPIKE_ENABLED,
 } from '../../shared/constants/support-room-v2.constants';
 import { IsoRoomSpikeScreen } from '../../features/support-room-v3/IsoRoomSpikeScreen';
@@ -86,13 +84,11 @@ function ClientNavigator() {
       <ClientStack.Screen
         name="ClientSupportRoom"
         component={
-          SUPPORT_ROOM_3D_SPIKE_ENABLED
-            ? Room3DSpikeScreen
-            : SUPPORT_ROOM_V3_SPIKE_ENABLED
-              ? IsoRoomSpikeScreen
-              : SUPPORT_ROOM_V2_ENABLED
-                ? SupportRoomV2Screen
-                : SupportRoomScreen
+          SUPPORT_ROOM_V3_SPIKE_ENABLED
+            ? IsoRoomSpikeScreen
+            : SUPPORT_ROOM_V2_ENABLED
+              ? SupportRoomV2Screen
+              : SupportRoomScreen
         }
       />
     </ClientStack.Navigator>
