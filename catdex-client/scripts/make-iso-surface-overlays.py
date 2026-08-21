@@ -131,9 +131,9 @@ def build_stage(stage, g, voids):
         out = np.dstack([np.clip(tiled * shade, 0, 255), mask * 255]).astype(np.uint8)
         Image.fromarray(out, 'RGBA').save(f'{OUT}/{stage}/{surface_id}.webp', 'WEBP', quality=80)
 
-    # 검수용 미리보기: 빨강=바닥, 초록=벽
-    preview = np.dstack([floor_alpha, wall_alpha, np.zeros_like(lum)]) * 255
-    Image.fromarray(preview.astype(np.uint8)).save(f'{OUT}/{stage}/_mask-preview.png')
+    # 검수용 미리보기가 필요하면 아래를 켠다(번들에는 넣지 않는다).
+    #   Image.fromarray((np.dstack([floor_alpha, wall_alpha, np.zeros_like(lum)]) * 255)
+    #        .astype(np.uint8)).save(f'{OUT}/{stage}/_mask-preview.png')
 
     return int((floor_alpha > 0.5).sum()), int((wall_alpha > 0.5).sum())
 
