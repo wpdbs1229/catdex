@@ -84,6 +84,14 @@ import {
 } from './support-room-v3.storage';
 import { STAGE_LABELS } from './support-room-v3.assets';
 import {
+  ARRIVAL_STAGGER_MS,
+  DOOR_OPEN_MS,
+  approachCell,
+  nearestDoor,
+  walkPath,
+} from './support-room-v3.arrival';
+import { ArrivingCat } from './components/ArrivingCat';
+import {
   assignBusyVisitors,
   assignIdleVisitor,
   splitVisitorsByFurniture,
@@ -169,6 +177,7 @@ export function IsoRoomSpikeScreen() {
    * 취소하면 baseline으로 통째로 되돌아가고, 저장할 때만 서버로 나간다.
    */
   const [draft, setDraft] = useState<ObservationPlacement[] | null>(null);
+  const editing = draft !== null;
   const [stored, setStored] = useState<FurnitureId[]>([]);
   /** 서버에 보관 상태로 저장돼 있는 가구. 꾸미기를 시작할 때 트레이에 채운다. */
   const [storedOnServer, setStoredOnServer] = useState<FurnitureId[]>([]);
@@ -178,8 +187,11 @@ export function IsoRoomSpikeScreen() {
   const [issueText, setIssueText] = useState<string | null>(null);
   // 뒤에서 앞 순서로 그린다. zIndex만으로는 겹쳤을 때 뒤엣것이 터치를
   // 가져갈 수 있어서, 형제 순서까지 앞엣것이 나중에 오도록 맞춘다.
-  const shown = [...(draft ?? placements)].sort(
-    (a, b) => a.gridX + a.gridY - (b.gridX + b.gridY),
+  // useMemo인 이유는 정렬 비용이 아니라 신원 - 매 렌더 새 배열이면 걸어오던
+  // 손님의 경로가 새로 만들어져 애니메이션이 처음부터 다시 시작한다.
+  const shown = useMemo(
+    () => [...(draft ?? placements)].sort((a, b) => a.gridX + a.gridY - (b.gridX + b.gridY)),
+    [draft, placements],
   );
 
   useEffect(() => {
@@ -305,11 +317,77 @@ export function IsoRoomSpikeScreen() {
     return splitVisitorsByFurniture(busyVisitors, placedIds, wanderableCells(shown, STAGE));
   }, [busyVisitors, shown, STAGE]);
 
+  /**
+   * 문을 열고 걸어 들어오는 손님.
+   *
+   * arrivedIds를 여기 딸린 의존성에 넣지 않는다 - 한 마리가 도착할 때마다
+   * 목록이 새로 만들어지면 아직 걷고 있는 손님의 경로 신원이 바뀌어
+   * 애니메이션이 처음부터 다시 시작한다. 거르는 건 그릴 때 한다.
+   */
+  const [arrivedIds, setArrivedIds] = useState<ReadonlySet<string>>(new Set());
+  const markArrived = useCallback((id: string) => {
+    setArrivedIds((current) => {
+      if (current.has(id)) return current;
+      const next = new Set(current);
+      next.add(id);
+      return next;
+    });
+  }, []);
+
   const idleVisitor = useMemo(() => {
     if (!userId) return null;
     const busyIds = new Set(busyVisitors.map((visitor) => visitor.catId));
     return assignIdleVisitor(visitorCats, userId, dayStartMs, consultedCatIdsToday, busyIds);
   }, [visitorCats, userId, dayStartMs, consultedCatIdsToday, busyVisitors]);
+
+  const arrivals = useMemo(() => {
+    const seatArrivals = seatedVisitors.map((visitor) => {
+      const placement = shown.find((item) => item.furnitureId === visitor.on);
+      if (!placement) return null;
+      const seat = approachCell(placement, STAGE, shown);
+      const door = nearestDoor(STAGE, seat);
+      return {
+        id: visitor.eventId,
+        key: visitor.key,
+        doorRect: door.rect,
+        path: walkPath(STAGE, door.entry, seat, shown),
+      };
+    });
+    const wanderArrivals = wanderingVisitors.map((visitor) => {
+      const first = visitor.path[0];
+      if (!first) return null;
+      const door = nearestDoor(STAGE, first);
+      return {
+        id: visitor.catId,
+        key: visitor.key,
+        doorRect: door.rect,
+        path: walkPath(STAGE, door.entry, first, shown),
+      };
+    });
+    // 바닥에 서 있는 손님도 문으로 들어온다. 자리만 다르지 오는 건 같다.
+    const idleArrival = idleVisitor
+      ? (() => {
+          const spot = { x: Math.round(idleVisitor.gridX), y: Math.round(idleVisitor.gridY) };
+          const door = nearestDoor(STAGE, spot);
+          return {
+            id: 'idle',
+            key: idleVisitor.key,
+            doorRect: door.rect,
+            path: walkPath(STAGE, door.entry, spot, shown),
+          };
+        })()
+      : null;
+
+    return [...seatArrivals, ...wanderArrivals, idleArrival]
+      .filter((arrival): arrival is NonNullable<typeof arrival> => arrival !== null)
+      .map((arrival, index) => ({ ...arrival, delayMs: DOOR_OPEN_MS + index * ARRIVAL_STAGGER_MS }));
+  }, [seatedVisitors, wanderingVisitors, idleVisitor, shown, STAGE]);
+
+  /** 꾸미기 중에는 걸어오는 연출을 건너뛴다 - 가구를 옮기는 데 방해가 된다. */
+  const isWalkingIn = useCallback(
+    (id: string) => !editing && arrivals.some((arrival) => arrival.id === id && !arrivedIds.has(id)),
+    [arrivals, arrivedIds, editing],
+  );
 
   const unreadCount = visitRecords.filter(
     (record) => record.createdAt > (storedRoom?.lastReadEventAt ?? 0),
@@ -626,7 +704,6 @@ export function IsoRoomSpikeScreen() {
 
   // 배치 검사에 화면 폭을 함께 넘겨야 "화면 밖으로 잘림"까지 잡힌다.
   // projection은 아래에서 만들어지므로 여기서는 지연 평가로 감싼다.
-  const editing = draft !== null;
   const selectedPlacement = shown.find((p) => p.furnitureId === selectedFurnitureId);
   const expansion = calculateExpansionProgress(balance, STAGE);
   // 끌고 다니는 동안엔 바닥 전체 격자를 보여줘서 어느 칸에 놓일지 보이게
@@ -647,7 +724,7 @@ export function IsoRoomSpikeScreen() {
   // 통째로 변형해서 하므로 여기 배율은 건드리지 않는다 - 가구와 고양이가
   // 각자 다른 배율을 갖는 일이 없다.
   const scale = calculateOverviewScale(geometry, roomViewport);
-  const projection = createProjection(STAGE, scale);
+  const projection = useMemo(() => createProjection(STAGE, scale), [STAGE, scale]);
   const maxZoom = calculateMaxZoom(geometry, roomViewport);
   const initialZoom = calculateInitialZoom(geometry, roomViewport);
 
@@ -798,8 +875,12 @@ export function IsoRoomSpikeScreen() {
                         ? `${occupant.catName} 고객 상담`
                         : undefined
                   }
-                  compositeBehavior={occupant?.behavior}
-                  catSource={occupant ? CAT_ONLY_ACTION_IMAGES[occupant.key][occupant.behavior] : undefined}
+                  compositeBehavior={occupant && !isWalkingIn(occupant.eventId) ? occupant.behavior : undefined}
+                  catSource={
+                    occupant && !isWalkingIn(occupant.eventId)
+                      ? CAT_ONLY_ACTION_IMAGES[occupant.key][occupant.behavior]
+                      : undefined
+                  }
                   draggable={editing}
                   flipX={placement.flipX}
                   furnitureId={placement.furnitureId}
@@ -820,12 +901,27 @@ export function IsoRoomSpikeScreen() {
                 />
               );
             })}
-            {idleVisitor ? (
+            {idleVisitor && !isWalkingIn('idle') ? (
               <IdleCat catKey={idleVisitor.key} gridX={idleVisitor.gridX} gridY={idleVisitor.gridY} />
             ) : null}
-            {wanderingVisitors.map((visitor) => (
-              <WanderingCat catKey={visitor.key} key={visitor.catId} path={visitor.path} />
-            ))}
+            {wanderingVisitors
+              .filter((visitor) => !isWalkingIn(visitor.catId))
+              .map((visitor) => (
+                <WanderingCat catKey={visitor.key} key={visitor.catId} path={visitor.path} />
+              ))}
+            {/* 문에서 자리까지 걸어오는 중. 도착하면 앉은 모습으로 넘어간다. */}
+            {arrivals
+              .filter((arrival) => !arrivedIds.has(arrival.id) && !editing)
+              .map((arrival) => (
+                <ArrivingCat
+                  catKey={arrival.key}
+                  doorRect={arrival.doorRect}
+                  key={arrival.id}
+                  onArrive={() => markArrived(arrival.id)}
+                  path={arrival.path}
+                  startDelayMs={arrival.delayMs}
+                />
+              ))}
           </IsoRoom>
         </ZoomPanStage>
 
