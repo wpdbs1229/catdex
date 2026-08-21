@@ -14,6 +14,8 @@ export interface ZoomPanStageProps {
   viewportWidth: number;
   viewportHeight: number;
   maxZoom: number;
+  /** 처음 보여 줄 배율. 축소하면 1(방 전체)까지 나간다. */
+  initialZoom: number;
   /** 꾸미기 중에는 한 손가락 드래그가 가구 몫이라 이동을 끈다(핀치는 살린다). */
   panEnabled: boolean;
   children: React.ReactNode;
@@ -40,20 +42,21 @@ export function ZoomPanStage({
   viewportWidth,
   viewportHeight,
   maxZoom,
+  initialZoom,
   panEnabled,
   children,
 }: ZoomPanStageProps) {
-  const zoom = useRef(new Animated.Value(1)).current;
+  const zoom = useRef(new Animated.Value(initialZoom)).current;
   const tx = useRef(new Animated.Value(0)).current;
   const ty = useRef(new Animated.Value(0)).current;
 
   // PanResponder는 만들 때의 클로저를 붙들고 있어서 최신 값을 ref로 넘긴다.
-  const state = useRef({ zoom: 1, tx: 0, ty: 0 });
-  const start = useRef({ zoom: 1, tx: 0, ty: 0, dist: 0, focusX: 0, focusY: 0 });
+  const state = useRef({ zoom: initialZoom, tx: 0, ty: 0 });
+  const start = useRef({ zoom: initialZoom, tx: 0, ty: 0, dist: 0, focusX: 0, focusY: 0 });
   const panEnabledRef = useRef(panEnabled);
   panEnabledRef.current = panEnabled;
-  const boundsRef = useRef({ width, height, viewportWidth, viewportHeight, maxZoom });
-  boundsRef.current = { width, height, viewportWidth, viewportHeight, maxZoom };
+  const boundsRef = useRef({ width, height, viewportWidth, viewportHeight, maxZoom, initialZoom });
+  boundsRef.current = { width, height, viewportWidth, viewportHeight, maxZoom, initialZoom };
   const lastTap = useRef({ time: 0, x: 0, y: 0 });
 
   const clampPan = useCallback((nextZoom: number, x: number, y: number) => {
@@ -107,8 +110,8 @@ export function ZoomPanStage({
 
       lastTap.current.time = 0;
       const b = boundsRef.current;
-      if (state.current.zoom > 1.05) {
-        animateTo(1, 0, 0);
+      if (state.current.zoom > b.initialZoom * 1.05) {
+        animateTo(b.initialZoom, 0, 0);
         return false;
       }
       // 두드린 지점이 화면 중앙으로 오도록 당긴다.
@@ -176,10 +179,10 @@ export function ZoomPanStage({
     [apply, onTapCapture],
   );
 
-  // 방이 바뀌거나(확장) 화면이 회전하면 overview로 되돌린다.
+  // 방이 바뀌거나(확장) 화면이 회전하면 처음 배율로 되돌린다.
   useEffect(() => {
-    apply(1, 0, 0);
-  }, [apply, width, height]);
+    apply(initialZoom, 0, 0);
+  }, [apply, initialZoom, width, height]);
 
   return (
     <View style={{ flex: 1, overflow: 'hidden' }} {...responder.panHandlers}>

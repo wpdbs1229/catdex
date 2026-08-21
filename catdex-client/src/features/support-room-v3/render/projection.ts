@@ -186,6 +186,24 @@ export function calculateMaxZoom(geometry: ShellGeometry, viewport: RoomViewport
   return Math.min(3, Math.max(2.5, TARGET_TILE_PX / Math.max(tileW, 1)));
 }
 
+/**
+ * 처음 보여 줄 배율 - 방 가운데를 세로로 꽉 채운다.
+ *
+ * overview는 옆으로 긴 방일수록 가로에 맞춰지느라 위아래가 텅 빈다.
+ * 5단계는 방이 화면 높이의 절반도 안 차서 미니어처처럼 보였다. 남는 세로를
+ * 쓰는 만큼 당겨 주면 처음부터 고양이와 가구가 읽힌다. 축소하면 여전히
+ * overview까지 나가고, 정사각에 가까운 0~1단계는 이미 세로가 기준이라
+ * 그대로 1이 된다.
+ */
+export function calculateInitialZoom(
+  geometry: ShellGeometry,
+  viewport: RoomViewport,
+): number {
+  const displayH = geometry.artBounds.height * calculateOverviewScale(geometry, viewport);
+  const byHeight = (Math.max(1, viewport.height) * 0.96) / Math.max(displayH, 1);
+  return Math.min(calculateMaxZoom(geometry, viewport), Math.max(MIN_ZOOM, byHeight));
+}
+
 /** 앞쪽 접지점(x+y가 큰 쪽)이 위에 오도록 하는 안정적인 정렬 키. */
 export function isoDepth(x: number, y: number): number {
   return Math.round((x + y) * 100) + 1000;
