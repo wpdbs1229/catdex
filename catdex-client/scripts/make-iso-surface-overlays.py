@@ -7,8 +7,9 @@
 그 좌표로 타일을 샘플링하면 나뭇결이 격자 축을 따라 흐른다(축과 무관하게
 가로세로로 깔면 방향이 어긋나 보인다).
 
-음영은 셸 원본의 밝기 비율을 곱해 그대로 옮긴다. 창가 하이라이트와
-구석 그림자가 유지된다.
+음영은 셸 원본의 밝기를 크게 흐려서 비율로 곱한다. 구석 그림자와 창가
+밝기는 남고, 창틀·유리 같은 잔무늬는 넘어오지 않는다(그대로 곱했더니
+창 주변 벽지가 하얗게 떴다).
 
 사용: python3 scripts/make-iso-surface-overlays.py
 출력: assets/support-room-v3/surfaces/<stage>/<surfaceId>.webp
@@ -75,65 +76,70 @@ def sample_tile(tile, tu, tv):
     return tile[py, px]
 
 
-def clean(mask, blur=1.5, grow=3):
+def open_thin(mask, radius=2):
+    """얇은 조각을 떨군다. 창살·문 유리가 벽으로 잡히는 걸 막는다."""
     im = Image.fromarray((mask * 255).astype(np.uint8))
-    if grow:
-        im = im.filter(ImageFilter.MaxFilter(grow * 2 + 1)).filter(ImageFilter.MinFilter(grow * 2 + 1))
+    im = im.filter(ImageFilter.MinFilter(radius * 2 + 1)).filter(ImageFilter.MaxFilter(radius * 2 + 1))
+    return np.asarray(im) > 127
+
+
+def close_holes(mask, radius=3):
+    im = Image.fromarray((mask * 255).astype(np.uint8))
+    im = im.filter(ImageFilter.MaxFilter(radius * 2 + 1)).filter(ImageFilter.MinFilter(radius * 2 + 1))
+    return np.asarray(im) > 127
+
+
+def feather(mask, blur=1.0):
+    im = Image.fromarray((mask * 255).astype(np.uint8))
     return np.asarray(im.filter(ImageFilter.GaussianBlur(blur))).astype(np.float32) / 255.0
 
 
-def floor_mask_rows(stage):
-    """measure-floor-masks.py가 낸 칸별 바닥 표를 읽는다."""
-    src = open(f'{ROOT}/src/features/support-room-v3/render/floor-masks.generated.ts').read()
-    block = re.search(rf"{stage}: \[(.*?)\],\n", src, re.S).group(1)
-    return re.findall(r"'([.X]+)'", block)
+def hsv(rgb):
+    r, g, b = np.moveaxis(rgb, -1, 0) / 255.0
+    mx, mn = np.maximum(np.maximum(r, g), b), np.minimum(np.minimum(r, g), b)
+    d = np.maximum(mx - mn, 1e-6)
+    h = np.where(mx == r, ((g - b) / d) % 6, np.where(mx == g, (b - r) / d + 2, (r - g) / d + 4))
+    return h / 6.0, np.where(mx > 0, (mx - mn) / np.maximum(mx, 1e-6), 0), mx
 
 
-def build_stage(stage, g, voids):
-    shell_img = Image.open(f'{SHELLS}/{stage}.webp').convert('RGBA')
-    shell = np.asarray(shell_img).astype(np.float32)
+def build_stage(stage, g):
+    shell = np.asarray(Image.open(f'{SHELLS}/{stage}.webp').convert('RGBA')).astype(np.float32)
     H, W = shell.shape[:2]
     rgb, alpha = shell[..., :3], shell[..., 3]
-    r, gg, b = rgb[..., 0], rgb[..., 1], rgb[..., 2]
     lum = 0.299 * rgb[..., 0] + 0.587 * rgb[..., 1] + 0.114 * rgb[..., 2]
-
+    hue, sat, val = hsv(rgb)
     u, v = grid_coords(g, H, W)
-    # 바닥은 색이 아니라 칸별 실측 표로 정한다. 색으로 잡으면 그늘진 구석에
-    # 구멍이 뚫려 원래 바닥이 비쳐 보인다(실기에서 그렇게 보였다).
-    rows = floor_mask_rows(stage)
-    cell_x = np.clip(np.floor(u).astype(np.int32), 0, g['cols'] - 1)
-    cell_y = np.clip(np.floor(v).astype(np.int32), 0, g['rows'] - 1)
-    table = np.array([[c == '.' for c in row] for row in rows])
-    inside = (
-        (u >= 0) & (u < g['cols']) & (v >= 0) & (v < g['rows'])
-        & (alpha > 32) & table[cell_y, cell_x]
-    )
-    # 가장자리 칸은 나무 테두리에 걸쳐 마스크에서 빠진다. 그대로 두면 방
-    # 둘레에 원래 바닥이 띠처럼 남는다. 한 칸만큼 넓혀서 테두리까지 덮되,
-    # 여러 칸 깊이인 별관 밖 허공은 그대로 비워 둔다.
-    grow_px = int(max(abs(g['axx']), abs(g['ayx'])) * 1.2)
-    inside = np.asarray(
-        Image.fromarray((inside * 255).astype(np.uint8)).filter(ImageFilter.MaxFilter(3)),
-    ) > 127
-    for _ in range(max(1, grow_px // 2)):
-        inside = np.asarray(
-            Image.fromarray((inside * 255).astype(np.uint8)).filter(ImageFilter.MaxFilter(3)),
-        ) > 127
-    # 넓히더라도 셸 밖(투명)과 벽 위로는 나가지 않는다.
-    wood = (r > 150) & (gg > 80) & (b < 190) & ((r - b) > 45)
-    inside = inside & (alpha > 32) & wood
-    floor_alpha = clean(inside.astype(np.float32))
 
-    # 벽: 크림색 상단.
-    #   따뜻한 크림이라 채도가 0.32~0.39까지 올라간다(처음에 0.22로 잡아 거의
-    #   다 놓쳤다). 대신 붉은기(R > B)로 하늘·수풀을 가른다.
-    #   징두리(세이지)와 몰딩(진한 우드)은 밝기에서 걸러진다.
-    maxc = rgb.max(axis=2); minc = rgb.min(axis=2)
-    sat = (maxc - minc) / np.maximum(maxc, 1)
-    cream = (
-        (lum > 168) & (sat < 0.42) & (rgb[..., 0] > rgb[..., 2] + 30) & (alpha > 32) & ~inside
+    # 바닥: 격자 한가운데 색을 기준으로 같은 색조인 픽셀. 칸 단위 표를 쓰면
+    # 가장자리가 칸 경계로 잘려 방 밖으로 삐져나오거나 원래 바닥이 띠로
+    # 남는다. 픽셀 단위로 잡으면 방 외곽선과 1px까지 맞는다.
+    cx = int(g['ox'] + g['cols'] / 2 * g['axx'] + g['rows'] / 2 * g['ayx'])
+    cy = int(g['oy'] + g['cols'] / 2 * g['axy'] + g['rows'] / 2 * g['ayy'])
+    patch = np.s_[cy - 6:cy + 7, cx - 6:cx + 7]
+    h0, s0, v0 = np.median(hue[patch]), np.median(sat[patch]), np.median(val[patch])
+    # 격자 안으로 가둔다. 크림색 벽이 밝은 나무 바닥과 색조가 거의 같아,
+    # 색만 보면 바닥재가 벽 위까지 깔렸다.
+    in_grid = (u > -0.15) & (u < g['cols'] + 0.15) & (v > -0.15) & (v < g['rows'] + 0.15)
+    floor = (
+        in_grid & (alpha > 200) & (np.abs(hue - h0) < 0.05)
+        & (sat > s0 * 0.58) & (sat < s0 * 1.6) & (val > v0 * 0.60)
     )
-    wall_alpha = clean(cream.astype(np.float32), blur=1.2, grow=2)
+    floor = close_holes(floor, 2) & in_grid
+
+    # 벽: 징두리 위 크림색. 실측값 - 크림은 밝기 174~217에 R-B가 104~125,
+    # 징두리(세이지)는 밝기 88에 R-B가 59, 몰딩·문틀은 밝기 113 언저리다.
+    # 채도만 보면 그늘진 크림(0.53~0.57)과 징두리(0.59)가 붙어버려 벽지가
+    # 뜯겨 보였다. R-B를 같이 봐야 갈린다. 창밖 하늘·수풀은 R < B라 빠진다.
+    maxc, minc = rgb.max(axis=2), rgb.min(axis=2)
+    wsat = (maxc - minc) / np.maximum(maxc, 1)
+    cream = (
+        (lum > 145) & (wsat < 0.62) & (rgb[..., 0] > rgb[..., 2] + 75)
+        & (alpha > 200) & ~in_grid & ~floor
+    )
+    cream = close_holes(open_thin(cream, 2), 3)
+
+    floor_alpha = feather(floor.astype(np.float32))
+    wall_alpha = feather(cream.astype(np.float32))
 
     # 벽면 좌표: 왼쪽 벽은 axisY를 따라, 오른쪽 벽은 axisX를 따라 흐른다.
     yy, xx = np.mgrid[0:H, 0:W]
@@ -146,32 +152,28 @@ def build_stage(stage, g, voids):
                       along * g['axy'] - (yy - g['oy']))
     height = height / max(abs(g['axy']), abs(g['ayy'])) * WALL_TILE_CELLS
 
+    # 큰 흐림으로 남긴 대역 조명만 쓴다. 잔무늬가 남으면 창틀이 벽지에 비친다.
+    soft = np.asarray(Image.fromarray(lum.astype(np.uint8))
+                      .filter(ImageFilter.GaussianBlur(24))).astype(np.float32)
+
     os.makedirs(f'{OUT}/{stage}', exist_ok=True)
     for surface_id in FLOORING + WALLPAPER:
         is_floor = surface_id.startswith('flooring')
         mask = floor_alpha if is_floor else wall_alpha
+        area = mask > 0.5
         tile = np.asarray(Image.open(f'{TILES}/{surface_id}.webp').convert('RGB')).astype(np.float32)
         tiled = sample_tile(tile, u if is_floor else along, v if is_floor else height)
-
-        area = mask > 0.5
-        mean = lum[area].mean() if area.any() else 180.0
-        shade = np.clip(lum / max(mean, 1), 0.45, 1.35)[..., None]
-        out = np.dstack([np.clip(tiled * shade, 0, 255), mask * 255]).astype(np.uint8)
+        shade = np.clip(soft / max(soft[area].mean() if area.any() else 180.0, 1), 0.72, 1.18)
+        out = np.dstack([np.clip(tiled * shade[..., None], 0, 255), mask * 255]).astype(np.uint8)
         Image.fromarray(out, 'RGBA').save(f'{OUT}/{stage}/{surface_id}.webp', 'WEBP', quality=80)
 
-    # 검수용 미리보기가 필요하면 아래를 켠다(번들에는 넣지 않는다).
-    #   Image.fromarray((np.dstack([floor_alpha, wall_alpha, np.zeros_like(lum)]) * 255)
-    #        .astype(np.uint8)).save(f'{OUT}/{stage}/_mask-preview.png')
-
-    return int((floor_alpha > 0.5).sum()), int((wall_alpha > 0.5).sum())
+    return int(area.sum()), int((floor_alpha > 0.5).sum()), int((wall_alpha > 0.5).sum())
 
 
 def main():
     geo = read_geometry()
-    # stage4는 별관이 붙은 L자라 격자 일부가 허공이다(layout의 voidRects와 같은 값).
-    voids = {'stage4': [{'x': 12, 'y': 2, 'width': 2, 'depth': 4}]}
     for stage, g in geo.items():
-        floor_px, wall_px = build_stage(stage, g, voids.get(stage, []))
+        _, floor_px, wall_px = build_stage(stage, g)
         print(f'{stage}: 바닥 {floor_px:>7} px, 벽 {wall_px:>7} px')
     print('done ->', OUT)
 

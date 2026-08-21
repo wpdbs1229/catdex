@@ -76,8 +76,11 @@ const styles = StyleSheet.create({
   column: {
     position: 'absolute',
     right: 16,
-    top: 8,
+    // 배지가 버튼 위로 2pt 튀어나오고 그림자도 위로 퍼진다. 8이면 방 영역
+    // 위쪽에서 잘려 보였다.
+    top: 18,
     gap: 12,
+    zIndex: 30,
   },
   button: {
     width: SIZE,

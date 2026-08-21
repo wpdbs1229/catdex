@@ -79,10 +79,14 @@ export const STAGE_RULES: Partial<Record<RoomStage, StageRules>> = {
     ],
     centerAisle: { x: 2, y: 7.2, width: 12, depth: 2 },
   },
-  // 본관 + 별관(L자). 문 밑선 (115,580)-(75,603)
+  // 본실 + 별실(L자). 새 5단계 그림은 문이 둘이다 - 본실 왼쪽 벽(격자 x=0,
+  // y≈13)과 별실 오른쪽 벽(x≈36, y=0). 셸 픽셀을 격자로 되돌려 잰 값이다.
   stage4: {
-    doorClearances: [{ x: 0, y: 10.5, width: 2, depth: 2 }],
-    centerAisle: { x: 2, y: 10.5, width: 18, depth: 2 },
+    doorClearances: [
+      { x: 0, y: 13, width: 2, depth: 2 },
+      { x: 36, y: 0, width: 2, depth: 2 },
+    ],
+    centerAisle: { x: 2, y: 9, width: 24, depth: 2 },
   },
 };
 
@@ -323,6 +327,59 @@ export function createDefaultObservationLayout(): readonly ObservationPlacement[
     throw new Error(`기본 고객지원실 배치가 렌더 계약을 위반했다: ${issues.join(', ')}`);
   }
   return CANDIDATE_PLACEMENTS;
+}
+
+/**
+ * 놓여 있는 가구를 이 단계의 바닥 위로 끌어다 놓는다.
+ *
+ * 기본 배치와 저장된 배치는 0단계 9×9 좌표계로 잡혀 있다. 방을 넓히면
+ * 격자가 40×20으로 커지는데, 좌표를 그대로 쓰면 벽 밑이나 L자 허공에
+ * 걸린다. 그러면 정작 옮기는 가구는 멀쩡한데도 검사가 "방 밖으로 나가요"를
+ * 계속 띄운다 - 검사는 배치 전체를 보기 때문이다.
+ *
+ * 가장 가까운 성한 자리로 밀어 준다. 자리를 못 찾으면 원래 값을 그대로 둔다
+ * (조용히 지우는 것보다 낫다).
+ */
+export function fitPlacementsToStage(
+  placements: readonly ObservationPlacement[],
+  stage: RoomStage,
+): ObservationPlacement[] {
+  const { cols, rows } = SHELL_GEOMETRY[stage];
+  const taken: GridRect[] = [];
+
+  const fits = (rect: GridRect) => {
+    if (rect.x < 0 || rect.y < 0 || rect.x + rect.width > cols || rect.y + rect.depth > rows) {
+      return false;
+    }
+    for (let dy = 0; dy < rect.depth; dy += 1) {
+      for (let dx = 0; dx < rect.width; dx += 1) {
+        if (!isFloorCell(stage, rect.x + dx, rect.y + dy)) return false;
+      }
+    }
+    return !taken.some((other) => rectsOverlap(rect, other));
+  };
+
+  return placements.map((placement) => {
+    const rect = placementRect(placement);
+    if (fits(rect)) {
+      taken.push(rect);
+      return placement;
+    }
+    // 원래 자리에서 한 칸씩 넓혀 가며 성한 자리를 찾는다.
+    for (let radius = 1; radius <= Math.max(cols, rows); radius += 1) {
+      for (let dy = -radius; dy <= radius; dy += 1) {
+        for (let dx = -radius; dx <= radius; dx += 1) {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) !== radius) continue;
+          const moved = { ...rect, x: Math.round(rect.x) + dx, y: Math.round(rect.y) + dy };
+          if (!fits(moved)) continue;
+          taken.push(moved);
+          return { ...placement, gridX: moved.x, gridY: moved.y };
+        }
+      }
+    }
+    taken.push(rect);
+    return placement;
+  });
 }
 
 /**

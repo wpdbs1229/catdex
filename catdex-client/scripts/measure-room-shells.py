@@ -23,20 +23,20 @@ CALIBRATION = {
     #
     # 칸 수는 바닥 픽셀을 격자 좌표로 되돌려 몇 칸까지 뻗는지 재서 맞췄다.
     # 원래 보정값은 방보다 얕아서 stage4가 3행, stage3이 2행 모자랐다.
-    'stage0': dict(cols=9, rows=9, bbox=(48, 77, 1206, 1177), origin=(619, 497),
-                   axis_x=(64.5556, 34.5556), axis_y=(-63.1111, 34.5556), annex=False),
-    'stage1': dict(cols=13, rows=11, bbox=(29, 142, 1236, 1169), origin=(564, 466),
-                   axis_x=(51.4615, 26.9231), axis_y=(-48.4545, 28.8182), annex=False),
+    'stage0': dict(cols=9, rows=9, bbox=(48, 77, 1206, 1177), origin=(652, 488),
+                   axis_x=(54.7658, 36.7128), axis_y=(-58.0345, 38.5284), annex=False),
+    'stage1': dict(cols=13, rows=11, bbox=(29, 142, 1236, 1169), origin=(601, 457),
+                   axis_x=(45.2906, 28.3667), axis_y=(-46.5198, 30.3898), annex=False),
     # stage2도 세로 칸이 짧아 정사각형이 아니었다(비율 0.778).
     # 같은 바닥을 8행으로 나누면 0.97이 된다.
-    'stage2': dict(cols=18, rows=13, bbox=(23, 144, 1237, 1130), origin=(491, 407),
-                   axis_x=(41.1667, 21.6667), axis_y=(-38.8333, 23.1667), annex=False),
+    'stage2': dict(cols=18, rows=13, bbox=(23, 144, 1237, 1130), origin=(522, 389),
+                   axis_x=(37.3214, 23.5637), axis_y=(-34.8838, 23.555), annex=False),
     # 세로 칸이 훨씬 짧았다(비율 0.588). 7행으로 나누면 1.008이다.
-    'stage3': dict(cols=27, rows=14, bbox=(0, 173, 1239, 1254), origin=(409, 398),
-                   axis_x=(30.6667, 15.0739), axis_y=(-30.0768, 19.3846), annex=False),
+    'stage3': dict(cols=27, rows=14, bbox=(0, 173, 1239, 1254), origin=(442, 363),
+                   axis_x=(28.0825, 17.5919), axis_y=(-27.8118, 19.8656), annex=False),
     # 비율 0.506. 6행으로 나누면 1.012다.
-    'stage4': dict(cols=40, rows=20, bbox=(15, 238, 1235, 1056), origin=(363, 429),
-                   axis_x=(21.2196, 8.878), axis_y=(-19.222, 12.1113), annex=True),
+    'stage4': dict(cols=40, rows=20, bbox=(0, 192, 1228, 1254), origin=(428, 384),
+                   axis_x=(19.1016, 12.6334), axis_y=(-17.97, 12.5597), annex=True),
 }
 
 

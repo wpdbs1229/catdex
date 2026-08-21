@@ -152,6 +152,40 @@ export function calculateShellFitScale(
   return Math.min(byHeight, byWidth);
 }
 
+/**
+ * 최소 줌(overview) 배율 - 방 전체가 roomArea 안에 다 들어온다.
+ *
+ * calculateShellFitScale은 가로로 18%까지 넘치도록 허용한다. 작은 방에서는
+ * 바닥 테두리만 잘려서 괜찮지만, 5단계처럼 옆으로 긴 방에서는 방 끝이
+ * 화면 밖으로 나가 "전체가 보인다"가 깨진다. 확대·축소가 붙은 뒤로는
+ * 축소 상태에서 전체가 보이는 게 기준이라 넘침을 허용하지 않는다.
+ */
+export function calculateOverviewScale(
+  geometry: ShellGeometry,
+  viewport: RoomViewport,
+): number {
+  return Math.min(
+    (Math.max(1, viewport.height) * 0.96) / geometry.artBounds.height,
+    (Math.max(1, viewport.width) * 0.98) / geometry.artBounds.width,
+  );
+}
+
+/**
+ * 최대 줌 - 고양이 표정과 가구 디테일이 보이는 배율.
+ *
+ * 단계별 상수가 아니라 overview에서 한 칸이 화면 몇 px인지로 낸다. 5단계는
+ * 한 칸이 10px 남짓이라 더 당겨야 하고, 0단계는 이미 커서 조금만 당기면
+ * 된다. 어느 쪽이든 2.5~3배 사이로 묶는다.
+ */
+export const MIN_ZOOM = 1;
+export const TARGET_TILE_PX = 52;
+
+export function calculateMaxZoom(geometry: ShellGeometry, viewport: RoomViewport): number {
+  const scale = calculateOverviewScale(geometry, viewport);
+  const tileW = (Math.abs(geometry.axisX.x) + Math.abs(geometry.axisY.x)) * scale;
+  return Math.min(3, Math.max(2.5, TARGET_TILE_PX / Math.max(tileW, 1)));
+}
+
 /** 앞쪽 접지점(x+y가 큰 쪽)이 위에 오도록 하는 안정적인 정렬 키. */
 export function isoDepth(x: number, y: number): number {
   return Math.round((x + y) * 100) + 1000;

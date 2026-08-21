@@ -33,6 +33,8 @@ export interface IsoFurnitureProps {
 }
 
 const TAP_THRESHOLD_PX = 4;
+/** 축소 상태에서도 손가락으로 집을 수 있는 최소 터치 크기. */
+const MIN_TOUCH_PT = 44;
 
 export function IsoFurniture({
   furnitureId,
@@ -105,12 +107,16 @@ export function IsoFurniture({
   });
 
   const interactive = draggable || !!onPress;
+  // 그림은 그대로 두고 투명한 여유만 준다. 스프라이트를 키우면 확대했을 때
+  // 가구와 고양이의 비율이 어긋난다.
+  const hitSlop = Math.max(0, (MIN_TOUCH_PT - layout.imageSize) / 2);
 
   return (
     <>
       <View
         accessibilityLabel={accessibilityLabel}
         accessibilityRole={interactive ? 'button' : undefined}
+        hitSlop={hitSlop}
         pointerEvents={interactive ? 'auto' : 'none'}
         style={{
           position: 'absolute',

@@ -4,8 +4,14 @@
 가장자리 칸이 나무 테두리에 걸쳐 반쯤 허공이다. 칸 하나하나를 셸 픽셀로
 확인해서 표로 남긴다.
 
-칸 중심 주변 5x5가 바닥색이면 바닥으로 본다. 색만 보면 뒷줄 그늘에서
-바닥을 놓치므로, 격자 안쪽으로 한정하고 넉넉한 임계값을 쓴다.
+칸 안쪽을 4x4로 찍어 과반이 바닥색이면 바닥으로 본다. 바닥색은 상수가 아니라
+격자 한가운데(어느 방에서든 바닥인 지점)에서 재온다. 단계마다 바닥이 달라
+- 0단계는 밝은 나무, 4단계는 진한 주황 - 임계값을 하나로 박으면 한쪽
+가장자리가 통째로 허공이 되고, 방 안에 놓은 가구가 "방 밖으로 나갔다"고
+거절당했다. 벽의 크림색 판은 색조가 비슷해도 채도가 낮고, 나무 테두리는
+색조가 같아도 어두워서 기준색 대비 비율로 갈린다.
+
+5단계 L자의 빈 노치, 본실과 별실을 가르는 벽은 이걸로 같이 빠진다.
 
 사용: python3 scripts/measure-floor-masks.py
 출력: src/features/support-room-v3/render/floor-masks.generated.ts
@@ -39,26 +45,42 @@ def geometry():
     return out
 
 
+def _hsv(rgb):
+    r, g, b = np.moveaxis(rgb, -1, 0) / 255.0
+    mx, mn = np.maximum(np.maximum(r, g), b), np.minimum(np.minimum(r, g), b)
+    d = np.maximum(mx - mn, 1e-6)
+    h = np.where(mx == r, ((g - b) / d) % 6, np.where(mx == g, (b - r) / d + 2, (r - g) / d + 4))
+    return h / 6.0, np.where(mx > 0, (mx - mn) / np.maximum(mx, 1e-6), 0), mx
+
+
 def mask_for(stage, g):
-    a = np.asarray(Image.open(f'{SHELLS}/{stage}.webp').convert('RGBA')).astype(float)
-    r, gg, b, al = a[..., 0], a[..., 1], a[..., 2], a[..., 3]
-    floor = (
-        (al > 32) & (r > 195) & (gg > 105) & (gg < 205) & (b < 160)
-        & ((r - b) > 75) & ((r - gg) > 25)
+    rgba = np.asarray(Image.open(f'{SHELLS}/{stage}.webp').convert('RGBA'))
+    hue, sat, val = _hsv(rgba[..., :3].astype(float))
+    alpha = rgba[..., 3]
+    H, W = alpha.shape
+
+    cx = int(g['ox'] + g['cols'] / 2 * g['axx'] + g['rows'] / 2 * g['ayx'])
+    cy = int(g['oy'] + g['cols'] / 2 * g['axy'] + g['rows'] / 2 * g['ayy'])
+    patch = np.s_[cy - 6:cy + 7, cx - 6:cx + 7]
+    h0, s0, v0 = np.median(hue[patch]), np.median(sat[patch]), np.median(val[patch])
+    is_floor = (
+        (alpha > 32) & (np.abs(hue - h0) < 0.045)
+        & (sat > s0 * 0.62) & (sat < s0 * 1.55) & (val > v0 * 0.72)
     )
-    H, W = floor.shape
+
+    probes = [(i + 0.5) / 4 for i in range(4)]
     rows = []
     for y in range(g['rows']):
         line = ''
         for x in range(g['cols']):
-            px = g['ox'] + (x + 0.5) * g['axx'] + (y + 0.5) * g['ayx']
-            py = g['oy'] + (x + 0.5) * g['axy'] + (y + 0.5) * g['ayy']
-            ix, iy = int(round(px)), int(round(py))
-            ok = (
-                0 <= iy < H and 0 <= ix < W
-                and floor[max(0, iy - 2):iy + 3, max(0, ix - 2):ix + 3].mean() > 0.6
-            )
-            line += '.' if ok else 'X'
+            hits = 0
+            for fu in probes:
+                for fv in probes:
+                    px = int(round(g['ox'] + (x + fu) * g['axx'] + (y + fv) * g['ayx']))
+                    py = int(round(g['oy'] + (x + fu) * g['axy'] + (y + fv) * g['ayy']))
+                    if 0 <= py < H and 0 <= px < W and is_floor[py, px]:
+                        hits += 1
+            line += '.' if hits >= 8 else 'X'
         rows.append(line)
     return rows
 

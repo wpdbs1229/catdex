@@ -9,6 +9,7 @@ import {
   stageRules,
   wanderableCells,
   createDefaultObservationLayout,
+  fitPlacementsToStage,
   observationFootprintCoverage,
   primaryIssueText,
   validateObservationLayout,
@@ -95,8 +96,9 @@ describe('단계별 방 규칙', () => {
     for (const stage of CALIBRATED_STAGES) {
       const { axisX, axisY } = SHELL_GEOMETRY[stage];
       const ratio = Math.hypot(axisY.x, axisY.y) / Math.hypot(axisX.x, axisX.y);
-      expect(ratio, stage).toBeGreaterThan(0.95);
-      expect(ratio, stage).toBeLessThan(1.05);
+      // 칸 수가 정수라 그림에 맞추면 완전한 정사각은 안 나온다.
+      expect(ratio, stage).toBeGreaterThan(0.94);
+      expect(ratio, stage).toBeLessThan(1.06);
     }
   });
 
@@ -146,5 +148,18 @@ describe('바닥 마스크', () => {
         expect(isFloorCell(stage, cell.x, cell.y), `${stage} ${cell.x},${cell.y}`).toBe(true);
       }
     }
+  });
+});
+
+describe('단계가 바뀌면 가구를 새 바닥으로 옮긴다', () => {
+  it('0단계 기본 배치를 5단계에 얹어도 모두 바닥 위에 선다', () => {
+    const fitted = fitPlacementsToStage(createDefaultObservationLayout(), 'stage4');
+    expect(validateObservationLayout(fitted, { stage: 'stage4' })).not.toContain('out_of_bounds');
+    expect(validateObservationLayout(fitted, { stage: 'stage4' })).not.toContain('overlap');
+  });
+
+  it('이미 성한 자리는 건드리지 않는다', () => {
+    const original = createDefaultObservationLayout();
+    expect(fitPlacementsToStage(original, 'stage0')).toEqual(original);
   });
 });

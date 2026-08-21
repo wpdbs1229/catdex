@@ -78,6 +78,9 @@ export function WanderingCat({
     inputRange,
     outputRange: cycle.map((s) => s.shadowTop),
   });
+  // 깊이도 같이 따라가야 한다. 첫 지점 값으로 굳혀 두면 방을 가로지를 때
+  // 앞에 있는 가구 뒤로 들어가거나 뒤에 있는 가구를 가린다.
+  const zIndex = progress.interpolate({ inputRange, outputRange: cycle.map((s) => s.zIndex) });
 
   return (
     <>
@@ -91,7 +94,7 @@ export function WanderingCat({
           height: first.shadowHeight,
           borderRadius: first.shadowHeight / 2,
           backgroundColor: 'rgba(73, 44, 20, 0.16)',
-          zIndex: first.zIndex - 1,
+          zIndex,
         }}
       />
       <Animated.Image
@@ -103,7 +106,7 @@ export function WanderingCat({
           top,
           width: first.imageSize,
           height: first.imageSize,
-          zIndex: first.zIndex,
+          zIndex,
         }}
       />
     </>

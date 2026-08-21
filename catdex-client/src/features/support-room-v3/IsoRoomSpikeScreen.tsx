@@ -3,7 +3,6 @@ import {
   Alert,
   Image,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   useWindowDimensions,
@@ -53,9 +52,11 @@ import { RoomOnboarding } from './components/RoomOnboarding';
 import { WanderingCat } from './components/WanderingCat';
 import { IsoFurniture } from './components/IsoFurniture';
 import { IsoRoom, type LocalGridBounds } from './components/IsoRoom';
+import { ZoomPanStage } from './components/ZoomPanStage';
 import { RoomHud } from './components/RoomHud';
 import {
-  calculateShellFitScale,
+  calculateMaxZoom,
+  calculateOverviewScale,
   createProjection,
   type RoomViewport,
   useProjection,
@@ -66,6 +67,7 @@ import { SHELL_GEOMETRY, type RoomStage } from './render/shells.generated';
 import {
   CALIBRATED_STAGES,
   createDefaultObservationLayout,
+  fitPlacementsToStage,
   primaryIssueText,
   validateObservationLayout,
   wanderableCells,
@@ -136,7 +138,6 @@ export function IsoRoomSpikeScreen() {
   const { width: viewportWidth, height: viewportHeight } = useWindowDimensions();
   const { neighborhood } = useActiveNeighborhood();
   const navigation = useNavigation();
-  const scrollRef = useRef<ScrollView>(null);
   const [roomViewport, setRoomViewport] = useState<RoomViewport>({
     width: viewportWidth,
     height: viewportHeight * 0.62,
@@ -174,7 +175,11 @@ export function IsoRoomSpikeScreen() {
     Array<{ placements: ObservationPlacement[]; stored: FurnitureId[] }>
   >([]);
   const [issueText, setIssueText] = useState<string | null>(null);
-  const shown = draft ?? placements;
+  // 뒤에서 앞 순서로 그린다. zIndex만으로는 겹쳤을 때 뒤엣것이 터치를
+  // 가져갈 수 있어서, 형제 순서까지 앞엣것이 나중에 오도록 맞춘다.
+  const shown = [...(draft ?? placements)].sort(
+    (a, b) => a.gridX + a.gridY - (b.gridX + b.gridY),
+  );
 
   useEffect(() => {
     let active = true;
@@ -367,11 +372,26 @@ export function IsoRoomSpikeScreen() {
   const checkLayout = useCallback(
     (next: readonly ObservationPlacement[]) =>
       validateObservationLayout(next, {
-        projection: createProjection(STAGE, calculateShellFitScale(SHELL_GEOMETRY[STAGE], roomViewport)),
+        projection: createProjection(STAGE, calculateOverviewScale(SHELL_GEOMETRY[STAGE], roomViewport)),
         stage: STAGE,
         viewportWidth: roomViewport.width,
       }),
     [roomViewport, STAGE],
+  );
+
+  /**
+   * 이번 조작이 새로 만든 문제만 고른다.
+   *
+   * 검사는 배치 전체를 보기 때문에, 다른 가구가 이미 어긋나 있으면 멀쩡한
+   * 가구를 옮겨도 "방 밖으로 나가요"가 떴다. 손대기 전에도 있던 문제는
+   * 이번 조작 탓이 아니므로 막지 않는다.
+   */
+  const newIssues = useCallback(
+    (next: readonly ObservationPlacement[], before: readonly ObservationPlacement[]) => {
+      const existing = new Set(checkLayout(before));
+      return checkLayout(next).filter((issue) => !existing.has(issue));
+    },
+    [checkLayout],
   );
 
   const pushUndo = useCallback(() => {
@@ -400,7 +420,7 @@ export function IsoRoomSpikeScreen() {
 
   const saveEdit = useCallback(() => {
     const next = draft ?? placements;
-    const issues = checkLayout(next);
+    const issues = newIssues(next, placements);
     if (issues.length > 0) {
       setIssueText(primaryIssueText(issues));
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -443,7 +463,7 @@ export function IsoRoomSpikeScreen() {
         console.warn('[support-room-v3] 배치 저장 실패, 로컬 캐시만 반영됨', error),
       );
     }
-  }, [draft, placements, stored, checkLayout]);
+  }, [draft, placements, stored, newIssues]);
 
   const undo = useCallback(() => {
     setUndoStack((current) => {
@@ -565,13 +585,13 @@ export function IsoRoomSpikeScreen() {
             ? { ...placement, gridX: nextX, gridY: nextY }
             : placement,
         );
-        const issues = checkLayout(next);
+        const issues = newIssues(next, base);
         setDragValid(issues.length === 0);
         setIssueText(primaryIssueText(issues));
         return next;
       });
     },
-    [placements, checkLayout, pushUndo],
+    [placements, newIssues, pushUndo],
   );
 
   const handleDragEnd = useCallback(
@@ -581,7 +601,7 @@ export function IsoRoomSpikeScreen() {
       setDraggingFurnitureId(null);
       setDraft((current) => {
         const base = current ?? placements;
-        const issues = checkLayout(base);
+        const issues = newIssues(base, placements);
         if (issues.length === 0) {
           setIssueText(null);
           setDragValid(true);
@@ -600,7 +620,7 @@ export function IsoRoomSpikeScreen() {
         );
       });
     },
-    [placements, checkLayout],
+    [placements, newIssues],
   );
 
   // 배치 검사에 화면 폭을 함께 넘겨야 "화면 밖으로 잘림"까지 잡힌다.
@@ -622,19 +642,29 @@ export function IsoRoomSpikeScreen() {
       : undefined;
 
   const geometry = SHELL_GEOMETRY[STAGE];
-  const scale = calculateShellFitScale(geometry, roomViewport);
+  // 기본은 방 전체가 보이는 overview다. 확대·축소는 ZoomPanStage가 방 전체를
+  // 통째로 변형해서 하므로 여기 배율은 건드리지 않는다 - 가구와 고양이가
+  // 각자 다른 배율을 갖는 일이 없다.
+  const scale = calculateOverviewScale(geometry, roomViewport);
   const projection = createProjection(STAGE, scale);
-  const contentWidth = Math.max(roomViewport.width, projection.displayW);
-  const centeredOffsetX = Math.max(0, (contentWidth - roomViewport.width) / 2);
+  const maxZoom = calculateMaxZoom(geometry, roomViewport);
 
-  const centerRoom = useCallback(() => {
-    scrollRef.current?.scrollTo({ x: centeredOffsetX, y: 0, animated: false });
-  }, [centeredOffsetX]);
-
+  /**
+   * 방이 바뀌면 놓여 있던 가구를 새 바닥 위로 옮긴다.
+   *
+   * 저장된 좌표는 0단계 9×9 기준이라, 확장하면 벽 밑이나 L자 허공에 걸린다.
+   * 그대로 두면 멀쩡한 가구를 옮겨도 검사가 계속 걸려 편집 자체가 막힌다.
+   */
   useEffect(() => {
-    const frame = requestAnimationFrame(centerRoom);
-    return () => cancelAnimationFrame(frame);
-  }, [centerRoom]);
+    setPlacements((current) => {
+      const fitted = fitPlacementsToStage(current, STAGE);
+      const same = fitted.every(
+        (placement, index) =>
+          placement.gridX === current[index]?.gridX && placement.gridY === current[index]?.gridY,
+      );
+      return same ? current : fitted;
+    });
+  }, [STAGE]);
 
   const onRoomLayout = useCallback((event: LayoutChangeEvent) => {
     const { width, height } = event.nativeEvent.layout;
@@ -730,25 +760,13 @@ export function IsoRoomSpikeScreen() {
       </View>
 
       <View onLayout={onRoomLayout} style={styles.roomArea}>
-        <ScrollView
-          bouncesZoom
-          contentContainerStyle={[
-            styles.roomContent,
-            {
-              width: contentWidth,
-              minHeight: roomViewport.height,
-            },
-          ]}
-          contentOffset={{ x: centeredOffsetX, y: 0 }}
-          maximumZoomScale={2.3}
-          minimumZoomScale={0.8}
-          onContentSizeChange={centerRoom}
-          pinchGestureEnabled={!editing}
-          ref={scrollRef}
-          scrollEnabled={!editing}
-          showsHorizontalScrollIndicator={false}
-          showsVerticalScrollIndicator={false}
-          style={styles.world}
+        <ZoomPanStage
+          height={projection.displayH}
+          maxZoom={maxZoom}
+          panEnabled={!editing}
+          viewportHeight={roomViewport.height}
+          viewportWidth={roomViewport.width}
+          width={projection.displayW}
         >
           <IsoRoom
             floorSurfaceId={floorSurfaceId}
@@ -806,7 +824,7 @@ export function IsoRoomSpikeScreen() {
               <WanderingCat catKey={visitor.key} key={visitor.catId} path={visitor.path} />
             ))}
           </IsoRoom>
-        </ScrollView>
+        </ZoomPanStage>
 
         <RoomHud
           hasNewSupply={inventory.size > 0}
@@ -930,6 +948,4 @@ const styles = StyleSheet.create({
   rewardChipText: { fontSize: 13, color: '#5C4B39' },
   rewardChipAccent: { color: nd.colors.accent, fontWeight: '800' },
   roomArea: { flex: 1, minHeight: 0 },
-  world: { flex: 1 },
-  roomContent: { justifyContent: 'center', alignItems: 'center' },
 });
