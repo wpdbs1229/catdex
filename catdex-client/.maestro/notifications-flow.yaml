@@ -1,0 +1,12 @@
+appId: com.persimmontree.catdex
+---
+- launchApp:
+    clearState: false
+- assertVisible: "홈"
+- tapOn: ".*알림.*"
+- tapOn:
+    text: "Dismiss"
+    optional: true
+- assertVisible: "알림"
+- tapOn: "뒤로 가기"
+- assertVisible: "홈"

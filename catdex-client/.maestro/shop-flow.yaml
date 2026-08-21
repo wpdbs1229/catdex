@@ -1,0 +1,18 @@
+appId: com.persimmontree.catdex
+---
+- launchApp:
+    clearState: false
+- assertVisible: "홈"
+- tapOn: "마이페이지"
+- tapOn:
+    text: "Dismiss"
+    optional: true
+- tapOn: "마이페이지"
+- assertVisible: "마이페이지"
+- tapOn: "냥냥 비품상점"
+- tapOn:
+    text: "Dismiss"
+    optional: true
+- assertVisible: "냥냥 비품상점"
+- tapOn: "뒤로 가기"
+- assertVisible: "마이페이지"

@@ -1,0 +1,17 @@
+appId: com.persimmontree.catdex
+---
+- launchApp:
+    clearState: false
+- assertVisible: "홈"
+- tapOn: "지부"
+- tapOn:
+    text: "Dismiss"
+    optional: true
+- tapOn: "지부"
+- assertVisible: "지부 도감"
+- tapOn: "지부 지도 탭"
+- tapOn:
+    text: "Dismiss"
+    optional: true
+- tapOn: "지부 도감 탭"
+- assertVisible: "지부 도감"

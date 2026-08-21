@@ -1,0 +1,23 @@
+appId: com.persimmontree.catdex
+---
+- launchApp:
+    clearState: false
+- assertVisible: "홈"
+- tapOn: "지부"
+- tapOn:
+    text: "Dismiss"
+    optional: true
+- tapOn: "지부"
+- tapOn: "커뮤니티 탭"
+- tapOn:
+    text: "Dismiss"
+    optional: true
+- tapOn: "커뮤니티 탭"
+- assertVisible: "새 커뮤니티 글 작성"
+- tapOn: "새 커뮤니티 글 작성"
+- tapOn:
+    text: "Dismiss"
+    optional: true
+- assertVisible: "게시글 등록"
+- tapOn: "글쓰기 닫기"
+- assertVisible: "새 커뮤니티 글 작성"
