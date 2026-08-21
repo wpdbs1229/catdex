@@ -82,18 +82,46 @@ def clean(mask, blur=1.5, grow=3):
     return np.asarray(im.filter(ImageFilter.GaussianBlur(blur))).astype(np.float32) / 255.0
 
 
+def floor_mask_rows(stage):
+    """measure-floor-masks.py가 낸 칸별 바닥 표를 읽는다."""
+    src = open(f'{ROOT}/src/features/support-room-v3/render/floor-masks.generated.ts').read()
+    block = re.search(rf"{stage}: \[(.*?)\],\n", src, re.S).group(1)
+    return re.findall(r"'([.X]+)'", block)
+
+
 def build_stage(stage, g, voids):
     shell_img = Image.open(f'{SHELLS}/{stage}.webp').convert('RGBA')
     shell = np.asarray(shell_img).astype(np.float32)
     H, W = shell.shape[:2]
     rgb, alpha = shell[..., :3], shell[..., 3]
+    r, gg, b = rgb[..., 0], rgb[..., 1], rgb[..., 2]
     lum = 0.299 * rgb[..., 0] + 0.587 * rgb[..., 1] + 0.114 * rgb[..., 2]
 
     u, v = grid_coords(g, H, W)
-    inside = (u >= 0) & (u <= g['cols']) & (v >= 0) & (v <= g['rows']) & (alpha > 32)
-    for rect in voids:
-        inside &= ~((u >= rect['x']) & (u < rect['x'] + rect['width']) &
-                    (v >= rect['y']) & (v < rect['y'] + rect['depth']))
+    # 바닥은 색이 아니라 칸별 실측 표로 정한다. 색으로 잡으면 그늘진 구석에
+    # 구멍이 뚫려 원래 바닥이 비쳐 보인다(실기에서 그렇게 보였다).
+    rows = floor_mask_rows(stage)
+    cell_x = np.clip(np.floor(u).astype(np.int32), 0, g['cols'] - 1)
+    cell_y = np.clip(np.floor(v).astype(np.int32), 0, g['rows'] - 1)
+    table = np.array([[c == '.' for c in row] for row in rows])
+    inside = (
+        (u >= 0) & (u < g['cols']) & (v >= 0) & (v < g['rows'])
+        & (alpha > 32) & table[cell_y, cell_x]
+    )
+    # 가장자리 칸은 나무 테두리에 걸쳐 마스크에서 빠진다. 그대로 두면 방
+    # 둘레에 원래 바닥이 띠처럼 남는다. 한 칸만큼 넓혀서 테두리까지 덮되,
+    # 여러 칸 깊이인 별관 밖 허공은 그대로 비워 둔다.
+    grow_px = int(max(abs(g['axx']), abs(g['ayx'])) * 1.2)
+    inside = np.asarray(
+        Image.fromarray((inside * 255).astype(np.uint8)).filter(ImageFilter.MaxFilter(3)),
+    ) > 127
+    for _ in range(max(1, grow_px // 2)):
+        inside = np.asarray(
+            Image.fromarray((inside * 255).astype(np.uint8)).filter(ImageFilter.MaxFilter(3)),
+        ) > 127
+    # 넓히더라도 셸 밖(투명)과 벽 위로는 나가지 않는다.
+    wood = (r > 150) & (gg > 80) & (b < 190) & ((r - b) > 45)
+    inside = inside & (alpha > 32) & wood
     floor_alpha = clean(inside.astype(np.float32))
 
     # 벽: 크림색 상단.

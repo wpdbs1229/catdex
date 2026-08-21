@@ -17,17 +17,22 @@ import type { RoomStage } from './shells.generated';
  * 각 단계 셸에 그려진 문의 높이(원본 1254px 캔버스 기준).
  *
  * stage0은 아치 꼭대기 y=376, 문지방 중앙 y=729를 직접 재서 353이다.
+ * 나머지는 각 셸에서 잰 문 밑선 길이(문 폭)에 stage0의 높이/폭 비(2.33)를
+ * 곱해서 냈다. 문 그림은 단계가 달라도 같으므로 이 비는 유지된다.
  *
- * ponytail: stage1~4는 아직 재지 않았다. 화면이 stage0만 쓰기 때문이다
- * (IsoRoomSpikeScreen의 STAGE 상수). 그 단계를 열 때 같은 방법으로 재서
- * 이 표만 채우면 되고, 그때까지는 stage0 비율로 근사한다.
+ *   폭 stage0 151.6 · stage1 118.6 · stage2 90.6 · stage3 69.5 · stage4 46.1
+ *
+ * 예전에는 artBounds 높이에 비례한다고 근사했는데, 방이 커질수록 셸이 작게
+ * 그려지는 걸 반영하지 못해 stage4에서 문높이를 2.45배로 잡았다.
+ * 고양이 크기가 여기서 나오므로 고양이가 그만큼 커져 있었다.
  */
-const MEASURED_DOOR_HEIGHT: Partial<Record<RoomStage, number>> = {
+const MEASURED_DOOR_HEIGHT: Record<RoomStage, number> = {
   stage0: 353,
+  stage1: 276,
+  stage2: 211,
+  stage3: 162,
+  stage4: 107,
 };
-
-/** stage0에서 잰 문높이 / artBounds 높이. 미측정 단계의 근사에 쓴다. */
-const DOOR_TO_ART_HEIGHT = 353 / 1100;
 
 /**
  * 앉은 고양이의 키를 문 높이의 몇 배로 볼지.
@@ -67,9 +72,7 @@ export interface WorldScale {
 }
 
 export function createWorldScale(projection: IsoProjection): WorldScale {
-  const measured = MEASURED_DOOR_HEIGHT[projection.stage];
-  const doorSourceH = measured ?? projection.geometry.artBounds.height * DOOR_TO_ART_HEIGHT;
-  const doorH = doorSourceH * projection.scale;
+  const doorH = MEASURED_DOOR_HEIGHT[projection.stage] * projection.scale;
 
   return {
     tileW: projection.tileW,
