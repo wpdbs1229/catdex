@@ -151,6 +151,12 @@ function RoomPreview({ entry, placements }: { entry: ShopEntry; placements: read
  * 예전에는 HUD 버튼 이름이 "비품 보관함"인데 상점이 열려서, 산 물건을
  * 어디서 꺼내는지 알 길이 없었다.
  */
+interface InventoryRow {
+  id: string;
+  name: string;
+  kind: 'furniture' | 'surface';
+}
+
 function InventoryGrid({
   ownedCount,
   placedIds,
@@ -160,18 +166,26 @@ function InventoryGrid({
   placedIds: readonly FurnitureId[];
   onPlace: (id: FurnitureId) => void;
 }) {
-  // 방에 놓여 있는 건 무조건 포함한다. 카탈로그가 어긋나도 "방에는 있는데
+  // 가구와 표면(벽지·바닥)을 함께 담는다. 예전에는 가구만 훑어서 벽지를 사도
+  // 보관함에 아무것도 안 생겼다.
+  // 방에 놓여 있는 건 무조건 포함한다 - 카탈로그가 어긋나도 "방에는 있는데
   // 보관함에는 없는" 상태를 만들지 않기 위해서다.
-  const owned = useMemo(
-    () =>
-      FURNITURE_CATALOG.filter(
-        (f) =>
-          f.acquisition === 'starter' ||
-          ownedCount(f.id as FurnitureId) > 0 ||
-          placedIds.includes(f.id as FurnitureId),
+  const owned = useMemo<InventoryRow[]>(() => {
+    const has = (id: string) =>
+      ownedCount(id as FurnitureId) > 0 || placedIds.includes(id as FurnitureId);
+    return [
+      ...FURNITURE_CATALOG.filter((f) => f.acquisition === 'starter' || has(f.id)).map<InventoryRow>(
+        (f) => ({ id: f.id, name: f.name, kind: 'furniture' }),
       ),
-    [ownedCount, placedIds],
-  );
+      ...SURFACE_CATALOG.filter((s) => s.acquisition === 'starter' || has(s.id)).map<InventoryRow>(
+        (s) => ({
+          id: s.id,
+          name: s.type === 'wallpaper' ? '벽지' : '바닥재',
+          kind: 'surface',
+        }),
+      ),
+    ];
+  }, [ownedCount, placedIds]);
 
   if (owned.length === 0) {
     return (
@@ -188,22 +202,34 @@ function InventoryGrid({
       keyExtractor={(item) => item.id}
       numColumns={3}
       renderItem={({ item }) => {
+        // 표면은 아이소 방에 아직 못 입힌다(오버레이가 옛 가로 방 규격이다).
+        // 산 것을 안 보여 주면 사라진 것처럼 보이므로, 보여 주되 잠근다.
+        const isSurface = item.kind === 'surface';
         const id = item.id as FurnitureId;
-        const placed = placedIds.includes(id);
+        const placed = !isSurface && placedIds.includes(id);
+        const disabled = isSurface || placed;
         return (
           <Pressable
-            accessibilityLabel={`${item.name} ${placed ? '이미 방에 있음' : '방에 놓기'}`}
+            accessibilityLabel={`${item.name} ${
+              isSurface ? '적용 준비 중' : placed ? '이미 방에 있음' : '방에 놓기'
+            }`}
             accessibilityRole="button"
-            accessibilityState={{ disabled: placed }}
-            disabled={placed}
+            accessibilityState={{ disabled }}
+            disabled={disabled}
             onPress={() => onPlace(id)}
-            style={[styles.card, placed && styles.cardPlaced]}
+            style={[styles.card, disabled && styles.cardPlaced]}
           >
-            <Image resizeMode="contain" source={V2_FURNITURE_THUMBS[id]} style={styles.thumb} />
+            <Image
+              resizeMode={isSurface ? 'cover' : 'contain'}
+              source={isSurface ? V2_SURFACE_IMAGES[item.id as SurfaceId] : V2_FURNITURE_THUMBS[id]}
+              style={styles.thumb}
+            />
             <Text numberOfLines={1} style={styles.cardName}>
               {item.name}
             </Text>
-            <Text style={styles.cardPrice}>{placed ? '방에 있음' : '방에 놓기'}</Text>
+            <Text style={styles.cardPrice}>
+              {isSurface ? '적용 준비 중' : placed ? '방에 있음' : '방에 놓기'}
+            </Text>
           </Pressable>
         );
       }}
