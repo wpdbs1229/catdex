@@ -347,7 +347,10 @@ export function IsoRoomSpikeScreen() {
       const seat = approachCell(placement, STAGE, shown);
       const door = nearestDoor(STAGE, seat);
       return {
-        id: visitor.eventId,
+        // 자리(eventId)가 아니라 "이 자리에 온 이 고양이"가 기준이다. 자리로만
+        // 잡으면 옆자리 손님이 다른 고양이로 바뀌었을 때 걸어오지 않고 툭
+        // 앉아 있는다.
+        id: `${visitor.eventId}:${visitor.catId}`,
         key: visitor.key,
         doorRect: door.rect,
         path: walkPath(STAGE, door.entry, seat, shown),
@@ -370,7 +373,7 @@ export function IsoRoomSpikeScreen() {
           const spot = { x: Math.round(idleVisitor.gridX), y: Math.round(idleVisitor.gridY) };
           const door = nearestDoor(STAGE, spot);
           return {
-            id: 'idle',
+            id: `idle:${idleVisitor.catId}`,
             key: idleVisitor.key,
             doorRect: door.rect,
             path: walkPath(STAGE, door.entry, spot, shown),
@@ -875,9 +878,9 @@ export function IsoRoomSpikeScreen() {
                         ? `${occupant.catName} 고객 상담`
                         : undefined
                   }
-                  compositeBehavior={occupant && !isWalkingIn(occupant.eventId) ? occupant.behavior : undefined}
+                  compositeBehavior={occupant && !isWalkingIn(`${occupant.eventId}:${occupant.catId}`) ? occupant.behavior : undefined}
                   catSource={
-                    occupant && !isWalkingIn(occupant.eventId)
+                    occupant && !isWalkingIn(`${occupant.eventId}:${occupant.catId}`)
                       ? CAT_ONLY_ACTION_IMAGES[occupant.key][occupant.behavior]
                       : undefined
                   }
@@ -901,7 +904,7 @@ export function IsoRoomSpikeScreen() {
                 />
               );
             })}
-            {idleVisitor && !isWalkingIn('idle') ? (
+            {idleVisitor && !isWalkingIn(`idle:${idleVisitor.catId}`) ? (
               <IdleCat catKey={idleVisitor.key} gridX={idleVisitor.gridX} gridY={idleVisitor.gridY} />
             ) : null}
             {wanderingVisitors

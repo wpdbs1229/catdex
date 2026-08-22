@@ -34,6 +34,31 @@ export interface WanderingVisitor {
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+/**
+ * 씨앗 하나로 후보 중 한 마리를 고른다. 후보가 줄어도 나머지의 순위는 그대로다.
+ *
+ * 예전에는 stableHash(seed) % pool.length 였다. 한 마리가 상담을 끝내 풀에서
+ * 빠지면 length가 바뀌어 모든 자리의 인덱스가 밀렸고, 그래서 손대지도 않은
+ * 옆자리 고양이가 조용히 다른 고양이로 바뀌었다.
+ */
+function pickStable(
+  pool: readonly VisitorCat[],
+  seed: string,
+  used: ReadonlySet<string>,
+): VisitorCat | null {
+  let best: VisitorCat | null = null;
+  let bestScore = -1;
+  for (const cat of pool) {
+    if (used.has(cat.id)) continue;
+    const score = stableHash(`${seed}:${cat.id}`);
+    if (score > bestScore) {
+      bestScore = score;
+      best = cat;
+    }
+  }
+  return best;
+}
+
 /** 로컬 자정 기준 오늘의 시작 시각. 방문 배정과 record eventId가 여기 물린다. */
 export function todayStartMs(now = Date.now()): number {
   const offsetMs = new Date(now).getTimezoneOffset() * 60 * 1000;
@@ -54,20 +79,16 @@ export function assignBusyVisitors(
 ): RoomVisitor[] {
   const pool = cats.filter((cat) => !consultedCatIds.has(cat.id));
   if (pool.length === 0) return [];
-  const used = new Set<number>();
+  const used = new Set<string>();
   const visitors: RoomVisitor[] = [];
 
   DEFAULT_BUSY_CATS.forEach((slotTemplate, slot) => {
     const eventId = `${salt}:${dayStartMs}:${slot}`;
     if (consultedEventIds.has(eventId)) return;
 
-    let index = stableHash(eventId) % pool.length;
-    for (let attempt = 0; attempt < pool.length && used.has(index); attempt += 1) {
-      index = (index + 1) % pool.length;
-    }
-    used.add(index);
-
-    const cat = pool[index];
+    const cat = pickStable(pool, eventId, used);
+    if (!cat) return;
+    used.add(cat.id);
     const character = selectCharacter(cat.coatColors, cat.coatPattern, cat.id);
     visitors.push({
       behavior: slotTemplate.behavior,
@@ -95,18 +116,23 @@ export function assignIdleVisitor(
   dayStartMs: number,
   consultedCatIds: ReadonlySet<string>,
   avoidCatIds: ReadonlySet<string> = new Set(),
-): ObservationCat | null {
+): (ObservationCat & { catId: string }) | null {
   const eligible = cats.filter((cat) => !consultedCatIds.has(cat.id));
   if (eligible.length === 0) return null;
 
   const preferred = eligible.filter((cat) => !avoidCatIds.has(cat.id));
   const source = preferred.length > 0 ? preferred : eligible;
 
-  const seed = stableHash(`${salt}:${dayStartMs}:idle`);
-  const cat = source[seed % source.length];
+  const cat = pickStable(source, `${salt}:${dayStartMs}:idle`, new Set());
+  if (!cat) return null;
   const character = selectCharacter(cat.coatColors, cat.coatPattern, cat.id);
   const template = DEFAULT_IDLE_CATS[0];
-  return { key: character.key as CharacterAssetKey, gridX: template.gridX, gridY: template.gridY };
+  return {
+    catId: cat.id,
+    key: character.key as CharacterAssetKey,
+    gridX: template.gridX,
+    gridY: template.gridY,
+  };
 }
 
 /**

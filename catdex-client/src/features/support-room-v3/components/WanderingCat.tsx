@@ -4,6 +4,7 @@ import { CAT_ACTION_IMAGES } from '@/features/support-room/support-room.assets';
 import type { CharacterAssetKey } from '@/features/support-room/support-room.assets';
 import { useProjection } from '../render/projection';
 import { calculateIdleCatLayout } from '../render/sprite-layout';
+import { walkFrames } from '../support-room-v3.cat-walk';
 import { IsoContactShadow } from './IsoContactShadow';
 
 /** 한 칸 걷는 데 걸리는 시간과, 도착해서 쉬는 시간. */
@@ -14,7 +15,8 @@ const REST_MS = 2200;
  * 앉을 가구가 없어 바닥을 도는 손님.
  *
  * 앉은 손님과 달리 상담(기록)이 열리지 않는다 - 상담은 가구가 있어야 한다.
- * 그림은 idle 포즈 하나로 두고 위치만 옮긴다. 걷는 포즈 아트는 아직 없다.
+ * 움직이는 동안은 걷는 그림, 멈춰 쉬는 동안은 idle을 보여준다. 앉은 자세로
+ * 바닥을 미끄러지지 않게 하려면 이 둘을 갈라야 한다.
  */
 export function WanderingCat({
   catKey,
@@ -32,33 +34,53 @@ export function WanderingCat({
   );
 
   const progress = useRef(new Animated.Value(0)).current;
+  /** 1이면 걷는 중, 0이면 멈춰 쉬는 중. 그림과 걸음 흔들림이 여기 물린다. */
+  const moving = useRef(new Animated.Value(0)).current;
+  /** 1이면 화면 왼쪽으로 가는 중(그림을 뒤집는다). */
+  const facingLeft = useRef(new Animated.Value(0)).current;
+  const bob = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (stops.length < 2) return;
 
     // 0 -> 1 -> 2 ... -> stops.length 로 한 바퀴 돈다(마지막은 첫 지점으로 복귀).
+    const jump = (value: Animated.Value, toValue: number) =>
+      Animated.timing(value, { toValue, duration: 0, useNativeDriver: false });
+
     const legs = stops.map((_, index) => {
       const from = stops[index];
       const to = stops[(index + 1) % stops.length];
       const cells = Math.hypot(to.groundX - from.groundX, to.groundY - from.groundY) / projection.tileW;
       return Animated.sequence([
+        jump(facingLeft, to.left < from.left ? 1 : 0),
+        jump(moving, 1),
         Animated.timing(progress, {
           toValue: index + 1,
           duration: Math.max(600, cells * STEP_MS_PER_CELL),
           easing: Easing.inOut(Easing.quad),
           useNativeDriver: false,
         }),
+        jump(moving, 0),
         Animated.delay(REST_MS),
       ]);
     });
 
     const loop = Animated.loop(Animated.sequence(legs));
+    const step = Animated.loop(
+      Animated.sequence([
+        Animated.timing(bob, { toValue: 1, duration: 280, easing: Easing.inOut(Easing.quad), useNativeDriver: false }),
+        Animated.timing(bob, { toValue: 0, duration: 280, easing: Easing.inOut(Easing.quad), useNativeDriver: false }),
+      ]),
+    );
     loop.start();
+    step.start();
     return () => {
       loop.stop();
+      step.stop();
       progress.setValue(0);
+      moving.setValue(0);
     };
-  }, [stops, progress, projection.tileW]);
+  }, [stops, progress, moving, facingLeft, bob, projection.tileW]);
 
   if (stops.length === 0) return null;
   const first = stops[0];
@@ -82,6 +104,24 @@ export function WanderingCat({
   // 앞에 있는 가구 뒤로 들어가거나 뒤에 있는 가구를 가린다.
   const zIndex = progress.interpolate({ inputRange, outputRange: cycle.map((s) => s.zIndex) });
 
+  const walk = walkFrames(catKey)?.[0];
+  // 걸을 때만 위아래로 튄다. 쉬는 동안은 흔들리지 않는다.
+  const lift = Animated.multiply(
+    moving,
+    bob.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0, -Math.max(1.5, first.imageSize * 0.035)],
+    }),
+  );
+  const spriteStyle = {
+    position: 'absolute' as const,
+    left,
+    top,
+    width: first.imageSize,
+    height: first.imageSize,
+    zIndex,
+  };
+
   return (
     <>
       <Animated.View
@@ -101,14 +141,24 @@ export function WanderingCat({
         resizeMode="contain"
         source={CAT_ACTION_IMAGES[catKey].idle}
         style={{
-          position: 'absolute',
-          left,
-          top,
-          width: first.imageSize,
-          height: first.imageSize,
-          zIndex,
+          ...spriteStyle,
+          opacity: walk ? Animated.subtract(1, moving) : 1,
         }}
       />
+      {walk ? (
+        <Animated.Image
+          resizeMode="contain"
+          source={walk}
+          style={{
+            ...spriteStyle,
+            opacity: moving,
+            transform: [
+              { translateY: lift },
+              { scaleX: facingLeft.interpolate({ inputRange: [0, 1], outputRange: [1, -1] }) },
+            ],
+          }}
+        />
+      ) : null}
     </>
   );
 }

@@ -71,3 +71,38 @@ describe('assignIdleVisitor', () => {
     );
   });
 });
+
+describe('한 자리를 끝내도 다른 자리는 그대로다', () => {
+  const cats = Array.from({ length: 8 }, (_, i) => ({
+    id: `cat-${i}`,
+    name: `고양이${i}`,
+    coatColors: ['orange'] as never,
+    coatPattern: null,
+  }));
+
+  it('상담을 끝내면 그 자리만 비고 옆자리 고양이는 안 바뀐다', () => {
+    const before = assignBusyVisitors(cats, 'u', 0, new Set(), new Set());
+    expect(before.length).toBeGreaterThan(1);
+
+    const after = assignBusyVisitors(
+      cats,
+      'u',
+      0,
+      new Set([before[0].eventId]),
+      new Set([before[0].catId]),
+    );
+
+    expect(after.map((visitor) => visitor.slot)).not.toContain(before[0].slot);
+    for (const visitor of after) {
+      const same = before.find((item) => item.slot === visitor.slot);
+      expect(visitor.catId, `slot ${visitor.slot}`).toBe(same?.catId);
+    }
+  });
+
+  it('바닥 손님도 다른 고양이가 빠졌다고 바뀌지 않는다', () => {
+    const before = assignIdleVisitor(cats, 'u', 0, new Set());
+    const other = cats.find((cat) => cat.id !== before?.catId)!;
+    const after = assignIdleVisitor(cats, 'u', 0, new Set([other.id]));
+    expect(after?.catId).toBe(before?.catId);
+  });
+});
